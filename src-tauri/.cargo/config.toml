@@ -1,0 +1,6 @@
+# Note: This config forces ARM64 builds to avoid architecture mismatches
+# when rustup is running under Rosetta emulation.
+# For a permanent fix, run: ./fix-rustup.sh to reinstall rustup natively
+[build]
+target = "aarch64-apple-darwin"
+

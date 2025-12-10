@@ -1,0 +1,16 @@
+#### 给这个 tauri 项目增加项目进入首页检查
+
+1. 检查当前平台是否安装了 ffmpeg，检查是否开起了文件写入读取权限
+2. 都通过自动进入首页,
+3. 没通过创建一个结果自检列表页面, ffmpeg 没下载，在这条检查后面显示下载安装按钮, 安装完刷新自检结果, 没有开启权限,这条检查后面增加跳转系统设置界面按钮,
+4. 增加刷新自检结果按钮, 通过自检后跳转到首页
+
+5. UI 用 react+shadcn+tailwindcss,ui 组件也可参考：Aceternity UI
+6. UI 自定义动画可以用 motion
+
+### 补充
+
+'/Users/haolin/Developer/lins/figureX/src-tauri/src/
+commands.rs'run_self_check 过程中,获取到
+ffmpeg_path,ffprobe_path 后缓存下,当调用 get_media_info 是时候使
+用
