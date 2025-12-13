@@ -2,7 +2,7 @@
 
 import { readFile } from "@tauri-apps/plugin-fs";
 import React, { useRef, useState } from "react";
-import { getTypeByPath } from "../utils/file";
+import { getTypeByPath } from "@/lib/file";
 
 interface Props {
   filePath?: string;

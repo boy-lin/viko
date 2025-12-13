@@ -1,5 +1,5 @@
 import React from "react";
-import { generateFFmpegCommand } from "../utils/ffmpeg";
+import { generateFFmpegCommand } from "@/lib/ffmpeg";
 
 interface Props {
   fileInfo: any;

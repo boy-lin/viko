@@ -3,6 +3,7 @@
 
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Read;
@@ -10,11 +11,10 @@ use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
+use tauri::async_runtime::spawn_blocking;
 use tauri::command;
 use tauri::Emitter; // 允许 WebviewWindow 使用 emit 方法 Cursor Write It
 use tauri::Manager; // 允许使用 get_webview_window 方法 Cursor Write It // 导入日志模块 Cursor Write It
-use tauri::WebviewWindow;
-use serde_json::json;
 
 lazy_static! {
     static ref FFMPEG_PATH_CACHE: Mutex<Option<String>> = Mutex::new(None);
@@ -50,23 +50,22 @@ pub struct TranscodeArgs {
 pub struct SelfCheckResult {
     pub ffmpeg_installed: bool,
     pub ffprobe_installed: bool,
-    pub ffmpeg_path: Option<String>,
-    pub ffmpeg_version: Option<String>,
-    pub ffprobe_path: Option<String>,
-    pub ffprobe_version: Option<String>,
+    pub ffmpeg_path: String,
+    pub ffmpeg_version: String,
+    pub ffprobe_path: String,
+    pub ffprobe_version: String,
     pub fs_permission: bool,
-    pub fs_error: Option<String>,
+    pub fs_error: String,
 }
 
 #[derive(Serialize)]
 pub struct ModuleInfo {
-    pub id: String,
-    pub name: String,
-    pub ffmpeg_path: String,
-    pub ffprobe_path: String,
-    pub ffmpeg_version: Option<String>,
-    pub ffprobe_version: Option<String>,
-    pub source: String,
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub ffmpeg_path: Option<String>,
+    pub ffprobe_path: Option<String>,
+    pub version: Option<String>,
+    pub source: Option<String>,
     pub is_active: bool,
 }
 
@@ -142,23 +141,6 @@ fn try_ffprobe_from_system() -> (bool, Option<String>, Option<String>) {
     (false, None, None)
 }
 
-fn try_ffprobe_from_bundle() -> (bool, Option<String>, Option<String>) {
-    if let Ok(path) = get_ffprobe_bundle_path() {
-        if Path::new(&path).exists() {
-            if let Ok(output) = Command::new(&path).arg("-version").output() {
-                if output.status.success() {
-                    let version_line = String::from_utf8_lossy(&output.stdout)
-                        .lines()
-                        .next()
-                        .map(|s| s.to_string());
-                    return (true, Some(path), version_line);
-                }
-            }
-        }
-    }
-    (false, None, None)
-}
-
 fn probe_version_from_path(path: &str) -> Option<String> {
     if !Path::new(path).exists() {
         return None;
@@ -184,8 +166,8 @@ fn module_entry(
     name: &str,
     ffmpeg_path: &str,
     ffprobe_path: &str,
+    version_hint: &str,
     source: &str,
-    active_paths: Option<(String, String)>,
 ) -> Option<ModuleInfo> {
     if !(Path::new(ffmpeg_path).exists() && Path::new(ffprobe_path).exists()) {
         return None;
@@ -195,19 +177,21 @@ fn module_entry(
     if ffmpeg_version.is_none() || ffprobe_version.is_none() {
         return None;
     }
-    let is_active = if let Some((a_ffmpeg, a_ffprobe)) = active_paths {
-        a_ffmpeg == ffmpeg_path && a_ffprobe == ffprobe_path
+    let version = if !version_hint.is_empty() {
+        Some(version_hint.to_string())
     } else {
-        false
+        ffmpeg_version.clone().or(ffprobe_version.clone())
     };
+    let is_active = load_active_module()
+        .map(|(v, _, _)| version.as_deref() == Some(v.as_str()))
+        .unwrap_or(false);
     Some(ModuleInfo {
-        id: id.to_string(),
-        name: name.to_string(),
-        ffmpeg_path: ffmpeg_path.to_string(),
-        ffprobe_path: ffprobe_path.to_string(),
-        ffmpeg_version,
-        ffprobe_version,
-        source: source.to_string(),
+        id: Some(id.to_string()),
+        name: Some(name.to_string()),
+        ffmpeg_path: Some(ffmpeg_path.to_string()),
+        ffprobe_path: Some(ffprobe_path.to_string()),
+        version,
+        source: Some(source.to_string()),
         is_active,
     })
 }
@@ -277,26 +261,7 @@ fn get_ffmpeg_path() -> Result<String, String> {
             return Ok(path);
         }
     }
-    get_ffmpeg_bundle_path()
-}
-// 获取安装包的 ffmpeg 路径
-fn get_ffmpeg_bundle_path() -> Result<String, String> {
-    #[cfg(target_os = "macos")]
-    {
-        Ok("resources/ffmpeg/darwin/ffmpeg".to_string())
-    }
-    #[cfg(target_os = "linux")]
-    {
-        Ok("resources/ffmpeg/linux/ffmpeg".to_string())
-    }
-    #[cfg(target_os = "windows")]
-    {
-        Ok("resources/ffmpeg/windows/ffmpeg.exe".to_string())
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        Err("不支持的操作系统".to_string())
-    }
+    Err("未找到 ffmpeg 路径".to_string())
 }
 
 // 获取缓存的 ffprobe 路径
@@ -306,33 +271,11 @@ fn get_ffprobe_path() -> Result<String, String> {
             return Ok(path);
         }
     }
-    get_ffprobe_bundle_path()
-}
-// 获取安装包的 ffprobe 路径
-fn get_ffprobe_bundle_path() -> Result<String, String> {
-    #[cfg(target_os = "macos")]
-    {
-        Ok("resources/ffmpeg/darwin/ffprobe".to_string())
-    }
-    #[cfg(target_os = "linux")]
-    {
-        Ok("resources/ffmpeg/linux/ffprobe".to_string())
-    }
-    #[cfg(target_os = "windows")]
-    {
-        Ok("resources/ffmpeg/windows/ffprobe.exe".to_string())
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        Err("不支持的操作系统".to_string())
-    }
+    Err("未找到 ffprobe 路径".to_string())
 }
 
 fn ffmpeg_output_paths() -> Result<(PathBuf, PathBuf), String> {
-    Ok((
-        PathBuf::from(get_ffmpeg_bundle_path()?),
-        PathBuf::from(get_ffprobe_bundle_path()?),
-    ))
+    Err("未配置 ffmpeg 资源目录".to_string())
 }
 
 fn ensure_parent_dir(path: &Path) -> Result<(), String> {
@@ -343,17 +286,8 @@ fn ensure_parent_dir(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn download_file(url: &str) -> Result<Vec<u8>, String> {
-    download_file_with_progress(url, None, "")
-}
-
-fn emit_download_progress(
-    window: Option<&WebviewWindow>,
-    stage: &str,
-    downloaded: u64,
-    total: Option<u64>,
-) {
-    if let Some(win) = window {
+fn emit_download_progress_app(app: &AppHandle, stage: &str, downloaded: u64, total: Option<u64>) {
+    if let Some(win) = app.get_webview_window("main") {
         let _ = win.emit(
             "ffmpeg-download-progress",
             DownloadProgress {
@@ -365,9 +299,9 @@ fn emit_download_progress(
     }
 }
 
-fn download_file_with_progress(
+fn download_file_with_progress_blocking(
+    app: &AppHandle,
     url: &str,
-    window: Option<&WebviewWindow>,
     stage: &str,
 ) -> Result<Vec<u8>, String> {
     let mut response =
@@ -389,9 +323,9 @@ fn download_file_with_progress(
         }
         buf.extend_from_slice(&chunk[..n]);
         downloaded += n as u64;
-        emit_download_progress(window, stage, downloaded, total);
+        emit_download_progress_app(app, stage, downloaded, total);
     }
-    emit_download_progress(window, stage, downloaded, total);
+    emit_download_progress_app(app, stage, downloaded, total);
     Ok(buf)
 }
 
@@ -459,7 +393,14 @@ fn extract_from_tar_xz(bytes: &[u8], target_name: &str, dest: &Path) -> Result<(
 }
 
 fn resources_root() -> PathBuf {
-    PathBuf::from("resources")
+    // 使用应用数据目录，确保在生产环境中可写
+    // macOS: ~/Library/Application Support/figurex/resources
+    // Windows: %APPDATA%\figurex\resources
+    // Linux: ~/.local/share/figurex/resources
+    let base = dirs::data_local_dir()
+        .or_else(|| dirs::data_dir())
+        .unwrap_or_else(|| PathBuf::from("."));
+    base.join("figurex").join("resources")
 }
 
 fn platform_ffmpeg_name() -> &'static str {
@@ -489,30 +430,28 @@ fn config_store_path() -> PathBuf {
     base.join("figurex").join("ffmpeg_active.json")
 }
 
-fn load_active_module() -> Option<(String, String)> {
+fn load_active_module() -> Option<(String, String, String)> {
     let path = config_store_path();
     if !path.exists() {
         return None;
     }
     let data = fs::read(&path).ok()?;
     let value: serde_json::Value = serde_json::from_slice(&data).ok()?;
-    let ffmpeg = value.get("ffmpeg_path")?.as_str()?.to_string();
-    let ffprobe = value.get("ffprobe_path")?.as_str()?.to_string();
-    if Path::new(&ffmpeg).exists() && Path::new(&ffprobe).exists() {
-        Some((ffmpeg, ffprobe))
-    } else {
-        None
-    }
+    let version = value.get("version")?.as_str()?.to_string();
+    let ffmpeg_path = value.get("ffmpeg_path")?.as_str()?.to_string();
+    let ffprobe_path = value.get("ffprobe_path")?.as_str()?.to_string();
+    Some((version, ffmpeg_path, ffprobe_path))
 }
 
-fn save_active_module(ffmpeg: &str, ffprobe: &str) -> Result<(), String> {
+fn save_active_module(version: &str, ffmpeg_path: &str, ffprobe_path: &str) -> Result<(), String> {
     let path = config_store_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {}", e))?;
     }
     let data = json!({
-        "ffmpeg_path": ffmpeg,
-        "ffprobe_path": ffprobe,
+        "version": version,
+        "ffmpeg_path": ffmpeg_path.to_string(),
+        "ffprobe_path": ffprobe_path.to_string(),
     });
     fs::write(&path, serde_json::to_vec(&data).unwrap())
         .map_err(|e| format!("写入配置失败: {}", e))?;
@@ -541,196 +480,79 @@ use tauri::AppHandle;
 
 #[command]
 pub fn run_self_check() -> Result<SelfCheckResult, String> {
-    if let Some((cfg_ffmpeg, cfg_ffprobe)) = load_active_module() {
-        if let (Some(ffmpeg_version), Some(ffprobe_version)) = (
-            probe_version_from_path(&cfg_ffmpeg),
-            probe_version_from_path(&cfg_ffprobe),
-        ) {
-            set_cached_ffmpeg(Some(cfg_ffmpeg.clone()));
-            set_cached_ffprobe(Some(cfg_ffprobe.clone()));
-            let (fs_permission, fs_error) = check_fs_permission();
-            return Ok(SelfCheckResult {
-                ffmpeg_installed: true,
-                ffprobe_installed: true,
-                ffmpeg_path: Some(cfg_ffmpeg),
-                ffmpeg_version: Some(ffmpeg_version),
-                ffprobe_path: Some(cfg_ffprobe),
-                ffprobe_version: Some(ffprobe_version),
-                fs_permission,
-                fs_error,
-            });
+    let (fs_permission, fs_error) = check_fs_permission();
+
+    let mut ffmpeg_installed = false;
+    let mut ffprobe_installed = false;
+    let mut ffmpeg_path: Option<String> = None;
+    let mut ffprobe_path: Option<String> = None;
+    let mut ffmpeg_version: Option<String> = None;
+    let mut ffprobe_version: Option<String> = None;
+
+    if let Some((version, active_ffmpeg, active_ffprobe)) = load_active_module() {
+        let fv = probe_version_from_path(&active_ffmpeg);
+        let pv = probe_version_from_path(&active_ffprobe);
+        if fv.is_some() && pv.is_some() {
+            ffmpeg_installed = true;
+            ffprobe_installed = true;
+            ffmpeg_path = Some(active_ffmpeg.clone());
+            ffprobe_path = Some(active_ffprobe.clone());
+            ffmpeg_version = fv.or_else(|| Some(version.clone()));
+            ffprobe_version = pv.or_else(|| Some(version.clone()));
+            set_cached_ffmpeg(Some(active_ffmpeg));
+            set_cached_ffprobe(Some(active_ffprobe));
         }
     }
 
-    let (sys_ok, sys_path, sys_version) = try_ffmpeg_from_system();
-    let (bundle_ok, bundle_path, bundle_version) = if sys_ok {
-        (false, None, None)
-    } else {
-        try_ffmpeg_from_bundle()
-    };
-
-    let (sys_probe_ok, sys_probe_path, sys_probe_version) = try_ffprobe_from_system();
-    let (bundle_probe_ok, bundle_probe_path, bundle_probe_version) = if sys_probe_ok {
-        (false, None, None)
-    } else {
-        try_ffprobe_from_bundle()
-    };
-
-    let ffmpeg_installed = sys_ok || bundle_ok;
-    let ffmpeg_path = sys_path.or(bundle_path);
-    let ffmpeg_version = sys_version.or(bundle_version);
-    let ffprobe_installed = sys_probe_ok || bundle_probe_ok;
-    let ffprobe_path = sys_probe_path.or(bundle_probe_path);
-    let ffprobe_version = sys_probe_version.or(bundle_probe_version);
-
-    // 缓存路径供后续 get_media_info / ffmpeg_exec 使用
-    set_cached_ffmpeg(ffmpeg_path.clone());
-    set_cached_ffprobe(ffprobe_path.clone());
-
-    let (fs_permission, fs_error) = check_fs_permission();
+    if !(ffmpeg_installed && ffprobe_installed) {
+        let (sys_ok, sys_path, sys_version) = try_ffmpeg_from_system();
+        let (probe_ok, probe_path, probe_version) = try_ffprobe_from_system();
+        ffmpeg_installed = sys_ok;
+        ffprobe_installed = probe_ok;
+        ffmpeg_path = sys_path;
+        ffprobe_path = probe_path;
+        ffmpeg_version = sys_version;
+        ffprobe_version = probe_version;
+        if ffmpeg_path.is_some() {
+            set_cached_ffmpeg(ffmpeg_path.clone());
+        }
+        if ffprobe_path.is_some() {
+            set_cached_ffprobe(ffprobe_path.clone());
+        }
+    }
 
     Ok(SelfCheckResult {
         ffmpeg_installed,
-        ffmpeg_path,
-        ffmpeg_version,
         ffprobe_installed,
-        ffprobe_path,
-        ffprobe_version,
+        ffmpeg_path: ffmpeg_path.unwrap_or_default(),
+        ffmpeg_version: ffmpeg_version.unwrap_or_default(),
+        ffprobe_path: ffprobe_path.unwrap_or_default(),
+        ffprobe_version: ffprobe_version.unwrap_or_default(),
         fs_permission,
-        fs_error,
+        fs_error: fs_error.unwrap_or_default(),
     })
 }
 
-#[cfg(target_os = "macos")]
-const FFMPEG_DOWNLOAD_URL: &str = "https://evermeet.cx/ffmpeg/ffmpeg-6.1.1.zip";
-#[cfg(target_os = "macos")]
-const FFPROBE_DOWNLOAD_URL: &str = "https://evermeet.cx/ffmpeg/ffprobe-6.1.1.zip";
-
-#[cfg(target_os = "windows")]
-const FFMPEG_DOWNLOAD_URL: &str =
-    "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
-
-#[cfg(target_os = "linux")]
-const FFMPEG_DOWNLOAD_URL: &str =
-    "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz";
-
-fn download_ffmpeg_for_platform(
-    ffmpeg_path: &Path,
-    ffprobe_path: &Path,
-    window: Option<&WebviewWindow>,
-) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    {
-        let ffmpeg_zip = download_file_with_progress(FFMPEG_DOWNLOAD_URL, window, "ffmpeg")?;
-        println!("ffmpeg download ok");
-        let ffprobe_zip = download_file_with_progress(FFPROBE_DOWNLOAD_URL, window, "ffprobe")?;
-        println!("ffprobe download ok");
-
-        extract_from_zip(&ffmpeg_zip, &["ffmpeg"], ffmpeg_path)?;
-        println!("ffmpeg extract ok");
-        extract_from_zip(&ffprobe_zip, &["ffprobe"], ffprobe_path)?;
-        println!("ffprobe extract ok");
-
-        return Ok(());
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let archive = download_file_with_progress(FFMPEG_DOWNLOAD_URL, window, "ffmpeg")?;
-        extract_from_zip(&archive, &["ffmpeg.exe"], ffmpeg_path)?;
-        extract_from_zip(&archive, &["ffprobe.exe"], ffprobe_path)?;
-        return Ok(());
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let archive = download_file_with_progress(FFMPEG_DOWNLOAD_URL, window, "ffmpeg")?;
-        extract_from_tar_xz(&archive, "ffmpeg", ffmpeg_path)?;
-        extract_from_tar_xz(&archive, "ffprobe", ffprobe_path)?;
-        return Ok(());
-    }
-
-    #[allow(unreachable_code)]
-    Err("当前平台暂不支持自动下载 ffmpeg".to_string())
-}
-
-#[command]
-pub fn download_ffmpeg_ffprobe(app: AppHandle) -> Result<SelfCheckResult, String> {
-    let window = app.get_webview_window("main");
-    let window_ref = window.as_ref();
-
-    let (ffmpeg_path, ffprobe_path) = ffmpeg_output_paths()?;
-    println!(
-        "download_ffmpeg_ffprobe -> ffmpeg_path: {}, ffprobe_path: {}",
-        ffmpeg_path.display(),
-        ffprobe_path.display()
-    );
-
-    if ffmpeg_path.exists() && ffprobe_path.exists() {
-        return run_self_check();
-    }
-
-    download_ffmpeg_for_platform(&ffmpeg_path, &ffprobe_path, window_ref)?;
-
-    set_cached_ffmpeg(Some(ffmpeg_path.to_string_lossy().to_string()));
-    set_cached_ffprobe(Some(ffprobe_path.to_string_lossy().to_string()));
-
-    run_self_check()
-}
-
 fn list_modules_internal() -> Result<Vec<ModuleInfo>, String> {
-    let active_paths = load_active_module();
     let mut modules: Vec<ModuleInfo> = Vec::new();
 
     // system
     let (sys_ok, sys_ffmpeg, sys_ffmpeg_ver) = try_ffmpeg_from_system();
-    let (sys_probe_ok, sys_probe_path, sys_probe_ver) = try_ffprobe_from_system();
+    let (sys_probe_ok, sys_probe_path, _sys_probe_ver) = try_ffprobe_from_system();
     if sys_ok && sys_probe_ok {
         if let Some(entry) = module_entry(
             "system",
             "系统环境",
             sys_ffmpeg.as_deref().unwrap_or("ffmpeg"),
             sys_probe_path.as_deref().unwrap_or("ffprobe"),
+            sys_ffmpeg_ver.as_deref().unwrap_or(""),
             "system",
-            active_paths.clone(),
-        ) {
-            modules.push(entry);
-        } else if let (Some(ffmpeg_path), Some(ffprobe_path)) =
-            (sys_ffmpeg, sys_probe_path)
-        {
-            modules.push(ModuleInfo {
-                id: "system".to_string(),
-                name: "系统环境".to_string(),
-                ffmpeg_path,
-                ffprobe_path,
-                ffmpeg_version: sys_ffmpeg_ver,
-                ffprobe_version: sys_probe_ver,
-                source: "system".to_string(),
-                is_active: active_paths
-                    .as_ref()
-                    .map(|(a, b)| a == &ffmpeg_path && b == &ffprobe_path)
-                    .unwrap_or(false),
-            });
-        }
-    }
-
-    // bundle default
-    if let (Ok(ffmpeg_path), Ok(ffprobe_path)) =
-        (get_ffmpeg_bundle_path(), get_ffprobe_bundle_path())
-    {
-        if let Some(entry) = module_entry(
-            "bundle",
-            "内置模块",
-            &ffmpeg_path,
-            &ffprobe_path,
-            "bundle",
-            active_paths.clone(),
         ) {
             modules.push(entry);
         }
     }
 
-    // custom modules under resources/ffmpeg/*
+    // enumerate resources/ffmpeg/* as modules (目录名视为版本/名称)
     let ffmpeg_root = resources_root().join("ffmpeg");
     if ffmpeg_root.exists() {
         if let Ok(dir_entries) = fs::read_dir(&ffmpeg_root) {
@@ -740,19 +562,15 @@ fn list_modules_internal() -> Result<Vec<ModuleInfo>, String> {
                     continue;
                 }
                 let name = entry.file_name().to_string_lossy().to_string();
-                // 跳过默认平台目录
-                if name == "darwin" || name == "linux" || name == "windows" {
-                    continue;
-                }
                 let ffmpeg_path = path.join(platform_ffmpeg_name());
                 let ffprobe_path = path.join(platform_ffprobe_name());
                 if let Some(entry) = module_entry(
                     &name,
-                    &format!("自定义 · {}", name),
+                    &format!("内置 · {}", name),
                     ffmpeg_path.to_string_lossy().as_ref(),
                     ffprobe_path.to_string_lossy().as_ref(),
-                    "custom",
-                    active_paths.clone(),
+                    &name,
+                    "bundle",
                 ) {
                     modules.push(entry);
                 }
@@ -769,86 +587,65 @@ pub fn list_modules() -> Result<Vec<ModuleInfo>, String> {
 }
 
 #[command]
-pub fn set_active_module(ffmpeg_path: String, ffprobe_path: String) -> Result<SelfCheckResult, String> {
-    if probe_version_from_path(&ffmpeg_path).is_none() {
-        return Err("指定的 FFmpeg 无法执行".to_string());
+pub fn set_active_module(version: String) -> Result<SelfCheckResult, String> {
+    if version.trim().is_empty() {
+        return Err("版本号不能为空".to_string());
     }
-    if probe_version_from_path(&ffprobe_path).is_none() {
-        return Err("指定的 FFprobe 无法执行".to_string());
+    let root = resources_root().join("ffmpeg");
+    let target = root.join(&version);
+    let ffmpeg_path = target.join(platform_ffmpeg_name());
+    let ffprobe_path = target.join(platform_ffprobe_name());
+
+    if !target.exists() || !ffmpeg_path.exists() || !ffprobe_path.exists() {
+        return Err("指定的版本不存在".to_string());
     }
-    save_active_module(&ffmpeg_path, &ffprobe_path)?;
-    set_cached_ffmpeg(Some(ffmpeg_path));
-    set_cached_ffprobe(Some(ffprobe_path));
+    save_active_module(
+        &version,
+        &ffmpeg_path.to_string_lossy().as_ref().to_string(),
+        &ffprobe_path.to_string_lossy().as_ref().to_string(),
+    )?;
+
+    set_cached_ffmpeg(Some(ffmpeg_path.to_string_lossy().as_ref().to_string()));
+    set_cached_ffprobe(Some(ffprobe_path.to_string_lossy().as_ref().to_string()));
+
     run_self_check()
 }
 
 #[command]
-pub fn delete_module(name: String) -> Result<Vec<ModuleInfo>, String> {
-    if name.trim().is_empty() {
+pub fn delete_module(version: String) -> Result<(), String> {
+    if version.trim().is_empty() {
         return Err("模块名称不能为空".to_string());
     }
-
-    if name == "system" || name == "bundle" {
-        return Err("系统和内置模块不可删除".to_string());
-    }
-    if name == "darwin" || name == "linux" || name == "windows" {
-        return Err("平台默认目录不可删除".to_string());
-    }
-
-    let root = resources_root().join("ffmpeg");
-    let target = root.join(&name);
+    let target = resources_root().join("ffmpeg").join(&version);
     if !target.exists() {
-        return list_modules_internal();
+        return Err("指定的版本不存在".to_string());
     }
 
-    let canonical_root = fs::canonicalize(&root).unwrap_or(root.clone());
-    let canonical_target =
-        fs::canonicalize(&target).map_err(|e| format!("无法定位模块路径: {}", e))?;
-    if !canonical_target.starts_with(&canonical_root) {
-        return Err("非法模块路径".to_string());
-    }
+    fs::remove_dir_all(&target).map_err(|e| format!("删除失败: {}", e))?;
 
-    if canonical_target.is_file() {
-        fs::remove_file(&canonical_target).map_err(|e| format!("删除失败: {}", e))?;
-    } else {
-        fs::remove_dir_all(&canonical_target).map_err(|e| format!("删除失败: {}", e))?;
-    }
-
-    if let Some((a_ffmpeg, a_ffprobe)) = load_active_module() {
-        if a_ffmpeg.starts_with(target.to_string_lossy().as_ref())
-            || a_ffprobe.starts_with(target.to_string_lossy().as_ref())
-        {
-            clear_cached_ffmpeg();
-            clear_cached_ffprobe();
-        }
-    }
-
-    list_modules_internal()
+    clear_cached_ffmpeg();
+    clear_cached_ffprobe();
+    Ok(())
 }
 
-#[command]
-pub fn download_custom_module(
-    name: String,
+fn download_module_blocking(
+    app: AppHandle,
+    version: String,
     ffmpeg_url: String,
     ffprobe_url: String,
 ) -> Result<Vec<ModuleInfo>, String> {
-    let trimmed = name.trim();
-    if trimmed.is_empty() {
-        return Err("模块名称不能为空".to_string());
+    if version.trim().is_empty() {
+        return Err("版本号不能为空".to_string());
     }
-    let forbidden = ["system", "bundle", "darwin", "linux", "windows"];
-    if forbidden.contains(&trimmed) {
-        return Err("该名称为保留字，请更换名称".to_string());
-    }
-    if trimmed.contains('/') || trimmed.contains('\\') {
-        return Err("模块名称包含非法字符".to_string());
-    }
-    let target_dir = resources_root().join("ffmpeg").join(trimmed);
-    fs::create_dir_all(&target_dir)
-        .map_err(|e| format!("创建模块目录失败: {}", e))?;
+    let resources_dir = resources_root();
+    // 确保 resources 目录存在
+    fs::create_dir_all(&resources_dir).map_err(|e| format!("创建资源目录失败: {}", e))?;
 
-    let ffmpeg_bytes = download_file_with_progress(&ffmpeg_url, None, "ffmpeg")?;
-    let ffprobe_bytes = download_file_with_progress(&ffprobe_url, None, "ffprobe")?;
+    let target_dir = resources_dir.join("ffmpeg").join(&version);
+    fs::create_dir_all(&target_dir).map_err(|e| format!("创建模块目录失败: {}", e))?;
+
+    let ffmpeg_bytes = download_file_with_progress_blocking(&app, &ffmpeg_url, "ffmpeg")?;
+    let ffprobe_bytes = download_file_with_progress_blocking(&app, &ffprobe_url, "ffprobe")?;
 
     let ffmpeg_dest = target_dir.join(platform_ffmpeg_name());
     let ffprobe_dest = target_dir.join(platform_ffprobe_name());
@@ -860,8 +657,7 @@ pub fn download_custom_module(
         extract_from_tar_xz(&ffmpeg_bytes, platform_ffmpeg_name(), &ffmpeg_dest)
     } else {
         ensure_parent_dir(&ffmpeg_dest)?;
-        fs::write(&ffmpeg_dest, ffmpeg_bytes)
-            .map_err(|e| format!("写入 FFmpeg 失败: {}", e))?;
+        fs::write(&ffmpeg_dest, ffmpeg_bytes).map_err(|e| format!("写入 FFmpeg 失败: {}", e))?;
         mark_executable(&ffmpeg_dest)
     };
 
@@ -876,8 +672,7 @@ pub fn download_custom_module(
         extract_from_tar_xz(&ffprobe_bytes, platform_ffprobe_name(), &ffprobe_dest)
     } else {
         ensure_parent_dir(&ffprobe_dest)?;
-        fs::write(&ffprobe_dest, ffprobe_bytes)
-            .map_err(|e| format!("写入 FFprobe 失败: {}", e))?;
+        fs::write(&ffprobe_dest, ffprobe_bytes).map_err(|e| format!("写入 FFprobe 失败: {}", e))?;
         mark_executable(&ffprobe_dest)
     };
 
@@ -887,6 +682,19 @@ pub fn download_custom_module(
     }
 
     list_modules_internal()
+}
+
+#[command]
+pub async fn download_custom_module(
+    app: AppHandle,
+    version: String,
+    ffmpeg_url: String,
+    ffprobe_url: String,
+) -> Result<Vec<ModuleInfo>, String> {
+    let task_app = app.clone();
+    spawn_blocking(move || download_module_blocking(task_app, version, ffmpeg_url, ffprobe_url))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[command]

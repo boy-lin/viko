@@ -1,16 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import {
   CheckCircle,
-  Download,
   ExternalLink,
   RefreshCw,
-  ShieldCheck,
   ShieldOff,
   Sparkles,
 } from "lucide-react";
+import ModuleManager from "./moduleManager/List";
 
 type SelfCheckResult = {
   ffmpeg_installed: boolean;
@@ -37,8 +35,8 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<SelfCheckResult | null>(null);
   const [error, setError] = useState("");
-  const [installing, setInstalling] = useState(false);
-  const [progress, setProgress] = useState<DownloadProgress | null>(null);
+  const [installing] = useState(false);
+  const [progress] = useState<DownloadProgress | null>(null);
 
   const fetchCheck = async () => {
     setLoading(true);
@@ -68,34 +66,6 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
       );
     } catch (err) {
       setError("无法打开系统设置，请手动检查磁盘读取写入权限");
-    }
-  };
-
-  const installFFmpeg = async () => {
-    setInstalling(true);
-    setError("");
-    setProgress({ stage: "准备下载", downloaded: 0, total: 0 });
-    let unlisten: UnlistenFn | null = null;
-    try {
-      unlisten = await listen<DownloadProgress>(
-        "ffmpeg-download-progress",
-        (event) => {
-          setProgress(event.payload);
-        }
-      );
-      const res = await invoke<SelfCheckResult>("download_ffmpeg_ffprobe");
-      setResult(res);
-      if (res.ffmpeg_installed && res.ffprobe_installed && res.fs_permission) {
-        onPassed();
-      } else {
-        await fetchCheck();
-      }
-    } catch (err: any) {
-      setError(err?.message || "下载 FFmpeg 失败，请稍后重试");
-    } finally {
-      if (unlisten) unlisten();
-      setProgress(null);
-      setInstalling(false);
     }
   };
 
@@ -132,26 +102,10 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
                   ? "FFmpeg"
                   : "FFprobe"
               }，点击下载安装后刷新自检`,
-        action:
-          !result?.ffmpeg_installed || !result?.ffprobe_installed
-            ? {
-                label: installing
-                  ? `正在下载${
-                      progress?.total
-                        ? ` ${Math.min(
-                            100,
-                            Math.round(
-                              ((progress?.downloaded || 0) * 100) /
-                                (progress?.total || 1)
-                            )
-                          )}%`
-                        : ""
-                    }`
-                  : "下载安装",
-                icon: <Download className="h-4 w-4" />,
-                onClick: installFFmpeg,
-              }
-            : undefined,
+        component:
+          !result?.ffmpeg_installed || !result?.ffprobe_installed ? (
+            <ModuleManager />
+          ) : undefined,
       },
       {
         title: "文件读写权限",
@@ -237,6 +191,7 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
                   <p className="mt-2 text-sm text-white/70 leading-relaxed">
                     {loading ? "检测中..." : step.description}
                   </p>
+                  {step.component && step.component}
                   {step.action && (
                     <button
                       onClick={step.action.onClick}

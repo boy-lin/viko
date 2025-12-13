@@ -2,10 +2,9 @@
 
 import React, { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
-import { formatFileSize } from "../utils/file"; // 导入文件工具函数 Cursor Write It
-import { FileVideo } from "lucide-react"; // lucide-react 图标 Cursor Write It
+import { formatFileSize } from "@/lib/file";
+import { FileVideo } from "lucide-react";
 
 interface FileInfo {
   path: string;
@@ -27,7 +26,6 @@ interface Props {
 }
 
 const FileSelector: React.FC<Props> = ({ onFileSelected }) => {
-  const [filePath, setFilePath] = useState("");
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [error, setError] = useState("");
 
@@ -45,7 +43,6 @@ const FileSelector: React.FC<Props> = ({ onFileSelected }) => {
       if (!file) {
         throw new Error("未选择文件");
       }
-      setFilePath(file);
       // 获取文件详细信息 Cursor Write It
       try {
         const info = await invoke<FileInfo>("get_media_info", { path: file });

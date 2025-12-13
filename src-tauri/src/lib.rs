@@ -13,7 +13,6 @@ pub fn run() {
             crate::commands::get_media_info,
             crate::commands::ffmpeg_exec,
             crate::commands::run_self_check,
-            crate::commands::download_ffmpeg_ffprobe,
             crate::commands::list_modules,
             crate::commands::set_active_module,
             crate::commands::delete_module,

@@ -1,7 +1,8 @@
 // 转码按钮组件，负责调用后端转码并显示进度 Cursor Write It
 
 import React, { useState, useEffect } from "react";
-import { generateFFmpegArgs } from "../utils/ffmpeg";
+import { bridge } from "@/lib/bridge";
+import { generateFFmpegArgs } from "@/lib/ffmpeg";
 
 interface Props {
   fileInfo: any;
@@ -17,26 +18,30 @@ const TranscodeButton: React.FC<Props> = ({ fileInfo, config, onComplete }) => {
 
   // 监听转码进度事件 Cursor Write It
   useEffect(() => {
-    let unlistenProgress: any;
-    let unlistenComplete: any;
+    let unlistenProgress: (() => void) | undefined;
+    let unlistenComplete: (() => void) | undefined;
 
-    const setupListeners = async () => {
-      const { listen } = await import("@tauri-apps/api/event");
-      unlistenProgress = await listen<string>("ffmpeg-progress", (event) => {
-        setProgress(event.payload);
-        console.log("转码进度:", event.payload);
+    bridge
+      .on("ffmpeg-progress", (payload) => {
+        setProgress(payload);
+        console.log("转码进度:", payload);
+      })
+      .then((off) => {
+        unlistenProgress = off;
       });
-      unlistenComplete = await listen<string>("ffmpeg-complete", (event) => {
+
+    bridge
+      .on("ffmpeg-complete", () => {
         setIsTranscoding(false);
         onComplete(true);
+      })
+      .then((off) => {
+        unlistenComplete = off;
       });
-    };
-
-    setupListeners();
 
     return () => {
-      if (unlistenProgress) unlistenProgress();
-      if (unlistenComplete) unlistenComplete();
+      unlistenProgress?.();
+      unlistenComplete?.();
     };
   }, [onComplete]);
 
@@ -58,7 +63,6 @@ const TranscodeButton: React.FC<Props> = ({ fileInfo, config, onComplete }) => {
       }
 
       // 尝试调用 Tauri invoke 进行真实转码 Cursor Write It
-      const { invoke } = await import("@tauri-apps/api/core");
 
       console.log("开始真实转码..."); // 调试信息 Cursor Write It
       console.log("输入文件:", fileInfo.path); // 调试信息 Cursor Write It
@@ -70,7 +74,7 @@ const TranscodeButton: React.FC<Props> = ({ fileInfo, config, onComplete }) => {
         quality: config.quality,
         format: config.format,
       });
-      await invoke("ffmpeg_exec", { ffmpegArgs });
+      await bridge.invoke("ffmpeg_exec", { ffmpegArgs });
       console.log("转码命令已发送"); // 调试信息 Cursor Write It
       // 注意：实际的转码完成会通过事件监听器处理
     } catch (error) {
