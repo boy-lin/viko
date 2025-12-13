@@ -61,6 +61,18 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Rust targets
+        run: |
+          if [[ "${{ matrix.args }}" == *"aarch64-apple-darwin"* ]]; then
+            rustup target add aarch64-apple-darwin
+          elif [[ "${{ matrix.args }}" == *"x86_64-apple-darwin"* ]]; then
+            rustup target add x86_64-apple-darwin
+          elif [[ "${{ matrix.args }}" == *"x86_64-pc-windows-msvc"* ]]; then
+            rustup target add x86_64-pc-windows-msvc
+          elif [[ "${{ matrix.args }}" == *"x86_64-unknown-linux-gnu"* ]]; then
+            rustup target add x86_64-unknown-linux-gnu
+          fi
+
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
@@ -75,8 +87,16 @@ jobs:
           projectPath: .
           args: ${{ matrix.args }}
 
+      - name: Extract target from args
+        id: extract_target
+        run: |
+          TARGET=$(echo "${{ matrix.args }}" | sed 's/--target //')
+          echo "target=$TARGET" >> $GITHUB_OUTPUT
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}-${{ matrix.args }}
-          path: src-tauri/target/release/bundle/
+          path: |
+            src-tauri/target/${{ steps.extract_target.outputs.target }}/release/bundle/
+          if-no-files-found: warn

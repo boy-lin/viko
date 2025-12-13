@@ -35,10 +35,37 @@ brew install pnpm@10.11.1
 pnpm --version  # 应该显示 10.11.1
 ```
 
+### Rust 工具链
+
+项目需要 Rust 稳定版，并通过 rustup 安装相应的编译目标。
+
+```bash
+# 安装 Rust (如果还没有安装)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# 安装编译目标
+# macOS (Apple Silicon) - 默认已安装
+rustup target add aarch64-apple-darwin
+
+# macOS (Intel) - 需要额外安装
+rustup target add x86_64-apple-darwin
+
+# Windows
+rustup target add x86_64-pc-windows-msvc
+
+# Linux
+rustup target add x86_64-unknown-linux-gnu
+```
+
+**注意**: 在 Apple Silicon Mac 上构建 Intel 版本时，需要安装 `x86_64-apple-darwin` 目标：
+
+```bash
+rustup target add x86_64-apple-darwin
+```
+
 ### 其他依赖
 
 - **Node.js**: 20+
-- **Rust**: stable (通过 rustup 安装)
 - **系统依赖**:
   - macOS: Xcode Command Line Tools
   - Windows: Visual Studio Build Tools
