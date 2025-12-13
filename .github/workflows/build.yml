@@ -62,6 +62,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install Rust targets
+        shell: bash
         run: |
           if [[ "${{ matrix.args }}" == *"aarch64-apple-darwin"* ]]; then
             rustup target add aarch64-apple-darwin
