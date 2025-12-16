@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Link, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   NavigationMenu,
@@ -16,6 +16,16 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const menuItems = [
+    {
+      title: "任务列表",
+      href: "/tasks",
+      items: [],
+    },
+    {
+      title: "批量转码",
+      href: "/batch",
+      items: [],
+    },
     {
       title: "转换器",
       items: [
@@ -71,37 +81,46 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-4">
             <NavigationMenu viewport={false}>
               <NavigationMenuList>
-                {menuItems.map((menu) => (
-                  <NavigationMenuItem key={menu.title}>
-                    <NavigationMenuTrigger className="shadow-none">
-                      {menu.title}
-                    </NavigationMenuTrigger>
-                    <NavigationMenuContent className=" bg-background border border-white/10 rounded-lg shadow-xl overflow-hidden p-1">
-                      <div className="w-48">
-                        {menu.items.map((item) => (
-                          <NavigationMenuLink
-                            key={item.name}
-                            href={item.href}
-                            onClick={(e) => {
-                              if (item.disabled) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }
-                            }}
-                            aria-disabled={item.disabled}
-                            className={`block px-4 py-2 text-sm transition-colors rounded-sm ${
-                              item.disabled
-                                ? "text-muted-foreground cursor-not-allowed pointer-events-none opacity-60"
-                                : "text-background hover:bg-blue-500/20 hover:text-white"
-                            }`}
-                          >
-                            {item.name}
-                          </NavigationMenuLink>
-                        ))}
-                      </div>
-                    </NavigationMenuContent>
-                  </NavigationMenuItem>
-                ))}
+                {menuItems.map((menu) => {
+                  if (!!menu.href) {
+                    return (
+                      <NavigationMenuLink key={menu.title} href={menu.href}>
+                        {menu.title}
+                      </NavigationMenuLink>
+                    );
+                  }
+                  return (
+                    <NavigationMenuItem key={menu.title}>
+                      <NavigationMenuTrigger className="shadow-none">
+                        {menu.title}
+                      </NavigationMenuTrigger>
+                      <NavigationMenuContent className=" bg-background border border-white/10 rounded-lg shadow-xl overflow-hidden p-1">
+                        <div className="w-48">
+                          {menu.items?.map((item: any) => (
+                            <NavigationMenuLink
+                              key={item.name}
+                              href={item.href}
+                              onClick={(e) => {
+                                if (item.disabled) {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }
+                              }}
+                              aria-disabled={item.disabled}
+                              className={`block px-4 py-2 text-sm transition-colors rounded-sm ${
+                                item.disabled
+                                  ? "text-muted-foreground cursor-not-allowed pointer-events-none opacity-60"
+                                  : "text-background hover:bg-blue-500/20 hover:text-white"
+                              }`}
+                            >
+                              {item.name}
+                            </NavigationMenuLink>
+                          ))}
+                        </div>
+                      </NavigationMenuContent>
+                    </NavigationMenuItem>
+                  );
+                })}
               </NavigationMenuList>
             </NavigationMenu>
           </div>

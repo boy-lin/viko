@@ -23,10 +23,9 @@ export function ResolutionSelect({
       <Label htmlFor={id}>Resolution</Label>
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger id={id}>
-          <SelectValue placeholder="Select resolution" />
+          <SelectValue placeholder="None (Auto)" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="original">None (Keep original)</SelectItem>
           <SelectItem value="3840x2160">3840x2160 (4K)</SelectItem>
           <SelectItem value="2560x1440">2560x1440 (2K)</SelectItem>
           <SelectItem value="1920x1080">1920x1080 (Full HD)</SelectItem>

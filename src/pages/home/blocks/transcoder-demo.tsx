@@ -1,20 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { downloadDir } from "@tauri-apps/api/path";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
   Upload,
@@ -22,22 +14,26 @@ import {
   File,
   HardDrive,
   Film,
-  Gauge,
   MonitorPlay,
   Clock,
-  FolderOpen,
   CheckCircle2,
   AlertCircle,
   Loader2,
   Video,
   Headphones,
   Radio,
+  Gauge,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { bridge } from "@/lib/bridge";
 import { FFmpegConfig, generateFFmpegArgs } from "@/lib/ffmpeg";
 import { formatFileSize } from "@/lib/file";
-import { ResolutionSelect } from "@/components/ResolutionSelect";
+import {
+  addTranscodeTask,
+  updateTranscodeTask,
+  TranscodeStatus,
+} from "@/lib/indexed";
+import { TranscodeConfigForm } from "@/components/biz-form/TranscodeConfigForm";
 
 type TranscodingStatus = "idle" | "transcoding" | "success" | "error";
 
@@ -72,107 +68,21 @@ interface FileInfo {
   format_tags?: Record<string, any>;
 }
 
-interface CommonSelectProps {
-  value: string;
-  onValueChange: (value: string) => void;
-}
-
-const OutputFormatSelect = ({ value, onValueChange }: CommonSelectProps) => {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="output-format">Output Format</Label>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger id="output-format">
-          <SelectValue placeholder="None (keep original)" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="">None (keep original)</SelectItem>
-          <SelectItem value="mp4">MP4</SelectItem>
-          <SelectItem value="avi">AVI</SelectItem>
-          <SelectItem value="mov">MOV</SelectItem>
-          <SelectItem value="mkv">MKV</SelectItem>
-          <SelectItem value="webm">WebM</SelectItem>
-          <SelectItem value="flv">FLV</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-};
-
-const VideoCodecSelect = ({ value, onValueChange }: CommonSelectProps) => {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="codec">Video Codec</Label>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger id="codec">
-          <SelectValue placeholder="None (auto)" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="">None (auto)</SelectItem>
-          <SelectItem value="h264">H.264</SelectItem>
-          <SelectItem value="h265">H.265 (HEVC)</SelectItem>
-          <SelectItem value="vp9">VP9</SelectItem>
-          <SelectItem value="av1">AV1</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-};
-
-const BitrateSelect = ({ value, onValueChange }: CommonSelectProps) => {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="bitrate">Bitrate (kbps)</Label>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger id="bitrate">
-          <SelectValue placeholder="None (auto)" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="">None (auto)</SelectItem>
-          <SelectItem value="2000">2000 kbps</SelectItem>
-          <SelectItem value="5000">5000 kbps</SelectItem>
-          <SelectItem value="8000">8000 kbps</SelectItem>
-          <SelectItem value="12000">12000 kbps</SelectItem>
-          <SelectItem value="20000">20000 kbps</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-};
-
-const FrameRateSelect = ({ value, onValueChange }: CommonSelectProps) => {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="framerate">Frame Rate</Label>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger id="framerate">
-          <SelectValue placeholder="None (keep original)" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="">None (keep original)</SelectItem>
-          <SelectItem value="24">24 fps</SelectItem>
-          <SelectItem value="30">30 fps</SelectItem>
-          <SelectItem value="60">60 fps</SelectItem>
-          <SelectItem value="120">120 fps</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-};
-
 export function TranscoderDemo() {
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [status, setStatus] = useState<TranscodingStatus>("idle");
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState("");
   const [error, setError] = useState("");
-  const [outputFormat, setOutputFormat] = useState("");
+  const [outputFormat, setOutputFormat] = useState("mp4");
   const [resolution, setResolution] = useState("");
   const [codec, setCodec] = useState("");
   const [bitrate, setBitrate] = useState("");
   const [framerate, setFramerate] = useState("");
   const [outputDir, setOutputDir] = useState("");
   const [outputName, setOutputName] = useState("output");
+  const [currentTaskId, setCurrentTaskId] = useState<number | null>(null);
+  const navigate = useNavigate();
 
   // 初始化输出目录
   useEffect(() => {
@@ -205,6 +115,14 @@ export function TranscoderDemo() {
       .on("ffmpeg-complete", () => {
         setStatus("success");
         setProgress(100);
+        // 标记当前任务成功
+        if (currentTaskId != null) {
+          updateTranscodeTask(currentTaskId, {
+            status: "success",
+          }).catch((e) => {
+            console.error("更新任务状态失败:", e);
+          });
+        }
       })
       .then((off) => {
         unlistenComplete = off;
@@ -214,7 +132,7 @@ export function TranscoderDemo() {
       unlistenProgress?.();
       unlistenComplete?.();
     };
-  }, []);
+  }, [currentTaskId]);
 
   const handleFileSelect = async () => {
     try {
@@ -264,17 +182,30 @@ export function TranscoderDemo() {
     setError("");
 
     try {
+      // 先创建任务记录
+      const baseOutputPath = `${outputDir}/${outputName}`;
+      const taskId = await addTranscodeTask({
+        inputPath: fileInfo.path,
+        outputPath: baseOutputPath,
+        outputFormat: outputFormat || undefined,
+        resolution: resolution || undefined,
+        bitrate: bitrate || undefined,
+        framerate: framerate || undefined,
+        status: "transcoding" as TranscodeStatus,
+      });
+      setCurrentTaskId(taskId);
+
       // 生成 ffmpeg 命令
       const params: FFmpegConfig = {
         input: fileInfo.path,
-        output: `${outputDir}/${outputName}`,
+        output: baseOutputPath,
         quality: bitrate ? `${bitrate}k` : undefined,
       };
       if (outputFormat) {
         // 仅当用户选择了输出格式时才设置
         (params as any).format = outputFormat;
       }
-      if (resolution && resolution !== "original") {
+      if (resolution) {
         params.resolution = resolution;
       }
       const ffmpegArgs = generateFFmpegArgs(params);
@@ -282,8 +213,17 @@ export function TranscoderDemo() {
       await bridge.invoke("ffmpeg_exec", { ffmpegArgs });
     } catch (error) {
       console.error("转码时出错:", error);
-      setError(error instanceof Error ? error.message : "转码失败");
+      const message = error instanceof Error ? error.message : "转码失败";
+      setError(message);
       setStatus("error");
+      if (currentTaskId != null) {
+        updateTranscodeTask(currentTaskId, {
+          status: "error",
+          errorMessage: message,
+        }).catch((e) => {
+          console.error("更新任务失败:", e);
+        });
+      }
     }
   };
 
@@ -303,6 +243,17 @@ export function TranscoderDemo() {
 
   const formatBytes = (bytes: number) => {
     return formatFileSize(bytes);
+  };
+
+  const handleGoBatch = () => {
+    const params = new URLSearchParams();
+    if (outputFormat) params.set("outputFormat", outputFormat);
+    if (resolution) params.set("resolution", resolution);
+    if (codec) params.set("codec", codec);
+    if (bitrate) params.set("bitrate", bitrate);
+    if (framerate) params.set("framerate", framerate);
+    if (outputDir) params.set("outputDir", outputDir);
+    navigate(`/batch?${params.toString()}`);
   };
 
   return (
@@ -481,61 +432,31 @@ export function TranscoderDemo() {
               </Card>
 
               {/* Transcoding Configuration Panel */}
-              <Card className="bg-card/50 backdrop-blur p-6">
-                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  <Gauge className="w-5 h-5 text-primary" />
-                  Transcoding Parameters
-                </h3>
-                <div className="space-y-4">
-                  <OutputFormatSelect
-                    value={outputFormat}
-                    onValueChange={setOutputFormat}
-                  />
-
-                  <VideoCodecSelect value={codec} onValueChange={setCodec} />
-
-                  <ResolutionSelect
-                    value={resolution}
-                    onValueChange={setResolution}
-                  />
-
-                  <BitrateSelect value={bitrate} onValueChange={setBitrate} />
-
-                  <FrameRateSelect
-                    value={framerate}
-                    onValueChange={setFramerate}
-                  />
-
-                  <div className="space-y-2">
-                    <Label htmlFor="output-name">Output File Name</Label>
-                    <Input
-                      id="output-name"
-                      value={outputName}
-                      onChange={(e) => setOutputName(e.target.value)}
-                      placeholder="output"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="output-dir">Output Directory</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="output-dir"
-                        value={outputDir}
-                        onChange={(e) => setOutputDir(e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleSelectOutputDir}
-                        type="button"
-                      >
-                        <FolderOpen className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </Card>
+              <TranscodeConfigForm
+                title="Transcoding Parameters"
+                renderRight={() => (
+                  <Button variant="outline" size="sm" onClick={handleGoBatch}>
+                    {/* 批量处理图标 */}
+                    批量处理
+                  </Button>
+                )}
+                outputFormat={outputFormat}
+                onOutputFormatChange={setOutputFormat}
+                codec={codec}
+                onCodecChange={setCodec}
+                resolution={resolution}
+                onResolutionChange={setResolution}
+                bitrate={bitrate}
+                onBitrateChange={setBitrate}
+                framerate={framerate}
+                onFramerateChange={setFramerate}
+                outputName={outputName}
+                onOutputNameChange={setOutputName}
+                showOutputName
+                outputDir={outputDir}
+                onOutputDirChange={setOutputDir}
+                onSelectOutputDir={handleSelectOutputDir}
+              />
             </div>
           )}
 
