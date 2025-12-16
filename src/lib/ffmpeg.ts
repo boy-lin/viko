@@ -5,7 +5,7 @@ export interface FFmpegConfig {
   output: string;
   resolution?: string;
   quality?: string;
-  format: string;
+  format?: string;
 }
 
 export function generateFFmpegCommand(config: FFmpegConfig): string {
@@ -31,7 +31,9 @@ export function generateFFmpegArgs(config: FFmpegConfig): string[] {
     args.push("-b:v");
     args.push(config.quality);
   }
-  args.push(`${config.output}.${config.format}`);
+  // 如果未指定格式，则保持原始扩展名/由调用方自行处理
+  const formatSuffix = config.format ? `.${config.format}` : "";
+  args.push(`${config.output}${formatSuffix}`);
 
   return args;
 }

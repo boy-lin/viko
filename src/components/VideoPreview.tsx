@@ -3,6 +3,7 @@
 import { readFile } from "@tauri-apps/plugin-fs";
 import React, { useRef, useState } from "react";
 import { getTypeByPath } from "@/lib/file";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   filePath?: string;
@@ -14,10 +15,12 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
 
   // 当 fileInfo 变化时，创建视频 URL Cursor Write It
   React.useEffect(() => {
+    if (!filePath || filePath === "undefined") return;
+
     let url: string | null = null;
     async function createVideoUrl() {
-      if (!filePath || typeof filePath === "undefined") return;
-      console.log(`filePath: ${filePath}`);
+      if (!filePath) return;
+      console.log(`filePath: ${typeof filePath} ${filePath} `);
       const data = await readFile(filePath);
       const type = getTypeByPath(filePath);
       const blob = new Blob([new Uint8Array(data)], {
@@ -28,7 +31,7 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
     }
 
     createVideoUrl().catch((err) => {
-      console.error(`创建视频 URL 失败:${err}`);
+      console.error(`创建视频 URL 失败:${err} ${filePath}`);
     });
     // 清理函数，组件卸载时释放 URL Cursor Write It
     return () => {
@@ -59,18 +62,12 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
         className="w-full max-h-64 rounded"
       />
       <div className="flex gap-2 mt-2">
-        <button
-          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-sm"
-          onClick={handlePlay}
-        >
+        <Button variant="default" size="sm" onClick={handlePlay}>
           播放
-        </button>
-        <button
-          className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition text-sm"
-          onClick={handlePause}
-        >
+        </Button>
+        <Button variant="secondary" size="sm" onClick={handlePause}>
           暂停
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -10,12 +10,11 @@ import {
   ModuleInfo,
 } from "@/constants/ffmpeg";
 import { detectPlatform } from "@/lib/platform";
+import { Button } from "@/components/ui/button";
 
-interface Props {
-  onBack?: () => void;
-}
+interface Props {}
 
-const ModuleManagerList: React.FC<Props> = ({ onBack }) => {
+const ModuleManagerList: React.FC<Props> = ({}) => {
   const [modules, setModules] = useState<ModuleInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -64,19 +63,10 @@ const ModuleManagerList: React.FC<Props> = ({ onBack }) => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white px-6 py-8">
+    <div className="min-h-screen px-6 py-8">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-2 text-sm hover:bg-white/5 transition"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                返回
-              </button>
-            )}
             <div>
               <div className="text-xl font-semibold">模块管理</div>
               <div className="text-sm text-white/70">
@@ -87,9 +77,20 @@ const ModuleManagerList: React.FC<Props> = ({ onBack }) => {
           <div className="flex items-center gap-2">
             {activeName && (
               <span className="text-sm text-emerald-200">
-                当前默认：{activeName}
+                激活版本：{activeName}
               </span>
             )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchModules}
+              className="inline-flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              {loading ? "刷新中..." : "刷新"}
+            </Button>
           </div>
         </div>
 
@@ -98,21 +99,8 @@ const ModuleManagerList: React.FC<Props> = ({ onBack }) => {
             {error}
           </div>
         )}
-        <div className="lg:col-span-1 rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="text-base font-semibold">下载模块</div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={fetchModules}
-                className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-2 text-sm hover:bg-white/5 transition"
-              >
-                <RefreshCw className="h-4 w-4" />
-                {loading ? "刷新中..." : "刷新"}
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+
+        <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-base font-semibold">模块列表</div>
           </div>

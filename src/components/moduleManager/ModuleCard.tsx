@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Trash2, CheckCircle, Download } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { bridge, type DownloadProgress } from "@/lib/bridge";
+import { Button } from "@/components/ui/button";
 
 type ResourceItem = {
   version: string;
@@ -94,39 +95,50 @@ const ModuleCard: React.FC<Props> = ({
       return (
         <div className="mt-1 text-red-300 flex items-center gap-2">
           <span>{error}</span>
-          <button
+          <Button
+            variant="link"
+            size="sm"
             className="underline text-red-200 hover:text-red-100"
             onClick={() => handleDownload(item)}
           >
             重试
-          </button>
+          </Button>
         </div>
       );
     }
     if (isDownloaded) {
       if (isActive) {
         return (
-          <button className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-sm">
+          <Button
+            variant="outline"
+            size="sm"
+            className="inline-flex items-center gap-2"
+            disabled
+          >
             <CheckCircle className="text-emerald-400 h-4 w-4" />
             已激活
-          </button>
+          </Button>
         );
       }
       return (
         <>
-          <button
-            className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm"
+          <Button
+            variant="outline"
+            size="sm"
+            className="inline-flex items-center gap-2"
             onClick={() => handleActivate(item.version)}
           >
             设置为默认
-          </button>
-          <button
-            className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition disabled:opacity-60"
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="inline-flex items-center gap-2"
             onClick={() => handleDelete(item.version)}
           >
             <Trash2 className="h-4 w-4" />
             删除
-          </button>
+          </Button>
         </>
       );
     }
@@ -150,18 +162,20 @@ const ModuleCard: React.FC<Props> = ({
     }
 
     return (
-      <button
-        className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm"
+      <Button
+        variant="outline"
+        size="sm"
+        className="inline-flex items-center gap-2"
         onClick={() => handleDownload(item)}
       >
         <Download className="h-4 w-4" />
         下载
-      </button>
+      </Button>
     );
   };
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-2">
+    <div className="rounded-xl border border-border bg-card px-4 py-2 flex items-center justify-between gap-2">
       <div className="flex flex-col">
         <div className="text-sm font-semibold">{item.version}</div>
         {/* <div className="text-sm text-white/70">{item.ffmpeg}</div> */}

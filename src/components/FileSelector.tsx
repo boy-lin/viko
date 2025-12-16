@@ -5,20 +5,37 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { formatFileSize } from "@/lib/file";
 import { FileVideo } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface FileInfo {
   path: string;
   size: number;
   format: string;
+  format_long_name?: string;
   codec: string;
+  codec_long_name?: string;
   resolution: string;
+  width: number;
+  height: number;
   duration: number;
   output_dir: string;
   bitrate?: string;
   fps?: string;
+  avg_frame_rate?: string;
+  nb_frames?: number;
+  pix_fmt?: string;
+  color_space?: string;
+  color_range?: string;
   audio_codec?: string;
+  audio_codec_long_name?: string;
   audio_channels?: string;
+  audio_channel_layout?: string;
   audio_sample_rate?: string;
+  audio_bitrate?: string;
+  audio_bits_per_sample?: string;
+  audio_sample_fmt?: string;
+  format_bitrate?: string;
+  format_tags?: Record<string, any>;
 }
 
 interface Props {
@@ -81,13 +98,14 @@ const FileSelector: React.FC<Props> = ({ onFileSelected }) => {
 
   return (
     <div className="mb-4 p-4 border rounded shadow-sm bg-white">
-      <button
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+      <Button
+        variant="default"
+        className="flex items-center gap-2"
         onClick={handleSelect}
       >
         <FileVideo className="w-5 h-5" />
         选择视频文件
-      </button>
+      </Button>
       {fileInfo && (
         <div className="mt-4 text-sm space-y-2 w-full">
           <div className="font-semibold text-gray-800">文件信息</div>

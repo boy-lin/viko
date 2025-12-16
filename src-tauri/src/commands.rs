@@ -26,15 +26,31 @@ pub struct FileInfo {
     pub path: String,
     pub size: u64,
     pub format: String,
+    pub format_long_name: Option<String>,
     pub codec: String,
+    pub codec_long_name: Option<String>,
     pub resolution: String,
+    pub width: u64,
+    pub height: u64,
     pub duration: f64,
     pub output_dir: String,
     pub bitrate: Option<String>,
     pub fps: Option<String>,
+    pub avg_frame_rate: Option<String>,
+    pub nb_frames: Option<u64>,
+    pub pix_fmt: Option<String>,
+    pub color_space: Option<String>,
+    pub color_range: Option<String>,
     pub audio_codec: Option<String>,
+    pub audio_codec_long_name: Option<String>,
     pub audio_channels: Option<String>,
+    pub audio_channel_layout: Option<String>,
     pub audio_sample_rate: Option<String>,
+    pub audio_bitrate: Option<String>,
+    pub audio_bits_per_sample: Option<String>,
+    pub audio_sample_fmt: Option<String>,
+    pub format_bitrate: Option<String>,
+    pub format_tags: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -705,16 +721,13 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
     // 获取嵌入的 ffprobe 路径 Cursor Write It
     let ffprobe_path = get_ffprobe_path()?;
 
-    // 使用嵌入的 ffprobe 获取详细的视频音频信息 Cursor Write It
+    // 使用嵌入的 ffprobe 获取完整的媒体信息（包括所有流和格式信息） Cursor Write It
     let output = Command::new(&ffprobe_path)
         .args([
             "-v",
             "error",
-            "-select_streams",
-            "v:0",
-            "-show_entries",
-            "stream=codec_name,width,height,duration,r_frame_rate,bit_rate",
             "-show_format",
+            "-show_streams",
             "-of",
             "json",
             &path,
@@ -725,54 +738,159 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
     let json: serde_json::Value = serde_json::from_slice(&output.stdout)
         .map_err(|e| format!("解析 ffprobe 输出失败: {}", e))?;
 
-    let width = json["streams"][0]["width"].as_u64().unwrap_or(0);
-    let height = json["streams"][0]["height"].as_u64().unwrap_or(0);
-    let duration = json["streams"][0]["duration"].as_f64().unwrap_or(0.0);
-    let bitrate = json["streams"][0]["bit_rate"]
-        .as_u64()
-        .map(|b| format!("{}", b));
-    let fps = json["streams"][0]["r_frame_rate"]
-        .as_str()
-        .map(|s| s.to_string());
-    let audio_codec = json["streams"][1]["codec_name"]
-        .as_str()
-        .map(|s| s.to_string());
+    // 查找视频流（第一个视频流） Cursor Write It
+    let video_stream = json["streams"].as_array().and_then(|streams| {
+        streams
+            .iter()
+            .find(|s| s["codec_type"].as_str() == Some("video"))
+    });
 
-    // 计算缺失的字段 Cursor Write It
-    let format = json["format"]["format_name"]
+    // 查找音频流（第一个音频流） Cursor Write It
+    let audio_stream = json["streams"].as_array().and_then(|streams| {
+        streams
+            .iter()
+            .find(|s| s["codec_type"].as_str() == Some("audio"))
+    });
+
+    // 解析格式信息 Cursor Write It
+    let format_obj = &json["format"];
+    let format = format_obj["format_name"].as_str().unwrap_or("").to_string();
+    let format_long_name = format_obj["format_long_name"]
         .as_str()
-        .unwrap_or("")
-        .to_string();
-    let codec = json["streams"][0]["codec_name"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
+        .map(|s| s.to_string());
+    let format_bitrate = format_obj["bit_rate"].as_str().map(|s| s.to_string());
+    let format_tags = format_obj["tags"]
+        .as_object()
+        .map(|_| format_obj["tags"].clone());
+
+    // 解析视频流信息 Cursor Write It
+    let (
+        width,
+        height,
+        codec,
+        codec_long_name,
+        duration,
+        bitrate,
+        fps,
+        avg_frame_rate,
+        nb_frames,
+        pix_fmt,
+        color_space,
+        color_range,
+    ) = if let Some(video) = video_stream {
+        (
+            video["width"].as_u64().unwrap_or(0),
+            video["height"].as_u64().unwrap_or(0),
+            video["codec_name"].as_str().unwrap_or("").to_string(),
+            video["codec_long_name"].as_str().map(|s| s.to_string()),
+            video["duration"]
+                .as_f64()
+                .or_else(|| format_obj["duration"].as_str().and_then(|s| s.parse().ok()))
+                .unwrap_or(0.0),
+            video["bit_rate"]
+                .as_str()
+                .map(|s| s.to_string())
+                .or_else(|| video["bit_rate"].as_u64().map(|b| b.to_string())),
+            video["r_frame_rate"].as_str().map(|s| s.to_string()),
+            video["avg_frame_rate"].as_str().map(|s| s.to_string()),
+            video["nb_frames"]
+                .as_str()
+                .and_then(|s| s.parse().ok())
+                .or_else(|| video["nb_frames"].as_u64()),
+            video["pix_fmt"].as_str().map(|s| s.to_string()),
+            video["color_space"].as_str().map(|s| s.to_string()),
+            video["color_range"].as_str().map(|s| s.to_string()),
+        )
+    } else {
+        (
+            0,
+            0,
+            String::new(),
+            None,
+            0.0,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+    };
+
+    // 解析音频流信息 Cursor Write It
+    let (
+        audio_codec,
+        audio_codec_long_name,
+        audio_channels,
+        audio_channel_layout,
+        audio_sample_rate,
+        audio_bitrate,
+        audio_bits_per_sample,
+        audio_sample_fmt,
+    ) = if let Some(audio) = audio_stream {
+        (
+            audio["codec_name"].as_str().map(|s| s.to_string()),
+            audio["codec_long_name"].as_str().map(|s| s.to_string()),
+            audio["channels"]
+                .as_u64()
+                .map(|c| c.to_string())
+                .or_else(|| audio["channels"].as_str().map(|s| s.to_string())),
+            audio["channel_layout"].as_str().map(|s| s.to_string()),
+            audio["sample_rate"]
+                .as_str()
+                .map(|s| s.to_string())
+                .or_else(|| audio["sample_rate"].as_u64().map(|r| r.to_string())),
+            audio["bit_rate"]
+                .as_str()
+                .map(|s| s.to_string())
+                .or_else(|| audio["bit_rate"].as_u64().map(|b| b.to_string())),
+            audio["bits_per_sample"]
+                .as_u64()
+                .map(|b| b.to_string())
+                .or_else(|| audio["bits_per_sample"].as_str().map(|s| s.to_string())),
+            audio["sample_fmt"].as_str().map(|s| s.to_string()),
+        )
+    } else {
+        (None, None, None, None, None, None, None, None)
+    };
+
     let resolution = format!("{}x{}", width, height);
     let output_dir = Path::new(&path)
         .parent()
         .unwrap_or(Path::new(""))
         .to_string_lossy()
         .to_string();
-    let audio_channels = json["streams"][1]["channels"]
-        .as_str()
-        .map(|s| s.to_string());
-    let audio_sample_rate = json["streams"][1]["sample_rate"]
-        .as_str()
-        .map(|s| s.to_string());
 
     Ok(FileInfo {
         path,
         size,
         format,
+        format_long_name,
         codec,
+        codec_long_name,
         resolution,
+        width,
+        height,
         duration,
         output_dir,
         bitrate,
         fps,
+        avg_frame_rate,
+        nb_frames,
+        pix_fmt,
+        color_space,
+        color_range,
         audio_codec,
+        audio_codec_long_name,
         audio_channels,
+        audio_channel_layout,
         audio_sample_rate,
+        audio_bitrate,
+        audio_bits_per_sample,
+        audio_sample_fmt,
+        format_bitrate,
+        format_tags,
     })
 }
 

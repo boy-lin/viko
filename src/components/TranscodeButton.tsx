@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { bridge } from "@/lib/bridge";
 import { generateFFmpegArgs } from "@/lib/ffmpeg";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   fileInfo: any;
@@ -86,13 +87,13 @@ const TranscodeButton: React.FC<Props> = ({ fileInfo, config, onComplete }) => {
 
   return (
     <div className="mb-4">
-      <button
-        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition disabled:bg-gray-400"
+      <Button
+        variant="default"
         onClick={handleTranscode}
         disabled={isTranscoding}
       >
         {isTranscoding ? "转码中..." : "开始转码"}
-      </button>
+      </Button>
 
       {error && <div className="mt-2 text-red-600 text-sm">错误：{error}</div>}
 

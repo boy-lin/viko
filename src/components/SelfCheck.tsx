@@ -8,7 +8,8 @@ import {
   ShieldOff,
   Sparkles,
 } from "lucide-react";
-import ModuleManager from "./moduleManager/List";
+import ModuleManagerList from "./moduleManager/List";
+import { Button } from "@/components/ui/button";
 
 type SelfCheckResult = {
   ffmpeg_installed: boolean;
@@ -104,7 +105,7 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
               }，点击下载安装后刷新自检`,
         component:
           !result?.ffmpeg_installed || !result?.ffprobe_installed ? (
-            <ModuleManager />
+            <ModuleManagerList />
           ) : undefined,
       },
       {
@@ -126,89 +127,89 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-black text-white flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-4xl rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl overflow-hidden">
-        <div className="px-8 py-6 border-b border-white/10 bg-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-emerald-400/15 border border-emerald-400/40 flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-emerald-300" />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">启动前自检</div>
-              <div className="text-sm text-white/70">
-                修改配置后，点击刷新自检按钮，通过后会自动进入首页
-              </div>
+    <div className="w-full">
+      <div className="px-8 py-6 border-b border-white/10 bg-white/10 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-emerald-400/15 border border-emerald-400/40 flex items-center justify-center">
+            <Sparkles className="h-5 w-5 text-emerald-300" />
+          </div>
+          <div>
+            <div className="text-lg font-semibold">启动前自检</div>
+            <div className="text-sm text-white/70">
+              修改配置后，点击刷新自检按钮，通过后会自动进入首页
             </div>
           </div>
-          <button
-            onClick={fetchCheck}
-            className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium border border-white/20 hover:bg-white/20 transition"
+        </div>
+        <Button
+          variant="outline"
+          onClick={fetchCheck}
+          className="inline-flex items-center gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          {loading ? "正在检测..." : "刷新自检"}
+        </Button>
+      </div>
+
+      {error && (
+        <div className="mx-8 mt-4 rounded-lg border border-red-400/50 bg-red-500/10 px-4 py-3 text-sm text-red-50">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 px-8 py-6">
+        {steps.map((step) => (
+          <div
+            key={step.title}
+            className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-lg"
           >
-            <RefreshCw className="h-4 w-4" />
-            {loading ? "正在检测..." : "刷新自检"}
-          </button>
-        </div>
-
-        {error && (
-          <div className="mx-8 mt-4 rounded-lg border border-red-400/50 bg-red-500/10 px-4 py-3 text-sm text-red-50">
-            {error}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 gap-4 px-8 py-6">
-          {steps.map((step) => (
-            <div
-              key={step.title}
-              className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-lg"
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`mt-1 h-10 w-10 flex items-center justify-center rounded-full ${
-                    step.ok
-                      ? "bg-emerald-400/15 border border-emerald-400/40"
-                      : "bg-amber-400/15 border border-amber-400/40"
-                  }`}
-                >
+            <div className="flex items-start gap-3">
+              <div
+                className={`mt-1 h-10 w-10 flex items-center justify-center rounded-full ${
+                  step.ok
+                    ? "bg-emerald-400/15 border border-emerald-400/40"
+                    : "bg-amber-400/15 border border-amber-400/40"
+                }`}
+              >
+                {step.ok ? (
+                  <CheckCircle className="h-6 w-6 text-emerald-300" />
+                ) : (
+                  <ShieldOff className="h-6 w-6 text-amber-300" />
+                )}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <div className="text-base font-semibold">{step.title}</div>
                   {step.ok ? (
-                    <CheckCircle className="h-6 w-6 text-emerald-300" />
+                    <span className="text-xs px-2 py-1 rounded-full bg-emerald-400/20 text-emerald-100">
+                      已通过
+                    </span>
                   ) : (
-                    <ShieldOff className="h-6 w-6 text-amber-300" />
+                    <span className="text-xs px-2 py-1 rounded-full bg-amber-400/20 text-amber-100">
+                      待处理
+                    </span>
                   )}
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <div className="text-base font-semibold">{step.title}</div>
-                    {step.ok ? (
-                      <span className="text-xs px-2 py-1 rounded-full bg-emerald-400/20 text-emerald-100">
-                        已通过
-                      </span>
-                    ) : (
-                      <span className="text-xs px-2 py-1 rounded-full bg-amber-400/20 text-amber-100">
-                        待处理
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-2 text-sm text-white/70 leading-relaxed">
-                    {loading ? "检测中..." : step.description}
-                  </p>
-                  {step.component && step.component}
-                  {step.action && (
-                    <button
-                      onClick={step.action.onClick}
-                      disabled={
-                        installing && step.title === "FFmpeg / FFprobe 环境"
-                      }
-                      className="mt-3 inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-medium border border-white/15 hover:bg-white/15 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {step.action.icon}
-                      {step.action.label}
-                    </button>
-                  )}
-                </div>
+                <p className="mt-2 text-sm text-white/70 leading-relaxed">
+                  {loading ? "检测中..." : step.description}
+                </p>
+                {step.component && step.component}
+                {step.action && (
+                  <Button
+                    variant="outline"
+                    onClick={step.action.onClick}
+                    disabled={
+                      installing && step.title === "FFmpeg / FFprobe 环境"
+                    }
+                    className="mt-3 inline-flex items-center gap-2"
+                  >
+                    {step.action.icon}
+                    {step.action.label}
+                  </Button>
+                )}
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   );
