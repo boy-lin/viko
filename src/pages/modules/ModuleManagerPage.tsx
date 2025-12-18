@@ -10,8 +10,8 @@ const ModuleManagerPage: React.FC = () => {
     navigate("/");
   };
   return (
-    <div className="min-h-screen px-6 py-8 pt-24">
-      <div className="max-w-5xl mx-auto">
+    <div className="container mx-auto px-4 md:px-6 lg:px-8 py-12 md:py-16 lg:py-24">
+      <div className="space-y-6">
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
@@ -23,10 +23,10 @@ const ModuleManagerPage: React.FC = () => {
             返回
           </Button>
           <div>
-            <div className="text-xl font-semibold">模块管理</div>
-            <div className="text-sm text-foreground/70">
+            <h1 className="text-2xl font-bold text-foreground">模块管理</h1>
+            <p className="text-sm text-muted-foreground mt-2">
               管理已下载的资源文件，支持清理删除
-            </div>
+            </p>
           </div>
         </div>
         <ModuleManagerList />

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   queryTranscodeTasks,
   TranscodeTaskRecord,
@@ -52,102 +53,141 @@ export default function TaskListPage() {
 
   const totalPages = Math.max(1, Math.ceil(pageInfo.total / pageInfo.pageSize));
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "success":
+        return (
+          <Badge className="bg-green-500/20 text-green-700 dark:text-green-400 border-transparent">
+            {status}
+          </Badge>
+        );
+      case "error":
+        return (
+          <Badge variant="destructive" className="bg-destructive/20 border-transparent">
+            {status}
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="secondary" className="border-transparent">
+            {status}
+          </Badge>
+        );
+    }
+  };
+
   return (
-    <div className="container mx-auto px-4 py-6 space-y-4">
-      <h1 className="text-2xl font-bold">Transcode Tasks</h1>
-
-      <div className="flex gap-2 items-center">
-        <Input
-          placeholder="Search by input/output path or error..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="max-w-sm"
-        />
-        <Button
-          type="button"
-          onClick={() => {
-            setKeyword(searchInput);
-            fetchTasks(1, searchInput);
-          }}
-        >
-          Search
-        </Button>
-      </div>
-
-      <Card className="p-4 space-y-2">
-        <div className="flex justify-between items-center text-sm text-muted-foreground">
-          <span>
-            Total: {pageInfo.total} · Page {pageInfo.page} of {totalPages}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pageInfo.page <= 1 || loading}
-              onClick={() => fetchTasks(pageInfo.page - 1)}
-            >
-              Prev
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pageInfo.page >= totalPages || loading}
-              onClick={() => fetchTasks(pageInfo.page + 1)}
-            >
-              Next
-            </Button>
-          </div>
+    <div className="container mx-auto px-4 md:px-6 lg:px-8 py-12 md:py-16 lg:py-24">
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Transcode Tasks</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            View and manage your transcoding task history
+          </p>
         </div>
 
-        <div className="border-t border-border mt-2 pt-2 space-y-2 max-h-[480px] overflow-auto">
-          {tasks.length === 0 && (
-            <div className="text-sm text-muted-foreground py-8 text-center">
-              {loading ? "Loading..." : "No tasks found."}
-            </div>
-          )}
+        <div className="flex gap-3 items-center">
+          <Input
+            placeholder="Search by input/output path or error..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                setKeyword(searchInput);
+                fetchTasks(1, searchInput);
+              }
+            }}
+            className="max-w-sm"
+          />
+          <Button
+            type="button"
+            onClick={() => {
+              setKeyword(searchInput);
+              fetchTasks(1, searchInput);
+            }}
+            disabled={loading}
+          >
+            Search
+          </Button>
+        </div>
 
-          {tasks.map((task) => (
-            <div
-              key={task.id}
-              className="flex flex-col gap-1 border-b border-border last:border-b-0 pb-2 last:pb-0"
-            >
-              <div className="flex justify-between items-center text-sm">
-                <span className="font-medium truncate max-w-[60%]">
-                  {task.inputPath}
-                </span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-xs ${
-                    task.status === "success"
-                      ? "bg-emerald-500/10 text-emerald-500"
-                      : task.status === "error"
-                      ? "bg-red-500/10 text-red-500"
-                      : "bg-blue-500/10 text-blue-500"
-                  }`}
+        <Card className="p-6">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center text-sm text-muted-foreground">
+              <span>
+                Total: {pageInfo.total} · Page {pageInfo.page} of {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pageInfo.page <= 1 || loading}
+                  onClick={() => fetchTasks(pageInfo.page - 1)}
                 >
-                  {task.status}
-                </span>
+                  Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pageInfo.page >= totalPages || loading}
+                  onClick={() => fetchTasks(pageInfo.page + 1)}
+                >
+                  Next
+                </Button>
               </div>
-              <div className="text-xs text-muted-foreground truncate">
-                Output: {task.outputPath}
-                {task.outputFormat ? `.${task.outputFormat}` : ""}
-              </div>
-              <div className="text-xs text-muted-foreground flex gap-2 flex-wrap">
-                {task.resolution && <span>Res: {task.resolution}</span>}
-                {task.bitrate && <span>Bitrate: {task.bitrate}k</span>}
-                {task.framerate && <span>FPS: {task.framerate}</span>}
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                Created: {new Date(task.createdAt).toLocaleString()}
-              </div>
-              {task.errorMessage && (
-                <div className="text-[11px] text-red-500">
-                  Error: {task.errorMessage}
-                </div>
-              )}
             </div>
-          ))}
-        </div>
-      </Card>
+
+            <div className="border-t border-border pt-4">
+              <div className="space-y-3 max-h-[600px] overflow-auto">
+                {tasks.length === 0 && (
+                  <div className="text-sm text-muted-foreground py-12 text-center">
+                    {loading ? "Loading..." : "No tasks found."}
+                  </div>
+                )}
+
+                {tasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex flex-col gap-2 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-foreground truncate">
+                          {task.inputPath}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate mt-1">
+                          Output: {task.outputPath}
+                          {task.outputFormat ? `.${task.outputFormat}` : ""}
+                        </div>
+                      </div>
+                      {getStatusBadge(task.status)}
+                    </div>
+
+                    {(task.resolution || task.bitrate || task.framerate) && (
+                      <div className="text-xs text-muted-foreground flex gap-4 flex-wrap">
+                        {task.resolution && <span>Res: {task.resolution}</span>}
+                        {task.bitrate && <span>Bitrate: {task.bitrate}k</span>}
+                        {task.framerate && <span>FPS: {task.framerate}</span>}
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center text-xs text-muted-foreground">
+                      <span>Created: {new Date(task.createdAt).toLocaleString()}</span>
+                    </div>
+
+                    {task.errorMessage && (
+                      <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-2 mt-1">
+                        <span className="font-medium">Error: </span>
+                        {task.errorMessage}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
