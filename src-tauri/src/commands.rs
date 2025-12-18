@@ -245,7 +245,7 @@ fn check_fs_permission() -> (bool, Option<String>) {
         Some(path) => path,
         None => return (false, Some("未找到下载目录".to_string())),
     };
-    let test_path = download_dir.join("figurex_permission_probe.tmp");
+    let test_path = download_dir.join("audio_video_kit_permission_probe.tmp");
     match OpenOptions::new()
         .create(true)
         .write(true)
@@ -410,13 +410,13 @@ fn extract_from_tar_xz(bytes: &[u8], target_name: &str, dest: &Path) -> Result<(
 
 fn resources_root() -> PathBuf {
     // 使用应用数据目录，确保在生产环境中可写
-    // macOS: ~/Library/Application Support/figurex/resources
-    // Windows: %APPDATA%\figurex\resources
-    // Linux: ~/.local/share/figurex/resources
+    // macOS: ~/Library/Application Support/audio_video_kit/resources
+    // Windows: %APPDATA%\audio_video_kit\resources
+    // Linux: ~/.local/share/audio_video_kit/resources
     let base = dirs::data_local_dir()
         .or_else(|| dirs::data_dir())
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("figurex").join("resources")
+    base.join("audio_video_kit").join("resources")
 }
 
 fn platform_ffmpeg_name() -> &'static str {
@@ -443,7 +443,7 @@ fn platform_ffprobe_name() -> &'static str {
 
 fn config_store_path() -> PathBuf {
     let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-    base.join("figurex").join("ffmpeg_active.json")
+    base.join("audio_video_kit").join("ffmpeg_active.json")
 }
 
 fn load_active_module() -> Option<(String, String, String)> {

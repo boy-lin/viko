@@ -69,7 +69,7 @@ git push origin v1.0.0
 ```bash
 # 在 Windows 上
 git clone <your-repo>
-cd figurex
+cd audio_video_kit
 npm install
 npm run build:win
 ```

@@ -26,13 +26,13 @@ fn resources_root() -> PathBuf {
 // 新代码（已修复）
 fn resources_root() -> PathBuf {
     // 使用应用数据目录，确保在生产环境中可写
-    // macOS: ~/Library/Application Support/figurex/resources
-    // Windows: %APPDATA%\figurex\resources
-    // Linux: ~/.local/share/figurex/resources
+    // macOS: ~/Library/Application Support/audio_video_kit/resources
+    // Windows: %APPDATA%\audio_video_kit\resources
+    // Linux: ~/.local/share/audio_video_kit/resources
     let base = dirs::data_local_dir()
         .or_else(|| dirs::data_dir())
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("figurex").join("resources")
+    base.join("audio_video_kit").join("resources")
 }
 ```
 
@@ -42,21 +42,21 @@ fn resources_root() -> PathBuf {
 
 ### macOS
 ```
-~/Library/Application Support/figurex/resources/ffmpeg/<version>/
+~/Library/Application Support/audio_video_kit/resources/ffmpeg/<version>/
 ```
 
 ### Windows
 ```
-%APPDATA%\figurex\resources\ffmpeg\<version>\
+%APPDATA%\audio_video_kit\resources\ffmpeg\<version>\
 ```
 完整路径示例：
 ```
-C:\Users\<用户名>\AppData\Roaming\figurex\resources\ffmpeg\6.1.1\
+C:\Users\<用户名>\AppData\Roaming\audio_video_kit\resources\ffmpeg\6.1.1\
 ```
 
 ### Linux
 ```
-~/.local/share/figurex/resources/ffmpeg/<version>/
+~/.local/share/audio_video_kit/resources/ffmpeg/<version>/
 ```
 
 ## 其他解决方案（备选）
@@ -69,7 +69,7 @@ C:\Users\<用户名>\AppData\Roaming\figurex\resources\ffmpeg\6.1.1\
 fn resources_root() -> PathBuf {
     let base = dirs::document_dir()
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("figurex").join("resources")
+    base.join("audio_video_kit").join("resources")
 }
 ```
 
@@ -77,7 +77,7 @@ fn resources_root() -> PathBuf {
 
 ```rust
 fn resources_root() -> PathBuf {
-    std::env::temp_dir().join("figurex").join("resources")
+    std::env::temp_dir().join("audio_video_kit").join("resources")
 }
 ```
 
@@ -87,7 +87,7 @@ fn resources_root() -> PathBuf {
 fn resources_root() -> PathBuf {
     dirs::download_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("figurex")
+        .join("audio_video_kit")
         .join("resources")
 }
 ```

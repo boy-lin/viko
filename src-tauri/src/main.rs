@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    figurex_lib::run();
+    audio_video_kit_lib::run();
 }

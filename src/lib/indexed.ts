@@ -16,7 +16,7 @@ export interface TranscodeTaskRecord {
   errorMessage?: string;
 }
 
-const DB_NAME = "figurex-transcode";
+const DB_NAME = "audio_video_kit-transcode";
 const DB_VERSION = 1;
 const STORE_NAME = "tasks";
 

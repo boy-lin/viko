@@ -1201,7 +1201,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "figurex"
+name = "audio_video_kit"
 version = "0.1.0"
 dependencies = [
  "chrono",

@@ -8,9 +8,3 @@
 5. UI 用 react+shadcn+tailwindcss,ui 组件也可参考：Aceternity UI
 6. UI 自定义动画可以用 motion
 
-### 补充
-
-'/Users/haolin/Developer/lins/figureX/src-tauri/src/
-commands.rs'run_self_check 过程中,获取到
-ffmpeg_path,ffprobe_path 后缓存下,当调用 get_media_info 是时候使
-用

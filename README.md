@@ -1,4 +1,4 @@
-# FigureX - 视频转码工具
+# AudioVideo kit - 视频转码工具
 
 基于 Tauri + React + TypeScript 构建的跨平台视频转码应用。
 

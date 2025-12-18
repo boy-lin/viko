@@ -31,7 +31,7 @@ const HomePage: React.FC = () => {
     <>
       <div className="px-6 py-4 border-b border-white/10 bg-white/5 backdrop-blur flex items-center justify-between">
         <div>
-          <div className="text-xl font-semibold">FigureX 视频转码</div>
+          <div className="text-xl font-semibold">audio_video_kit 视频转码</div>
           <div className="text-sm text-white/70">管理转码任务与依赖模块</div>
         </div>
         <div className="flex items-center gap-2">
