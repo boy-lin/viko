@@ -1,0 +1,202 @@
+# TurboTranscode UI Design System
+
+This document defines the UI design standards for the TurboTranscode project. Follow these guidelines when creating or modifying UI components.
+
+## Color System
+
+### Light Mode (Default)
+- **Primary**: `oklch(0.58 0.22 280)` / `#654ff0` - Primary brand color for buttons, links, and key actions
+- **Primary Foreground**: `oklch(0.99 0 0)` - Text on primary backgrounds
+- **Background**: `oklch(0.99 0 0)` - Main background
+- **Foreground**: `oklch(0.15 0 0)` - Main text color
+- **Card**: `oklch(0.98 0 0)` - Card and panel backgrounds
+- **Secondary**: `oklch(0.95 0.01 280)` - Secondary actions and backgrounds
+- **Muted**: `oklch(0.96 0.01 280)` - Muted backgrounds and disabled states
+- **Muted Foreground**: `oklch(0.5 0.02 280)` - Secondary text
+- **Destructive**: `oklch(0.55 0.24 27)` - Error states and destructive actions
+- **Border**: `oklch(0.9 0.01 280)` - Border colors
+- **Ring**: `oklch(0.58 0.22 280)` - Focus ring color
+
+### Dark Mode
+- **Primary**: `oklch(0.68 0.18 145)` / `#4cae4c` - Primary brand color (green)
+- **Background**: `oklch(0.12 0.01 140)` - Dark background
+- **Card**: `oklch(0.16 0.01 140)` - Card backgrounds
+- **Foreground**: `oklch(0.98 0 0)` - Main text (light)
+- **Muted Foreground**: `oklch(0.65 0.05 140)` - Secondary text
+- **Border**: `oklch(0.22 0.02 140)` - Border colors
+
+## Typography
+
+### Font Families
+- **Sans**: `Geist` (fallback: `Geist Fallback`) - Primary font for headings and body
+- **Mono**: `Geist Mono` (fallback: `Geist Mono Fallback`) - Code and technical content
+
+### Font Sizes
+- `xs`: 0.75rem (12px)
+- `sm`: 0.875rem (14px)
+- `base`: 1rem (16px)
+- `lg`: 1.125rem (18px)
+- `xl`: 1.25rem (20px)
+- `2xl`: 1.5rem (24px)
+- `3xl`: 1.875rem (30px)
+- `4xl`: 2.25rem (36px)
+- `5xl`: 3rem (48px)
+
+### Font Weights
+- Normal: 400
+- Medium: 500
+- Semibold: 600
+- Bold: 700
+
+### Line Heights
+- Tight: 1.25
+- Normal: 1.5
+- Relaxed: 1.625
+- Loose: 2
+
+## Spacing
+
+Use the following spacing scale:
+- `1`: 0.25rem (4px)
+- `2`: 0.5rem (8px)
+- `3`: 0.75rem (12px)
+- `4`: 1rem (16px)
+- `5`: 1.25rem (20px)
+- `6`: 1.5rem (24px)
+- `8`: 2rem (32px)
+- `10`: 2.5rem (40px)
+- `12`: 3rem (48px)
+- `16`: 4rem (64px)
+- `24`: 6rem (96px)
+
+### Usage Guidelines
+- **Component internal spacing**: 4-6 (1-1.5rem)
+- **Section padding**: 12-24 (3-6rem)
+- **Container padding**: 4-8 (1-2rem)
+
+## Border Radius
+
+- **Base**: 0.75rem (12px)
+- **sm**: calc(0.75rem - 4px)
+- **md**: calc(0.75rem - 2px)
+- **lg**: 0.75rem
+- **xl**: calc(0.75rem + 4px)
+- **full**: 9999px (pills/badges)
+
+### Usage
+- Buttons: `rounded-lg`
+- Cards: `rounded-lg`
+- Inputs: `rounded-md`
+- Badges: `rounded-full`
+
+## Shadows
+
+```css
+shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)
+shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)
+shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)
+shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)
+shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)
+```
+
+## Components
+
+### Button
+
+**Variants:**
+- `primary`: bg-primary text-primary-foreground hover:opacity-90
+- `secondary`: bg-secondary text-secondary-foreground hover:opacity-80
+- `outline`: bg-transparent border-border hover:bg-accent
+- `ghost`: bg-transparent hover:bg-accent
+- `destructive`: bg-destructive text-destructive-foreground hover:opacity-90
+
+**Sizes:**
+- `sm`: h-9 px-3 text-sm
+- `md` (default): h-10 px-4 py-2
+- `lg`: h-11 px-8 text-lg
+
+### Card
+
+- Background: `bg-card`
+- Text: `text-card-foreground`
+- Border: `border`
+- Radius: `rounded-lg`
+- Padding: `p-6`
+
+### Input
+
+- Background: `bg-background`
+- Text: `text-foreground`
+- Border: `border-input`
+- Radius: `rounded-md`
+- Height: `h-10`
+- Padding: `px-3`
+
+### Badge
+
+- Radius: `rounded-full`
+- Padding: `px-2.5 py-0.5`
+- Font size: `text-xs`
+
+**Variants:**
+- Default: `bg-primary text-primary-foreground`
+- Secondary: `bg-secondary text-secondary-foreground`
+- Success: `bg-green-500 text-white`
+- Warning: `bg-yellow-500 text-white`
+- Error: `bg-destructive text-destructive-foreground`
+
+## Layout
+
+### Container
+- Max width: 1280px
+- Padding: `px-4 md:px-6 lg:px-8`
+
+### Section
+- Padding: `py-12 md:py-16 lg:py-24`
+
+### Navbar
+- Height: 64px
+- Position: fixed
+- Background: `bg-background/80 backdrop-blur-lg`
+
+## Breakpoints
+
+- `sm`: 640px
+- `md`: 768px
+- `lg`: 1024px
+- `xl`: 1280px
+- `2xl`: 1536px
+
+## Icons
+
+Use **Lucide React** icons with these sizes:
+- `sm`: 16px (w-4 h-4)
+- `md`: 20px (w-5 h-5)
+- `lg`: 24px (w-6 h-6)
+- `xl`: 32px (w-8 h-8)
+
+## Animations
+
+### Gradient Shift
+```css
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+animation: gradient-shift 8s ease infinite;
+```
+
+### Transitions
+- Fade in: 0.3s ease-in
+- Slide in: 0.4s ease-out
+
+## Best Practices
+
+1. **Use CSS variables** for colors via Tailwind's theme system
+2. **Prefer `oklch()` color format** for better color interpolation
+3. **Use semantic color names** (primary, secondary, destructive) not raw colors
+4. **Apply consistent spacing** using the spacing scale
+5. **Use `backdrop-blur`** for glassmorphism effects on cards/modals
+6. **Add focus rings** using `ring` color for accessibility
+7. **Support both light and dark modes** using Tailwind's `dark:` variant
+8. **Use Geist font family** for all text content

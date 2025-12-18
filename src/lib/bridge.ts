@@ -28,6 +28,10 @@ class Bridge {
     return this.tauriReady;
   }
 
+  isTauriEvn() {
+    return typeof window !== "undefined" && "__TAURI__" in window;
+  }
+
   async on<K extends string>(
     event: K,
     handler: (payload: EventPayload<K>) => void

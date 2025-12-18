@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Outlet } from "react-router-dom";
 import SelfCheck from "./SelfCheck";
 import { Navbar } from "./Navbar";
+import { bridge } from "@/lib/bridge";
 
 type SelfCheckResult = {
   ffmpeg_installed: boolean;
@@ -15,6 +16,14 @@ const Layout: React.FC = () => {
   const [, setChecksPassed] = useState(false);
 
   useEffect(() => {
+    // 判断是否在 Tauri 环境中运行
+    if (!bridge.isTauriEvn()) {
+      // 普通浏览器环境，跳过自检
+      setChecksPassed(true);
+      setSelfCheckVisible(false);
+      return;
+    }
+
     const check = async () => {
       try {
         const res = await invoke<SelfCheckResult>("run_self_check");
