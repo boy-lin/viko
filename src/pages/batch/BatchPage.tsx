@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Loader2,
   X,
+  FolderOpen,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,9 @@ import {
   updateTranscodeTask,
   TranscodeStatus,
 } from "@/lib/indexed";
+import { downloadDir } from "@tauri-apps/api/path";
+import { bridge } from "@/lib/bridge";
+import { generateFFmpegArgs, FFmpegConfig } from "@/lib/ffmpeg";
 
 type TranscodingStatus =
   | "pending"
@@ -40,16 +44,18 @@ interface VideoFile {
   status: TranscodingStatus;
   progress: number;
   error?: string;
+  /** 输出文件路径（转码成功后） */
+  outputPath?: string;
 }
 
 export default function BatchPage() {
   const [files, setFiles] = useState<VideoFile[]>([]);
   const [outputFormat, setOutputFormat] = useState("mp4");
-  const [resolution, setResolution] = useState("1920x1080");
-  const [codec, setCodec] = useState("h264");
-  const [bitrate, setBitrate] = useState("5000");
-  const [framerate, setFramerate] = useState("30");
-  const [outputDir, setOutputDir] = useState("/downloads");
+  const [resolution, setResolution] = useState("");
+  const [codec, setCodec] = useState("");
+  const [bitrate, setBitrate] = useState("");
+  const [framerate, setFramerate] = useState("");
+  const [outputDir, setOutputDir] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchParams] = useSearchParams();
 
@@ -60,16 +66,26 @@ export default function BatchPage() {
     const c = searchParams.get("codec");
     const br = searchParams.get("bitrate");
     const fr = searchParams.get("framerate");
-    const outDir = searchParams.get("outputDir");
 
     if (fmt) setOutputFormat(fmt);
     if (res) setResolution(res);
     if (c) setCodec(c);
     if (br) setBitrate(br);
     if (fr) setFramerate(fr);
-    if (outDir) setOutputDir(outDir);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 初始化输出目录
+  useEffect(() => {
+    const outDir = searchParams.get("outputDir");
+    if (!outDir) {
+      downloadDir().then((dir) => {
+        setOutputDir(dir);
+      });
+    } else {
+      setOutputDir(outDir);
+    }
+  }, [outputDir]);
 
   const handleFileSelect = async () => {
     try {
@@ -112,28 +128,35 @@ export default function BatchPage() {
   const handleStartBatchTranscode = async () => {
     setIsProcessing(true);
 
-    // Process files sequentially for demo purposes
+    // 顺序处理每个文件
     for (const file of files) {
       if (file.status === "success") continue;
 
+      // 计算输出文件路径（包含格式扩展名）
+      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+      const outputFileName = outputFormat
+        ? `${fileNameWithoutExt}.${outputFormat}`
+        : file.name;
+      const outputPath = `${outputDir}/${outputFileName}`;
+      const baseOutputPath = `${outputDir}/${fileNameWithoutExt}`;
+
       // 为当前文件创建任务记录
-      const baseOutputPath = `${outputDir}/${file.name}`;
       let taskId: number | null = null;
       try {
         taskId = await addTranscodeTask({
           inputPath: file.path,
           outputPath: baseOutputPath,
           outputFormat: outputFormat || undefined,
-          resolution,
-          bitrate,
-          framerate,
+          resolution: resolution || undefined,
+          bitrate: bitrate || undefined,
+          framerate: framerate || undefined,
           status: "transcoding" as TranscodeStatus,
         });
       } catch (e) {
         console.error("创建批量转码任务记录失败:", e);
       }
 
-      // Update file status to transcoding
+      // 更新文件状态为转码中
       setFiles((prev) =>
         prev.map((f) =>
           f.id === file.id
@@ -142,55 +165,202 @@ export default function BatchPage() {
         )
       );
 
-      // Simulate transcoding progress
-      await new Promise<void>((resolve) => {
-        const interval = setInterval(() => {
-          setFiles((prev) => {
-            const currentFile = prev.find((f) => f.id === file.id);
-            if (!currentFile || currentFile.progress >= 100) {
-              clearInterval(interval);
-              resolve();
-              return prev;
-            }
+      // 设置当前处理的文件 ID，用于进度更新
+      const currentFileId = file.id;
 
-            return prev.map((f) => {
-              if (f.id === file.id) {
-                const newProgress = f.progress + 5;
-                if (newProgress >= 100) {
-                  // Randomly simulate success or error (90% success rate)
-                  const success = Math.random() > 0.1;
-                  const errorMessage = success
-                    ? undefined
-                    : "Transcoding failed due to codec incompatibility";
+      // 监听转码进度和完成事件
+      let unlistenProgress: (() => void) | undefined;
+      let unlistenComplete: (() => void) | undefined;
 
-                  // 更新任务记录
-                  if (taskId != null) {
-                    updateTranscodeTask(taskId, {
-                      status: (success
-                        ? "success"
-                        : "error") as TranscodeStatus,
-                      errorMessage,
-                    }).catch((e) => {
-                      console.error("更新批量转码任务记录失败:", e);
-                    });
-                  }
+      try {
+        // 监听进度事件
+        unlistenProgress = await bridge.on("ffmpeg-progress", (payload) => {
+          // 尝试从进度文本中提取百分比
+          const percentMatch = payload.match(/(\d+(?:\.\d+)?)%/);
+          if (percentMatch) {
+            const progress = parseFloat(percentMatch[1]);
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.id === currentFileId
+                  ? { ...f, progress: Math.min(progress, 99) }
+                  : f
+              )
+            );
+          }
+        });
 
-                  return {
+        // 监听完成事件
+        let completed = false;
+        let resolveComplete: (() => void) | null = null;
+        let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+        unlistenComplete = await bridge.on("ffmpeg-complete", (payload) => {
+          if (completed) return; // 防止重复处理
+          completed = true;
+
+          // 清除超时定时器
+          if (timeoutHandle) {
+            clearTimeout(timeoutHandle);
+            timeoutHandle = null;
+          }
+
+          const isError =
+            typeof payload === "string" && payload.startsWith("error:");
+          const errorMessage = isError
+            ? payload.replace("error: ", "")
+            : undefined;
+
+          // 更新文件状态
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === currentFileId
+                ? {
                     ...f,
                     progress: 100,
-                    status: (success
-                      ? "success"
-                      : "error") as TranscodingStatus,
+                    status: isError
+                      ? ("error" as TranscodingStatus)
+                      : ("success" as TranscodingStatus),
                     error: errorMessage,
-                  } as VideoFile;
-                }
-                return { ...f, progress: newProgress };
-              }
-              return f;
+                    outputPath: isError ? undefined : outputPath,
+                  }
+                : f
+            )
+          );
+
+          // 更新任务记录
+          if (taskId != null) {
+            updateTranscodeTask(taskId, {
+              status: (isError ? "error" : "success") as TranscodeStatus,
+              errorMessage,
+            }).catch((e) => {
+              console.error("更新批量转码任务记录失败:", e);
             });
+          }
+
+          // 清理事件监听
+          unlistenProgress?.();
+          unlistenComplete?.();
+
+          // 触发完成
+          if (resolveComplete) {
+            resolveComplete();
+          }
+        });
+
+        // 生成 FFmpeg 参数
+        const params: FFmpegConfig = {
+          input: file.path,
+          output: baseOutputPath,
+          quality: bitrate ? `${bitrate}k` : undefined,
+        };
+        if (outputFormat) {
+          params.format = outputFormat;
+        }
+        if (resolution) {
+          params.resolution = resolution;
+        }
+        const ffmpegArgs = generateFFmpegArgs(params);
+
+        // 调用转码命令（异步，不等待完成）
+        bridge.invoke("ffmpeg_exec", { ffmpegArgs }).catch((error) => {
+          // 如果调用失败，直接标记为错误
+          if (!completed) {
+            completed = true;
+            const message =
+              error instanceof Error ? error.message : "转码调用失败";
+
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.id === currentFileId
+                  ? {
+                      ...f,
+                      status: "error" as TranscodingStatus,
+                      error: message,
+                    }
+                  : f
+              )
+            );
+
+            if (taskId != null) {
+              updateTranscodeTask(taskId, {
+                status: "error" as TranscodeStatus,
+                errorMessage: message,
+              }).catch((e) => {
+                console.error("更新批量转码任务记录失败:", e);
+              });
+            }
+
+            unlistenProgress?.();
+            unlistenComplete?.();
+            if (resolveComplete) {
+              resolveComplete();
+            }
+          }
+        });
+
+        // 等待完成事件（最多等待 30 分钟）
+        await new Promise<void>((resolve) => {
+          resolveComplete = resolve;
+          timeoutHandle = setTimeout(() => {
+            if (!completed) {
+              // 超时处理
+              completed = true;
+              setFiles((prev) =>
+                prev.map((f) =>
+                  f.id === currentFileId
+                    ? {
+                        ...f,
+                        status: "error" as TranscodingStatus,
+                        error: "转码超时（超过30分钟）",
+                      }
+                    : f
+                )
+              );
+              if (taskId != null) {
+                updateTranscodeTask(taskId, {
+                  status: "error" as TranscodeStatus,
+                  errorMessage: "转码超时（超过30分钟）",
+                }).catch((e) => {
+                  console.error("更新批量转码任务记录失败:", e);
+                });
+              }
+              unlistenProgress?.();
+              unlistenComplete?.();
+              resolve();
+            }
+          }, 1800000); // 30 分钟超时
+        });
+      } catch (error) {
+        console.error(`转码文件 ${file.name} 时出错:`, error);
+        const message = error instanceof Error ? error.message : "转码失败";
+
+        // 更新文件状态为错误
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === currentFileId
+              ? {
+                  ...f,
+                  status: "error" as TranscodingStatus,
+                  error: message,
+                }
+              : f
+          )
+        );
+
+        // 更新任务记录
+        if (taskId != null) {
+          updateTranscodeTask(taskId, {
+            status: "error" as TranscodeStatus,
+            errorMessage: message,
+          }).catch((e) => {
+            console.error("更新批量转码任务记录失败:", e);
           });
-        }, 200);
-      });
+        }
+
+        // 清理事件监听
+        unlistenProgress?.();
+        unlistenComplete?.();
+      }
     }
 
     setIsProcessing(false);
@@ -378,6 +548,22 @@ export default function BatchPage() {
                           />
                         </div>
                       )}
+
+                      {/* Output Path (Success Only) */}
+                      {videoFile.status === "success" &&
+                        videoFile.outputPath && (
+                          <div className="mt-2 flex items-start gap-2 text-xs">
+                            <FolderOpen className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-muted-foreground">
+                                输出路径：
+                              </span>
+                              <span className="font-mono text-foreground break-all">
+                                {videoFile.outputPath}
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
                       {/* Error Message */}
                       {videoFile.status === "error" && videoFile.error && (

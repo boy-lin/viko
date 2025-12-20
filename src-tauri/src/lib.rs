@@ -1,5 +1,8 @@
 // 声明模块 Cursor Write It
 pub mod commands;
+pub mod ffmpeg_ffi;
+pub mod ffmpeg_loader;
+pub mod ffmpeg_media_info;
 
 // Tauri 应用入口文件，注册所有后端命令 Cursor Write It
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -13,13 +16,9 @@ pub fn run() {
             crate::commands::get_media_info,
             crate::commands::ffmpeg_exec,
             crate::commands::run_self_check,
-            crate::commands::list_modules,
-            crate::commands::set_active_module,
-            crate::commands::delete_module,
-            crate::commands::download_custom_module,
         ])
         .setup(|_app| {
-            log::info!("Tauri 应用设置完成");
+            log::info!("Tauri application setup completed");
             Ok(())
         })
         .run(tauri::generate_context!())

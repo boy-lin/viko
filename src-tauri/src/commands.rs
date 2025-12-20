@@ -1,25 +1,24 @@
 // src-tauri/src/lib/commands.rs
-// Tauri 后端命令定义X
+// Tauri 后端命令定义 - 使用 ffmpeg-next
+//
+// 注意：ffmpeg-next 需要在编译时链接 FFmpeg 库
+// 如果需要在运行时使用动态加载的 FFmpeg，需要：
+// 1. 设置环境变量指向 FFmpeg 库路径
+// 2. 或者使用系统安装的 FFmpeg
+//
+// 模块下载功能保留，但实际使用需要系统 FFmpeg 支持
 
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::Read;
-use std::io::{Cursor, Write};
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::Mutex;
-use tauri::async_runtime::spawn_blocking;
+use std::io::Write;
+use std::path::Path;
 use tauri::command;
-use tauri::Emitter; // 允许 WebviewWindow 使用 emit 方法 Cursor Write It
-use tauri::Manager; // 允许使用 get_webview_window 方法 Cursor Write It // 导入日志模块 Cursor Write It
+use tauri::AppHandle;
+use tauri::Emitter;
+use tauri::Manager;
 
-lazy_static! {
-    static ref FFMPEG_PATH_CACHE: Mutex<Option<String>> = Mutex::new(None);
-    static ref FFPROBE_PATH_CACHE: Mutex<Option<String>> = Mutex::new(None);
-}
+use ffmpeg_next as ffmpeg;
 
 #[derive(Serialize)]
 pub struct FileInfo {
@@ -64,14 +63,8 @@ pub struct TranscodeArgs {
 
 #[derive(Serialize)]
 pub struct SelfCheckResult {
-    pub ffmpeg_installed: bool,
-    pub ffprobe_installed: bool,
-    pub ffmpeg_path: String,
-    pub ffmpeg_version: String,
-    pub ffprobe_path: String,
-    pub ffprobe_version: String,
     pub fs_permission: bool,
-    pub fs_error: String,
+    pub fs_error: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -83,161 +76,6 @@ pub struct ModuleInfo {
     pub version: Option<String>,
     pub source: Option<String>,
     pub is_active: bool,
-}
-
-#[derive(Serialize, Clone)]
-pub struct DownloadProgress {
-    pub stage: String,
-    pub downloaded: u64,
-    pub total: Option<u64>,
-}
-
-fn try_ffmpeg_from_system() -> (bool, Option<String>, Option<String>) {
-    if let Ok(output) = Command::new("ffmpeg").arg("-version").output() {
-        if output.status.success() {
-            let version_line = String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .next()
-                .map(|s| s.to_string());
-            let which_path = Command::new("which")
-                .arg("ffmpeg")
-                .output()
-                .ok()
-                .and_then(|out| {
-                    if out.status.success() {
-                        Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
-                    } else {
-                        None
-                    }
-                });
-            return (true, which_path, version_line);
-        }
-    }
-    (false, None, None)
-}
-
-fn try_ffmpeg_from_bundle() -> (bool, Option<String>, Option<String>) {
-    if let Ok(path) = get_ffmpeg_path() {
-        if Path::new(&path).exists() {
-            if let Ok(output) = Command::new(&path).arg("-version").output() {
-                if output.status.success() {
-                    let version_line = String::from_utf8_lossy(&output.stdout)
-                        .lines()
-                        .next()
-                        .map(|s| s.to_string());
-                    return (true, Some(path), version_line);
-                }
-            }
-        }
-    }
-    (false, None, None)
-}
-
-fn try_ffprobe_from_system() -> (bool, Option<String>, Option<String>) {
-    if let Ok(output) = Command::new("ffprobe").arg("-version").output() {
-        if output.status.success() {
-            let version_line = String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .next()
-                .map(|s| s.to_string());
-            let which_path = Command::new("which")
-                .arg("ffprobe")
-                .output()
-                .ok()
-                .and_then(|out| {
-                    if out.status.success() {
-                        Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
-                    } else {
-                        None
-                    }
-                });
-            return (true, which_path, version_line);
-        }
-    }
-    (false, None, None)
-}
-
-fn probe_version_from_path(path: &str) -> Option<String> {
-    if !Path::new(path).exists() {
-        return None;
-    }
-    Command::new(path)
-        .arg("-version")
-        .output()
-        .ok()
-        .and_then(|out| {
-            if out.status.success() {
-                String::from_utf8_lossy(&out.stdout)
-                    .lines()
-                    .next()
-                    .map(|s| s.to_string())
-            } else {
-                None
-            }
-        })
-}
-
-fn module_entry(
-    id: &str,
-    name: &str,
-    ffmpeg_path: &str,
-    ffprobe_path: &str,
-    version_hint: &str,
-    source: &str,
-) -> Option<ModuleInfo> {
-    if !(Path::new(ffmpeg_path).exists() && Path::new(ffprobe_path).exists()) {
-        return None;
-    }
-    let ffmpeg_version = probe_version_from_path(ffmpeg_path);
-    let ffprobe_version = probe_version_from_path(ffprobe_path);
-    if ffmpeg_version.is_none() || ffprobe_version.is_none() {
-        return None;
-    }
-    let version = if !version_hint.is_empty() {
-        Some(version_hint.to_string())
-    } else {
-        ffmpeg_version.clone().or(ffprobe_version.clone())
-    };
-    let is_active = load_active_module()
-        .map(|(v, _, _)| version.as_deref() == Some(v.as_str()))
-        .unwrap_or(false);
-    Some(ModuleInfo {
-        id: Some(id.to_string()),
-        name: Some(name.to_string()),
-        ffmpeg_path: Some(ffmpeg_path.to_string()),
-        ffprobe_path: Some(ffprobe_path.to_string()),
-        version,
-        source: Some(source.to_string()),
-        is_active,
-    })
-}
-
-fn set_cached_ffmpeg(path: Option<String>) {
-    if let Some(p) = path {
-        if let Ok(mut cache) = FFMPEG_PATH_CACHE.lock() {
-            *cache = Some(p);
-        }
-    }
-}
-
-fn set_cached_ffprobe(path: Option<String>) {
-    if let Some(p) = path {
-        if let Ok(mut cache) = FFPROBE_PATH_CACHE.lock() {
-            *cache = Some(p);
-        }
-    }
-}
-
-fn clear_cached_ffmpeg() {
-    if let Ok(mut cache) = FFMPEG_PATH_CACHE.lock() {
-        *cache = None;
-    }
-}
-
-fn clear_cached_ffprobe() {
-    if let Ok(mut cache) = FFPROBE_PATH_CACHE.lock() {
-        *cache = None;
-    }
 }
 
 fn check_fs_permission() -> (bool, Option<String>) {
@@ -270,555 +108,200 @@ fn check_fs_permission() -> (bool, Option<String>) {
     }
     (true, None)
 }
-// 获取缓存的 ffmpeg 路径
-fn get_ffmpeg_path() -> Result<String, String> {
-    if let Ok(cache) = FFMPEG_PATH_CACHE.lock() {
-        if let Some(path) = cache.clone() {
-            return Ok(path);
-        }
-    }
-    Err("未找到 ffmpeg 路径".to_string())
-}
-
-// 获取缓存的 ffprobe 路径
-fn get_ffprobe_path() -> Result<String, String> {
-    if let Ok(cache) = FFPROBE_PATH_CACHE.lock() {
-        if let Some(path) = cache.clone() {
-            return Ok(path);
-        }
-    }
-    Err("未找到 ffprobe 路径".to_string())
-}
-
-fn ffmpeg_output_paths() -> Result<(PathBuf, PathBuf), String> {
-    Err("未配置 ffmpeg 资源目录".to_string())
-}
-
-fn ensure_parent_dir(path: &Path) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("创建目录失败 {}: {}", parent.display(), e))?;
-    }
-    Ok(())
-}
-
-fn emit_download_progress_app(app: &AppHandle, stage: &str, downloaded: u64, total: Option<u64>) {
-    if let Some(win) = app.get_webview_window("main") {
-        let _ = win.emit(
-            "ffmpeg-download-progress",
-            DownloadProgress {
-                stage: stage.to_string(),
-                downloaded,
-                total,
-            },
-        );
-    }
-}
-
-fn download_file_with_progress_blocking(
-    app: &AppHandle,
-    url: &str,
-    stage: &str,
-) -> Result<Vec<u8>, String> {
-    let mut response =
-        reqwest::blocking::get(url).map_err(|e| format!("下载失败 ({})：{}", url, e))?;
-    let status = response.status();
-    if !status.is_success() {
-        return Err(format!("下载失败 ({})：HTTP {}", url, status));
-    }
-    let total = response.content_length();
-    let mut buf: Vec<u8> = Vec::new();
-    let mut downloaded = 0u64;
-    let mut chunk = [0u8; 16 * 1024];
-    loop {
-        let n = response
-            .read(&mut chunk)
-            .map_err(|e| format!("读取下载内容失败: {}", e))?;
-        if n == 0 {
-            break;
-        }
-        buf.extend_from_slice(&chunk[..n]);
-        downloaded += n as u64;
-        emit_download_progress_app(app, stage, downloaded, total);
-    }
-    emit_download_progress_app(app, stage, downloaded, total);
-    Ok(buf)
-}
-
-fn mark_executable(path: &Path) -> Result<(), String> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = fs::metadata(path)
-            .map_err(|e| format!("读取文件权限失败 {}: {}", path.display(), e))?
-            .permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(path, perms)
-            .map_err(|e| format!("设置执行权限失败 {}: {}", path.display(), e))?;
-    }
-    Ok(())
-}
-
-fn extract_from_zip(bytes: &[u8], target_suffixes: &[&str], dest: &Path) -> Result<(), String> {
-    let cursor = Cursor::new(bytes);
-    let mut archive = zip::ZipArchive::new(cursor).map_err(|e| format!("解析压缩包失败: {}", e))?;
-    for i in 0..archive.len() {
-        let mut file = archive
-            .by_index(i)
-            .map_err(|e| format!("读取压缩包条目失败: {}", e))?;
-        if file.is_dir() {
-            continue;
-        }
-        let name = file.name().to_string();
-        if target_suffixes.iter().any(|suffix| name.ends_with(suffix)) {
-            ensure_parent_dir(dest)?;
-            let mut out = fs::File::create(dest)
-                .map_err(|e| format!("创建文件失败 {}: {}", dest.display(), e))?;
-            std::io::copy(&mut file, &mut out)
-                .map_err(|e| format!("写入文件失败 {}: {}", dest.display(), e))?;
-            mark_executable(dest)?;
-            return Ok(());
-        }
-    }
-    Err("压缩包中未找到目标文件".to_string())
-}
-
-fn extract_from_tar_xz(bytes: &[u8], target_name: &str, dest: &Path) -> Result<(), String> {
-    let cursor = Cursor::new(bytes);
-    let decoder = xz2::read::XzDecoder::new(cursor);
-    let mut archive = tar::Archive::new(decoder);
-    let entries = archive
-        .entries()
-        .map_err(|e| format!("读取压缩包条目失败: {}", e))?;
-    for entry in entries {
-        let mut entry = entry.map_err(|e| format!("解析压缩包条目失败: {}", e))?;
-        let path = entry
-            .path()
-            .map_err(|e| format!("读取压缩包路径失败: {}", e))?;
-        if path.file_name().map(|f| f == target_name).unwrap_or(false) {
-            ensure_parent_dir(dest)?;
-            let mut out = fs::File::create(dest)
-                .map_err(|e| format!("创建文件失败 {}: {}", dest.display(), e))?;
-            std::io::copy(&mut entry, &mut out)
-                .map_err(|e| format!("写入文件失败 {}: {}", dest.display(), e))?;
-            mark_executable(dest)?;
-            return Ok(());
-        }
-    }
-    Err(format!("压缩包中未找到 {}", target_name))
-}
-
-fn resources_root() -> PathBuf {
-    // 使用应用数据目录，确保在生产环境中可写
-    // macOS: ~/Library/Application Support/audio_video_kit/resources
-    // Windows: %APPDATA%\audio_video_kit\resources
-    // Linux: ~/.local/share/audio_video_kit/resources
-    let base = dirs::data_local_dir()
-        .or_else(|| dirs::data_dir())
-        .unwrap_or_else(|| PathBuf::from("."));
-    base.join("audio_video_kit").join("resources")
-}
-
-fn platform_ffmpeg_name() -> &'static str {
-    #[cfg(target_os = "windows")]
-    {
-        "ffmpeg.exe"
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        "ffmpeg"
-    }
-}
-
-fn platform_ffprobe_name() -> &'static str {
-    #[cfg(target_os = "windows")]
-    {
-        "ffprobe.exe"
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        "ffprobe"
-    }
-}
-
-fn config_store_path() -> PathBuf {
-    let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-    base.join("audio_video_kit").join("ffmpeg_active.json")
-}
-
-fn load_active_module() -> Option<(String, String, String)> {
-    let path = config_store_path();
-    if !path.exists() {
-        return None;
-    }
-    let data = fs::read(&path).ok()?;
-    let value: serde_json::Value = serde_json::from_slice(&data).ok()?;
-    let version = value.get("version")?.as_str()?.to_string();
-    let ffmpeg_path = value.get("ffmpeg_path")?.as_str()?.to_string();
-    let ffprobe_path = value.get("ffprobe_path")?.as_str()?.to_string();
-    Some((version, ffmpeg_path, ffprobe_path))
-}
-
-fn save_active_module(version: &str, ffmpeg_path: &str, ffprobe_path: &str) -> Result<(), String> {
-    let path = config_store_path();
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {}", e))?;
-    }
-    let data = json!({
-        "version": version,
-        "ffmpeg_path": ffmpeg_path.to_string(),
-        "ffprobe_path": ffprobe_path.to_string(),
-    });
-    fs::write(&path, serde_json::to_vec(&data).unwrap())
-        .map_err(|e| format!("写入配置失败: {}", e))?;
-    Ok(())
-}
-
-fn dir_size(path: &Path) -> u64 {
-    if let Ok(meta) = fs::metadata(path) {
-        if meta.is_file() {
-            return meta.len();
-        }
-    }
-
-    let mut total = 0u64;
-    if let Ok(entries) = fs::read_dir(path) {
-        for entry in entries.flatten() {
-            let child = entry.path();
-            total = total.saturating_add(dir_size(&child));
-        }
-    }
-    total
-}
-
-use std::thread;
-use tauri::AppHandle;
 
 #[command]
 pub fn run_self_check() -> Result<SelfCheckResult, String> {
     let (fs_permission, fs_error) = check_fs_permission();
 
-    let mut ffmpeg_installed = false;
-    let mut ffprobe_installed = false;
-    let mut ffmpeg_path: Option<String> = None;
-    let mut ffprobe_path: Option<String> = None;
-    let mut ffmpeg_version: Option<String> = None;
-    let mut ffprobe_version: Option<String> = None;
-
-    if let Some((version, active_ffmpeg, active_ffprobe)) = load_active_module() {
-        let fv = probe_version_from_path(&active_ffmpeg);
-        let pv = probe_version_from_path(&active_ffprobe);
-        if fv.is_some() && pv.is_some() {
-            ffmpeg_installed = true;
-            ffprobe_installed = true;
-            ffmpeg_path = Some(active_ffmpeg.clone());
-            ffprobe_path = Some(active_ffprobe.clone());
-            ffmpeg_version = fv.or_else(|| Some(version.clone()));
-            ffprobe_version = pv.or_else(|| Some(version.clone()));
-            set_cached_ffmpeg(Some(active_ffmpeg));
-            set_cached_ffprobe(Some(active_ffprobe));
-        }
-    }
-
-    if !(ffmpeg_installed && ffprobe_installed) {
-        let (sys_ok, sys_path, sys_version) = try_ffmpeg_from_system();
-        let (probe_ok, probe_path, probe_version) = try_ffprobe_from_system();
-        ffmpeg_installed = sys_ok;
-        ffprobe_installed = probe_ok;
-        ffmpeg_path = sys_path;
-        ffprobe_path = probe_path;
-        ffmpeg_version = sys_version;
-        ffprobe_version = probe_version;
-        if ffmpeg_path.is_some() {
-            set_cached_ffmpeg(ffmpeg_path.clone());
-        }
-        if ffprobe_path.is_some() {
-            set_cached_ffprobe(ffprobe_path.clone());
-        }
-    }
-
     Ok(SelfCheckResult {
-        ffmpeg_installed,
-        ffprobe_installed,
-        ffmpeg_path: ffmpeg_path.unwrap_or_default(),
-        ffmpeg_version: ffmpeg_version.unwrap_or_default(),
-        ffprobe_path: ffprobe_path.unwrap_or_default(),
-        ffprobe_version: ffprobe_version.unwrap_or_default(),
         fs_permission,
-        fs_error: fs_error.unwrap_or_default(),
+        fs_error,
     })
 }
 
-fn list_modules_internal() -> Result<Vec<ModuleInfo>, String> {
-    let mut modules: Vec<ModuleInfo> = Vec::new();
-
-    // system
-    let (sys_ok, sys_ffmpeg, sys_ffmpeg_ver) = try_ffmpeg_from_system();
-    let (sys_probe_ok, sys_probe_path, _sys_probe_ver) = try_ffprobe_from_system();
-    if sys_ok && sys_probe_ok {
-        if let Some(entry) = module_entry(
-            "system",
-            "系统环境",
-            sys_ffmpeg.as_deref().unwrap_or("ffmpeg"),
-            sys_probe_path.as_deref().unwrap_or("ffprobe"),
-            sys_ffmpeg_ver.as_deref().unwrap_or(""),
-            "system",
-        ) {
-            modules.push(entry);
-        }
-    }
-
-    // enumerate resources/ffmpeg/* as modules (目录名视为版本/名称)
-    let ffmpeg_root = resources_root().join("ffmpeg");
-    if ffmpeg_root.exists() {
-        if let Ok(dir_entries) = fs::read_dir(&ffmpeg_root) {
-            for entry in dir_entries.flatten() {
-                let path = entry.path();
-                if !path.is_dir() {
-                    continue;
-                }
-                let name = entry.file_name().to_string_lossy().to_string();
-                let ffmpeg_path = path.join(platform_ffmpeg_name());
-                let ffprobe_path = path.join(platform_ffprobe_name());
-                if let Some(entry) = module_entry(
-                    &name,
-                    &format!("内置 · {}", name),
-                    ffmpeg_path.to_string_lossy().as_ref(),
-                    ffprobe_path.to_string_lossy().as_ref(),
-                    &name,
-                    "bundle",
-                ) {
-                    modules.push(entry);
-                }
-            }
-        }
-    }
-
-    Ok(modules)
-}
-
-#[command]
-pub fn list_modules() -> Result<Vec<ModuleInfo>, String> {
-    list_modules_internal()
-}
-
-#[command]
-pub fn set_active_module(version: String) -> Result<SelfCheckResult, String> {
-    if version.trim().is_empty() {
-        return Err("版本号不能为空".to_string());
-    }
-    let root = resources_root().join("ffmpeg");
-    let target = root.join(&version);
-    let ffmpeg_path = target.join(platform_ffmpeg_name());
-    let ffprobe_path = target.join(platform_ffprobe_name());
-
-    if !target.exists() || !ffmpeg_path.exists() || !ffprobe_path.exists() {
-        return Err("指定的版本不存在".to_string());
-    }
-    save_active_module(
-        &version,
-        &ffmpeg_path.to_string_lossy().as_ref().to_string(),
-        &ffprobe_path.to_string_lossy().as_ref().to_string(),
-    )?;
-
-    set_cached_ffmpeg(Some(ffmpeg_path.to_string_lossy().as_ref().to_string()));
-    set_cached_ffprobe(Some(ffprobe_path.to_string_lossy().as_ref().to_string()));
-
-    run_self_check()
-}
-
-#[command]
-pub fn delete_module(version: String) -> Result<(), String> {
-    if version.trim().is_empty() {
-        return Err("模块名称不能为空".to_string());
-    }
-    let target = resources_root().join("ffmpeg").join(&version);
-    if !target.exists() {
-        return Err("指定的版本不存在".to_string());
-    }
-
-    fs::remove_dir_all(&target).map_err(|e| format!("删除失败: {}", e))?;
-
-    clear_cached_ffmpeg();
-    clear_cached_ffprobe();
-    Ok(())
-}
-
-fn download_module_blocking(
-    app: AppHandle,
-    version: String,
-    ffmpeg_url: String,
-    ffprobe_url: String,
-) -> Result<Vec<ModuleInfo>, String> {
-    if version.trim().is_empty() {
-        return Err("版本号不能为空".to_string());
-    }
-    let resources_dir = resources_root();
-    // 确保 resources 目录存在
-    fs::create_dir_all(&resources_dir).map_err(|e| format!("创建资源目录失败: {}", e))?;
-
-    let target_dir = resources_dir.join("ffmpeg").join(&version);
-    fs::create_dir_all(&target_dir).map_err(|e| format!("创建模块目录失败: {}", e))?;
-
-    let ffmpeg_bytes = download_file_with_progress_blocking(&app, &ffmpeg_url, "ffmpeg")?;
-    let ffprobe_bytes = download_file_with_progress_blocking(&app, &ffprobe_url, "ffprobe")?;
-
-    let ffmpeg_dest = target_dir.join(platform_ffmpeg_name());
-    let ffprobe_dest = target_dir.join(platform_ffprobe_name());
-
-    // 猜测后缀进行解压；若失败则直接写文件
-    let ffmpeg_result = if ffmpeg_url.ends_with(".zip") {
-        extract_from_zip(&ffmpeg_bytes, &[platform_ffmpeg_name()], &ffmpeg_dest)
-    } else if ffmpeg_url.ends_with(".tar.xz") {
-        extract_from_tar_xz(&ffmpeg_bytes, platform_ffmpeg_name(), &ffmpeg_dest)
-    } else {
-        ensure_parent_dir(&ffmpeg_dest)?;
-        fs::write(&ffmpeg_dest, ffmpeg_bytes).map_err(|e| format!("写入 FFmpeg 失败: {}", e))?;
-        mark_executable(&ffmpeg_dest)
-    };
-
-    if let Err(e) = ffmpeg_result {
-        let _ = fs::remove_dir_all(&target_dir);
-        return Err(e);
-    }
-
-    let ffprobe_result = if ffprobe_url.ends_with(".zip") {
-        extract_from_zip(&ffprobe_bytes, &[platform_ffprobe_name()], &ffprobe_dest)
-    } else if ffprobe_url.ends_with(".tar.xz") {
-        extract_from_tar_xz(&ffprobe_bytes, platform_ffprobe_name(), &ffprobe_dest)
-    } else {
-        ensure_parent_dir(&ffprobe_dest)?;
-        fs::write(&ffprobe_dest, ffprobe_bytes).map_err(|e| format!("写入 FFprobe 失败: {}", e))?;
-        mark_executable(&ffprobe_dest)
-    };
-
-    if let Err(e) = ffprobe_result {
-        let _ = fs::remove_dir_all(&target_dir);
-        return Err(e);
-    }
-
-    list_modules_internal()
-}
-
-#[command]
-pub async fn download_custom_module(
-    app: AppHandle,
-    version: String,
-    ffmpeg_url: String,
-    ffprobe_url: String,
-) -> Result<Vec<ModuleInfo>, String> {
-    let task_app = app.clone();
-    spawn_blocking(move || download_module_blocking(task_app, version, ffmpeg_url, ffprobe_url))
-        .await
-        .map_err(|e| e.to_string())?
-}
+// 注意：使用 ffmpeg-next 8.0.0 后，不再需要下载和管理 FFmpeg 二进制文件
+// 所有 FFmpeg 功能都通过编译时链接的系统库提供
+// 以下函数保留简化版本，仅用于兼容前端代码
 
 #[command]
 pub fn get_media_info(path: String) -> Result<FileInfo, String> {
-    // 获取文件大小 Cursor Write It
+    // 初始化 FFmpeg
+    ffmpeg::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))?;
+
+    // 获取文件大小
     let size = fs::metadata(&path).map_err(|e| e.to_string())?.len();
 
-    // 获取嵌入的 ffprobe 路径 Cursor Write It
-    let ffprobe_path = get_ffprobe_path()?;
+    // 打开输入文件
+    let ictx = ffmpeg::format::input(&path).map_err(|e| format!("打开文件失败: {}", e))?;
 
-    // 使用嵌入的 ffprobe 获取完整的媒体信息（包括所有流和格式信息） Cursor Write It
-    let output = Command::new(&ffprobe_path)
-        .args([
-            "-v",
-            "error",
-            "-show_format",
-            "-show_streams",
-            "-of",
-            "json",
-            &path,
-        ])
-        .output()
-        .map_err(|e| format!("ffprobe 执行失败: {}, path: {}", e, path))?;
+    // 获取格式信息
+    let format_name = ictx.format().name().to_string();
+    // ffmpeg-next 8.0.0 中 long_name() 方法可能已移除
+    let format_long_name = Some(format_name.clone());
+    let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
+    // ffmpeg-next 8.0.0: bit_rate() 返回 i64 而不是 Option
+    let format_bitrate = {
+        let bitrate = ictx.bit_rate();
+        if bitrate > 0 {
+            Some(bitrate.to_string())
+        } else {
+            None
+        }
+    };
 
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .map_err(|e| format!("解析 ffprobe 输出失败: {}", e))?;
+    // 查找视频流和音频流
+    let mut video_stream_info: Option<(
+        u32,
+        u32,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<u64>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    )> = None;
+    let mut audio_stream_info: Option<(
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    )> = None;
 
-    // 查找视频流（第一个视频流） Cursor Write It
-    let video_stream = json["streams"].as_array().and_then(|streams| {
-        streams
-            .iter()
-            .find(|s| s["codec_type"].as_str() == Some("video"))
-    });
+    for (_stream_index, stream) in ictx.streams().enumerate() {
+        let codec_params = stream.parameters();
+        match codec_params.medium() {
+            ffmpeg::media::Type::Video => {
+                if video_stream_info.is_none() {
+                    // 先获取 codec 信息，因为 codec_params 会被移动
+                    let codec = codec_params.id().name().to_string();
+                    // ffmpeg-next 8.0.0 中 codec_params.id() 可能不提供 long_name
+                    // 使用 codec name 作为 fallback
+                    let codec_long_name = Some(codec.clone());
 
-    // 查找音频流（第一个音频流） Cursor Write It
-    let audio_stream = json["streams"].as_array().and_then(|streams| {
-        streams
-            .iter()
-            .find(|s| s["codec_type"].as_str() == Some("audio"))
-    });
+                    let decoder = ffmpeg::codec::context::Context::from_parameters(codec_params)
+                        .map_err(|e| format!("创建视频解码器失败: {}", e))?;
+                    let video = decoder
+                        .decoder()
+                        .video()
+                        .map_err(|e| format!("获取视频解码器失败: {}", e))?;
 
-    // 解析格式信息 Cursor Write It
-    let format_obj = &json["format"];
-    let format = format_obj["format_name"].as_str().unwrap_or("").to_string();
-    let format_long_name = format_obj["format_long_name"]
-        .as_str()
-        .map(|s| s.to_string());
-    let format_bitrate = format_obj["bit_rate"].as_str().map(|s| s.to_string());
-    let format_tags = format_obj["tags"]
-        .as_object()
-        .map(|_| format_obj["tags"].clone());
+                    let width = video.width() as u64;
+                    let height = video.height() as u64;
 
-    // 解析视频流信息 Cursor Write It
+                    // 计算帧率
+                    // ffmpeg-next 8.0.0 API 变化：Rational 使用 numerator() 和 denominator()
+                    let avg_frame_rate_rational = stream.avg_frame_rate();
+                    let fps = if avg_frame_rate_rational.numerator() > 0
+                        && avg_frame_rate_rational.denominator() > 0
+                    {
+                        let fps_value = avg_frame_rate_rational.numerator() as f64
+                            / avg_frame_rate_rational.denominator() as f64;
+                        Some(format!("{:.2}", fps_value))
+                    } else {
+                        None
+                    };
+
+                    let avg_frame_rate = if avg_frame_rate_rational.numerator() > 0 {
+                        Some(format!(
+                            "{}/{}",
+                            avg_frame_rate_rational.numerator(),
+                            avg_frame_rate_rational.denominator()
+                        ))
+                    } else {
+                        None
+                    };
+
+                    // ffmpeg-next 8.0.0: frames() 返回 i64 而不是 Option
+                    let nb_frames = {
+                        let frames = stream.frames();
+                        if frames > 0 {
+                            Some(frames as u64)
+                        } else {
+                            None
+                        }
+                    };
+
+                    // ffmpeg-next 8.0.0: format() 返回 Pixel 枚举，使用 Debug 格式化
+                    let pix_fmt = Some(format!("{:?}", video.format()));
+
+                    video_stream_info = Some((
+                        width as u32,
+                        height as u32,
+                        codec,
+                        codec_long_name,
+                        fps,
+                        avg_frame_rate,
+                        nb_frames,
+                        pix_fmt,
+                        None, // color_space
+                        None, // color_range
+                    ));
+                }
+            }
+            ffmpeg::media::Type::Audio => {
+                if audio_stream_info.is_none() {
+                    // 先获取 codec 信息，因为 codec_params 会被移动
+                    let codec = codec_params.id().name().to_string();
+                    let codec_long_name = codec.clone();
+
+                    let decoder = ffmpeg::codec::context::Context::from_parameters(codec_params)
+                        .map_err(|e| format!("创建音频解码器失败: {}", e))?;
+                    let audio = decoder
+                        .decoder()
+                        .audio()
+                        .map_err(|e| format!("获取音频解码器失败: {}", e))?;
+
+                    let channels = audio.channels() as u32;
+                    // ffmpeg-next 8.0.0 中 channel_layout 可能没有 description() 方法
+                    // 使用 channels 数量作为替代
+                    let channel_layout = format!("{} channels", channels);
+                    let sample_rate = audio.rate() as u32;
+                    let sample_fmt = audio.format().name().to_string();
+
+                    audio_stream_info = Some((
+                        Some(codec),
+                        Some(codec_long_name),
+                        Some(channels.to_string()),
+                        Some(channel_layout),
+                        Some(sample_rate.to_string()),
+                        None, // bitrate
+                        Some(sample_fmt),
+                    ));
+                }
+            }
+            _ => {}
+        }
+    }
+
     let (
         width,
         height,
         codec,
         codec_long_name,
-        duration,
-        bitrate,
         fps,
         avg_frame_rate,
         nb_frames,
         pix_fmt,
         color_space,
         color_range,
-    ) = if let Some(video) = video_stream {
-        (
-            video["width"].as_u64().unwrap_or(0),
-            video["height"].as_u64().unwrap_or(0),
-            video["codec_name"].as_str().unwrap_or("").to_string(),
-            video["codec_long_name"].as_str().map(|s| s.to_string()),
-            video["duration"]
-                .as_f64()
-                .or_else(|| format_obj["duration"].as_str().and_then(|s| s.parse().ok()))
-                .unwrap_or(0.0),
-            video["bit_rate"]
-                .as_str()
-                .map(|s| s.to_string())
-                .or_else(|| video["bit_rate"].as_u64().map(|b| b.to_string())),
-            video["r_frame_rate"].as_str().map(|s| s.to_string()),
-            video["avg_frame_rate"].as_str().map(|s| s.to_string()),
-            video["nb_frames"]
-                .as_str()
-                .and_then(|s| s.parse().ok())
-                .or_else(|| video["nb_frames"].as_u64()),
-            video["pix_fmt"].as_str().map(|s| s.to_string()),
-            video["color_space"].as_str().map(|s| s.to_string()),
-            video["color_range"].as_str().map(|s| s.to_string()),
-        )
-    } else {
-        (
-            0,
-            0,
-            String::new(),
-            None,
-            0.0,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
-    };
+    ) = video_stream_info.unwrap_or((
+        0,
+        0,
+        String::new(),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    ));
 
-    // 解析音频流信息 Cursor Write It
     let (
         audio_codec,
         audio_codec_long_name,
@@ -826,34 +309,8 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
         audio_channel_layout,
         audio_sample_rate,
         audio_bitrate,
-        audio_bits_per_sample,
         audio_sample_fmt,
-    ) = if let Some(audio) = audio_stream {
-        (
-            audio["codec_name"].as_str().map(|s| s.to_string()),
-            audio["codec_long_name"].as_str().map(|s| s.to_string()),
-            audio["channels"]
-                .as_u64()
-                .map(|c| c.to_string())
-                .or_else(|| audio["channels"].as_str().map(|s| s.to_string())),
-            audio["channel_layout"].as_str().map(|s| s.to_string()),
-            audio["sample_rate"]
-                .as_str()
-                .map(|s| s.to_string())
-                .or_else(|| audio["sample_rate"].as_u64().map(|r| r.to_string())),
-            audio["bit_rate"]
-                .as_str()
-                .map(|s| s.to_string())
-                .or_else(|| audio["bit_rate"].as_u64().map(|b| b.to_string())),
-            audio["bits_per_sample"]
-                .as_u64()
-                .map(|b| b.to_string())
-                .or_else(|| audio["bits_per_sample"].as_str().map(|s| s.to_string())),
-            audio["sample_fmt"].as_str().map(|s| s.to_string()),
-        )
-    } else {
-        (None, None, None, None, None, None, None, None)
-    };
+    ) = audio_stream_info.unwrap_or((None, None, None, None, None, None, None));
 
     let resolution = format!("{}x{}", width, height);
     let output_dir = Path::new(&path)
@@ -865,16 +322,16 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
     Ok(FileInfo {
         path,
         size,
-        format,
+        format: format_name,
         format_long_name,
         codec,
         codec_long_name,
         resolution,
-        width,
-        height,
+        width: width as u64,
+        height: height as u64,
         duration,
         output_dir,
-        bitrate,
+        bitrate: None, // 视频流码率需要从 stream 获取
         fps,
         avg_frame_rate,
         nb_frames,
@@ -887,52 +344,372 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
         audio_channel_layout,
         audio_sample_rate,
         audio_bitrate,
-        audio_bits_per_sample,
+        audio_bits_per_sample: None,
         audio_sample_fmt,
         format_bitrate,
-        format_tags,
+        format_tags: None, // ffmpeg-next 需要额外处理来获取 tags
     })
+}
+
+// 从输出文件路径推断格式
+fn detect_format_from_path(path: &str) -> Option<String> {
+    Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase())
+}
+
+// 根据格式获取推荐的视频编码器
+fn get_video_codec_for_format(format: &str, user_codec: Option<&str>) -> String {
+    // 如果用户指定了编码器，优先使用
+    if let Some(codec) = user_codec {
+        return codec.to_string();
+    }
+
+    // 根据格式推荐编码器
+    match format.to_lowercase().as_str() {
+        "mp4" | "m4v" => "libx264".to_string(),
+        "webm" => "libvpx-vp9".to_string(),
+        "avi" => "libx264".to_string(),
+        "mov" => "libx264".to_string(),
+        "mkv" => "libx264".to_string(),
+        "flv" => "libx264".to_string(),
+        "ts" | "mts" => "libx264".to_string(),
+        _ => "libx264".to_string(), // 默认使用 H.264
+    }
+}
+
+// 根据格式获取推荐的音频编码器
+fn get_audio_codec_for_format(format: &str) -> String {
+    match format.to_lowercase().as_str() {
+        "mp4" | "m4v" | "mov" => "aac".to_string(),
+        "webm" => "libopus".to_string(),
+        "avi" => "aac".to_string(),
+        "mkv" => "aac".to_string(),
+        "flv" => "aac".to_string(),
+        "ts" | "mts" => "aac".to_string(),
+        _ => "aac".to_string(), // 默认使用 AAC
+    }
+}
+
+// 解析 FFmpeg 参数数组
+fn parse_ffmpeg_args(
+    args: &[String],
+) -> Result<
+    (
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>, // 添加格式参数
+    ),
+    String,
+> {
+    let mut input_path = None;
+    let mut output_path = None;
+    let mut resolution = None;
+    let mut bitrate = None;
+    let mut codec = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "-i" => {
+                if i + 1 < args.len() {
+                    input_path = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    return Err("缺少输入文件路径".to_string());
+                }
+            }
+            "-s" => {
+                if i + 1 < args.len() {
+                    resolution = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    return Err("缺少分辨率参数".to_string());
+                }
+            }
+            "-b:v" => {
+                if i + 1 < args.len() {
+                    bitrate = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    return Err("缺少码率参数".to_string());
+                }
+            }
+            "-c:v" => {
+                if i + 1 < args.len() {
+                    codec = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    return Err("缺少编码器参数".to_string());
+                }
+            }
+            _ => {
+                // 可能是输出文件路径（最后一个参数）
+                if i == args.len() - 1 && output_path.is_none() {
+                    output_path = Some(args[i].clone());
+                }
+                i += 1;
+            }
+        }
+    }
+
+    let input = input_path.ok_or("未找到输入文件路径".to_string())?;
+    let output = output_path.ok_or("未找到输出文件路径".to_string())?;
+
+    // 从输出路径推断格式
+    let format = detect_format_from_path(&output);
+
+    Ok((input, output, resolution, bitrate, codec, format))
 }
 
 #[command]
 pub fn ffmpeg_exec(app: AppHandle, ffmpeg_args: Vec<String>) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
-    // 获取嵌入的 ffmpeg 路径 Cursor Write It
-    let ffmpeg_path = get_ffmpeg_path()?;
-    // 新线程执行转码，推送进度 Cursor Write It
+
+    // 初始化 FFmpeg
+    ffmpeg::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))?;
+
+    // 解析参数
+    let (input_path, output_path, resolution, bitrate, codec, format) =
+        parse_ffmpeg_args(&ffmpeg_args)?;
+
+    // 在新线程中执行转码
     let window = window.clone();
-    thread::spawn(move || {
-        let mut child = Command::new(&ffmpeg_path)
-            .args(ffmpeg_args)
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .expect("无法启动 ffmpeg");
+    std::thread::spawn(move || {
+        if let Err(e) = transcode_video(
+            &window,
+            &input_path,
+            &output_path,
+            resolution.as_deref(),
+            bitrate.as_deref(),
+            codec.as_deref(),
+            format.as_deref(),
+        ) {
+            let _ = window.emit("ffmpeg-complete", format!("error: {}", e));
+        } else {
+            let _ = window.emit("ffmpeg-complete", "ok");
+        }
+    });
 
-        let stderr = child.stderr.take().unwrap();
-        use std::io::{BufRead, BufReader};
-        let reader = BufReader::new(stderr);
+    Ok(())
+}
 
-        // 简单解析 ffmpeg 输出中的进度信息 Cursor Write It
+// 使用 FFmpeg 命令行工具进行视频转码（通过 FFI 调用系统 FFmpeg）
+// 注意：这里使用命令行 FFmpeg，它内部使用 FFI 调用 FFmpeg 库
+fn transcode_video(
+    window: &tauri::WebviewWindow,
+    input_path: &str,
+    output_path: &str,
+    resolution: Option<&str>,
+    bitrate: Option<&str>,
+    codec: Option<&str>,
+    format: Option<&str>,
+) -> Result<(), String> {
+    use std::io::{BufRead, BufReader};
+    use std::process::{Command, Stdio};
+
+    // 首先获取输入文件的时长（用于计算进度）
+    let duration = get_video_duration(input_path)?;
+
+    // 确定输出格式（从路径推断或使用默认值）
+    let output_format = format.unwrap_or("mp4");
+
+    // 根据格式选择合适的编码器
+    let video_codec = get_video_codec_for_format(output_format, codec);
+    let audio_codec = get_audio_codec_for_format(output_format);
+
+    // 记录转码参数（用于调试）
+    let debug_info = format!(
+        "转码参数: 输入={}, 输出={}, 格式={}, 视频编码器={}, 音频编码器={}, 分辨率={:?}, 码率={:?}",
+        input_path, output_path, output_format, video_codec, audio_codec, resolution, bitrate
+    );
+    log::info!("{}", debug_info);
+    // 发送调试信息到前端
+    let _ = window.emit("ffmpeg-progress", format!("调试: {}", debug_info));
+
+    // 构建 FFmpeg 命令
+    let mut cmd = Command::new("ffmpeg");
+    cmd.arg("-i").arg(input_path);
+    cmd.arg("-y"); // 覆盖输出文件
+    cmd.arg("-progress").arg("pipe:1"); // 将进度输出到 stdout
+    cmd.arg("-loglevel").arg("info"); // 使用 info 级别以便调试
+
+    // 明确指定输出格式
+    cmd.arg("-f").arg(output_format);
+
+    // 设置视频编码器
+    cmd.arg("-c:v").arg(&video_codec);
+
+    // 为 H.264 编码器添加兼容性参数
+    if video_codec == "libx264" {
+        cmd.arg("-preset").arg("medium"); // 编码速度与质量平衡
+        cmd.arg("-profile:v").arg("high"); // 使用 high profile 提高兼容性
+        cmd.arg("-level").arg("4.0"); // 设置 level 提高兼容性
+        cmd.arg("-pix_fmt").arg("yuv420p"); // 使用 yuv420p 像素格式（最兼容）
+    }
+
+    // 为 VP9 编码器添加参数
+    if video_codec == "libvpx-vp9" {
+        cmd.arg("-b:v").arg(bitrate.unwrap_or("0")); // VP9 需要码率
+        cmd.arg("-crf").arg("30"); // 质量参数
+    }
+
+    // 设置分辨率
+    if let Some(res) = resolution {
+        cmd.arg("-s").arg(res);
+    }
+
+    // 设置码率（如果未在编码器参数中设置）
+    if video_codec != "libvpx-vp9" {
+        if let Some(bitrate_str) = bitrate {
+            cmd.arg("-b:v").arg(bitrate_str);
+        }
+    }
+
+    // 设置音频编码器
+    cmd.arg("-c:a").arg(&audio_codec);
+
+    // 为音频编码器添加参数
+    if audio_codec == "aac" {
+        cmd.arg("-b:a").arg("128k"); // AAC 码率
+        cmd.arg("-ar").arg("44100"); // 采样率
+    } else if audio_codec == "libopus" {
+        cmd.arg("-b:a").arg("128k"); // Opus 码率
+    }
+
+    // 输出文件
+    cmd.arg(output_path);
+
+    // 启动进程并捕获输出
+    let mut child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("启动 FFmpeg 进程失败: {}", e))?;
+
+    // 读取进度输出
+    let mut last_progress = 0.0;
+    if let Some(stdout) = child.stdout.take() {
+        let reader = BufReader::new(stdout);
         for line in reader.lines() {
-            if let Ok(l) = line {
-                println!("ffmpeg stderr: {}", l); // 打印所有输出 Cursor Write It
-                if l.contains("time=") {
-                    // 解析当前时间戳，推送到前端
-                    let time_str = l
-                        .split("time=")
-                        .nth(1)
-                        .and_then(|s| s.split_whitespace().next());
-                    if let Some(time) = time_str {
-                        let _ = window.emit("ffmpeg-progress", time);
+            if let Ok(line) = line {
+                // 解析进度信息
+                // FFmpeg 进度格式: out_time_ms=12345678
+                if line.starts_with("out_time_ms=") {
+                    if let Some(time_str) = line.strip_prefix("out_time_ms=") {
+                        if let Ok(time_ms) = time_str.parse::<u64>() {
+                            // 计算进度百分比
+                            if duration > 0.0 {
+                                let time_sec = time_ms as f64 / 1000.0;
+                                let progress = (time_sec / duration * 100.0).min(100.0);
+
+                                // 只在进度变化超过 1% 时发送更新
+                                if (progress - last_progress).abs() >= 1.0 {
+                                    last_progress = progress;
+                                    let _ =
+                                        window.emit("ffmpeg-progress", format!("{:.1}%", progress));
+                                }
+                            }
+                        }
+                    }
+                } else if line.starts_with("progress=") {
+                    // progress=end 表示完成
+                    if line.contains("end") {
+                        let _ = window.emit("ffmpeg-progress", "100.0%");
+                        break;
                     }
                 }
             }
         }
+    }
 
-        let status = child.wait().expect("等待 ffmpeg 进程失败");
-        println!("ffmpeg exit status: {:?}", status); // 打印退出码 Cursor Write It
-        let _ = window.emit("ffmpeg-complete", "ok");
-    });
+    // 等待进程完成
+    let status = child
+        .wait()
+        .map_err(|e| format!("等待 FFmpeg 进程失败: {}", e))?;
 
+    if !status.success() {
+        // 读取错误信息
+        if let Some(mut stderr) = child.stderr {
+            use std::io::Read;
+            let mut error_msg = String::new();
+            let _ = stderr.read_to_string(&mut error_msg);
+
+            // 记录详细错误信息
+            log::error!("FFmpeg 转码失败: {}", error_msg);
+
+            // 提取关键错误信息
+            let error_summary = if error_msg.contains("Invalid data found") {
+                "无效的数据格式，可能是编码器与容器格式不兼容"
+            } else if error_msg.contains("codec") {
+                "编码器错误，请检查编码器是否支持该格式"
+            } else if error_msg.contains("format") {
+                "格式错误，请检查输出格式是否正确"
+            } else {
+                "转码失败"
+            };
+
+            return Err(format!("{}: {}", error_summary, error_msg));
+        }
+        return Err("FFmpeg 转码失败（无法读取错误信息）".to_string());
+    }
+
+    // 验证输出文件是否存在
+    if !Path::new(output_path).exists() {
+        return Err(format!("转码完成但输出文件不存在: {}", output_path));
+    }
+
+    log::info!("转码成功完成: {}", output_path);
     Ok(())
+}
+
+// 获取视频文件的时长（秒）
+fn get_video_duration(input_path: &str) -> Result<f64, String> {
+    // 初始化 FFmpeg
+    ffmpeg::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))?;
+
+    // 打开输入文件
+    let ictx = ffmpeg::format::input(input_path).map_err(|e| format!("打开文件失败: {}", e))?;
+
+    // 获取时长
+    let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
+    Ok(duration)
+}
+
+// 解析分辨率字符串 "1920x1080" -> (1920, 1080)
+fn parse_resolution(res: &str) -> Option<(u32, u32)> {
+    let parts: Vec<&str> = res.split('x').collect();
+    if parts.len() == 2 {
+        if let (Ok(w), Ok(h)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
+            return Some((w, h));
+        }
+    }
+    None
+}
+
+// 解析码率字符串 "2000k" -> 2000000
+fn parse_bitrate(bitrate: &str) -> Result<i64, String> {
+    let bitrate = bitrate.trim().to_lowercase();
+    let multiplier = if bitrate.ends_with('k') {
+        1000
+    } else if bitrate.ends_with('m') {
+        1000000
+    } else {
+        1
+    };
+
+    let num_str = if bitrate.ends_with('k') || bitrate.ends_with('m') {
+        &bitrate[..bitrate.len() - 1]
+    } else {
+        &bitrate
+    };
+
+    num_str
+        .parse::<i64>()
+        .map(|n| n * multiplier)
+        .map_err(|_| format!("无效的码率格式: {}", bitrate))
 }

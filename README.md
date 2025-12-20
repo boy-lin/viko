@@ -35,6 +35,36 @@ brew install pnpm@10.11.1
 pnpm --version  # 应该显示 10.11.1
 ```
 
+### FFmpeg 开发库
+
+项目使用 `ffmpeg-next` crate，需要在编译时链接 FFmpeg 开发库。
+
+#### 自动检测和安装（推荐）
+
+我们提供了自动检测和安装脚本：
+
+**macOS / Linux:**
+```bash
+pnpm check:deps
+# 或直接运行
+./scripts/check-ffmpeg-deps.sh
+```
+
+**Windows:**
+```powershell
+pnpm check:deps:win
+# 或直接运行
+powershell -ExecutionPolicy Bypass -File scripts/check-ffmpeg-deps.ps1
+```
+
+脚本会自动检测并安装以下依赖：
+- `pkg-config`: 用于查找和配置库的工具
+- FFmpeg 开发库: libavutil, libavcodec, libavformat, libavfilter, libswscale
+
+#### 手动安装
+
+如果自动安装失败，请参考 [scripts/README.md](scripts/README.md) 中的手动安装说明。
+
 ### Rust 工具链
 
 项目需要 Rust 稳定版，并通过 rustup 安装相应的编译目标。

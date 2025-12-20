@@ -8,7 +8,6 @@ import {
   ShieldOff,
   Sparkles,
 } from "lucide-react";
-import ModuleManagerList from "./moduleManager/List";
 import { Button } from "@/components/ui/button";
 
 type SelfCheckResult = {
@@ -72,42 +71,6 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
 
   const steps = useMemo(
     () => [
-      {
-        title: "FFmpeg / FFprobe 环境",
-        ok: result?.ffmpeg_installed && result?.ffprobe_installed,
-        description:
-          result?.ffmpeg_installed && result?.ffprobe_installed
-            ? `已检测到 FFmpeg${
-                result?.ffmpeg_version ? ` · ${result?.ffmpeg_version}` : ""
-              }${
-                result?.ffmpeg_path ? ` · ${result?.ffmpeg_path}` : ""
-              } ｜ FFprobe${
-                result?.ffprobe_version ? ` · ${result?.ffprobe_version}` : ""
-              }${result?.ffprobe_path ? ` · ${result?.ffprobe_path}` : ""}`
-            : installing
-            ? `正在下载安装 ${progress?.stage || "下载中"}${
-                progress?.total
-                  ? ` · ${Math.min(
-                      100,
-                      Math.round(
-                        ((progress?.downloaded || 0) * 100) /
-                          (progress?.total || 1)
-                      )
-                    )}%`
-                  : ""
-              }`
-            : `缺少组件：${
-                !result?.ffmpeg_installed && !result?.ffprobe_installed
-                  ? "FFmpeg, FFprobe"
-                  : !result?.ffmpeg_installed
-                  ? "FFmpeg"
-                  : "FFprobe"
-              }，点击下载安装后刷新自检`,
-        component:
-          !result?.ffmpeg_installed || !result?.ffprobe_installed ? (
-            <ModuleManagerList />
-          ) : undefined,
-      },
       {
         title: "文件读写权限",
         ok: result?.fs_permission,
@@ -192,7 +155,6 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
                 <p className="mt-2 text-sm text-white/70 leading-relaxed">
                   {loading ? "检测中..." : step.description}
                 </p>
-                {step.component && step.component}
                 {step.action && (
                   <Button
                     variant="outline"

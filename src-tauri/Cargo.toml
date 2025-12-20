@@ -36,6 +36,11 @@ reqwest = { version = "0.11", default-features = false, features = [
 zip = "0.6"
 tar = "0.4"
 xz2 = "0.1"
+# 使用 libloading 进行动态加载，而不是编译时链接
+libloading = "0.8"
+# 使用 ffmpeg-next 作为主要 FFmpeg 接口
+# 升级到 8.0.0 以支持 FFmpeg 8.x
+ffmpeg-next = { version = "8.0.0", features = ["codec", "format", "filter", "software-scaling", "software-resampling"] }
 
 [target."cfg(target_os = \"macos\")".dependencies]
 cocoa = "0.26"

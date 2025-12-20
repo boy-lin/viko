@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { open } from "@tauri-apps/plugin-dialog";
 
 interface CommonSelectProps {
   value: string;
@@ -132,7 +133,6 @@ interface TranscodeConfigFormProps {
   showOutputName?: boolean;
   outputDir: string;
   onOutputDirChange: (value: string) => void;
-  onSelectOutputDir?: () => void;
   disabled?: boolean;
   bodyClassNames?: string;
 }
@@ -155,10 +155,23 @@ export function TranscodeConfigForm({
   showOutputName = true,
   outputDir,
   onOutputDirChange,
-  onSelectOutputDir,
   disabled,
   bodyClassNames,
 }: TranscodeConfigFormProps) {
+  const handleSelectOutputDir = async () => {
+    try {
+      const selectedDir = await open({
+        multiple: false,
+        directory: true,
+      });
+      if (selectedDir) {
+        onOutputDirChange?.(selectedDir);
+      }
+    } catch (e: any) {
+      console.error("选择文件夹失败:", e);
+    }
+  };
+
   return (
     <Card className="bg-card/50 backdrop-blur p-6">
       <h3 className="mb-4 flex justify-between">
@@ -225,8 +238,8 @@ export function TranscodeConfigForm({
               variant="outline"
               size="icon"
               type="button"
-              onClick={onSelectOutputDir}
-              disabled={disabled || !onSelectOutputDir}
+              onClick={handleSelectOutputDir}
+              disabled={disabled || !handleSelectOutputDir}
             >
               <FolderOpen className="w-4 h-4" />
             </Button>

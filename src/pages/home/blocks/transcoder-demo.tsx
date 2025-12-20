@@ -140,13 +140,13 @@ export function TranscoderDemo() {
         multiple: false,
         directory: false,
       });
-
       if (!file) {
         return;
       }
-
+      console.log(`get_media_info:: ${file}`);
       // 获取文件详细信息
       const info = await invoke<FileInfo>("get_media_info", { path: file });
+      console.log(`info:: ${JSON.stringify(info)}`);
       setFileInfo(info);
       setStatus("idle");
       setProgress(0);
@@ -154,22 +154,6 @@ export function TranscoderDemo() {
       setError("");
     } catch (e: any) {
       setError(e?.message || "文件选择失败");
-    }
-  };
-
-  const handleSelectOutputDir = async () => {
-    try {
-      const selectedDir = await open({
-        multiple: false,
-        directory: true,
-      });
-
-      if (selectedDir) {
-        setOutputDir(selectedDir);
-      }
-    } catch (e: any) {
-      console.error("选择文件夹失败:", e);
-      setError(e?.message || "选择文件夹失败");
     }
   };
 
@@ -455,7 +439,6 @@ export function TranscoderDemo() {
                 showOutputName
                 outputDir={outputDir}
                 onOutputDirChange={setOutputDir}
-                onSelectOutputDir={handleSelectOutputDir}
               />
             </div>
           )}
