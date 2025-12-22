@@ -61,7 +61,11 @@ export function Navbar() {
     },
     {
       title: "关于",
-      items: [{ name: "模块管理", href: "/modules", disabled: false }],
+      items: [
+        { name: "模块管理", href: "/modules", disabled: false },
+        { name: "测试", href: "/old" },
+        { name: "音频测试", href: "/audio-test" },
+      ],
     },
   ];
 

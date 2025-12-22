@@ -12,6 +12,9 @@ export type BridgeEvents = {
   "ffmpeg-complete": string;
   "ffmpeg-download-progress": DownloadProgress;
   "ffmpeg-exec": string;
+  "video-frame": { width: number; height: number; data: number[] | Uint8Array };
+  "video-complete": string;
+  "video-error": string;
 };
 
 type KnownEvent = keyof BridgeEvents;

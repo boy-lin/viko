@@ -36,10 +36,10 @@ const HomePage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            to="/modules"
+            to="/"
             className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm hover:bg-white/10 transition"
           >
-            模块管理
+            back
           </Link>
         </div>
       </div>

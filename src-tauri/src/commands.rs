@@ -13,12 +13,17 @@ use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
+use std::sync::Mutex;
 use tauri::command;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
+use tauri::State;
 
 use ffmpeg_next as ffmpeg;
+
+use crate::audio_player::AudioPlayer;
+use crate::video_player::VideoPlayer;
 
 #[derive(Serialize)]
 pub struct FileInfo {
@@ -712,4 +717,225 @@ fn parse_bitrate(bitrate: &str) -> Result<i64, String> {
         .parse::<i64>()
         .map(|n| n * multiplier)
         .map_err(|_| format!("无效的码率格式: {}", bitrate))
+}
+
+// 视频播放器相关命令
+
+// 全局播放器实例（使用 Mutex 保护）
+pub type PlayerState = Mutex<Option<VideoPlayer>>;
+pub type AudioPlayerState = Mutex<Option<AudioPlayer>>;
+
+#[command]
+pub fn video_player_open(
+    app: AppHandle,
+    path: String,
+    player_state: State<'_, PlayerState>,
+) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
+
+    // 关闭之前的播放器（如果存在）
+    if let Ok(mut player) = player_state.lock() {
+        if let Some(mut p) = player.take() {
+            p.stop();
+        }
+    }
+
+    // 创建新的播放器
+    let player = VideoPlayer::new(&path, window).map_err(|e| format!("打开视频文件失败: {}", e))?;
+
+    // 保存播放器实例
+    *player_state.lock().unwrap() = Some(player);
+
+    Ok(())
+}
+
+#[command]
+pub fn video_player_play(player_state: State<'_, PlayerState>) -> Result<(), String> {
+    let player = player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        p.resume();
+        Ok(())
+    } else {
+        Err("播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn video_player_pause(player_state: State<'_, PlayerState>) -> Result<(), String> {
+    let player = player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        p.pause();
+        Ok(())
+    } else {
+        Err("播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn video_player_seek(
+    position: f64,
+    player_state: State<'_, PlayerState>,
+) -> Result<(), String> {
+    let mut player = player_state.lock().unwrap();
+    if let Some(ref mut p) = *player {
+        p.seek(position)
+    } else {
+        Err("播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn video_player_get_position(player_state: State<'_, PlayerState>) -> Result<f64, String> {
+    let player = player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        Ok(p.get_current_position())
+    } else {
+        Err("播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn video_player_get_duration(player_state: State<'_, PlayerState>) -> Result<f64, String> {
+    let player = player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        Ok(p.get_duration())
+    } else {
+        Err("播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn video_player_close(player_state: State<'_, PlayerState>) -> Result<(), String> {
+    let mut player = player_state.lock().unwrap();
+    if let Some(mut p) = player.take() {
+        p.stop();
+        Ok(())
+    } else {
+        Err("播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn video_player_set_volume(
+    volume: f32,
+    player_state: State<'_, PlayerState>,
+) -> Result<(), String> {
+    let player = player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        log::info!("设置音量: {}", volume);
+        p.set_volume(volume);
+        Ok(())
+    } else {
+        Err("播放器未初始化".to_string())
+    }
+}
+
+// 音频播放器相关命令（用于独立测试）
+
+#[command]
+pub fn audio_player_open(
+    path: String,
+    audio_player_state: State<'_, AudioPlayerState>,
+) -> Result<(), String> {
+    // 关闭之前的播放器（如果存在）
+    if let Ok(mut player) = audio_player_state.lock() {
+        if let Some(p) = player.take() {
+            let _ = p.command(crate::video_player::PlayerCommand::Stop);
+        }
+    }
+
+    // 创建新的音频播放器
+    let player = AudioPlayer::new(path).map_err(|e| format!("打开音频文件失败: {}", e))?;
+
+    // 保存播放器实例
+    *audio_player_state.lock().unwrap() = Some(player);
+
+    Ok(())
+}
+
+#[command]
+pub fn audio_player_play(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
+    let player = audio_player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        p.command(crate::video_player::PlayerCommand::Play)
+            .map_err(|e| format!("播放失败: {}", e))
+    } else {
+        Err("音频播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn audio_player_pause(
+    audio_player_state: State<'_, AudioPlayerState>,
+) -> Result<(), String> {
+    let player = audio_player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        p.command(crate::video_player::PlayerCommand::Pause)
+            .map_err(|e| format!("暂停失败: {}", e))
+    } else {
+        Err("音频播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn audio_player_seek(
+    position: f64,
+    audio_player_state: State<'_, AudioPlayerState>,
+) -> Result<(), String> {
+    let player = audio_player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        p.command(crate::video_player::PlayerCommand::Seek(position))
+            .map_err(|e| format!("跳转失败: {}", e))
+    } else {
+        Err("音频播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn audio_player_stop(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
+    let mut player = audio_player_state.lock().unwrap();
+    if let Some(p) = player.take() {
+        let _ = p.command(crate::video_player::PlayerCommand::Stop);
+        Ok(())
+    } else {
+        Err("音频播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn audio_player_set_volume(
+    volume: f32,
+    audio_player_state: State<'_, AudioPlayerState>,
+) -> Result<(), String> {
+    let player = audio_player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        p.set_volume(volume);
+        Ok(())
+    } else {
+        Err("音频播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn audio_player_get_position(
+    audio_player_state: State<'_, AudioPlayerState>,
+) -> Result<f64, String> {
+    let player = audio_player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        Ok(p.get_current_position())
+    } else {
+        Err("音频播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub fn audio_player_get_duration(
+    audio_player_state: State<'_, AudioPlayerState>,
+) -> Result<f64, String> {
+    let player = audio_player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        Ok(p.get_duration())
+    } else {
+        Err("音频播放器未初始化".to_string())
+    }
 }

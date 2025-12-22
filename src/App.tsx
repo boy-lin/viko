@@ -2,8 +2,10 @@ import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import HomePage from "./pages/home/v2";
+import HomePageOld from "./pages/home/HomePage";
 import TaskListPage from "./pages/tasks/TaskListPage";
 import BatchPage from "./pages/batch/BatchPage";
+import AudioTestPage from "./pages/audio-test/AudioTestPage";
 
 const App: React.FC = () => {
   return (
@@ -13,7 +15,9 @@ const App: React.FC = () => {
           <Route index element={<HomePage />} />
           <Route path="tasks" element={<TaskListPage />} />
           <Route path="batch" element={<BatchPage />} />
+          <Route path="audio-test" element={<AudioTestPage />} />
         </Route>
+        <Route path="/old" element={<HomePageOld />} />
       </Routes>
     </BrowserRouter>
   );
