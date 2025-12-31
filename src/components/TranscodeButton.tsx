@@ -1,23 +1,28 @@
-// 转码按钮组件，负责调用后端转码并显示进度 Cursor Write It
-
-import React, { useState, useEffect } from "react";
+﻿import React, { useEffect, useState } from "react";
+import { Loader2, Play } from "lucide-react";
 import { bridge } from "@/lib/bridge";
 import { generateFFmpegArgs } from "@/lib/ffmpeg";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import type { MediaFileInfo, TranscodeConfig } from "@/types/media";
 
 interface Props {
-  fileInfo: any;
-  config: any;
-  onProgress?: Function;
+  fileInfo: MediaFileInfo;
+  config: TranscodeConfig;
+  onProgress?: (value: string) => void;
   onComplete: (isOk: boolean) => void;
 }
 
-const TranscodeButton: React.FC<Props> = ({ fileInfo, config, onComplete }) => {
+const TranscodeButton: React.FC<Props> = ({
+  fileInfo,
+  config,
+  onProgress,
+  onComplete,
+}) => {
   const [isTranscoding, setIsTranscoding] = useState(false);
   const [error, setError] = useState<string>("");
   const [progress, setProgress] = useState<string>("");
 
-  // 监听转码进度事件 Cursor Write It
   useEffect(() => {
     let unlistenProgress: (() => void) | undefined;
     let unlistenComplete: (() => void) | undefined;
@@ -25,7 +30,7 @@ const TranscodeButton: React.FC<Props> = ({ fileInfo, config, onComplete }) => {
     bridge
       .on("ffmpeg-progress", (payload) => {
         setProgress(payload);
-        console.log("转码进度:", payload);
+        onProgress?.(payload);
       })
       .then((off) => {
         unlistenProgress = off;
@@ -34,6 +39,7 @@ const TranscodeButton: React.FC<Props> = ({ fileInfo, config, onComplete }) => {
     bridge
       .on("ffmpeg-complete", () => {
         setIsTranscoding(false);
+        setProgress("100%");
         onComplete(true);
       })
       .then((off) => {
@@ -44,30 +50,27 @@ const TranscodeButton: React.FC<Props> = ({ fileInfo, config, onComplete }) => {
       unlistenProgress?.();
       unlistenComplete?.();
     };
-  }, [onComplete]);
+  }, [onComplete, onProgress]);
 
-  // 启动转码 Cursor Write It
   const handleTranscode = async () => {
     setIsTranscoding(true);
     setError("");
-    setProgress("");
+    setProgress("0%");
     onComplete(false);
+
     try {
-      // 检查配置是否完整 Cursor Write It
       if (!config.outputName || !config.format) {
-        throw new Error("请先配置输出文件名和格式");
+        throw new Error("请填写输出文件名和格式");
       }
 
-      // 检查文件路径是否有效 Cursor Write It
-      if (!fileInfo.path || fileInfo.path === fileInfo.file?.name) {
+      if (!config.outputDir) {
+        throw new Error("请指定输出目录");
+      }
+
+      if (!fileInfo?.path || fileInfo.path === (fileInfo as any).file?.name) {
         throw new Error("请选择有效的视频文件");
       }
 
-      // 尝试调用 Tauri invoke 进行真实转码 Cursor Write It
-
-      console.log("开始真实转码..."); // 调试信息 Cursor Write It
-      console.log("输入文件:", fileInfo.path); // 调试信息 Cursor Write It
-      // 生成 ffmpeg 命令 Cursor Write It
       const ffmpegArgs = generateFFmpegArgs({
         input: fileInfo.path,
         output: `${config.outputDir}/${config.outputName}`,
@@ -75,40 +78,51 @@ const TranscodeButton: React.FC<Props> = ({ fileInfo, config, onComplete }) => {
         quality: config.quality,
         format: config.format,
       });
+
       await bridge.invoke("ffmpeg_exec", { ffmpegArgs });
-      console.log("转码命令已发送"); // 调试信息 Cursor Write It
-      // 注意：实际的转码完成会通过事件监听器处理
-    } catch (error) {
-      console.error("转码时出错:", error);
-      setError(error instanceof Error ? error.message : "转码失败");
+    } catch (err: any) {
+      const msg = err?.message || "转码失败";
+      console.error(msg);
+      setError(msg);
       setIsTranscoding(false);
     }
   };
 
+  const numericProgress = Number(String(progress).replace("%", ""));
+  const progressValue = Number.isFinite(numericProgress) ? numericProgress : 0;
+
   return (
-    <div className="mb-4">
+    <div className="space-y-3">
       <Button
         variant="default"
         onClick={handleTranscode}
         disabled={isTranscoding}
+        className="w-full md:w-auto"
       >
-        {isTranscoding ? "转码中..." : "开始转码"}
+        {isTranscoding ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            转码中...
+          </>
+        ) : (
+          <>
+            <Play className="h-4 w-4" />
+            开始转码
+          </>
+        )}
       </Button>
 
-      {error && <div className="mt-2 text-red-600 text-sm">错误：{error}</div>}
+      {error && <div className="text-sm text-destructive">错误：{error}</div>}
 
-      {isTranscoding && (
-        <div className="mt-2">
-          <div className="text-sm text-gray-600 mb-1">正在转码，请稍候...</div>
-          {progress && (
-            <div className="w-full bg-gray-200 rounded h-2">
-              <div
-                className="bg-green-500 h-2 rounded transition-all duration-300"
-                style={{ width: progress.includes("%") ? progress : "50%" }}
-              />
-            </div>
-          )}
-          <div className="text-xs text-gray-500 mt-1">{progress}</div>
+      {(isTranscoding || progress) && (
+        <div className="space-y-2 rounded-lg border border-border bg-card/60 p-3 shadow-inner">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">进度</span>
+            <span className="font-semibold text-primary">
+              {progress || "准备中"}
+            </span>
+          </div>
+          <Progress value={progressValue} />
         </div>
       )}
     </div>
@@ -116,3 +130,4 @@ const TranscodeButton: React.FC<Props> = ({ fileInfo, config, onComplete }) => {
 };
 
 export default TranscodeButton;
+

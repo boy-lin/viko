@@ -1,13 +1,21 @@
-import React from "react";
+﻿import React from "react";
 import { generateFFmpegCommand } from "@/lib/ffmpeg";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import type { MediaFileInfo, TranscodeConfig } from "@/types/media";
 
 interface Props {
-  fileInfo: any;
-  config: any;
+  fileInfo: MediaFileInfo | null;
+  config: TranscodeConfig;
 }
 
 const FFmpegCommand: React.FC<Props> = ({ fileInfo, config }) => {
-  if (!fileInfo || !config) return null;
+  if (!fileInfo) return null;
   const outputPath = `${config.outputDir}/${config.outputName}`;
 
   const cmd = generateFFmpegCommand({
@@ -19,11 +27,19 @@ const FFmpegCommand: React.FC<Props> = ({ fileInfo, config }) => {
   });
 
   return (
-    <div className="mb-4 p-4 border rounded shadow-sm bg-white">
-      <div className="font-semibold mb-2">ffmpeg 命令预览</div>
-      <pre className="bg-gray-100 p-2 rounded text-xs">ffmpeg {cmd}</pre>
-    </div>
+    <Card className="h-full shadow-md">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-lg">ffmpeg 命令预览</CardTitle>
+        <CardDescription>实时同步当前配置，可直接复制到终端执行。</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <pre className="overflow-auto rounded-lg bg-muted px-4 py-3 text-sm text-foreground shadow-inner">
+          ffmpeg {cmd}
+        </pre>
+      </CardContent>
+    </Card>
   );
 };
 
 export default FFmpegCommand;
+

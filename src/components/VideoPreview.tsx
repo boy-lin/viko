@@ -1,12 +1,13 @@
-// 视频预览组件 - 基于 ffmpeg-next 的视频播放器
+﻿// 视频预览组件 - 基于 ffmpeg-next 的视频播放器
 // YouTube 风格的视频播放器 UI
 
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { bridge } from "@/lib/bridge";
 import { Button } from "@/components/ui/button";
-
 interface Props {
   filePath?: string;
+  title?: string;
+  className?: string;
 }
 
 // SVG 图标组件
@@ -529,3 +530,4 @@ function formatTime(seconds: number): string {
 }
 
 export default VideoPreview;
+

@@ -120,12 +120,19 @@ const AudioPlayer: React.FC = () => {
         // 打开音频文件
         try {
           setIsLoading(true);
+          console.log("正在打开音频文件:", selected);
           await bridge.invoke("audio_player_open", { path: selected });
+          console.log("音频文件打开成功，获取时长...");
           // 获取音频时长
           const dur = await bridge.invoke<number>("audio_player_get_duration");
-          console.log("获取音频时长:", dur);
-          setDuration(dur);
-          setCurrentPosition(0);
+          console.log("获取音频时长:", dur, typeof dur);
+          if (dur !== undefined && dur !== null && !isNaN(dur)) {
+            setDuration(dur);
+            setCurrentPosition(0);
+          } else {
+            console.warn("获取到的音频时长为无效值:", dur);
+            setError("无法获取音频时长");
+          }
         } catch (err) {
           setError(`打开文件失败: ${err}`);
           console.error("打开音频文件失败:", err);

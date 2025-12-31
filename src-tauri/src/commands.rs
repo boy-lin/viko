@@ -934,8 +934,11 @@ pub fn audio_player_get_duration(
 ) -> Result<f64, String> {
     let player = audio_player_state.lock().unwrap();
     if let Some(ref p) = *player {
-        Ok(p.get_duration())
+        let duration = p.get_duration();
+        log::debug!("audio_player_get_duration 返回: {} 秒", duration);
+        Ok(duration)
     } else {
+        log::warn!("audio_player_get_duration: 音频播放器未初始化");
         Err("音频播放器未初始化".to_string())
     }
 }

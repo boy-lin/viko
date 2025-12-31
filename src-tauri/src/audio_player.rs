@@ -80,7 +80,9 @@ impl AudioPlayer {
     }
 
     pub fn get_duration(&self) -> f64 {
-        *self.duration.lock().unwrap()
+        let duration = *self.duration.lock().unwrap();
+        log::debug!("AudioPlayer::get_duration() 返回: {} 秒", duration);
+        duration
     }
 
     pub fn get_current_position(&self) -> f64 {
@@ -856,7 +858,6 @@ impl AudioPlayer {
                     }
 
                     if found_last_packet_frames {
-                        log::info!("✅ 处理了最后一个数据包的残留帧，继续检查是否还有数据包");
                         continue; // 继续循环，看看是否还有数据包（虽然不太可能）
                     }
                     // 没有更多数据包，但解码器可能还有未处理的帧
@@ -922,7 +923,6 @@ impl AudioPlayer {
                     }
 
                     if found_residual_frames {
-                        log::info!("✅ 数据包迭代器结束前，处理了残留帧，继续检查是否还有数据包");
                         continue; // 继续循环，看看是否还有数据包
                     }
 
@@ -933,12 +933,6 @@ impl AudioPlayer {
                         .unwrap_or(0);
                     let samples_before_flush = samples_processed;
                     let clock_before_flush = *audio_clock.lock().unwrap();
-                    log::info!(
-                        "🔄 数据包迭代器结束，开始 flush: 缓冲区={} 样本, 已处理样本={}, 音频时钟={:.2}s",
-                        buffer_before_flush,
-                        samples_before_flush,
-                        clock_before_flush
-                    );
                     decoder.flush();
                     resampler.flush(&mut resampled);
 
@@ -979,10 +973,10 @@ impl AudioPlayer {
                                     }
                                     thread::sleep(Duration::from_millis(1));
                                     wait_count += 1;
-                                    if wait_count > 1000 {
-                                        log::error!("缓冲区等待超时，跳过这一帧");
-                                        break;
-                                    }
+                                    // if wait_count > 1000 {
+                                    //     log::error!("缓冲区等待超时，跳过这一帧");
+                                    //     break;
+                                    // }
                                 }
 
                                 // 更新已处理的样本数
@@ -1026,27 +1020,6 @@ impl AudioPlayer {
                         .map(|g| g.len() / output_channels)
                         .unwrap_or(0);
                     let samples_added_by_flush = samples_after_flush - samples_before_flush;
-                    if has_more_frames {
-                        log::info!(
-                            "✅ Flush 后处理了 {} 帧，新增样本={}, 当前位置: {:.2}s / {:.2}s，已处理样本: {}，缓冲区: {} 样本，继续循环",
-                            flush_iteration,
-                            samples_added_by_flush,
-                            current_pos_after_flush,
-                            audio_duration,
-                            samples_after_flush,
-                            buffer_after_flush
-                        );
-                    } else {
-                        log::info!(
-                            "⚠️ Flush 后没有更多帧，新增样本={}, 当前位置: {:.2}s / {:.2}s，已处理样本: {}，缓冲区: {} 样本，进入等待缓冲区播放逻辑",
-                            samples_added_by_flush,
-                            current_pos_after_flush,
-                            audio_duration,
-                            samples_after_flush,
-                            buffer_after_flush
-                        );
-                    }
-
                     // 如果刚才处理了更多帧，继续循环处理数据包
                     if has_more_frames {
                         continue;
@@ -1070,16 +1043,16 @@ impl AudioPlayer {
                             buffer_samples as u64
                         };
 
-                        log::info!(
-                            "📈 数据包迭代器结束后的状态: 已处理样本={}, 预期总样本={}, 缓冲区样本={}, 预期缓冲区样本={}, 音频时钟={:.2}s, 总时长={:.2}s, 差异={} 样本",
-                            samples_processed,
-                            expected_samples,
-                            buffer_samples,
-                            expected_buffer_samples,
-                            clock_pos,
-                            audio_duration,
-                            expected_buffer_samples.saturating_sub(buffer_samples as u64)
-                        );
+                        // log::info!(
+                        //     "📈 数据包迭代器结束后的状态: 已处理样本={}, 预期总样本={}, 缓冲区样本={}, 预期缓冲区样本={}, 音频时钟={:.2}s, 总时长={:.2}s, 差异={} 样本",
+                        //     samples_processed,
+                        //     expected_samples,
+                        //     buffer_samples,
+                        //     expected_buffer_samples,
+                        //     clock_pos,
+                        //     audio_duration,
+                        //     expected_buffer_samples.saturating_sub(buffer_samples as u64)
+                        // );
 
                         // 优先使用音频时钟（基于实际播放的样本数），更精确
                         // 如果音频时钟不可用，回退到 samples_processed - buffer_samples
@@ -1107,15 +1080,15 @@ impl AudioPlayer {
                         if buffer_samples == 0 {
                             // 缓冲区已空，检查是否真的播放完成
                             let clock_pos = *audio_clock.lock().unwrap();
-                            // log::info!(
-                            //     "🔍 播放完成检查: 位置={:.2}s / {:.2}s (进度={:.1}%)，音频时钟={:.2}s，已处理样本={}，缓冲区={} 样本",
-                            //     current_pos,
-                            //     audio_duration,
-                            //     progress_ratio * 100.0,
-                            //     clock_pos,
-                            //     samples_processed,
-                            //     buffer_samples
-                            // );
+                            log::info!(
+                                "🔍 播放完成检查: 位置={:.2}s / {:.2}s (进度={:.1}%)，音频时钟={:.2}s，已处理样本={}，缓冲区={} 样本",
+                                current_pos,
+                                audio_duration,
+                                progress_ratio * 100.0,
+                                clock_pos,
+                                samples_processed,
+                                buffer_samples
+                            );
 
                             // 使用更严格的判断：只有当音频时钟或计算位置真正接近总时长时才完成
                             // 同时检查 samples_processed 是否接近预期值
@@ -1154,17 +1127,17 @@ impl AudioPlayer {
                             } else {
                                 // 缓冲区为空但位置未到总时长，可能是数据包提前结束
                                 // 这可能是文件损坏、seek 问题或其他错误
-                                // log::warn!(
-                                //     "⚠️ 数据包提前结束，位置: {:.2}s / {:.2}s (进度: {:.1}%)，样本比例: {:.1}% (已处理: {} / 预期: {})，缓冲区: {} 样本，音频时钟: {:.2}s",
-                                //     current_pos,
-                                //     audio_duration,
-                                //     progress_ratio * 100.0,
-                                //     samples_ratio * 100.0,
-                                //     samples_processed,
-                                //     expected_samples,
-                                //     buffer_samples,
-                                //     clock_pos
-                                // );
+                                log::warn!(
+                                    "⚠️ 数据包提前结束，位置: {:.2}s / {:.2}s (进度: {:.1}%)，样本比例: {:.1}% (已处理: {} / 预期: {})，缓冲区: {} 样本，音频时钟: {:.2}s",
+                                    current_pos,
+                                    audio_duration,
+                                    progress_ratio * 100.0,
+                                    samples_ratio * 100.0,
+                                    samples_processed,
+                                    expected_samples,
+                                    buffer_samples,
+                                    clock_pos
+                                );
                                 // 继续等待，看看是否还有数据
                                 // 如果长时间没有数据，可能需要报告错误
                             }
@@ -1174,13 +1147,50 @@ impl AudioPlayer {
                             // 音频时钟会在 cpal 回调中持续更新，反映实际播放进度
                             let clock_pos = *audio_clock.lock().unwrap();
                             log::debug!(
-                                "等待缓冲区播放，位置: {:.2}s / {:.2}s (进度: {:.1}%)，缓冲区: {} 样本, 音频时钟: {:.2}s",
+                                "⏳ 等待缓冲区播放，位置: {:.2}s / {:.2}s (进度: {:.1}%)，缓冲区: {} 样本 ({:.2}s), 音频时钟: {:.2}s",
                                 current_pos,
                                 audio_duration,
                                 progress_ratio * 100.0,
                                 buffer_samples,
+                                buffer_samples as f64 / output_sample_rate as f64,
                                 clock_pos
                             );
+                            
+                            // 持续检查：如果音频时钟接近总时长，检查是否可以标记完成
+                            // 关键：只有当音频时钟真正达到或超过总时长，且缓冲区接近空时才完成
+                            if clock_pos > 0.0 {
+                                // 计算缓冲区剩余时间
+                                let remaining_time = buffer_samples as f64 / output_sample_rate as f64;
+                                let estimated_end_time = clock_pos + remaining_time;
+                                
+                                // 如果音频时钟 + 缓冲区剩余时间 >= 总时长，说明播放即将完成
+                                if estimated_end_time >= audio_duration * 0.99 {
+                                    log::info!(
+                                        "📊 播放接近完成: 音频时钟={:.2}s, 缓冲区剩余={:.2}s, 预计结束={:.2}s / {:.2}s",
+                                        clock_pos,
+                                        remaining_time,
+                                        estimated_end_time,
+                                        audio_duration
+                                    );
+                                    
+                                    // 如果缓冲区剩余时间很少（少于0.05秒），可以认为即将完成
+                                    // 但不要立即标记完成，让音频流自然播放完缓冲区
+                                    if remaining_time < 0.05 {
+                                        log::info!("缓冲区剩余时间很少 ({:.3}s)，等待播放完成", remaining_time);
+                                    }
+                                }
+                                
+                                // 重要：如果音频时钟已经达到或超过总时长，且缓冲区还有数据，继续等待
+                                // 只有当缓冲区也播放完时才标记完成
+                                if clock_pos >= audio_duration && buffer_samples > 0 {
+                                    log::debug!(
+                                        "音频时钟已达到总时长 ({:.2}s)，但缓冲区还有 {} 样本 ({:.2}s)，继续等待播放",
+                                        clock_pos,
+                                        buffer_samples,
+                                        remaining_time
+                                    );
+                                }
+                            }
                         }
                     }
                     thread::sleep(Duration::from_millis(10));
@@ -1201,17 +1211,6 @@ impl AudioPlayer {
                 } else {
                     None
                 };
-
-                if let Some(pts_seconds) = packet_pts_seconds {
-                    if pts_seconds > audio_duration * 0.95 {
-                        log::debug!(
-                            "📦 处理接近结尾的数据包: PTS={:.2}s (位置: {:.2}s / {:.2}s)",
-                            pts_seconds,
-                            pts_seconds,
-                            audio_duration
-                        );
-                    }
-                }
 
                 if let Err(err) = decoder.send_packet(&packet) {
                     log::error!("发送音频包失败: {err}");
@@ -1291,11 +1290,11 @@ impl AudioPlayer {
                                     }
                                 }
 
-                                // 防止无限等待（最多等待1秒）
-                                if wait_count > 1000 {
-                                    log::error!("缓冲区等待超时，可能播放有问题，跳过这一帧");
-                                    break;
-                                }
+                                // 防止无限等待（最多等待1秒） 
+                                // if wait_count > 1000 {
+                                //     log::error!("缓冲区等待超时，可能播放有问题，跳过这一帧");
+                                //     break;
+                                // }
                             }
 
                             // 更新已处理的样本数（单通道样本数）
@@ -1360,13 +1359,8 @@ impl AudioPlayer {
                             .unwrap_or(0);
                         let clock_pos = *audio_clock.lock().unwrap();
                         log::info!(
-                            "📊 数据包处理完成: PTS={:.2}s, 帧数={}, 样本数={}, 总已处理样本={}, 缓冲区={} 样本, 音频时钟={:.2}s",
-                            pts_seconds,
-                            frames_from_packet,
-                            samples_from_packet,
-                            samples_processed,
-                            buffer_samples,
-                            clock_pos
+                            "📊 数据包处理完成: PTS={:.2}s",
+                            pts_seconds
                         );
                     }
                 }

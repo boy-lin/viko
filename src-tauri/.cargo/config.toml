@@ -1,6 +1,28 @@
-# Note: This config forces ARM64 builds to avoid architecture mismatches
-# when rustup is running under Rosetta emulation.
-# For a permanent fix, run: ./fix-rustup.sh to reinstall rustup natively
-[build]
-target = "aarch64-apple-darwin"
+# Cargo 配置文件 - 平台特定构建目标
+#
+# 注意：Cargo 的 config.toml 不支持条件配置（如 cfg()），
+# 因此这里注释掉了强制目标配置，以避免跨平台编译问题。
+#
+# 在不同平台上使用以下方式指定目标：
+#
+# macOS (Apple Silicon) - 避免 Rosetta 模拟问题：
+#   cargo build --target aarch64-apple-darwin
+#   或设置环境变量：CARGO_BUILD_TARGET=aarch64-apple-darwin cargo build
+#
+# macOS (Intel)：
+#   cargo build --target x86_64-apple-darwin
+#
+# Windows：
+#   cargo build --target x86_64-pc-windows-msvc
+#   或直接：cargo build（默认使用当前平台）
+#
+# Linux：
+#   cargo build --target x86_64-unknown-linux-gnu
+#
+# 原配置（已注释，仅在 macOS 上需要时取消注释）：
+# [build]
+# target = "aarch64-apple-darwin"
+#
+# 如果需要在 macOS 上强制使用 ARM64 目标以避免 Rosetta 问题，
+# 可以取消上面的注释。但请注意：这会导致在 Windows/Linux 上无法编译。
 

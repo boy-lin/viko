@@ -1,202 +1,345 @@
-# PowerShell 脚本 - 自动检测和安装 FFmpeg 依赖 (Windows)
-
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 
 function Write-Info {
-    param([string]$Message)
-    Write-Host "[INFO] $Message" -ForegroundColor Green
+  param([string]$Message)
+  Write-Host "[INFO] $Message" -ForegroundColor Green
 }
 
 function Write-Warn {
-    param([string]$Message)
-    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+  param([string]$Message)
+  Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
-function Write-Error {
-    param([string]$Message)
-    Write-Host "[ERROR] $Message" -ForegroundColor Red
+function Write-ErrMsg {
+  param([string]$Message)
+  Write-Host "[ERROR] $Message" -ForegroundColor Red
 }
 
-# 检测 pkg-config
-function Test-PkgConfig {
-    try {
-        $pkgConfig = Get-Command pkg-config -ErrorAction SilentlyContinue
-        if ($pkgConfig) {
-            $version = & pkg-config --version
-            Write-Info "pkg-config 已安装: $version"
-            return $true
-        } else {
-            Write-Warn "pkg-config 未安装"
-            return $false
-        }
-    } catch {
-        Write-Warn "pkg-config 未安装"
-        return $false
-    }
-}
+function Get-PkgConfigPath {
+  try {
+    $pkg = Get-Command pkgconf -ErrorAction SilentlyContinue
+    if ($pkg) { return $pkg.Source }
+    $pkg = Get-Command pkg-config -ErrorAction SilentlyContinue
+    if ($pkg) { return $pkg.Source }
+  } catch {
+    # keep searching
+  }
 
-# 检测 FFmpeg 库
-function Test-FFmpegLibs {
-    $missingLibs = @()
-    
-    $libs = @("libavutil", "libavcodec", "libavformat", "libavfilter", "libswscale")
-    
-    foreach ($lib in $libs) {
-        try {
-            $version = & pkg-config --modversion $lib 2>$null
-            if ($LASTEXITCODE -eq 0) {
-                Write-Info "$lib`: $version"
-            } else {
-                Write-Warn "$lib 未找到"
-                $missingLibs += $lib
-            }
-        } catch {
-            Write-Warn "$lib 未找到"
-            $missingLibs += $lib
-        }
-    }
-    
-    return $missingLibs.Count -eq 0
-}
-
-# 检测 Chocolatey
-function Test-Chocolatey {
-    try {
-        $choco = Get-Command choco -ErrorAction SilentlyContinue
-        return $null -ne $choco
-    } catch {
-        return $false
-    }
-}
-
-# 检测 vcpkg
-function Test-Vcpkg {
-    try {
-        $vcpkg = Get-Command vcpkg -ErrorAction SilentlyContinue
-        return $null -ne $vcpkg
-    } catch {
-        # 检查常见路径
-        $vcpkgPaths = @(
-            "$env:USERPROFILE\vcpkg\vcpkg.exe",
-            "C:\vcpkg\vcpkg.exe",
-            "C:\tools\vcpkg\vcpkg.exe"
-        )
-        
-        foreach ($path in $vcpkgPaths) {
-            if (Test-Path $path) {
-                return $true
-            }
-        }
-        
-        return $false
-    }
-}
-
-# 使用 Chocolatey 安装
-function Install-WithChocolatey {
-    Write-Info "使用 Chocolatey 安装依赖..."
-    
-    if (!(Test-PkgConfig)) {
-        Write-Info "安装 pkg-config..."
-        & choco install pkgconfiglite -y
-    }
-    
-    if (!(Test-FFmpegLibs)) {
-        Write-Info "安装 FFmpeg..."
-        & choco install ffmpeg -y
-    }
-}
-
-# 使用 vcpkg 安装
-function Install-WithVcpkg {
-    Write-Info "使用 vcpkg 安装依赖..."
-    
-    # 查找 vcpkg
-    $vcpkgPath = $null
-    $vcpkgPaths = @(
-        "$env:USERPROFILE\vcpkg\vcpkg.exe",
-        "C:\vcpkg\vcpkg.exe",
-        "C:\tools\vcpkg\vcpkg.exe"
+  $vcpkgRoot = Get-VcpkgRoot
+  if ($null -ne $vcpkgRoot) {
+    $pkgConfigPaths = @(
+      (Join-Path $vcpkgRoot "installed\x64-windows\tools\pkgconf\pkgconf.exe"),
+      (Join-Path $vcpkgRoot "installed\x64-windows\tools\pkgconf\pkg-config.exe"),
+      (Join-Path $vcpkgRoot "installed\x64-windows\tools\pkgconf\bin\pkgconf.exe"),
+      (Join-Path $vcpkgRoot "installed\x64-windows\tools\pkgconf\bin\pkg-config.exe"),
+      (Join-Path $vcpkgRoot "installed\x64-windows\tools\pkg-config\pkg-config.exe"),
+      (Join-Path $vcpkgRoot "installed\x64-windows\tools\pkg-config\bin\pkg-config.exe")
     )
-    
-    foreach ($path in $vcpkgPaths) {
-        if (Test-Path $path) {
-            $vcpkgPath = $path
-            break
-        }
+
+    foreach ($path in $pkgConfigPaths) {
+      if (Test-Path $path) {
+        return $path
+      }
     }
-    
-    if ($null -eq $vcpkgPath) {
-        Write-Error "未找到 vcpkg，请先安装 vcpkg"
-        Write-Info "安装 vcpkg:"
-        Write-Info "  git clone https://github.com/Microsoft/vcpkg.git"
-        Write-Info "  .\vcpkg\bootstrap-vcpkg.bat"
-        exit 1
-    }
-    
-    Write-Info "安装 FFmpeg..."
-    & $vcpkgPath install ffmpeg:x64-windows
-    
-    Write-Warn "请设置环境变量:"
-    Write-Warn "  PKG_CONFIG_PATH=<vcpkg安装路径>\installed\x64-windows\lib\pkgconfig"
+  }
+
+  return $null
 }
 
-# 主函数
+function Test-PkgConfig {
+  $pkgConfigPath = Get-PkgConfigPath
+  if ($null -eq $pkgConfigPath) {
+    Write-Warn "pkgconf/pkg-config 未安装或不可用"
+    return $false
+  }
+
+  try {
+    $version = & $pkgConfigPath --version
+    Write-Info "pkgconf/pkg-config 已安装: $version (路径: $pkgConfigPath)"
+    return $true
+  } catch {
+    Write-Warn "pkgconf/pkg-config 可能未正确安装"
+    return $false
+  }
+}
+
+function Test-FFmpegLibs {
+  $pkgConfigPath = Get-PkgConfigPath
+  if ($null -eq $pkgConfigPath) {
+    Write-Warn "未找到 pkgconf/pkg-config，无法检测 FFmpeg 依赖"
+    return $false
+  }
+
+  $missingLibs = @()
+  $libs = @("libavutil", "libavcodec", "libavformat", "libavfilter", "libswscale")
+
+  foreach ($lib in $libs) {
+    try {
+      $version = & $pkgConfigPath --modversion $lib 2>$null
+      if ($LASTEXITCODE -eq 0) {
+        Write-Info "${lib}: $version"
+      } else {
+        Write-Warn "$lib 未找到"
+        $missingLibs += $lib
+      }
+    } catch {
+      Write-Warn "$lib 未找到"
+      $missingLibs += $lib
+    }
+  }
+
+  return $missingLibs.Count -eq 0
+}
+
+function Get-VcpkgPath {
+  try {
+    $vcpkg = Get-Command vcpkg -ErrorAction SilentlyContinue
+    if ($null -ne $vcpkg) {
+      return $vcpkg.Source
+    }
+  } catch {
+    # keep checking default paths
+  }
+
+  if ($env:VCPKG_ROOT) {
+    $fromEnv = Join-Path $env:VCPKG_ROOT "vcpkg.exe"
+    if (Test-Path $fromEnv) {
+      return $fromEnv
+    }
+  }
+
+  $vcpkgPaths = @(
+    "$env:USERPROFILE\vcpkg\vcpkg.exe",
+    "C:\vcpkg\vcpkg.exe",
+    "C:\tools\vcpkg\vcpkg.exe"
+  )
+
+  foreach ($path in $vcpkgPaths) {
+    if (Test-Path $path) {
+      return $path
+    }
+  }
+
+  return $null
+}
+
+function Test-Vcpkg {
+  $vcpkgPath = Get-VcpkgPath
+  return $null -ne $vcpkgPath
+}
+
+function Get-VcpkgRoot {
+  $vcpkgPath = Get-VcpkgPath
+  if ($null -eq $vcpkgPath) {
+    return $null
+  }
+
+  return (Split-Path -Parent $vcpkgPath)
+}
+
+function Set-PkgConfigPath {
+  $vcpkgRoot = Get-VcpkgRoot
+  if ($null -eq $vcpkgRoot) {
+    return
+  }
+
+  $pkgConfigPath = Join-Path $vcpkgRoot "installed\x64-windows\lib\pkgconfig"
+  if (Test-Path $pkgConfigPath) {
+    $currentPath = [Environment]::GetEnvironmentVariable("PKG_CONFIG_PATH", "User")
+    if ($currentPath -notlike "*$pkgConfigPath*") {
+      if ([string]::IsNullOrEmpty($currentPath)) {
+        [Environment]::SetEnvironmentVariable("PKG_CONFIG_PATH", $pkgConfigPath, "User")
+      } else {
+        [Environment]::SetEnvironmentVariable("PKG_CONFIG_PATH", "$currentPath;$pkgConfigPath", "User")
+      }
+      Write-Info "已设置用户级 PKG_CONFIG_PATH: $pkgConfigPath"
+      Write-Warn "请重新打开终端或重启 PowerShell 让环境变量生效"
+    } else {
+      Write-Info "PKG_CONFIG_PATH 已包含 $pkgConfigPath"
+    }
+
+    $env:PKG_CONFIG_PATH = if ($env:PKG_CONFIG_PATH) { "$env:PKG_CONFIG_PATH;$pkgConfigPath" } else { $pkgConfigPath }
+  }
+}
+
+function Install-Vcpkg {
+  Write-Info "尝试下载 vcpkg.exe（不使用 bootstrap）..."
+
+  $targetDir = if ($env:VCPKG_ROOT) { $env:VCPKG_ROOT } else { Join-Path $env:USERPROFILE "vcpkg" }
+  $targetExe = Join-Path $targetDir "vcpkg.exe"
+
+  if (Test-Path $targetExe) {
+    Write-Info "检测到 $targetExe 已存在"
+    return $true
+  }
+
+  $vcpkgUrl = "https://github.com/microsoft/vcpkg/releases/latest/download/vcpkg.exe"
+
+  try {
+    if (-not (Test-Path $targetDir)) {
+      New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+    }
+
+    Write-Info "从官方发布下载 vcpkg.exe..."
+    Invoke-WebRequest -Uri $vcpkgUrl -OutFile $targetExe -UseBasicParsing
+
+    if (Test-Path $targetExe) {
+      Write-Info "vcpkg.exe 下载完成: $targetExe"
+      return $true
+    }
+
+    Write-ErrMsg "未找到下载后的 vcpkg.exe，安装可能失败"
+    return $false
+  } catch {
+    Write-ErrMsg "下载 vcpkg.exe 时出错: $_"
+    return $false
+  }
+}
+
+function Install-PkgConfig {
+  Write-Info "尝试使用 vcpkg 安装 pkgconf..."
+
+  $vcpkgPath = Get-VcpkgPath
+  if ($null -eq $vcpkgPath) {
+    Write-ErrMsg "未找到 vcpkg，无法自动安装 pkgconf"
+    return $false
+  }
+
+  try {
+    Write-Info "正在安装 pkgconf (可能需要几分钟)..."
+    & $vcpkgPath install pkgconf:x64-windows
+    if ($LASTEXITCODE -eq 0) {
+      Write-Info "pkgconf 安装成功"
+      Set-PkgConfigPath
+
+      $vcpkgRoot = Get-VcpkgRoot
+      if ($null -ne $vcpkgRoot) {
+        $pkgConfigDir = Join-Path $vcpkgRoot "installed\x64-windows\tools\pkgconf"
+        if (Test-Path $pkgConfigDir -and ($env:PATH -notlike "*$pkgConfigDir*")) {
+          $env:PATH = "$pkgConfigDir;$env:PATH"
+          Write-Info "已将 pkgconf 加入当前会话 PATH"
+        }
+      }
+
+      return $true
+    } else {
+      Write-ErrMsg "pkgconf 安装失败"
+      return $false
+    }
+  } catch {
+    Write-ErrMsg "安装 pkgconf 时出错: $_"
+    return $false
+  }
+}
+
+function Install-FFmpeg {
+  Write-Info "尝试使用 vcpkg 安装 FFmpeg..."
+
+  $vcpkgPath = Get-VcpkgPath
+  if ($null -eq $vcpkgPath) {
+    Write-ErrMsg "未找到 vcpkg，无法自动安装 FFmpeg"
+    return $false
+  }
+
+  try {
+    Write-Info "正在安装 FFmpeg (可能需要较长时间)..."
+    & $vcpkgPath install ffmpeg:x64-windows
+    if ($LASTEXITCODE -eq 0) {
+      Write-Info "FFmpeg 安装成功"
+      Set-PkgConfigPath
+      return $true
+    } else {
+      Write-ErrMsg "FFmpeg 安装失败"
+      return $false
+    }
+  } catch {
+    Write-ErrMsg "安装 FFmpeg 时出错: $_"
+    return $false
+  }
+}
+
 function Main {
-    Write-Info "开始检测 FFmpeg 依赖..."
+  Write-Info "开始检测 FFmpeg 依赖..."
+  Write-Host ""
+
+  if (-not (Test-Vcpkg)) {
+    Write-Warn "未找到 vcpkg，尝试自动安装..."
+    if (-not (Install-Vcpkg)) {
+      Write-ErrMsg "自动安装 vcpkg 失败，请手动安装后重试"
+      exit 1
+    }
+  }
+
+  if (-not (Test-Vcpkg)) {
+    Write-ErrMsg "vcpkg 仍不可用，请手动安装后重试"
+    exit 1
+  }
+
+  $needPkgConfig = -not (Test-PkgConfig)
+  if ($needPkgConfig) {
+    Write-Warn "pkgconf/pkg-config 未安装，开始自动安装..."
     Write-Host ""
-    
-    $needPkgConfig = !(Test-PkgConfig)
-    $needFFmpeg = $false
-    
+    if (-not (Install-PkgConfig)) {
+      Write-ErrMsg "pkgconf 安装失败"
+      exit 1
+    }
+    Write-Host ""
+
+    if (-not (Test-PkgConfig)) {
+      Write-Warn "pkgconf 仍不可用，可能需要重新打开终端后再试"
+      Write-Info "请重启终端或手动检查 PKG_CONFIG_PATH"
+    }
+  }
+
+  $needFFmpeg = $false
+  if (Test-PkgConfig) {
+    $needFFmpeg = -not (Test-FFmpegLibs)
+  } else {
+    Write-Warn "pkgconf/pkg-config 不可用，假定需要安装 FFmpeg"
+    $needFFmpeg = $true
+  }
+
+  if ($needFFmpeg) {
+    Write-Warn "FFmpeg 依赖未完整安装，开始自动安装..."
+    Write-Host ""
+    if (-not (Install-FFmpeg)) {
+      Write-ErrMsg "FFmpeg 安装失败"
+      exit 1
+    }
+    Write-Host ""
+
     if (Test-PkgConfig) {
-        $needFFmpeg = !(Test-FFmpegLibs)
-    } else {
-        Write-Warn "无法检测 FFmpeg 库（pkg-config 未安装）"
-        $needFFmpeg = $true
+      $needFFmpeg = -not (Test-FFmpegLibs)
     }
-    
+  }
+
+  Write-Host ""
+  Write-Info "验证安装状态..."
+
+  $pkgConfigOk = Test-PkgConfig
+  $ffmpegOk = if ($pkgConfigOk) { Test-FFmpegLibs } else { $false }
+
+  if ($pkgConfigOk -and $ffmpegOk) {
+    Write-Info "✅ 所有依赖安装并通过验证"
     Write-Host ""
-    
-    if (!$needPkgConfig -and !$needFFmpeg) {
-        Write-Info "所有依赖已安装！"
-        return
+    Write-Info "如仍有问题，请确认："
+    Write-Info "  1. 已重新打开终端/PowerShell"
+    Write-Info "  2. PKG_CONFIG_PATH 已正确指向 vcpkg\\installed\\x64-windows\\lib\\pkgconfig"
+  } else {
+    Write-ErrMsg "❌ 依赖安装或验证失败"
+    if (-not $pkgConfigOk) {
+      Write-ErrMsg "  - pkgconf/pkg-config 未正确安装或未在 PATH 中"
     }
-    
-    # 选择安装方式
-    if (Test-Chocolatey) {
-        Install-WithChocolatey
-    } elseif (Test-Vcpkg) {
-        Install-WithVcpkg
-    } else {
-        Write-Error "未找到包管理器 (Chocolatey 或 vcpkg)"
-        Write-Host ""
-        Write-Info "请选择以下方式之一："
-        Write-Host ""
-        Write-Info "1. 安装 Chocolatey:"
-        Write-Info "   Set-ExecutionPolicy Bypass -Scope Process -Force;"
-        Write-Info "   [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072;"
-        Write-Info "   iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
-        Write-Host ""
-        Write-Info "2. 安装 vcpkg:"
-        Write-Info "   git clone https://github.com/Microsoft/vcpkg.git"
-        Write-Info "   .\vcpkg\bootstrap-vcpkg.bat"
-        Write-Host ""
-        Write-Info "3. 下载预编译版本:"
-        Write-Info "   https://www.gyan.dev/ffmpeg/builds/"
-        exit 1
+    if (-not $ffmpegOk) {
+      Write-ErrMsg "  - FFmpeg 库未正确安装"
     }
-    
     Write-Host ""
-    Write-Info "验证安装..."
-    
-    if ((Test-PkgConfig) -and (Test-FFmpegLibs)) {
-        Write-Info "✓ 所有依赖安装成功！"
-    } else {
-        Write-Error "✗ 依赖安装失败，请手动检查"
-        exit 1
-    }
+    Write-Info "可尝试："
+    Write-Info "  1. 重新运行本脚本"
+    Write-Info "  2. 检查 vcpkg 安装路径是否存在"
+    Write-Info "  3. 手动设置 PKG_CONFIG_PATH 并重启终端"
+    exit 1
+  }
 }
 
 Main
-
