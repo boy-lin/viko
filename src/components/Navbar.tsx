@@ -29,7 +29,7 @@ export function Navbar() {
     {
       title: "转换器",
       items: [
-        { name: "音频转换器", href: "#audio-converter", disabled: false },
+        { name: "音频转换器", href: "/mp3/converter", disabled: false },
         { name: "视频转换器", href: "#video-converter", disabled: false },
         { name: "图片转换器", href: "#image-converter", disabled: false },
       ],

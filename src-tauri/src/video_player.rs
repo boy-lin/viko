@@ -10,7 +10,7 @@ use video_rs::ffmpeg::Rational;
 use video_rs::frame::RawFrame;
 use video_rs::{Decoder, DecoderBuilder, Error as VideoError, Resize};
 
-use crate::audio_player::AudioPlayer;
+use crate::audio::AudioPlayer;
 
 const PREVIEW_MAX_WIDTH: u32 = 640;
 const PREVIEW_MAX_HEIGHT: u32 = 360;
@@ -189,6 +189,8 @@ impl VideoPlayer {
             let mut wall_clock_anchor: Option<Instant> = None; // 保留作为后备，但优先使用音频时钟
             let frame_emit_interval = Duration::from_millis(FRAME_EMIT_INTERVAL_MS);
             let mut last_emit = Instant::now() - frame_emit_interval;
+            // 平滑后的音频时钟，减少抖动
+            let mut smoothed_audio_clock: Option<f64> = None;
             let mut completed = false;
             let mut last_frame_skipped = false; // 用于跟踪是否跳过了上一帧
 
@@ -199,6 +201,8 @@ impl VideoPlayer {
                             let _ = window.emit("video-error", format!("音频初始化失败: {err}"));
                         }
                         PlayerCommand::Play => {
+                            // 重置平滑音频时钟，避免上次结束时的尾值影响重新播放
+                            smoothed_audio_clock = None;
                             if completed {
                                 if decoder.seek(0).is_ok() {
                                     *current_position.lock().unwrap() = 0.0;
@@ -246,7 +250,7 @@ impl VideoPlayer {
                         *current_position.lock().unwrap() = pts_secs;
 
                         // 优先使用音频时钟进行同步
-                        let audio_clock = audio_player
+                        let raw_audio_clock = audio_player
                             .as_ref()
                             .map(|ap| ap.get_audio_clock())
                             .unwrap_or_else(|| {
@@ -263,21 +267,33 @@ impl VideoPlayer {
                                     pts_secs
                                 }
                             });
+                        // 简单一阶低通，减少音频时钟跳变导致的大幅校正
+                        let audio_clock = match smoothed_audio_clock {
+                            Some(prev) => {
+                                let alpha = 0.2; // 保守平滑系数
+                                let smoothed = prev + alpha * (raw_audio_clock - prev);
+                                smoothed_audio_clock = Some(smoothed);
+                                smoothed
+                            }
+                            None => {
+                                smoothed_audio_clock = Some(raw_audio_clock);
+                                raw_audio_clock
+                            }
+                        };
 
                         // 计算视频帧与音频时钟的差值
                         let diff = pts_secs - audio_clock;
 
                         // 同步策略：
-                        // - diff > +40ms: 视频提前，等待
-                        // - diff < -40ms: 视频落后，丢帧追赶
-                        // - |diff| <= 40ms: 正常显示
-                        if diff > 0.04 {
-                            // 视频提前 > 40ms，等待
-                            let sleep_dur = (diff).min(0.5);
+                        // - diff > +30ms: 视频提前，小幅等待（上限1帧时间）
+                        // - diff < -30ms: 视频落后，尝试丢少量帧追赶
+                        // - |diff| <= 30ms: 正常显示
+                        if diff > 0.03 {
+                            let sleep_dur = diff.min(0.03); // 不超过一帧时间，避免长时间停顿
                             thread::sleep(Duration::from_secs_f64(sleep_dur));
                             last_frame_skipped = false;
-                        } else if diff < -0.04 {
-                            // 视频落后 > 40ms，丢帧追赶
+                        } else if diff < -0.03 {
+                            // 视频落后 > 30ms，丢帧追赶
                             if !last_frame_skipped {
                                 log::debug!("视频落后音频 {:.2}ms，丢帧追赶", diff * 1000.0);
                             }
@@ -307,6 +323,8 @@ impl VideoPlayer {
                             *state.lock().unwrap() = PlaybackState::Stopped;
                             let _ = window.emit("video-complete", "播放完成");
                             completed = true;
+                            // 将平滑时钟钉在视频总时长，避免结束后 diff 继续为负导致额外丢帧/等待
+                            smoothed_audio_clock = Some(self::frame_timestamp_secs(&RawFrame::empty(), time_base).max(*current_position.lock().unwrap()));
                         }
                         playing = false;
                         wall_clock_anchor = None;

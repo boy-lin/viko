@@ -22,7 +22,8 @@ use tauri::State;
 
 use ffmpeg_next as ffmpeg;
 
-use crate::audio_player::AudioPlayer;
+use crate::audio::AudioPlayer;
+use crate::audio_converter::{self, AudioConversionParams};
 use crate::video_player::VideoPlayer;
 
 #[derive(Serialize)]
@@ -941,4 +942,81 @@ pub fn audio_player_get_duration(
         log::warn!("audio_player_get_duration: 音频播放器未初始化");
         Err("音频播放器未初始化".to_string())
     }
+}
+
+// ==================== 音频转换相关命令 ====================
+
+#[derive(Deserialize)]
+pub struct AudioConversionArgs {
+    pub input_path: String,
+    pub output_path: Option<String>, // 如果未提供，自动生成
+    pub format: String,
+    pub bitrate: u32,
+    pub sample_rate: u32,
+}
+
+#[command]
+pub fn get_audio_file_info(path: String) -> Result<serde_json::Value, String> {
+    use serde_json::json;
+
+    // 获取文件大小
+    let size = std::fs::metadata(&path)
+        .map_err(|e| format!("无法读取文件信息: {}", e))?
+        .len();
+
+    // 获取音频时长
+    let duration = audio_converter::get_audio_duration(&path)?;
+
+    // 获取文件扩展名
+    let format = Path::new(&path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    Ok(json!({
+        "path": path,
+        "size": size,
+        "duration": duration,
+        "format": format,
+    }))
+}
+
+#[command]
+pub fn convert_audio_file(
+    app: AppHandle,
+    args: AudioConversionArgs,
+) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or("未找到主窗口")?;
+
+    // 如果没有提供输出路径，自动生成
+    let output_path = if let Some(path) = args.output_path {
+        path
+    } else {
+        audio_converter::generate_output_path(&args.input_path, &args.format)?
+    };
+
+    // 构建转换参数
+    let params = AudioConversionParams {
+        input_path: args.input_path,
+        output_path,
+        format: args.format,
+        bitrate: args.bitrate,
+        sample_rate: args.sample_rate,
+    };
+
+    // 在新线程中执行转换
+    let window_clone = window.clone();
+    let output_path_clone = params.output_path.clone();
+    std::thread::spawn(move || {
+        if let Err(e) = audio_converter::convert_audio(&window_clone, params) {
+            let _ = window_clone.emit("audio-conversion-error", e);
+        } else {
+            let _ = window_clone.emit("audio-conversion-complete", output_path_clone);
+        }
+    });
+
+    Ok(())
 }

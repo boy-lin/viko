@@ -184,6 +184,9 @@ sudo apt install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-
 
 # macOS (Homebrew)
 brew install pkg-config ffmpeg
+# 查看 ffmpeg@7 的安装目录
+brew --prefix ffmpeg@7
+# /opt/homebrew/opt/ffmpeg@7
 
 # Windows (vcpkg)
 vcpkg install ffmpeg --triplet x64-windows

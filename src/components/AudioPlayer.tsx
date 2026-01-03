@@ -125,7 +125,7 @@ const AudioPlayer: React.FC = () => {
           console.log("音频文件打开成功，获取时长...");
           // 获取音频时长
           const dur = await bridge.invoke<number>("audio_player_get_duration");
-          console.log("获取音频时长:", dur, typeof dur);
+          console.log(`获取音频时长:${dur} ${typeof dur}`);
           if (dur !== undefined && dur !== null && !isNaN(dur)) {
             setDuration(dur);
             setCurrentPosition(0);
@@ -226,7 +226,7 @@ const AudioPlayer: React.FC = () => {
     if (isNaN(seconds) || !isFinite(seconds)) return "0:00";
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
+    const secs = Math.round(seconds % 60);
     if (hrs > 0) {
       return `${hrs}:${mins.toString().padStart(2, "0")}:${secs
         .toString()

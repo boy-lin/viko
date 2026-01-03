@@ -6,6 +6,7 @@ import HomePageOld from "./pages/home/HomePage";
 import TaskListPage from "./pages/tasks/TaskListPage";
 import BatchPage from "./pages/batch/BatchPage";
 import AudioTestPage from "./pages/audio-test/AudioTestPage";
+import Mp3ConverterPage from "./pages/mp3/converter";
 
 const App: React.FC = () => {
   return (
@@ -16,6 +17,7 @@ const App: React.FC = () => {
           <Route path="tasks" element={<TaskListPage />} />
           <Route path="batch" element={<BatchPage />} />
           <Route path="audio-test" element={<AudioTestPage />} />
+          <Route path="mp3/converter" element={<Mp3ConverterPage />} />
         </Route>
         <Route path="/old" element={<HomePageOld />} />
       </Routes>

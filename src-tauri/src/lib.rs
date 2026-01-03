@@ -3,8 +3,80 @@ pub mod commands;
 pub mod ffmpeg_ffi;
 pub mod ffmpeg_loader;
 pub mod ffmpeg_media_info;
-pub mod audio_player;
+pub mod audio;
+pub mod audio_converter;
 pub mod video_player;
+
+// 音频模块需要的共享类型
+#[derive(Clone, Copy)]
+pub enum ControlCommand {
+    Play,
+    Pause,
+}
+
+// 共享时钟用于音视频同步
+#[derive(Clone)]
+pub struct SharedClock {
+    start_time: std::sync::Arc<std::sync::Mutex<Option<std::time::Instant>>>,
+    is_playing: std::sync::Arc<std::sync::Mutex<bool>>,
+    start_position: std::sync::Arc<std::sync::Mutex<f64>>,
+}
+
+impl SharedClock {
+    pub fn new() -> Self {
+        Self {
+            start_time: std::sync::Arc::new(std::sync::Mutex::new(None)),
+            is_playing: std::sync::Arc::new(std::sync::Mutex::new(false)),
+            start_position: std::sync::Arc::new(std::sync::Mutex::new(0.0)),
+        }
+    }
+    
+    pub fn start(&self, position: f64) {
+        let mut start_time = self.start_time.lock().unwrap();
+        *start_time = Some(std::time::Instant::now());
+        let mut is_playing = self.is_playing.lock().unwrap();
+        *is_playing = true;
+        let mut start_position = self.start_position.lock().unwrap();
+        *start_position = position;
+    }
+    
+    pub fn pause(&self) {
+        let mut is_playing = self.is_playing.lock().unwrap();
+        *is_playing = false;
+    }
+    
+    pub fn resume(&self) {
+        let mut is_playing = self.is_playing.lock().unwrap();
+        *is_playing = true;
+    }
+    
+    pub fn get_elapsed_time(&self) -> Option<std::time::Duration> {
+        let start_time = self.start_time.lock().unwrap();
+        let is_playing = self.is_playing.lock().unwrap();
+        
+        if *is_playing {
+            start_time.map(|start| start.elapsed())
+        } else {
+            None
+        }
+    }
+    
+    pub fn get_position(&self) -> f64 {
+        let start_position = *self.start_position.lock().unwrap();
+        if let Some(elapsed) = self.get_elapsed_time() {
+            start_position + elapsed.as_secs_f64()
+        } else {
+            start_position
+        }
+    }
+    
+    pub fn seek(&self, position: f64) {
+        let mut start_time = self.start_time.lock().unwrap();
+        *start_time = Some(std::time::Instant::now());
+        let mut start_position = self.start_position.lock().unwrap();
+        *start_position = position;
+    }
+}
 
 use tauri::Manager;
 
@@ -36,6 +108,8 @@ pub fn run() {
             crate::commands::audio_player_set_volume,
             crate::commands::audio_player_get_position,
             crate::commands::audio_player_get_duration,
+            crate::commands::get_audio_file_info,
+            crate::commands::convert_audio_file,
         ])
         .setup(|app| {
             // 初始化视频播放器状态
@@ -44,7 +118,7 @@ pub fn run() {
             ));
             // 初始化音频播放器状态
             app.manage(std::sync::Mutex::new(
-                None::<crate::audio_player::AudioPlayer>,
+                None::<crate::audio::AudioPlayer>,
             ));
             log::info!("Tauri application setup completed");
             Ok(())
