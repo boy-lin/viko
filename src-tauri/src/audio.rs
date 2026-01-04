@@ -6,11 +6,13 @@ use std::time::{Duration, Instant};
 
 use bytemuck;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use serde_json::json;
 use video_rs::ffmpeg::{
     self,
     format::sample::Type as SampleType,
     util::{channel_layout::ChannelLayout, format::Sample},
 };
+use tauri::{Emitter, WebviewWindow};
 
 use crate::video_player::PlayerCommand;
 
@@ -33,10 +35,16 @@ pub struct AudioPlayer {
     volume: Arc<AtomicU32>,
     duration: f64,
     current_position: Arc<Mutex<f64>>,
+    emit_state_events: bool,
+    window: Option<WebviewWindow>,
 }
 
 impl AudioPlayer {
-    pub fn new(path: String) -> Result<Self, String> {
+    pub fn new(
+        path: String,
+        emit_state_events: bool,
+        window: Option<WebviewWindow>,
+    ) -> Result<Self, String> {
         let duration = Self::probe_duration(&path)?;
         let (command_tx, command_rx) = mpsc::channel();
         let volume = Arc::new(AtomicU32::new(f32::to_bits(1.0)));
@@ -47,6 +55,9 @@ impl AudioPlayer {
             command_rx,
             volume.clone(),
             current_position.clone(),
+            emit_state_events,
+            window.clone(),
+            duration,
         ));
 
         Ok(Self {
@@ -55,6 +66,8 @@ impl AudioPlayer {
             volume,
             duration,
             current_position,
+            emit_state_events,
+            window,
         })
     }
 
@@ -74,6 +87,10 @@ impl AudioPlayer {
 
     pub fn get_audio_clock(&self) -> f64 {
         *self.current_position.lock().unwrap()
+    }
+
+    pub fn get_volume(&self) -> f32 {
+        f32::from_bits(self.volume.load(Ordering::Relaxed))
     }
 
     pub fn set_volume(&self, volume: f32) {
@@ -119,6 +136,9 @@ impl AudioPlayer {
         command_rx: mpsc::Receiver<PlayerCommand>,
         volume: Arc<AtomicU32>,
         current_position: Arc<Mutex<f64>>,
+        emit_state_events: bool,
+        window: Option<WebviewWindow>,
+        _duration_hint: f64,
     ) -> thread::JoinHandle<()> {
         thread::spawn(move || {
             let (mut ictx, duration) = match Self::open_input(&path) {
@@ -187,6 +207,7 @@ impl AudioPlayer {
             let mut decoded = ffmpeg::frame::Audio::empty();
             let mut resampled = ffmpeg::frame::Audio::empty();
             let mut last_position_update = Instant::now();
+            let mut last_state_emit = Instant::now();
 
             loop {
                 while let Ok(cmd) = command_rx.try_recv() {
@@ -268,6 +289,19 @@ impl AudioPlayer {
 
                 if !playing {
                     thread::sleep(Duration::from_millis(10));
+                    if emit_state_events && last_state_emit.elapsed() >= Duration::from_millis(150)
+                    {
+                        if let Some(win) = &window {
+                            let state_payload = json!({
+                                "position": *current_position.lock().unwrap(),
+                                "duration": duration,
+                                "state": if playing { "playing" } else { "paused" },
+                                "volume": f32::from_bits(volume.load(Ordering::Relaxed)),
+                            });
+                            let _ = win.emit("player-state-update", state_payload);
+                        }
+                        last_state_emit = Instant::now();
+                    }
                     continue;
                 }
 
@@ -413,6 +447,19 @@ impl AudioPlayer {
                     );
                     *current_position.lock().unwrap() = current_pos;
                     last_position_update = Instant::now();
+                }
+
+                if emit_state_events && last_state_emit.elapsed() >= Duration::from_millis(120) {
+                    if let Some(win) = &window {
+                        let state_payload = json!({
+                            "position": *current_position.lock().unwrap(),
+                            "duration": duration,
+                            "state": "playing",
+                            "volume": f32::from_bits(volume.load(Ordering::Relaxed)),
+                        });
+                        let _ = win.emit("player-state-update", state_payload);
+                    }
+                    last_state_emit = Instant::now();
                 }
             }
         })

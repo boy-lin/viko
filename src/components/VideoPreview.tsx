@@ -106,6 +106,13 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const [previewSize, setPreviewSize] = useState<{
+    width: number;
+    height: number;
+  }>({
+    width: 640,
+    height: 360,
+  });
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -114,18 +121,68 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isHovering, setIsHovering] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const lastInitKeyRef = useRef<string>("");
+  const cacheValueRef = useRef<{
+    duration: number;
+    isDragging: boolean;
+  }>({
+    duration: 0,
+    isDragging: false,
+  });
+
+  useEffect(() => {
+    cacheValueRef.current.duration = duration;
+  }, [duration]);
+
+  // 根据容器尺寸更新预览目标分辨率（限定最大 1280x720）
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    const updateSize = () => {
+      const rect = node.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const maxW = 1280;
+        const maxH = 720;
+        const w = Math.round(Math.min(rect.width, maxW));
+        const h = Math.round(Math.min(rect.height, maxH));
+        const next = { width: w, height: h };
+        setPreviewSize((prev) =>
+          prev.width === next.width && prev.height === next.height ? prev : next
+        );
+      }
+    };
+
+    updateSize();
+  }, []);
 
   // 初始化视频播放器
   useEffect(() => {
-    if (!filePath || filePath === "undefined") {
+    if (
+      !filePath ||
+      filePath === "undefined" ||
+      previewSize.width <= 0 ||
+      previewSize.height <= 0
+    ) {
       return;
     }
+
+    const initKey = `${filePath}-${previewSize.width}x${previewSize.height}`;
+    if (lastInitKeyRef.current === initKey) {
+      return;
+    }
+    lastInitKeyRef.current = initKey;
 
     const initPlayer = async () => {
       try {
         setIsLoading(true);
-        await bridge.invoke("video_player_open", { path: filePath });
+        await bridge.invoke("video_player_open", {
+          path: filePath,
+          preview: {
+            width: previewSize.width,
+            height: previewSize.height,
+          },
+        });
         const dur = await bridge.invoke<number>("video_player_get_duration");
         setDuration(dur);
       } catch (error) {
@@ -140,26 +197,30 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
     return () => {
       bridge.invoke("video_player_close").catch(console.error);
     };
-  }, [filePath]);
+  }, [filePath, previewSize]);
 
   // 监听视频帧事件
   useEffect(() => {
     if (!filePath || !canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
     let unlistenFrame: (() => void) | undefined;
     let unlistenComplete: (() => void) | undefined;
+    let unlistenState: (() => void) | undefined;
 
     bridge
       .on("video-frame", (payload) => {
         const { width, height, data } = payload;
         if (!width || !height) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
 
-        canvas.width = width;
-        canvas.height = height;
+        // 只在尺寸变化时更新，避免不必要的清空
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
 
         const buffer =
           data instanceof Uint8Array ? data : new Uint8Array(data ?? []);
@@ -177,29 +238,44 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
     bridge
       .on("video-complete", () => {
         setIsPlaying(false);
-        setCurrentPosition(duration);
+        setCurrentPosition(cacheValueRef.current.duration);
+        console.log(
+          `video-complete duration: ${cacheValueRef.current.duration}`
+        );
       })
       .then((off) => {
         unlistenComplete = off;
       });
 
-    const positionInterval = setInterval(async () => {
-      if (isPlaying && !isDragging) {
-        try {
-          const pos = await bridge.invoke<number>("video_player_get_position");
-          setCurrentPosition(pos);
-        } catch (error) {
-          console.error("获取播放位置失败:", error);
+    bridge
+      .on("player-state-update", (payload) => {
+        if (!payload || typeof payload !== "object") return;
+        const state = payload as {
+          position: number;
+          duration: number;
+          state: string;
+          volume: number;
+        };
+
+        if (!cacheValueRef.current.isDragging) {
+          console.log(`player-state-update position: ${state.position}`);
+          setCurrentPosition(state.position);
         }
-      }
-    }, 100);
+        setDuration(state.duration);
+        setIsPlaying(state.state === "playing");
+        setVolume(state.volume);
+        setIsMuted(state.volume === 0);
+      })
+      .then((off) => {
+        unlistenState = off;
+      });
 
     return () => {
       unlistenFrame?.();
       unlistenComplete?.();
-      clearInterval(positionInterval);
+      unlistenState?.();
     };
-  }, [filePath, isPlaying, duration, isDragging]);
+  }, [filePath]);
 
   // 控制栏自动隐藏
   useEffect(() => {
@@ -278,7 +354,7 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
   const handleProgressDrag = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!progressBarRef.current || duration === 0) return;
-      setIsDragging(true);
+      cacheValueRef.current.isDragging = true;
       const rect = progressBarRef.current.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const percentage = Math.max(0, Math.min(1, clickX / rect.width));
@@ -289,7 +365,7 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
   );
 
   const handleProgressDragEnd = useCallback(() => {
-    setIsDragging(false);
+    cacheValueRef.current.isDragging = false;
     if (duration > 0) {
       handleSeek(currentPosition);
     }
@@ -327,6 +403,10 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
     );
   }
 
+  console.log(
+    `progressPercentage: ${progressPercentage} duration: ${duration} currentPosition: ${currentPosition}`
+  );
+
   return (
     <div className="mb-4 w-full">
       <div
@@ -338,11 +418,7 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
       >
         {/* 视频画布 */}
         <div className="relative w-full aspect-video bg-black flex items-center justify-center">
-          <canvas
-            ref={canvasRef}
-            className="w-full h-full object-contain"
-            style={{ display: "block" }}
-          />
+          <canvas ref={canvasRef} className="w-full h-full object-contain" />
 
           {/* 中央播放按钮 */}
           {!isPlaying && showControls && (
@@ -491,20 +567,6 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
                 <span className="text-white/70">/</span>
                 <span className="text-white/70">{formatTime(duration)}</span>
               </div>
-
-              {/* 全屏按钮 */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-transparent p-0"
-                onClick={() => {
-                  // TODO: 实现全屏功能
-                  console.log("全屏功能待实现");
-                }}
-                aria-label="全屏"
-              >
-                <FullscreenIcon className="w-5 h-5 transition-all hover:scale-110" />
-              </Button>
             </div>
           </div>
         </div>
@@ -530,4 +592,3 @@ function formatTime(seconds: number): string {
 }
 
 export default VideoPreview;
-

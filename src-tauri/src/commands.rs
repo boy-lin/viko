@@ -24,7 +24,7 @@ use ffmpeg_next as ffmpeg;
 
 use crate::audio::AudioPlayer;
 use crate::audio_converter::{self, AudioConversionParams};
-use crate::video_player::VideoPlayer;
+use crate::video_player::{PreviewSize, VideoPlayer};
 
 #[derive(Serialize)]
 pub struct FileInfo {
@@ -730,6 +730,7 @@ pub type AudioPlayerState = Mutex<Option<AudioPlayer>>;
 pub fn video_player_open(
     app: AppHandle,
     path: String,
+    preview: Option<PreviewSize>,
     player_state: State<'_, PlayerState>,
 ) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
@@ -742,7 +743,8 @@ pub fn video_player_open(
     }
 
     // 创建新的播放器
-    let player = VideoPlayer::new(&path, window).map_err(|e| format!("打开视频文件失败: {}", e))?;
+    let player = VideoPlayer::new(&path, window, preview)
+        .map_err(|e| format!("打开视频文件失败: {}", e))?;
 
     // 保存播放器实例
     *player_state.lock().unwrap() = Some(player);
@@ -835,6 +837,7 @@ pub fn video_player_set_volume(
 
 #[command]
 pub fn audio_player_open(
+    app: AppHandle,
     path: String,
     audio_player_state: State<'_, AudioPlayerState>,
 ) -> Result<(), String> {
@@ -846,7 +849,9 @@ pub fn audio_player_open(
     }
 
     // 创建新的音频播放器
-    let player = AudioPlayer::new(path).map_err(|e| format!("打开音频文件失败: {}", e))?;
+    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
+    let player = AudioPlayer::new(path, true, Some(window))
+        .map_err(|e| format!("打开音频文件失败: {}", e))?;
 
     // 保存播放器实例
     *audio_player_state.lock().unwrap() = Some(player);

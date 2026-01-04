@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
@@ -6,14 +6,13 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tauri::Emitter;
 
+use serde_json::json;
 use video_rs::ffmpeg::Rational;
 use video_rs::frame::RawFrame;
 use video_rs::{Decoder, DecoderBuilder, Error as VideoError, Resize};
 
 use crate::audio::AudioPlayer;
 
-const PREVIEW_MAX_WIDTH: u32 = 640;
-const PREVIEW_MAX_HEIGHT: u32 = 360;
 const FRAME_EMIT_INTERVAL_MS: u64 = 66; // ~15 FPS to reduce UI pressure
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -49,14 +48,35 @@ pub struct VideoPlayer {
     playback_thread: Option<thread::JoinHandle<()>>,
     audio_player: Option<Arc<AudioPlayer>>,
     has_started: Arc<AtomicBool>,
+    source_path: String,
+}
+
+#[derive(Debug, Deserialize, Clone, Copy)]
+pub struct PreviewSize {
+    pub width: u32,
+    pub height: u32,
 }
 
 impl VideoPlayer {
-    pub fn new(path: &str, window: tauri::WebviewWindow) -> Result<Self, String> {
+    pub fn new(
+        path: &str,
+        window: tauri::WebviewWindow,
+        preview: Option<PreviewSize>,
+    ) -> Result<Self, String> {
         video_rs::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))?;
 
-        let decoder = DecoderBuilder::new(Path::new(path))
-            .with_resize(Resize::FitEven(PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT))
+        let decoder_builder = DecoderBuilder::new(Path::new(path));
+        let decoder_builder = if let Some(p) = preview {
+            if p.width > 0 && p.height > 0 {
+                decoder_builder.with_resize(Resize::FitEven(p.width, p.height))
+            } else {
+                decoder_builder
+            }
+        } else {
+            decoder_builder
+        };
+
+        let decoder = decoder_builder
             .build()
             .map_err(|e| format!("创建解码器失败: {}", e))?;
         let (width, height) = decoder.size_out();
@@ -69,7 +89,7 @@ impl VideoPlayer {
         let current_position = Arc::new(Mutex::new(0.0_f64));
         let (command_tx, command_rx) = mpsc::channel();
         let has_started = Arc::new(AtomicBool::new(false));
-        let audio_player = AudioPlayer::new(path.to_string())
+        let audio_player = AudioPlayer::new(path.to_string(), false, None)
             .ok()
             .map(|ap| Arc::new(ap));
 
@@ -80,6 +100,9 @@ impl VideoPlayer {
             state.clone(),
             current_position.clone(),
             audio_player.clone(),
+            duration,
+            path.to_string(),
+            preview,
         ));
 
         Ok(Self {
@@ -92,6 +115,7 @@ impl VideoPlayer {
             playback_thread,
             audio_player,
             has_started,
+            source_path: path.to_string(),
         })
     }
 
@@ -180,11 +204,26 @@ impl VideoPlayer {
         command_rx: mpsc::Receiver<PlayerCommand>,
         state: Arc<Mutex<PlaybackState>>,
         current_position: Arc<Mutex<f64>>,
-        audio_player: Option<Arc<AudioPlayer>>,
-    ) -> thread::JoinHandle<()> {
-        thread::spawn(move || {
-            let time_base = decoder.time_base();
-            let (frame_width, frame_height) = decoder.size_out();
+    audio_player: Option<Arc<AudioPlayer>>,
+    duration: f64,
+    source_path: String,
+    target_size: Option<PreviewSize>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        let mut time_base = decoder.time_base();
+        let (raw_width, raw_height) = decoder.size_out();
+        let (mut frame_width, mut frame_height) = match target_size {
+            Some(p) if p.width > 0 && p.height > 0 => {
+                let scale = (p.width as f64 / raw_width as f64)
+                    .min(p.height as f64 / raw_height as f64)
+                    .min(1.0);
+                (
+                    (raw_width as f64 * scale) as u32,
+                    (raw_height as f64 * scale) as u32,
+                )
+            }
+            _ => (raw_width, raw_height),
+        };
             let mut playing = false;
             let mut wall_clock_anchor: Option<Instant> = None; // 保留作为后备，但优先使用音频时钟
             let frame_emit_interval = Duration::from_millis(FRAME_EMIT_INTERVAL_MS);
@@ -193,6 +232,7 @@ impl VideoPlayer {
             let mut smoothed_audio_clock: Option<f64> = None;
             let mut completed = false;
             let mut last_frame_skipped = false; // 用于跟踪是否跳过了上一帧
+            let mut last_state_emit = Instant::now();
 
             loop {
                 while let Ok(cmd) = command_rx.try_recv() {
@@ -204,9 +244,33 @@ impl VideoPlayer {
                             // 重置平滑音频时钟，避免上次结束时的尾值影响重新播放
                             smoothed_audio_clock = None;
                             if completed {
-                                if decoder.seek(0).is_ok() {
-                                    *current_position.lock().unwrap() = 0.0;
-                                    completed = false;
+                                // 重新从头播放：重新创建解码器，避免 drain 状态无法继续解码
+                                match DecoderBuilder::new(Path::new(&source_path))
+                                    .with_resize(
+                                        target_size
+                                            .and_then(|p| {
+                                                if p.width > 0 && p.height > 0 {
+                                                    Some(Resize::FitEven(p.width, p.height))
+                                                } else {
+                                                    None
+                                                }
+                                            })
+                                            .unwrap_or_else(|| Resize::FitEven(frame_width, frame_height)),
+                                    )
+                                    .build()
+                                {
+                                    Ok(new_decoder) => {
+                                        decoder = new_decoder;
+                                        time_base = decoder.time_base();
+                                        (frame_width, frame_height) = decoder.size_out();
+                                        *current_position.lock().unwrap() = 0.0;
+                                        completed = false;
+                                        last_frame_skipped = false;
+                                        last_emit = Instant::now() - frame_emit_interval;
+                                    }
+                                    Err(err) => {
+                                        log::error!("重建视频解码器失败: {err}");
+                                    }
                                 }
                             }
                             playing = true;
@@ -237,6 +301,28 @@ impl VideoPlayer {
                             return;
                         }
                     }
+                }
+
+                if last_state_emit.elapsed() >= Duration::from_millis(120) {
+                    let position = *current_position.lock().unwrap();
+                    let state_val = *state.lock().unwrap();
+                    let state_str = match state_val {
+                        PlaybackState::Playing => "playing",
+                        PlaybackState::Paused => "paused",
+                        PlaybackState::Stopped => "stopped",
+                    };
+                    let volume = audio_player
+                        .as_ref()
+                        .map(|ap| ap.get_volume())
+                        .unwrap_or(1.0);
+                    let payload = json!({
+                        "position": position,
+                        "duration": duration,
+                        "state": state_str,
+                        "volume": volume,
+                    });
+                    let _ = window.emit("player-state-update", payload);
+                    last_state_emit = Instant::now();
                 }
 
                 if !playing {
@@ -324,7 +410,10 @@ impl VideoPlayer {
                             let _ = window.emit("video-complete", "播放完成");
                             completed = true;
                             // 将平滑时钟钉在视频总时长，避免结束后 diff 继续为负导致额外丢帧/等待
-                            smoothed_audio_clock = Some(self::frame_timestamp_secs(&RawFrame::empty(), time_base).max(*current_position.lock().unwrap()));
+                            smoothed_audio_clock = Some(
+                                self::frame_timestamp_secs(&RawFrame::empty(), time_base)
+                                    .max(*current_position.lock().unwrap()),
+                            );
                         }
                         playing = false;
                         wall_clock_anchor = None;
