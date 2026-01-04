@@ -786,16 +786,6 @@ pub fn video_player_seek(
 }
 
 #[command]
-pub fn video_player_get_position(player_state: State<'_, PlayerState>) -> Result<f64, String> {
-    let player = player_state.lock().unwrap();
-    if let Some(ref p) = *player {
-        Ok(p.get_current_position())
-    } else {
-        Err("播放器未初始化".to_string())
-    }
-}
-
-#[command]
 pub fn video_player_get_duration(player_state: State<'_, PlayerState>) -> Result<f64, String> {
     let player = player_state.lock().unwrap();
     if let Some(ref p) = *player {
@@ -835,6 +825,7 @@ pub fn video_player_set_volume(
 
 #[command]
 pub fn audio_player_open(
+    app: AppHandle,
     path: String,
     audio_player_state: State<'_, AudioPlayerState>,
 ) -> Result<(), String> {
@@ -845,8 +836,12 @@ pub fn audio_player_open(
         }
     }
 
-    // 创建新的音频播放器
-    let player = AudioPlayer::new(path).map_err(|e| format!("打开音频文件失败: {}", e))?;
+    // 获取窗口用于状态推送
+    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
+
+    // 创建新的音频播放器（带窗口用于状态推送）
+    let player = AudioPlayer::new_with_window(path, Some(window))
+        .map_err(|e| format!("打开音频文件失败: {}", e))?;
 
     // 保存播放器实例
     *audio_player_state.lock().unwrap() = Some(player);
@@ -912,18 +907,6 @@ pub fn audio_player_set_volume(
     if let Some(ref p) = *player {
         p.set_volume(volume);
         Ok(())
-    } else {
-        Err("音频播放器未初始化".to_string())
-    }
-}
-
-#[command]
-pub fn audio_player_get_position(
-    audio_player_state: State<'_, AudioPlayerState>,
-) -> Result<f64, String> {
-    let player = audio_player_state.lock().unwrap();
-    if let Some(ref p) = *player {
-        Ok(p.get_current_position())
     } else {
         Err("音频播放器未初始化".to_string())
     }

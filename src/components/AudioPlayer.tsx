@@ -150,8 +150,8 @@ const AudioPlayer: React.FC = () => {
   const handlePlay = useCallback(async () => {
     try {
       await bridge.invoke("audio_player_play");
-      setIsPlaying(true);
       setError("");
+      // 状态将通过 player-state-update 事件更新
     } catch (err) {
       setError(`播放失败: ${err}`);
       console.error("播放失败:", err);
@@ -162,7 +162,7 @@ const AudioPlayer: React.FC = () => {
   const handlePause = useCallback(async () => {
     try {
       await bridge.invoke("audio_player_pause");
-      setIsPlaying(false);
+      // 状态将通过 player-state-update 事件更新
     } catch (err) {
       setError(`暂停失败: ${err}`);
       console.error("暂停失败:", err);
@@ -185,17 +185,16 @@ const AudioPlayer: React.FC = () => {
   const handleSkip = useCallback(
     async (seconds: number) => {
       try {
-        const current = await bridge.invoke<number>(
-          "audio_player_get_position"
-        );
-        const newPosition = Math.max(0, Math.min(duration, current + seconds));
+        // 使用当前状态中的位置，因为状态已通过事件推送实时更新
+        const newPosition = Math.max(0, Math.min(duration, currentPosition + seconds));
         await bridge.invoke("audio_player_seek", { position: newPosition });
+        // 位置会通过事件推送更新，但为了即时反馈可以先设置
         setCurrentPosition(newPosition);
       } catch (err) {
         console.error("跳转失败:", err);
       }
     },
-    [duration]
+    [duration, currentPosition]
   );
 
   // 进度条点击
@@ -235,26 +234,36 @@ const AudioPlayer: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }, []);
 
-  // 更新播放位置
+  // 监听状态更新事件（替代轮询）
   useEffect(() => {
-    if (!isPlaying || isDragging) return;
+    if (!filePath) return;
 
-    const interval = setInterval(async () => {
-      try {
-        const pos = await bridge.invoke<number>("audio_player_get_position");
-        setCurrentPosition(pos);
+    let unlistenStateUpdate: (() => void) | undefined;
 
-        // 如果播放完成，自动暂停
-        if (duration > 0 && pos >= duration) {
-          setIsPlaying(false);
+    bridge
+      .on("player-state-update", (payload) => {
+        // 只有在非拖拽状态下才更新位置，避免拖拽时被覆盖
+        if (!isDragging) {
+          setCurrentPosition(payload.position);
+          setDuration(payload.duration);
+          setIsPlaying(payload.state === "playing");
+          setVolume(payload.volume);
+          setIsMuted(payload.volume === 0);
+
+          // 如果播放完成，自动暂停
+          if (payload.duration > 0 && payload.position >= payload.duration) {
+            setIsPlaying(false);
+          }
         }
-      } catch (err) {
-        console.error("获取播放位置失败:", err);
-      }
-    }, 500); // 每500ms更新一次
+      })
+      .then((off) => {
+        unlistenStateUpdate = off;
+      });
 
-    return () => clearInterval(interval);
-  }, [isPlaying, duration, isDragging]);
+    return () => {
+      unlistenStateUpdate?.();
+    };
+  }, [filePath, isDragging]);
 
   // 音量控制
   const handleVolumeChange = useCallback(async (value: number) => {

@@ -7,6 +7,14 @@ export type DownloadProgress = {
   total?: number | null;
 };
 
+export type PlayerStateUpdate = {
+  position: number; // 当前播放位置（秒）
+  duration: number; // 总时长（秒）
+  state: "playing" | "paused" | "stopped";
+  volume: number; // 音量 0-1.5
+  buffered?: number; // 缓冲进度（可选）
+};
+
 export type BridgeEvents = {
   "ffmpeg-progress": string;
   "ffmpeg-complete": string;
@@ -15,6 +23,7 @@ export type BridgeEvents = {
   "video-frame": { width: number; height: number; data: number[] | Uint8Array };
   "video-complete": string;
   "video-error": string;
+  "player-state-update": PlayerStateUpdate;
 };
 
 type KnownEvent = keyof BridgeEvents;

@@ -183,23 +183,29 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
         unlistenComplete = off;
       });
 
-    const positionInterval = setInterval(async () => {
-      if (isPlaying && !isDragging) {
-        try {
-          const pos = await bridge.invoke<number>("video_player_get_position");
-          setCurrentPosition(pos);
-        } catch (error) {
-          console.error("获取播放位置失败:", error);
+    // 监听状态更新事件（替代轮询）
+    let unlistenStateUpdate: (() => void) | undefined;
+    bridge
+      .on("player-state-update", (payload) => {
+        // 只有在非拖拽状态下才更新位置，避免拖拽时被覆盖
+        if (!isDragging) {
+          setCurrentPosition(payload.position);
+          setDuration(payload.duration);
+          setIsPlaying(payload.state === "playing");
+          setVolume(payload.volume);
+          setIsMuted(payload.volume === 0);
         }
-      }
-    }, 100);
+      })
+      .then((off) => {
+        unlistenStateUpdate = off;
+      });
 
     return () => {
       unlistenFrame?.();
       unlistenComplete?.();
-      clearInterval(positionInterval);
+      unlistenStateUpdate?.();
     };
-  }, [filePath, isPlaying, duration, isDragging]);
+  }, [filePath, isDragging]);
 
   // 控制栏自动隐藏
   useEffect(() => {
@@ -220,16 +226,16 @@ const VideoPreview: React.FC<Props> = ({ filePath }) => {
         setCurrentPosition(0);
       }
       await bridge.invoke("video_player_play");
-      setIsPlaying(true);
+      // 状态将通过 player-state-update 事件更新，不需要手动设置
     } catch (error) {
       console.error("播放失败:", error);
     }
-  }, []);
+  }, [duration, currentPosition]);
 
   const handlePause = useCallback(async () => {
     try {
       await bridge.invoke("video_player_pause");
-      setIsPlaying(false);
+      // 状态将通过 player-state-update 事件更新，不需要手动设置
     } catch (error) {
       console.error("暂停失败:", error);
     }

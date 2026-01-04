@@ -14,7 +14,7 @@ use crate::audio::AudioPlayer;
 
 const PREVIEW_MAX_WIDTH: u32 = 640;
 const PREVIEW_MAX_HEIGHT: u32 = 360;
-const FRAME_EMIT_INTERVAL_MS: u64 = 66; // ~15 FPS to reduce UI pressure
+const FRAME_EMIT_INTERVAL_MS: u64 = 33; // ~15 FPS to reduce UI pressure
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PlaybackState {
@@ -37,6 +37,14 @@ struct FramePayload {
     width: u32,
     height: u32,
     data: Vec<u8>,
+}
+
+#[derive(Serialize, Clone)]
+struct PlayerStateUpdate {
+    position: f64,
+    duration: f64,
+    state: String,
+    volume: f32,
 }
 
 pub struct VideoPlayer {
@@ -80,6 +88,7 @@ impl VideoPlayer {
             state.clone(),
             current_position.clone(),
             audio_player.clone(),
+            duration,
         ));
 
         Ok(Self {
@@ -181,6 +190,7 @@ impl VideoPlayer {
         state: Arc<Mutex<PlaybackState>>,
         current_position: Arc<Mutex<f64>>,
         audio_player: Option<Arc<AudioPlayer>>,
+        duration: f64,
     ) -> thread::JoinHandle<()> {
         thread::spawn(move || {
             let time_base = decoder.time_base();
@@ -189,6 +199,9 @@ impl VideoPlayer {
             let mut wall_clock_anchor: Option<Instant> = None; // 保留作为后备，但优先使用音频时钟
             let frame_emit_interval = Duration::from_millis(FRAME_EMIT_INTERVAL_MS);
             let mut last_emit = Instant::now() - frame_emit_interval;
+            // 状态推送间隔：约 30 FPS (33ms)
+            let state_update_interval = Duration::from_millis(33);
+            let mut last_state_update = Instant::now() - state_update_interval;
             // 平滑后的音频时钟，减少抖动
             let mut smoothed_audio_clock: Option<f64> = None;
             let mut completed = false;
@@ -236,6 +249,35 @@ impl VideoPlayer {
                             *state.lock().unwrap() = PlaybackState::Stopped;
                             return;
                         }
+                    }
+                }
+
+                // 发送状态更新（无论是否在播放）
+                if last_state_update.elapsed() >= state_update_interval {
+                    let current_pos = *current_position.lock().unwrap();
+                    let current_state = *state.lock().unwrap();
+                    let volume = audio_player
+                        .as_ref()
+                        .map(|ap| ap.get_volume())
+                        .unwrap_or(1.0);
+                    
+                    let state_str = match current_state {
+                        PlaybackState::Playing => "playing",
+                        PlaybackState::Paused => "paused",
+                        PlaybackState::Stopped => "stopped",
+                    };
+                    
+                    let state_update = PlayerStateUpdate {
+                        position: current_pos,
+                        duration,
+                        state: state_str.to_string(),
+                        volume,
+                    };
+                    
+                    if let Err(err) = window.emit("player-state-update", state_update) {
+                        log::error!("发送状态更新失败: {err}");
+                    } else {
+                        last_state_update = Instant::now();
                     }
                 }
 

@@ -6,6 +6,8 @@ use std::time::{Duration, Instant};
 
 use bytemuck;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use serde::Serialize;
+use tauri::Emitter;
 use video_rs::ffmpeg::{
     self,
     format::sample::Type as SampleType,
@@ -27,6 +29,14 @@ struct SharedState {
     buffer_size: usize,
 }
 
+#[derive(Serialize, Clone)]
+struct PlayerStateUpdate {
+    position: f64,
+    duration: f64,
+    state: String,
+    volume: f32,
+}
+
 pub struct AudioPlayer {
     command_tx: mpsc::Sender<PlayerCommand>,
     handle: Option<thread::JoinHandle<()>>,
@@ -37,6 +47,13 @@ pub struct AudioPlayer {
 
 impl AudioPlayer {
     pub fn new(path: String) -> Result<Self, String> {
+        Self::new_with_window(path, None)
+    }
+
+    pub fn new_with_window(
+        path: String,
+        window: Option<tauri::WebviewWindow>,
+    ) -> Result<Self, String> {
         let duration = Self::probe_duration(&path)?;
         let (command_tx, command_rx) = mpsc::channel();
         let volume = Arc::new(AtomicU32::new(f32::to_bits(1.0)));
@@ -47,6 +64,8 @@ impl AudioPlayer {
             command_rx,
             volume.clone(),
             current_position.clone(),
+            window,
+            duration,
         ));
 
         Ok(Self {
@@ -79,6 +98,10 @@ impl AudioPlayer {
     pub fn set_volume(&self, volume: f32) {
         let clamped = volume.clamp(0.0, 1.5);
         self.volume.store(clamped.to_bits(), Ordering::Relaxed);
+    }
+
+    pub fn get_volume(&self) -> f32 {
+        f32::from_bits(self.volume.load(Ordering::Relaxed))
     }
 
     fn probe_duration(path: &str) -> Result<f64, String> {
@@ -119,6 +142,8 @@ impl AudioPlayer {
         command_rx: mpsc::Receiver<PlayerCommand>,
         volume: Arc<AtomicU32>,
         current_position: Arc<Mutex<f64>>,
+        window: Option<tauri::WebviewWindow>,
+        duration: f64,
     ) -> thread::JoinHandle<()> {
         thread::spawn(move || {
             let (mut ictx, duration) = match Self::open_input(&path) {
@@ -187,6 +212,10 @@ impl AudioPlayer {
             let mut decoded = ffmpeg::frame::Audio::empty();
             let mut resampled = ffmpeg::frame::Audio::empty();
             let mut last_position_update = Instant::now();
+            // 状态推送间隔：约 30 FPS (33ms)
+            let state_update_interval = Duration::from_millis(33);
+            let mut last_state_update = Instant::now() - state_update_interval;
+            let mut playback_state = "stopped".to_string();
 
             loop {
                 while let Ok(cmd) = command_rx.try_recv() {
@@ -205,16 +234,19 @@ impl AudioPlayer {
                                 completed = false;
                             }
                             playing = true;
+                            playback_state = "playing".to_string();
                             state.playing_flag.store(true, Ordering::Relaxed);
                             if stream_started {
                                 if let Err(e) = output_stream.play() {
                                     log::error!("恢复音频输出失败: {e}");
                                     playing = false;
+                                    playback_state = "paused".to_string();
                                     state.playing_flag.store(false, Ordering::Relaxed);
                                 }
                             } else if let Err(e) = output_stream.play() {
                                 log::error!("启动音频输出失败: {e}");
                                 playing = false;
+                                playback_state = "paused".to_string();
                                 state.playing_flag.store(false, Ordering::Relaxed);
                             } else {
                                 stream_started = true;
@@ -222,6 +254,7 @@ impl AudioPlayer {
                         }
                         PlayerCommand::Pause => {
                             playing = false;
+                            playback_state = "paused".to_string();
                             state.playing_flag.store(false, Ordering::Relaxed);
                             let _ = output_stream.pause();
                         }
@@ -256,12 +289,34 @@ impl AudioPlayer {
                             }
                         }
                         PlayerCommand::Stop => {
+                            playback_state = "stopped".to_string();
                             state.playing_flag.store(false, Ordering::Relaxed);
                             let _ = output_stream.pause();
                             return;
                         }
                         PlayerCommand::AudioError(err) => {
                             log::error!("音频错误: {err}");
+                        }
+                    }
+                }
+
+                // 发送状态更新（无论是否在播放）
+                if let Some(ref win) = window {
+                    if last_state_update.elapsed() >= state_update_interval {
+                        let current_pos = *current_position.lock().unwrap();
+                        let vol = f32::from_bits(volume.load(Ordering::Relaxed));
+                        
+                        let state_update = PlayerStateUpdate {
+                            position: current_pos,
+                            duration,
+                            state: playback_state.clone(),
+                            volume: vol,
+                        };
+                        
+                        if let Err(err) = win.emit("player-state-update", state_update) {
+                            log::error!("发送音频状态更新失败: {err}");
+                        } else {
+                            last_state_update = Instant::now();
                         }
                     }
                 }
@@ -390,6 +445,7 @@ impl AudioPlayer {
                     if buffer_samples == 0 {
                         completed = true;
                         playing = false;
+                        playback_state = "stopped".to_string();
                         state.playing_flag.store(false, Ordering::Relaxed);
                         let _ = output_stream.pause();
                         stream_started = false; // 下次播放需要重新启动输出流
