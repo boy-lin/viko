@@ -204,26 +204,26 @@ impl VideoPlayer {
         command_rx: mpsc::Receiver<PlayerCommand>,
         state: Arc<Mutex<PlaybackState>>,
         current_position: Arc<Mutex<f64>>,
-    audio_player: Option<Arc<AudioPlayer>>,
-    duration: f64,
-    source_path: String,
-    target_size: Option<PreviewSize>,
-) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        let mut time_base = decoder.time_base();
-        let (raw_width, raw_height) = decoder.size_out();
-        let (mut frame_width, mut frame_height) = match target_size {
-            Some(p) if p.width > 0 && p.height > 0 => {
-                let scale = (p.width as f64 / raw_width as f64)
-                    .min(p.height as f64 / raw_height as f64)
-                    .min(1.0);
-                (
-                    (raw_width as f64 * scale) as u32,
-                    (raw_height as f64 * scale) as u32,
-                )
-            }
-            _ => (raw_width, raw_height),
-        };
+        audio_player: Option<Arc<AudioPlayer>>,
+        duration: f64,
+        source_path: String,
+        target_size: Option<PreviewSize>,
+    ) -> thread::JoinHandle<()> {
+        thread::spawn(move || {
+            let mut time_base = decoder.time_base();
+            let (raw_width, raw_height) = decoder.size_out();
+            let (mut frame_width, mut frame_height) = match target_size {
+                Some(p) if p.width > 0 && p.height > 0 => {
+                    let scale = (p.width as f64 / raw_width as f64)
+                        .min(p.height as f64 / raw_height as f64)
+                        .min(1.0);
+                    (
+                        (raw_width as f64 * scale) as u32,
+                        (raw_height as f64 * scale) as u32,
+                    )
+                }
+                _ => (raw_width, raw_height),
+            };
             let mut playing = false;
             let mut wall_clock_anchor: Option<Instant> = None; // 保留作为后备，但优先使用音频时钟
             let frame_emit_interval = Duration::from_millis(FRAME_EMIT_INTERVAL_MS);
@@ -233,6 +233,7 @@ impl VideoPlayer {
             let mut completed = false;
             let mut last_frame_skipped = false; // 用于跟踪是否跳过了上一帧
             let mut last_state_emit = Instant::now();
+            let mut final_state_sent = false;
 
             loop {
                 while let Ok(cmd) = command_rx.try_recv() {
@@ -255,10 +256,12 @@ impl VideoPlayer {
                                                     None
                                                 }
                                             })
-                                            .unwrap_or_else(|| Resize::FitEven(frame_width, frame_height)),
-                                    )
-                                    .build()
-                                {
+                                    .unwrap_or_else(|| {
+                                        Resize::FitEven(frame_width, frame_height)
+                                    }),
+                            )
+                            .build()
+                        {
                                     Ok(new_decoder) => {
                                         decoder = new_decoder;
                                         time_base = decoder.time_base();
@@ -272,7 +275,13 @@ impl VideoPlayer {
                                         log::error!("重建视频解码器失败: {err}");
                                     }
                                 }
+                                // 音频也回到开头，保持同步
+                                if let Some(ap) = &audio_player {
+                                    let _ = ap.command(PlayerCommand::Seek(0.0));
+                                }
                             }
+                            completed = false;
+                            final_state_sent = false;
                             playing = true;
                             *state.lock().unwrap() = PlaybackState::Playing;
                             let anchor = Instant::now()
@@ -285,11 +294,29 @@ impl VideoPlayer {
                             wall_clock_anchor = None;
                         }
                         PlayerCommand::Seek(target) => {
-                            if let Err(err) = decoder.seek((target * 1000.0) as i64) {
-                                log::error!("跳转视频失败: {err}");
+                            log::debug!("跳转视频目标位置: {target}");
+                            let clamped = target.min((duration - 0.5).max(0.0)).max(0.0);
+                            if let Err(err) = decoder.seek((clamped * 1000.0) as i64) {
+                                log::error!(
+                                    "跳转视频失败: {err} (target={target}, clamped={clamped})"
+                                );
+                                // 视为到达结尾，统一状态，暂停音频
+                                *current_position.lock().unwrap() = duration;
+                                *state.lock().unwrap() = PlaybackState::Stopped;
+                                if let Some(ap) = &audio_player {
+                                    let _ = ap.command(PlayerCommand::Pause);
+                                    let _ = ap.command(PlayerCommand::Seek(duration));
+                                }
+                                let _ = window.emit("video-complete", "播放完成");
+                                completed = true;
+                                final_state_sent = false;
+                                playing = false;
+                                wall_clock_anchor = None;
+                                continue;
                             }
-                            *current_position.lock().unwrap() = target.max(0.0);
+                            *current_position.lock().unwrap() = clamped;
                             completed = false;
+                            final_state_sent = false;
                             if playing {
                                 let anchor = Instant::now()
                                     - Duration::from_secs_f64(*current_position.lock().unwrap());
@@ -304,6 +331,10 @@ impl VideoPlayer {
                 }
 
                 if last_state_emit.elapsed() >= Duration::from_millis(120) {
+                    if completed && final_state_sent {
+                        last_state_emit = Instant::now();
+                        continue;
+                    }
                     let position = *current_position.lock().unwrap();
                     let state_val = *state.lock().unwrap();
                     let state_str = match state_val {
@@ -323,6 +354,9 @@ impl VideoPlayer {
                     });
                     let _ = window.emit("player-state-update", payload);
                     last_state_emit = Instant::now();
+                    if completed {
+                        final_state_sent = true;
+                    }
                 }
 
                 if !playing {
@@ -406,14 +440,25 @@ impl VideoPlayer {
                     }
                     Err(VideoError::DecodeExhausted) | Err(VideoError::ReadExhausted) => {
                         if !completed {
+                            log::debug!(
+                                "视频解码到达结尾: current_position={:.3}s, duration={:.3}s",
+                                *current_position.lock().unwrap(),
+                                duration
+                            );
                             *state.lock().unwrap() = PlaybackState::Stopped;
+                            *current_position.lock().unwrap() = duration;
                             let _ = window.emit("video-complete", "播放完成");
                             completed = true;
+                            final_state_sent = false;
                             // 将平滑时钟钉在视频总时长，避免结束后 diff 继续为负导致额外丢帧/等待
                             smoothed_audio_clock = Some(
                                 self::frame_timestamp_secs(&RawFrame::empty(), time_base)
                                     .max(*current_position.lock().unwrap()),
                             );
+                            if let Some(ap) = &audio_player {
+                                let _ = ap.command(PlayerCommand::Pause);
+                                let _ = ap.command(PlayerCommand::Seek(duration));
+                            }
                         }
                         playing = false;
                         wall_clock_anchor = None;
