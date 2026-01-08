@@ -1,6 +1,6 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Layout from "./components/Layout";
+import RootLayout from "./layout/RootPage";
 import HomePage from "./pages/home/v2";
 import HomePageOld from "./pages/home/HomePage";
 import TaskListPage from "./pages/tasks/TaskListPage";
@@ -12,7 +12,7 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Layout />}>
+        <Route path="/" element={<RootLayout />}>
           <Route index element={<HomePage />} />
           <Route path="tasks" element={<TaskListPage />} />
           <Route path="batch" element={<BatchPage />} />
