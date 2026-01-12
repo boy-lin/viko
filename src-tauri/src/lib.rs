@@ -1,10 +1,10 @@
 // 声明模块 Cursor Write It
+pub mod audio;
+pub mod audio_converter;
 pub mod commands;
 pub mod ffmpeg_ffi;
 pub mod ffmpeg_loader;
 pub mod ffmpeg_media_info;
-pub mod audio;
-pub mod audio_converter;
 pub mod video_player;
 
 // 音频模块需要的共享类型
@@ -30,7 +30,7 @@ impl SharedClock {
             start_position: std::sync::Arc::new(std::sync::Mutex::new(0.0)),
         }
     }
-    
+
     pub fn start(&self, position: f64) {
         let mut start_time = self.start_time.lock().unwrap();
         *start_time = Some(std::time::Instant::now());
@@ -39,28 +39,28 @@ impl SharedClock {
         let mut start_position = self.start_position.lock().unwrap();
         *start_position = position;
     }
-    
+
     pub fn pause(&self) {
         let mut is_playing = self.is_playing.lock().unwrap();
         *is_playing = false;
     }
-    
+
     pub fn resume(&self) {
         let mut is_playing = self.is_playing.lock().unwrap();
         *is_playing = true;
     }
-    
+
     pub fn get_elapsed_time(&self) -> Option<std::time::Duration> {
         let start_time = self.start_time.lock().unwrap();
         let is_playing = self.is_playing.lock().unwrap();
-        
+
         if *is_playing {
             start_time.map(|start| start.elapsed())
         } else {
             None
         }
     }
-    
+
     pub fn get_position(&self) -> f64 {
         let start_position = *self.start_position.lock().unwrap();
         if let Some(elapsed) = self.get_elapsed_time() {
@@ -69,7 +69,7 @@ impl SharedClock {
             start_position
         }
     }
-    
+
     pub fn seek(&self, position: f64) {
         let mut start_time = self.start_time.lock().unwrap();
         *start_time = Some(std::time::Instant::now());
@@ -110,16 +110,37 @@ pub fn run() {
             crate::commands::audio_player_get_duration,
             crate::commands::get_audio_file_info,
             crate::commands::convert_audio_file,
+            crate::commands::get_detailed_media_info,
+            crate::commands::check_hardware_acceleration,
         ])
         .setup(|app| {
+            let window = app.get_webview_window("main");
+            if let Some(window) = window {
+                // 检查是否设置了远程 URL 环境变量
+                if let Ok(remote_url) = std::env::var("TAURI_REMOTE_URL") {
+                    if !remote_url.is_empty() {
+                        log::info!("Loading remote URL: {}", remote_url);
+                        if let Ok(url) = tauri::Url::parse(&remote_url) {
+                            if let Err(e) = window.navigate(url) {
+                                log::error!("Failed to navigate to remote URL: {}", e);
+                            }
+                        } else {
+                            log::error!("Invalid remote URL format: {}", remote_url);
+                        }
+                    }
+                } else {
+                    // 开发环境或未设置远程 URL，使用默认行为（本地文件或 devUrl）
+                    log::info!("Using local frontend (devUrl or bundled files)");
+                }
+            }
+
             // 初始化视频播放器状态
             app.manage(std::sync::Mutex::new(
                 None::<crate::video_player::VideoPlayer>,
             ));
             // 初始化音频播放器状态
-            app.manage(std::sync::Mutex::new(
-                None::<crate::audio::AudioPlayer>,
-            ));
+            app.manage(std::sync::Mutex::new(None::<crate::audio::AudioPlayer>));
+
             log::info!("Tauri application setup completed");
             Ok(())
         })

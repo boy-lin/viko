@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Outlet } from "react-router-dom";
 import { bridge } from "@/lib/bridge";
-import Sidebar from "./Sidebar";
+import Sidebar from "./sidebar/Sidebar";
 import Header from "./Header";
 
 type SelfCheckResult = {

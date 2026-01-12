@@ -460,7 +460,65 @@ export function Theme({
       </div>
     )
   }
-   
+
+  if (variant === "cards") {
+    return (
+      <div className={cn("grid gap-2", className)}>
+        {themes.map((themeOption) => {
+          const config = themeConfigs[themeOption]
+          const Icon = themeIcons[themeOption]
+          const isSelected = theme === themeOption
+
+          return (
+            <motion.button
+              key={themeOption}
+              onClick={() => setTheme(themeOption)}
+              className={cn(
+                "relative flex items-center gap-3 rounded-lg border-2 p-3 transition-all",
+                "text-left",
+                size === "sm"
+                  ? "p-2"
+                  : size === "md"
+                    ? "p-3"
+                    : "p-4",
+                isSelected
+                  ? "border-[var(--color-primary)] bg-[var(--color-primary)]/10"
+                  : "border-[var(--color-border)] bg-[var(--color-card)] hover:bg-[var(--color-muted)]"
+              )}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div
+                className={cn(
+                  "flex items-center justify-center rounded-md",
+                  size === "sm" ? "h-8 w-8" : size === "md" ? "h-10 w-10" : "h-12 w-12",
+                  isSelected
+                    ? "bg-[var(--color-primary)] text-white"
+                    : "bg-[var(--color-muted)] text-[var(--color-foreground)]"
+                )}
+              >
+                <Icon size={iconSizes[size]} />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium text-[var(--color-foreground)]">
+                  {config.label}
+                </div>
+                <div className="text-xs text-[var(--color-muted-foreground)]">
+                  {config.name}
+                </div>
+              </div>
+              {isSelected && (
+                <Check
+                  size={iconSizes[size]}
+                  className="text-[var(--color-primary)]"
+                />
+              )}
+            </motion.button>
+          )
+        })}
+      </div>
+    )
+  }
 
   return null
 }

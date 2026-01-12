@@ -23,6 +23,8 @@ pub struct AudioConversionParams {
     pub format: String,   // mp3, wav, flac, ogg, aac
     pub bitrate: u32,     // kbps
     pub sample_rate: u32, // Hz
+    pub use_hardware_acceleration: bool, // Try to use hardware encoders (e.g. aac_at)
+    pub use_ultra_fast_speed: bool,      // Optimize for speed
 }
 
 /// 获取音频文件的时长（秒）
@@ -58,13 +60,20 @@ pub fn get_audio_duration(input_path: &str) -> Result<f64, String> {
 }
 
 /// 根据格式获取音频编码器
-fn get_audio_codec_for_format(format: &str) -> String {
+fn get_audio_codec_for_format(format: &str, use_hardware_acceleration: bool) -> String {
     match format.to_lowercase().as_str() {
         "mp3" => "libmp3lame".to_string(),
         "wav" => "pcm_s16le".to_string(),
         "flac" => "flac".to_string(),
         "ogg" => "libvorbis".to_string(),
-        "aac" => "aac".to_string(),
+        "aac" => {
+            // MacOS AudioToolbox hardware acceleration for AAC
+            if use_hardware_acceleration && cfg!(target_os = "macos") {
+                "aac_at".to_string()
+            } else {
+                "aac".to_string()
+            }
+        },
         _ => "libmp3lame".to_string(), // 默认使用 MP3
     }
 }
@@ -82,13 +91,17 @@ fn get_output_extension(format: &str) -> &str {
 }
 
 /// 根据格式获取编码器 ID
-fn get_codec_id_for_format(format: &str) -> codec::Id {
+fn get_codec_id_for_format(format: &str, use_hardware_acceleration: bool) -> codec::Id {
     match format.to_lowercase().as_str() {
         "mp3" => codec::Id::MP3,
         "wav" => codec::Id::PCM_S16LE,
         "flac" => codec::Id::FLAC,
         "ogg" => codec::Id::VORBIS,
-        "aac" => codec::Id::AAC,
+        "aac" => {
+             // We return standard AAC ID, the specific encoder implementation (aac vs aac_at) 
+             // is selected by name later, but the ID remains AAC.
+             codec::Id::AAC
+        },
         _ => codec::Id::MP3, // 默认使用 MP3
     }
 }
@@ -323,9 +336,21 @@ pub fn convert_audio(window: &WebviewWindow, params: AudioConversionParams) -> R
         format::output(&params.output_path).map_err(|e| format!("创建输出文件失败: {}", e))?;
 
     // 获取编码器
-    let codec_id = get_codec_id_for_format(&params.format);
-    let encoder_codec =
-        ffmpeg::encoder::find(codec_id).ok_or_else(|| format!("未找到编码器: {:?}", codec_id))?;
+    // 获取编码器
+    // 首先尝试获取特定的编码器名称（可能包含 hardware accel 的选择）
+    let codec_name = get_audio_codec_for_format(&params.format, params.use_hardware_acceleration);
+    // 尝试通过名称查找
+    let mut encoder_codec = ffmpeg::encoder::find_by_name(&codec_name);
+    // 如果找不到指定的（例如 aac_at），回退到通用 ID
+    let codec_id = if let Some(ref codec) = encoder_codec {
+        codec.id()
+    } else {
+        let id = get_codec_id_for_format(&params.format, params.use_hardware_acceleration);
+        encoder_codec = ffmpeg::encoder::find(id);
+        id
+    };
+    
+    let encoder_codec = encoder_codec.ok_or_else(|| format!("未找到编码器: {:?} ({})", codec_id, codec_name))?;
     log::info!(
         "选用编码器: id={:?}, name={:?}, profile_supported={:?}",
         codec_id,

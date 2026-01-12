@@ -7,7 +7,6 @@
 // 2. 或者使用系统安装的 FFmpeg
 //
 // 模块下载功能保留，但实际使用需要系统 FFmpeg 支持
-
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::OpenOptions;
@@ -24,7 +23,13 @@ use ffmpeg_next as ffmpeg;
 
 use crate::audio::AudioPlayer;
 use crate::audio_converter::{self, AudioConversionParams};
+use crate::ffmpeg_media_info::{self, MediaDetails};
 use crate::video_player::{PreviewSize, VideoPlayer};
+
+#[command]
+pub fn get_detailed_media_info(path: String) -> Result<MediaDetails, String> {
+    ffmpeg_media_info::get_media_details(&path)
+}
 
 #[derive(Serialize)]
 pub struct FileInfo {
@@ -84,6 +89,13 @@ pub struct ModuleInfo {
     pub is_active: bool,
 }
 
+#[derive(Serialize)]
+pub struct HardwareSupport {
+    pub h264_hardware: bool,
+    pub hevc_hardware: bool,
+    pub prores_hardware: bool,
+}
+
 fn check_fs_permission() -> (bool, Option<String>) {
     let download_dir = match dirs::download_dir() {
         Some(path) => path,
@@ -122,6 +134,23 @@ pub fn run_self_check() -> Result<SelfCheckResult, String> {
     Ok(SelfCheckResult {
         fs_permission,
         fs_error,
+    })
+}
+
+#[command]
+pub fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
+    // Check for macOS VideoToolbox encoders using ffmpeg-next library
+    // This avoids dependency on external ffmpeg CLI and PATH issues
+    let h264_hardware = ffmpeg::encoder::find_by_name("h264_videotoolbox").is_some();
+    let hevc_hardware = ffmpeg::encoder::find_by_name("hevc_videotoolbox").is_some();
+    let prores_hardware = ffmpeg::encoder::find_by_name("prores_videotoolbox").is_some();
+
+    log::info!("Hardware Acceleration Check (Library): H.264={}, HEVC={}, ProRes={}", h264_hardware, hevc_hardware, prores_hardware);
+
+    Ok(HardwareSupport {
+        h264_hardware,
+        hevc_hardware,
+        prores_hardware,
     })
 }
 
@@ -958,6 +987,8 @@ pub struct AudioConversionArgs {
     pub format: String,
     pub bitrate: u32,
     pub sample_rate: u32,
+    pub use_hardware_acceleration: Option<bool>,
+    pub use_ultra_fast_speed: Option<bool>,
 }
 
 #[command]
@@ -1010,6 +1041,8 @@ pub fn convert_audio_file(
         format: args.format,
         bitrate: args.bitrate,
         sample_rate: args.sample_rate,
+        use_hardware_acceleration: args.use_hardware_acceleration.unwrap_or(false),
+        use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
     };
 
     // 在新线程中执行转换

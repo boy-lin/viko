@@ -34,3 +34,6 @@
 
   - 日志与调试：减少高频日志（帧级 TRACE），在 devOnly 条件下输出；监控
     统计（平均帧间隔、丢帧数）便于后续微调。
+<!-- gup加速 -->
+Enable Ultra-fast Speed
+Enable GPU Acceleration
