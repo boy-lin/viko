@@ -13,12 +13,14 @@ export function cn(...inputs: ClassValue[]) {
 export function extractFilenameFromPath(filePath: string): string {
   // Get filename with extension (handle both / and \ separators)
   const filenameWithExt = filePath.split(/[/\\]/).pop() || "";
-  
+
   // Remove extension (last dot and following characters)
   // If no dot or starts with dot (hidden file), keep as is
   if (filenameWithExt.lastIndexOf('.') <= 0) {
-      return filenameWithExt;
+    return filenameWithExt;
   }
-  
+
   return filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.'));
 }
+
+

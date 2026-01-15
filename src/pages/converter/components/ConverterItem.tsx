@@ -1,29 +1,23 @@
 import React, { useEffect, useRef } from "react";
 import {
     FileVideo,
-    FileAudio,
-    Scissors,
-    Crop,
     Settings,
-    Type,
-    AudioLines,
     Trash2,
-    ExternalLink,
     Info,
-    ChevronDown,
     Loader2,
-    Play,
-    Pause,
     RotateCcw
 } from "lucide-react";
-
+import { formatDuration } from "@/lib/time";
+import { formatFileSize, getFormatByPath } from "@/lib/file";
 import { Button } from "@/components/ui/button";
 import { ConverterTask } from "@/types/converter";
 
 import { useConverterStore } from "@/stores/converterStore";
 import { ConversionSettingsDialog } from "./ConversionSettingsDialog";
+import { MediaThumbnail } from "./MediaThumbnail";
 import { FormatSelector } from "@/components/biz-form/FormatSelector";
-import { isAudioFormat } from "@/data/formats";
+import type { FormatSelectorValue } from "@/components/biz-form/FormatSelector";
+import { isAudioFormat, isVideoFormat } from "@/data/formats";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Progress } from "@/components/ui/progress";
@@ -35,7 +29,8 @@ interface ConverterItemProps {
 export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
     const { removeTask, updateTaskById, outputPath } = useConverterStore();
-    const isVideo = task.streams.some(s => s.codec_type === "video");
+
+    const isVideo = isVideoFormat(task.config?.outputFormat)
 
     const unlistenProgressRef = useRef<(() => void) | null>(null);
     const unlistenCompleteRef = useRef<(() => void) | null>(null);
@@ -53,7 +48,6 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
     const handleStart = async () => {
         const outputFormat = task.config?.outputFormat;
         const isAudioTarget = isAudioFormat(outputFormat)
-        console.log("isAudioTarget", outputFormat);
         if (isAudioTarget) {
             try {
                 updateTaskById(task.id, { status: 'converting', progress: 0 });
@@ -107,15 +101,17 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
                     finalOutputPath = `${outputPath}${separator}${stem}.${outputFormat}`;
                 }
                 const { useHardwareAcceleration, useUltraFastSpeed } = useConverterStore.getState();
+                const audioTrack = task.config?.audioTracks?.[0];
                 const args: any = {
                     input_path: task.path,
                     output_path: finalOutputPath,
                     format: outputFormat,
-                    bitrate: task.config?.audioTracks?.[0]?.bitrate ? parseInt(task.config.audioTracks[0].bitrate) : 192,
+                    bitrate: audioTrack?.bitrate ? parseInt(audioTrack.bitrate) : 192,
                     use_hardware_acceleration: useHardwareAcceleration,
-                    use_ultra_fast_speed: useUltraFastSpeed
+                    use_ultra_fast_speed: useUltraFastSpeed,
+                    audio_encoder: audioTrack?.encoder
                 }
-                const sampleRate = task.config?.audioTracks?.[0]?.sampleRate;
+                const sampleRate = audioTrack?.sampleRate;
                 if (sampleRate && sampleRate === 'original') {
                     args.sample_rate = 0
                 } else {
@@ -124,6 +120,7 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
                 if (finalOutputPath) {
                     updateTaskById(task.id, { outputPath: finalOutputPath });
                 }
+                console.log("Invoking convert_audio_file with args:", args);
                 await invoke('convert_audio_file', {
                     args
                 });
@@ -133,43 +130,209 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
                 updateTaskById(task.id, { status: 'error' });
             }
         } else {
-            console.log("Video conversion not yet implemented");
+            console.log("Starting video conversion...");
+            try {
+                updateTaskById(task.id, { status: 'converting', progress: 0 });
+                unlistenProgressRef.current = await listen<number>(
+                    'video-conversion-progress', (event) => {
+                        // event.payload is number 0-100
+                        const progress = event.payload;
+                        if (typeof progress === 'number' && !isNaN(progress)) {
+                            updateTaskById(task.id, { progress });
+                        }
+                    });
+
+                unlistenCompleteRef.current = await listen<string>(
+                    'audio-conversion-complete', (event) => {
+                        if (event.payload.includes(task.config?.outputTitle || '')) {
+                            console.log("Video conversion complete:", event);
+                            updateTaskById(task.id, {
+                                status: 'finished',
+                                progress: 100,
+                                outputPath: event.payload
+                            });
+
+                            // Determine navigation logic
+                            const { tasks, incrementUnreadFinishedCount, setActiveTab } = useConverterStore.getState();
+                            const convertingTasks = tasks.filter(t => t.id !== task.id && t.status === 'converting');
+
+                            if (convertingTasks.length === 0) {
+                                setActiveTab('finished');
+                            } else {
+                                incrementUnreadFinishedCount();
+                            }
+
+                            // Cleanup
+                            if (unlistenProgressRef.current) unlistenProgressRef.current();
+                            if (unlistenCompleteRef.current) unlistenCompleteRef.current();
+                            if (unlistenErrorRef.current) unlistenErrorRef.current();
+                        }
+                    });
+
+                unlistenErrorRef.current = await listen<string>('audio-conversion-error', (event) => {
+                    updateTaskById(task.id, { status: 'error' });
+                    console.error("Video conversion failed:", event.payload);
+                    // Cleanup
+                    if (unlistenProgressRef.current) unlistenProgressRef.current();
+                    if (unlistenCompleteRef.current) unlistenCompleteRef.current();
+                    if (unlistenErrorRef.current) unlistenErrorRef.current();
+                });
+
+                let finalOutputPath: string | null = null;
+                if (outputPath) {
+                    const separator = outputPath.includes('\\') ? '\\' : '/';
+                    const stem = task.config?.outputTitle;
+                    finalOutputPath = `${outputPath}${separator}${stem}.${outputFormat}`;
+                }
+
+                const { useHardwareAcceleration, useUltraFastSpeed } = useConverterStore.getState();
+
+                // Construct VideoConversionArgs
+                const args: any = {
+                    input_path: task.path,
+                    output_path: finalOutputPath,
+                    format: outputFormat,
+                    video_encoder: task.config?.video?.encoder || 'h264',
+                    resolution: task.config?.video?.resolution,
+                    // Parse bitrate if manual, else undefined/null for auto
+                    // task.config.video.bitrate is string like "2000k" or "auto"
+                    video_bitrate: task.config?.video?.bitrate && task.config.video.bitrate !== 'auto'
+                        ? parseInt(task.config.video.bitrate.replace('k', ''))
+                        : null,
+                    frame_rate: task.config?.video?.frameRate,
+                    use_hardware_acceleration: useHardwareAcceleration,
+                    use_ultra_fast_speed: useUltraFastSpeed,
+                    // Audio settings for video
+                    audio_encoder: task.config?.audioTracks?.[0]?.encoder
+                };
+
+                if (finalOutputPath) {
+                    updateTaskById(task.id, { outputPath: finalOutputPath });
+                }
+
+                console.log("Invoking convert_video_file with args:", args);
+                await invoke('convert_video_file', { args });
+
+            } catch (error) {
+                console.error("Failed to start video conversion: " + JSON.stringify(error));
+                updateTaskById(task.id, { status: 'error' });
+            }
         }
     };
 
+    const originalInfo = [
+        {
+            label: 'Format',
+            icon: <FileVideo className="w-4 h-4" />,
+            value: task.format
+        },
+        isVideo ? {
+            label: 'Resolution',
+            icon: <FileVideo className="w-4 h-4" />,
+            value: task.displayResolution
+        } : {
+            label: 'Sample Rate',
+            icon: <FileVideo className="w-4 h-4" />,
+            value: task.streams?.[0]?.bit_rate + 'kbps'
+        },
+        {
+            label: 'Size',
+            icon: <FileVideo className="w-4 h-4" />,
+            value: formatFileSize(task.size)
+        },
+        {
+            label: 'Duration',
+            icon: <FileVideo className="w-4 h-4" />,
+            value: formatDuration(task.duration)
+        }
+    ]
+
+    const outputInfo = [
+        {
+            label: 'Format',
+            value: task.config?.outputFormat
+        },
+        isVideo ? {
+            label: 'Resolution',
+            icon: <FileVideo className="w-4 h-4" />,
+            value: task.config?.video.resolution
+        } : {
+            label: 'Sample Rate',
+            icon: <FileVideo className="w-4 h-4" />,
+            value: task.config?.audioTracks?.[0]?.bitrate + 'kbps'
+        },
+        {
+            label: 'Size',
+            icon: <FileVideo className="w-4 h-4" />,
+            value: formatFileSize(task.size)
+        },
+        {
+            label: 'Duration',
+            icon: <FileVideo className="w-4 h-4" />,
+            value: formatDuration(task.duration)
+        }
+    ]
+
+    const handleFormatChange = (updates: FormatSelectorValue) => {
+        const { updateTaskConfig } = useConverterStore.getState();
+        console.log('handleFormatChange', updates);
+        // Update Config
+        if (task.config) {
+            const newConfig = { ...task.config };
+
+            // Basic Format
+            if (updates.outputFormat) {
+                newConfig.outputFormat = updates.outputFormat;
+            }
+
+            // Video Config Updates (create if missing)
+            if (updates.resolution || updates.videoEncoder) {
+                const videoConfig = newConfig.video
+                newConfig.video = {
+                    ...videoConfig,
+                    resolution: updates.resolution || videoConfig?.resolution,
+                    encoder: updates.videoEncoder || videoConfig?.encoder,
+                };
+            }
+
+            // Update ALL Audio Tracks
+            if (newConfig.audioTracks && newConfig.audioTracks.length > 0) {
+
+                newConfig.audioTracks = newConfig.audioTracks.map(track => ({
+                    ...track,
+                    bitrate: updates.audioBitrate || track.bitrate,
+                    encoder: updates.audioEncoder || track.encoder,
+                }));
+            }
+            updateTaskConfig(task.id, newConfig);
+        }
+    }
+    console.log(`task: `, task);
     return (
         <>
             <div className="bg-secondary/20 border border-border rounded-xl p-4 flex gap-4 hover:border-purple-300 transition-colors group">
                 {/* Thumbnail */}
-                <div className="w-32 h-32 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
-                    <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center text-white">
-                        {isVideo ? <FileVideo className="w-6 h-6" /> : <FileAudio className="w-6 h-6" />}
-                    </div>
-                </div>
+                <MediaThumbnail
+                    path={task.path}
+                    title={task.title}
+                    isVideo={isVideo}
+                />
 
                 {/* Content */}
                 <div className="flex-1 flex justify-between py-1">
                     {/* Top Row: Title and Info */}
                     <div className="flex justify-between items-start w-full">
                         <div className="flex-1">
-                            <h3 className="text-lg font-bold text-foreground mb-2">{task.title}</h3>
+                            <h3 className="text-lg font-bold text-foreground mb-2 truncate">{task.title}</h3>
                             <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm text-muted-foreground">
-                                <div className="flex items-center gap-2">
-                                    <span className="w-4 flex justify-center">○</span>
-                                    {task.format}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="w-4 flex justify-center">🖼️</span>
-                                    {task.displaySize}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="w-4 flex justify-center">📁</span>
-                                    {task.displayResolution || "-"}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="w-4 flex justify-center">⏱️</span>
-                                    {task.duration.toFixed(2)}s
-                                </div>
+                                {
+                                    originalInfo.map((info, index) => (
+                                        <div className="flex items-center gap-2" key={index}>
+                                            <span className="w-4 flex justify-center">{info.icon}</span>
+                                            {info.value}
+                                        </div>
+                                    ))
+                                }
                             </div>
                         </div>
 
@@ -191,31 +354,23 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
                     </div>
 
                     {/* Bottom Row: Actions and Settings with Divider */}
-                    <div className="flex items-center gap-4 mt-4">
+                    <div className="flex items-center gap-4">
 
                         {/* Divider */}
                         <div className="w-px h-8 bg-border"></div>
 
+
+
                         {/* Conversion Settings */}
                         <div className="flex flex-col items-center gap-3 flex-1">
                             {/* Stats */}
-                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm flex-1">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground text-xs">📹</span>
-                                    <span className="font-medium">{task.displayFormat}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground text-xs">screen</span>
-                                    <span className="font-medium">{task.displayResolution || "Same as source"}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground text-xs">weight</span>
-                                    <span className="font-medium">Estimate...</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground text-xs">time</span>
-                                    <span className="font-medium">{task.duration.toFixed(2)}s</span>
-                                </div>
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm flex-1">{
+                                outputInfo.map((info, index) => (
+                                    <div key={index} className="flex items-center gap-2">
+                                        <span className="text-muted-foreground text-xs">{info.label}</span>
+                                        <span className="font-medium">{info.value}</span>
+                                    </div>
+                                ))}
                             </div>
 
                             {/* Dropdowns */}
@@ -227,90 +382,43 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
                                         resolution={task.config?.video?.resolution}
                                         rate={task.config?.audioTracks?.[0]?.bitrate}
                                         encoder={task.config?.video?.encoder}
-                                        onValueChange={(updates) => {
-                                            const { updateTaskConfig } = useConverterStore.getState();
-                                            // Update Config
-                                            if (task.config) {
-                                                const newConfig = { ...task.config };
-
-                                                // Basic Format
-                                                if (updates.outputFormat) {
-                                                    newConfig.outputFormat = updates.outputFormat;
-                                                }
-
-                                                // Video Config Updates (create if missing)
-                                                if (updates.resolution || updates.videoEncoder) {
-                                                    newConfig.video = {
-                                                        ...(newConfig.video || {
-                                                            encoder: 'h264',
-                                                            resolution: 'original',
-                                                            frameRate: 'original',
-                                                            bitrate: 'auto'
-                                                        }),
-                                                        ...(updates.resolution ? { resolution: updates.resolution } : {}),
-                                                        ...(updates.videoEncoder ? { encoder: updates.videoEncoder } : {}),
-                                                    };
-                                                }
-
-                                                // Update ALL Audio Tracks
-                                                if (newConfig.audioTracks && newConfig.audioTracks.length > 0) {
-
-                                                    newConfig.audioTracks = newConfig.audioTracks.map(track => ({
-                                                        ...track,
-                                                        ...(updates.audioBitrate ? { bitrate: updates.audioBitrate } : {}),
-                                                        ...(updates.audioEncoder ? { encoder: updates.audioEncoder } : {}),
-                                                    }));
-                                                }
-                                                console.log(`newConfig: ${JSON.stringify(newConfig.audioTracks)}`);
-
-                                                updateTaskConfig(task.id, newConfig);
-                                            }
-                                        }}
+                                        onValueChange={handleFormatChange}
                                     />
                                     {/* Settings btn */}
                                     <Button variant="outline" size="icon" className="h-8 w-8 bg-background" onClick={() => setIsSettingsOpen(true)}>
                                         <Settings className="w-4 h-4" />
                                     </Button>
-                                    <Button variant="outline" size="icon" className="h-8 w-12 bg-background flex justify-between px-2">
-                                        <Type className="w-4 h-4" />
-                                        <ChevronDown className="w-3 h-3 opacity-50" />
-                                    </Button>
-                                    <Button variant="outline" size="icon" className="h-8 w-12 bg-background flex justify-between px-2">
-                                        <AudioLines className="w-4 h-4" />
-                                        <ChevronDown className="w-3 h-3 opacity-50" />
-                                    </Button>
-
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                        </div>
+                        <div className="flex items-center gap-2">
 
-                                <Button
-                                    variant={task.status === 'converting' ? "secondary" : "default"}
-                                    onClick={handleStart}
-                                    disabled={task.status === 'converting'}
-                                >
-                                    {task.status === 'converting' ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Converting
-                                        </>
-                                    ) : task.status === 'finished' ? (
-                                        <RotateCcw className="w-4 h-4 mr-2" />
-                                    ) : (
-                                        "Start"
-                                    )}
-                                    {task.status === 'finished' && "Retry"}
-                                </Button>
+                            <Button
+                                variant={task.status === 'converting' ? "secondary" : "default"}
+                                onClick={handleStart}
+                                disabled={task.status === 'converting'}
+                            >
+                                {task.status === 'converting' ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Converting
+                                    </>
+                                ) : task.status === 'finished' ? (
+                                    <RotateCcw className="w-4 h-4 mr-2" />
+                                ) : (
+                                    "Start"
+                                )}
+                                {task.status === 'finished' && "Retry"}
+                            </Button>
 
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                    onClick={() => removeTask(task.id)}
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            </div>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => removeTask(task.id)}
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
                         </div>
                     </div>
                 </div>

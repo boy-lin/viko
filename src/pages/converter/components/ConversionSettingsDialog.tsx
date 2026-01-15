@@ -74,7 +74,7 @@ export const ConversionSettingsDialog: React.FC<ConversionSettingsDialogProps> =
 
   const isAudioTarget = isAudioFormat(outputFormat)
 
-  console.log(`render config ${JSON.stringify(config.audioTracks[0])}`);
+  // console.log(`render config ${JSON.stringify(config.audioTracks[0])}`);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -105,7 +105,7 @@ export const ConversionSettingsDialog: React.FC<ConversionSettingsDialogProps> =
 
         <div className="space-y-6 py-4">
           {/* Video Section - Only show if not audio format */}
-          {!isAudioFormat && (
+          {!isAudioTarget && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-lg">Video:</h3>

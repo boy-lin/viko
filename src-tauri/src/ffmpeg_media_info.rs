@@ -31,7 +31,7 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
     ffmpeg::init().map_err(|e| format!("FFmpeg initialization failed: {}", e))?;
 
     let path = Path::new(path_str);
-    let mut context = ffmpeg::format::input(&path).map_err(|e| format!("Input failed: {}", e))?;
+    let context = ffmpeg::format::input(&path).map_err(|e| format!("Input failed: {}", e))?;
 
     let duration = context.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
     let format_names = context.format().name().to_string();

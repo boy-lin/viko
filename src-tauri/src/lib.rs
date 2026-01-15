@@ -5,6 +5,8 @@ pub mod commands;
 pub mod ffmpeg_ffi;
 pub mod ffmpeg_loader;
 pub mod ffmpeg_media_info;
+pub mod thumbnail;
+pub mod video_converter;
 pub mod video_player;
 
 // 音频模块需要的共享类型
@@ -112,6 +114,8 @@ pub fn run() {
             crate::commands::convert_audio_file,
             crate::commands::get_detailed_media_info,
             crate::commands::check_hardware_acceleration,
+            crate::commands::convert_video_file,
+            crate::commands::generate_media_thumbnail,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main");

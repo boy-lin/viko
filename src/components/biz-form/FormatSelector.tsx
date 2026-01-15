@@ -13,18 +13,20 @@ import { FORMAT_DATA, FORMAT_CATEGORIES } from "@/data/formats";
 import { EncoderEnum, FormatOption } from "@/types/options";
 import { useConverterStore } from "@/stores/converterStore";
 
+export interface FormatSelectorValue {
+  outputFormat: string;
+  videoEncoder?: string;
+  resolution?: string;
+  audioBitrate?: string;
+  audioEncoder?: string;
+}
+
 interface FormatSelectorProps {
   format: string;
   encoder?: string;
   resolution?: string;
   rate?: string;
-  onValueChange: (updates: {
-    outputFormat: string;
-    videoEncoder?: string;
-    resolution?: string;
-    audioBitrate?: string;
-    audioEncoder?: string;
-  }) => void;
+  onValueChange: (updates: FormatSelectorValue) => void;
   className?: string;
 }
 

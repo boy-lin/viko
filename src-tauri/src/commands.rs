@@ -1037,7 +1037,7 @@ pub fn convert_audio_file(
     // 构建转换参数
     let params = AudioConversionParams {
         input_path: args.input_path,
-        output_path,
+        output_path: output_path.clone(),
         format: args.format,
         bitrate: args.bitrate,
         sample_rate: args.sample_rate,
@@ -1047,7 +1047,7 @@ pub fn convert_audio_file(
 
     // 在新线程中执行转换
     let window_clone = window.clone();
-    let output_path_clone = params.output_path.clone();
+    let output_path_clone = output_path.clone();
     std::thread::spawn(move || {
         if let Err(e) = audio_converter::convert_audio(&window_clone, params) {
             let _ = window_clone.emit("audio-conversion-error", e);
@@ -1057,4 +1057,76 @@ pub fn convert_audio_file(
     });
 
     Ok(())
+}
+
+// ==================== 视频转换相关命令 ====================
+
+#[derive(Deserialize)]
+pub struct VideoConversionArgs {
+    pub input_path: String,
+    pub output_path: Option<String>,
+    pub format: String,
+    pub video_encoder: Option<String>,
+    pub video_bitrate: Option<u32>,
+    pub resolution: Option<String>,
+    pub frame_rate: Option<String>,
+    pub audio_encoder: Option<String>,
+    pub use_hardware_acceleration: Option<bool>,
+    pub use_ultra_fast_speed: Option<bool>,
+}
+
+#[command]
+pub fn convert_video_file(
+    app: AppHandle,
+    args: VideoConversionArgs,
+) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or("未找到主窗口")?;
+
+    // 如果没有提供输出路径，自动生成
+    let output_path = if let Some(path) = args.output_path {
+        path
+    } else {
+        // 简单的自动生成逻辑，或者重用 audio_converter 的
+        let path = Path::new(&args.input_path);
+        let stem = path.file_stem().unwrap().to_str().unwrap();
+        let parent = path.parent().unwrap();
+        parent.join(format!("{}.{}", stem, args.format)).to_str().unwrap().to_string()
+    };
+    
+    let window = window.clone();
+    let task_id = "temp_task_id".to_string(); // In real implementation, pass task id from frontend if needed for detailed tracking
+
+    std::thread::spawn(move || {
+        let params = crate::video_converter::VideoConversionParams {
+            input_path: args.input_path,
+            output_path: output_path.clone(),
+            format: args.format,
+            video_encoder: args.video_encoder.unwrap_or_else(|| "h264".to_string()),
+            video_bitrate: args.video_bitrate,
+            resolution: args.resolution,
+            frame_rate: args.frame_rate,
+            audio_encoder: args.audio_encoder,
+            use_hardware_acceleration: args.use_hardware_acceleration.unwrap_or(false),
+            use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
+        };
+
+        if let Err(e) = crate::video_converter::convert_video(&window, params, task_id) {
+            // Re-use audio events or create video specific ones?
+            // Using video specific ones for clarity
+            let _ = window.emit("audio-conversion-error", e); // Reuse error listener for now or add video listener
+        } else {
+            let _ = window.emit("audio-conversion-complete", output_path); // Reuse complete listener for now
+        }
+    });
+
+    Ok(())
+}
+
+// ==================== 媒体缩略图相关命令 ====================
+
+#[command]
+pub fn generate_media_thumbnail(path: String) -> Result<Option<String>, String> {
+    crate::thumbnail::generate_thumbnail(&path)
 }
