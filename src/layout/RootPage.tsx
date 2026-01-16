@@ -52,7 +52,7 @@ const Layout: React.FC = () => {
         <Header />
         {/* Content Area */}
         <div
-          className="flex-1 overflow-y-auto p-6"
+          className="flex-1 overflow-y-auto px-4 py-2"
           style={{
             WebkitOverflowScrolling: "touch",
             overscrollBehaviorY: "auto",

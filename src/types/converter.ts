@@ -20,36 +20,45 @@ export interface MediaDetails {
 }
 
 export interface AudioTrackConfig {
-    trackIndex: number;
-    encoder: string;
-    channels: string;
-    sampleRate: string;
-    bitrate: string;
+  trackIndex: number;
+  encoder: string;
+  channels: string;
+  sampleRate: string;
+  bitrate: string;
+}
+
+export interface VideoTrackConfig {
+  encoder: string;
+  resolution: string;
+  frameRate: string;
+  bitrate: string;
+}
+
+export interface ImageConfig {
+  quality?: string;
+  resolution?: string;
 }
 
 export interface ConversionConfig {
-    outputFormat: string;
-    outputTitle: string;
-    // Video
-    video: {
-        encoder: string;
-        resolution: string;
-        frameRate: string;
-        bitrate: string;
-    },
-    // Audio
-    audioTracks: AudioTrackConfig[];
+  outputFormat: string;
+  outputTitle: string;
+  // Video
+  video: VideoTrackConfig;
+  // Audio
+  audioTracks?: AudioTrackConfig[];
+  // Image
+  image?: ImageConfig;
 }
 
 export interface ConverterTask extends MediaDetails {
-    id: string;
-    status: "idle" | "converting" | "finished" | "error";
-    progress: number;
-    outputPath?: string;
-    config?: ConversionConfig;
-    // Helper fields for UI
-    title: string;
-    displayFormat: string;
-    displayResolution: string;
-    displaySize: string;
+  id: string;
+  status: "idle" | "converting" | "finished" | "error";
+  progress: number;
+  outputPath?: string;
+  config?: ConversionConfig;
+  // Helper fields for UI
+  title: string;
+  displayFormat: string;
+  displayResolution: string;
+  displaySize: string;
 }

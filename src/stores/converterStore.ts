@@ -18,6 +18,7 @@ interface ConverterState {
     formatRecents: string[];
     useHardwareAcceleration: boolean;
     useUltraFastSpeed: boolean; // For "Ultra-fast Speed"
+    globalConfig: ConversionConfig;
     setActiveTab: (tab: 'converting' | 'finished') => void;
     incrementUnreadFinishedCount: () => void;
     resetUnreadFinishedCount: () => void;
@@ -31,6 +32,7 @@ interface ConverterState {
     updateTaskConfig: (id: string, config: Partial<ConversionConfig>) => void;
     updateTaskById: (id: string, updates: Partial<ConverterTask>) => void;
     setOutputPath: (path: string) => void;
+    updateGlobalConfig: (config: Partial<ConversionConfig>) => void;
 }
 
 export const useConverterStore = create<ConverterState>((set, get) => ({
@@ -43,6 +45,23 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
     formatRecents: [],
     useHardwareAcceleration: false,
     useUltraFastSpeed: false,
+    globalConfig: {
+        outputFormat: FormatEnum.MP4,
+        outputTitle: "",
+        // Video Defaults
+        video: {
+            encoder: 'h264',
+            resolution: '1920x1080',
+            frameRate: '30',
+            bitrate: '1000',
+        },
+        // Audio Defaults
+        audioTracks: [],
+        // Image Defaults
+        image: {
+            quality: '80',
+        }
+    },
     init: async () => {
         try {
             const tasks = await converterDB.getAllTasks();
@@ -180,8 +199,6 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
         const task = tasks.find(t => t.id === id);
         if (task) {
             const taskConfig = task.config as ConversionConfig;
-            console.log(`taskConfig: ${JSON.stringify(taskConfig.audioTracks[0])}`);
-            console.log(`updateTaskConfig: ${JSON.stringify(taskConfig.audioTracks[0])}`);
             const updatedTask = { ...task, config: { ...taskConfig, ...config } };
             await converterDB.addTask(updatedTask); // Update DB
             set({ tasks: tasks.map(t => t.id === id ? updatedTask : t) });
@@ -235,5 +252,11 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
     toggleUltraFastSpeed: async (enabled) => {
         set({ useUltraFastSpeed: enabled });
         await converterDB.saveSetting('use_ultra_fast_speed', enabled);
-    }
+    },
+    updateGlobalConfig: async (config: Partial<ConversionConfig>) => {
+        const { globalConfig } = get();
+        set({ globalConfig: { ...globalConfig, ...config } });
+        await converterDB.saveSetting('globalConfig', globalConfig);
+    },
+
 }));

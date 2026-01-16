@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useConverterStore } from "@/stores/converterStore";
@@ -69,13 +69,6 @@ export const ConverterHeader: React.FC<ConverterHeaderProps> = ({
         <div className="flex items-center gap-2">
           <HighSpeedConversionBadge />
 
-          <Button
-            variant="outline"
-            size="icon"
-            className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
 
           <div className="flex">
             <Button

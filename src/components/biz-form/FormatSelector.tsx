@@ -25,7 +25,7 @@ interface FormatSelectorProps {
   format: string;
   encoder?: string;
   resolution?: string;
-  rate?: string;
+  audioBitrate?: string;
   onValueChange: (updates: FormatSelectorValue) => void;
   className?: string;
 }
@@ -34,7 +34,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
   format,
   encoder,
   resolution,
-  rate, // bitrate or sample rate context
+  audioBitrate, // bitrate or sample rate context
   onValueChange,
   className,
 }) => {
@@ -56,7 +56,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
       if (resolution && f.quality === resolution) return true;
 
       // If rate provided (e.g. 320k), check quality match
-      if (rate && f.quality === `${rate}k`) return true;
+      if (audioBitrate && f.quality === `${audioBitrate}k`) return true;
 
       return false;
     });
@@ -67,7 +67,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
     }
 
     return match;
-  }, [format, resolution, rate]);
+  }, [format, resolution, audioBitrate]);
 
   const value = selectedFormat?.id || "";
 

@@ -223,26 +223,25 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
     const originalInfo = [
         {
             label: 'Format',
-            icon: <FileVideo className="w-4 h-4" />,
-            value: task.format
+            value: task.format.toUpperCase()
         },
         isVideo ? {
             label: 'Resolution',
-            icon: <FileVideo className="w-4 h-4" />,
-            value: task.displayResolution
+            icon: "•",
+            value: task.displayResolution.toUpperCase()
         } : {
             label: 'Sample Rate',
-            icon: <FileVideo className="w-4 h-4" />,
-            value: task.streams?.[0]?.bit_rate + 'kbps'
+            icon: "•",
+            value: task.streams?.[0]?.bit_rate + 'bps'
         },
         {
             label: 'Size',
-            icon: <FileVideo className="w-4 h-4" />,
+            icon: "•",
             value: formatFileSize(task.size)
         },
         {
             label: 'Duration',
-            icon: <FileVideo className="w-4 h-4" />,
+            icon: "•",
             value: formatDuration(task.duration)
         }
     ]
@@ -255,7 +254,7 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
         isVideo ? {
             label: 'Resolution',
             icon: <FileVideo className="w-4 h-4" />,
-            value: task.config?.video.resolution
+            value: task.config?.video?.resolution
         } : {
             label: 'Sample Rate',
             icon: <FileVideo className="w-4 h-4" />,
@@ -275,7 +274,6 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
 
     const handleFormatChange = (updates: FormatSelectorValue) => {
         const { updateTaskConfig } = useConverterStore.getState();
-        console.log('handleFormatChange', updates);
         // Update Config
         if (task.config) {
             const newConfig = { ...task.config };
@@ -286,28 +284,28 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
             }
 
             // Video Config Updates (create if missing)
-            if (updates.resolution || updates.videoEncoder) {
-                const videoConfig = newConfig.video
-                newConfig.video = {
-                    ...videoConfig,
-                    resolution: updates.resolution || videoConfig?.resolution,
-                    encoder: updates.videoEncoder || videoConfig?.encoder,
-                };
+            if (updates.resolution) {
+                newConfig.video!.resolution = updates.resolution
             }
-
+            if (updates.videoEncoder) {
+                newConfig.video!.encoder = updates.videoEncoder
+            }
             // Update ALL Audio Tracks
             if (newConfig.audioTracks && newConfig.audioTracks.length > 0) {
 
-                newConfig.audioTracks = newConfig.audioTracks.map(track => ({
-                    ...track,
-                    bitrate: updates.audioBitrate || track.bitrate,
-                    encoder: updates.audioEncoder || track.encoder,
-                }));
+                newConfig.audioTracks.forEach(track => {
+                    if (updates.audioBitrate) {
+                        track.bitrate = updates.audioBitrate;
+                    }
+                    if (updates.audioEncoder) {
+                        track.encoder = updates.audioEncoder;
+                    }
+                });
             }
             updateTaskConfig(task.id, newConfig);
         }
     }
-    console.log(`task: `, task);
+
     return (
         <>
             <div className="bg-secondary/20 border border-border rounded-xl p-4 flex gap-4 hover:border-purple-300 transition-colors group">
@@ -324,12 +322,12 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
                     <div className="flex justify-between items-start w-full">
                         <div className="flex-1">
                             <h3 className="text-lg font-bold text-foreground mb-2 truncate">{task.title}</h3>
-                            <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm text-muted-foreground">
+                            <div className="flex text-sm text-muted-foreground gap-1">
                                 {
                                     originalInfo.map((info, index) => (
-                                        <div className="flex items-center gap-2" key={index}>
-                                            <span className="w-4 flex justify-center">{info.icon}</span>
-                                            {info.value}
+                                        <div className="flex items-center gap-1" key={index}>
+                                            {info.icon || ""}
+                                            <span>{info.value}</span>
                                         </div>
                                     ))
                                 }
@@ -358,12 +356,8 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
 
                         {/* Divider */}
                         <div className="w-px h-8 bg-border"></div>
-
-
-
                         {/* Conversion Settings */}
                         <div className="flex flex-col items-center gap-3 flex-1">
-                            {/* Stats */}
                             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm flex-1">{
                                 outputInfo.map((info, index) => (
                                     <div key={index} className="flex items-center gap-2">
@@ -373,18 +367,15 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
                                 ))}
                             </div>
 
-                            {/* Dropdowns */}
                             <div className="flex items-center gap-2">
-                                {/* Dropdowns */}
                                 <div className="flex items-center gap-2">
                                     <FormatSelector
                                         format={task.config?.outputFormat || ''}
                                         resolution={task.config?.video?.resolution}
-                                        rate={task.config?.audioTracks?.[0]?.bitrate}
+                                        audioBitrate={task.config?.audioTracks?.[0]?.bitrate}
                                         encoder={task.config?.video?.encoder}
                                         onValueChange={handleFormatChange}
                                     />
-                                    {/* Settings btn */}
                                     <Button variant="outline" size="icon" className="h-8 w-8 bg-background" onClick={() => setIsSettingsOpen(true)}>
                                         <Settings className="w-4 h-4" />
                                     </Button>
@@ -393,7 +384,7 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
                         </div>
                         <div className="flex items-center gap-2">
 
-                            <Button
+                            {/* <Button
                                 variant={task.status === 'converting' ? "secondary" : "default"}
                                 onClick={handleStart}
                                 disabled={task.status === 'converting'}
@@ -409,7 +400,7 @@ export const ConverterItem: React.FC<ConverterItemProps> = ({ task }) => {
                                     "Start"
                                 )}
                                 {task.status === 'finished' && "Retry"}
-                            </Button>
+                            </Button> */}
 
                             <Button
                                 variant="ghost"
