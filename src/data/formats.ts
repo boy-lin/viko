@@ -227,7 +227,9 @@ const AUDIO_FORMATS = [FormatEnum.MP3, FormatEnum.M4A, FormatEnum.WAV, FormatEnu
 
 const VIDEO_FORMATS = [FormatEnum.MP4, FormatEnum.MOV, FormatEnum.MKV, FormatEnum.AVI, FormatEnum.WMV, FormatEnum.WEBM, FormatEnum.FLV, FormatEnum.GP3, FormatEnum.MPG, FormatEnum.VOB, FormatEnum.OGV];
 
-export const SupportedFormats = [...AUDIO_FORMATS, ...VIDEO_FORMATS];
+const IMAGE_FORMATS = [FormatEnum.JPG, FormatEnum.PNG, FormatEnum.WEBP, FormatEnum.HEIC, FormatEnum.GIF, FormatEnum.TIFF];
+
+export const SupportedFormats = [...AUDIO_FORMATS, ...VIDEO_FORMATS, ...IMAGE_FORMATS];
 
 export function isAudioFormat(format: any): boolean {
     if (!format) return false;
@@ -237,4 +239,9 @@ export function isAudioFormat(format: any): boolean {
 export function isVideoFormat(format: any): boolean {
     if (!format) return false;
     return VIDEO_FORMATS.includes(format);
+}
+
+export function isImageFormat(format: any): boolean {
+    if (!format) return false;
+    return IMAGE_FORMATS.includes(format);
 }

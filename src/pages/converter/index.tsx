@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ConverterHeader } from "./components/ConverterHeader";
 import { ConverterItem } from "./components/ConverterItem";
 import { FinishedItem } from "./components/FinishedItem";
-import { ConverterFooter } from "./components/ConverterFooter";
+import { ConverterFooter } from "./v2/ConverterFooter";
 import { useConverterStore } from "@/stores/converterStore";
 
 const ConverterPage: React.FC = () => {

@@ -25,18 +25,18 @@ import { AudioBitrateSelect } from "@/components/biz-form/AudioBitrateSelect";
 import { isAudioFormat } from "@/data/formats";
 
 interface ConversionSettingsDialogProps {
-  task: ConverterTask;
+  taskConfig: ConversionConfig;
+  onTaskConfigChange: (config: Partial<ConversionConfig>) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export const ConversionSettingsDialog: React.FC<
   ConversionSettingsDialogProps
-> = ({ task, open, onOpenChange }) => {
-  const { updateTaskConfig } = useConverterStore();
+> = ({ taskConfig, onTaskConfigChange, open, onOpenChange }) => {
   const [config, setConfig] = useState<ConversionConfig>(
-    task.config || {
-      outputTitle: task?.title,
+    taskConfig || {
+      outputTitle: "",
       outputFormat: "mp4",
       video: {
         encoder: "h264",
@@ -47,16 +47,17 @@ export const ConversionSettingsDialog: React.FC<
       audioTracks: [],
     }
   );
-  const outputFormat = task.config?.outputFormat || "";
+  const outputFormat = config.outputFormat || "";
 
   useEffect(() => {
-    if (task.config) {
-      setConfig(task.config);
+    if (taskConfig) {
+      console.log(`taskConfig ${JSON.stringify(taskConfig)}`);
+      setConfig(taskConfig);
     }
-  }, [task]);
+  }, [taskConfig]);
 
   const handleSave = () => {
-    updateTaskConfig(task.id, {
+    onTaskConfigChange({
       outputTitle: config.outputTitle,
       video: config.video,
       audioTracks: config.audioTracks,

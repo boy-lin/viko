@@ -5,7 +5,7 @@ import { Theme } from "@/components/ui/theme";
 
 export default function Header() {
   return (
-    <header className="bg-background px-6 py-3 flex items-center justify-end gap-3">
+    <header className="bg-background px-4 py-2 flex items-center justify-end gap-3">
       <Theme
         size="md"
         variant="dropdown"

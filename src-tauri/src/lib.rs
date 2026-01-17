@@ -5,6 +5,7 @@ pub mod commands;
 pub mod ffmpeg_ffi;
 pub mod ffmpeg_loader;
 pub mod ffmpeg_media_info;
+pub mod image_converter;
 pub mod thumbnail;
 pub mod video_converter;
 pub mod video_player;
@@ -116,6 +117,7 @@ pub fn run() {
             crate::commands::check_hardware_acceleration,
             crate::commands::convert_video_file,
             crate::commands::generate_media_thumbnail,
+            crate::image_converter::convert_image_file,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main");

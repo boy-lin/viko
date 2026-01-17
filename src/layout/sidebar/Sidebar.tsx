@@ -49,9 +49,30 @@ const sidebarNavItems: NavItem[] = [
 ];
 
 const quickAccessItems: QuickAccessItem[] = [
-  { label: "Converter", icon: "🔄", color: "text-purple-600", href: "/converter" },
-  { label: "Downloader", icon: "⬇️", color: "text-orange-600" },
-  { label: "Compressor", icon: "🗜️", color: "text-blue-600" },
+  {
+    label: "Converter",
+    icon: "🔄",
+    color: "text-purple-600",
+    href: "/converter",
+  },
+  {
+    label: "Downloader",
+    icon: "⬇️",
+    color: "text-orange-600",
+    href: "/downloader",
+  },
+  {
+    label: "Compressor",
+    icon: "🗜️",
+    color: "text-blue-600",
+    href: "/compressor",
+  },
+  {
+    label: "Converter Old",
+    icon: "🔄",
+    color: "text-purple-600",
+    href: "/converter-old",
+  },
 ];
 
 const containerVariants = {
@@ -159,8 +180,10 @@ const SidebarNavItem = ({ item }: { item: NavItem }) => {
   const Icon = item.icon;
   const navigate = useNavigate();
   const location = useLocation();
-  const isActive = item.href 
-    ? (item.href === "/" ? location.pathname === "/" : location.pathname.startsWith(item.href))
+  const isActive = item.href
+    ? item.href === "/"
+      ? location.pathname === "/"
+      : location.pathname.startsWith(item.href)
     : false;
 
   return (
@@ -169,8 +192,8 @@ const SidebarNavItem = ({ item }: { item: NavItem }) => {
       onClick={() => item.href && navigate(item.href)}
       className={cn(
         "w-full flex items-center gap-3 px-3 h-10 rounded-lg text-foreground transition-colors",
-        isActive 
-          ? "bg-secondary-foreground text-background font-medium" 
+        isActive
+          ? "bg-secondary-foreground text-background font-medium"
           : "hover:bg-muted"
       )}
     >

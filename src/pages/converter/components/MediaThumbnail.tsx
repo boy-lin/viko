@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FileVideo, FileAudio } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { cn } from "@/lib/utils";
 
 interface MediaThumbnailProps {
   path: string;
@@ -40,7 +41,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   }, [path]);
 
   return (
-    <div className={`w-32 h-32 bg-muted/30 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative ${className || ''}`}>
+    <div className={cn("w-32 h-32 bg-muted/30 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative", className)}>
       {thumbnail ? (
         <img
           src={thumbnail}

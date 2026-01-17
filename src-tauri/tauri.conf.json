@@ -18,7 +18,8 @@
         "maximized": false,
         "resizable": true,
         "devtools": true,
-        "label": "main"
+        "label": "main",
+        "dragDropEnabled": true
       }
     ],
     "security": {

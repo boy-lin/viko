@@ -28,6 +28,10 @@ interface ConverterState {
     addToRecents: (formatId: string) => void;
     init: () => Promise<void>;
     addFiles: () => Promise<void>;
+    addFilesFromPaths: (
+        paths: string[],
+        onFileProcessed?: (path: string, status: "success" | "error", message?: string) => void
+    ) => Promise<void>;
     removeTask: (id: string) => void;
     updateTaskConfig: (id: string, config: Partial<ConversionConfig>) => void;
     updateTaskById: (id: string, updates: Partial<ConverterTask>) => void;
@@ -56,7 +60,15 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
             bitrate: '1000',
         },
         // Audio Defaults
-        audioTracks: [],
+        audioTracks: [
+            {
+                trackIndex: 0,
+                encoder: 'aac',
+                channels: 'original',
+                sampleRate: 'original',
+                bitrate: '128'
+            }
+        ],
         // Image Defaults
         image: {
             quality: '80',
@@ -105,6 +117,13 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
             if (!selected) return;
 
             const paths = Array.isArray(selected) ? selected : [selected];
+            await get().addFilesFromPaths(paths);
+        } catch (err) {
+            console.error("Error selecting files:", err);
+        }
+    },
+    addFilesFromPaths: async (paths, onFileProcessed) => {
+        try {
             const newTasks: ConverterTask[] = [];
 
             for (const path of paths) {
@@ -133,28 +152,24 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
                         displayResolution,
                         displaySize,
                     });
-
-                } catch (e) {
+                    onFileProcessed?.(path, "success");
+                } catch (e: any) {
                     console.error(`Failed to get info for ${path}:`, e);
+                    const message = e?.message || "Failed to read media info";
+                    onFileProcessed?.(path, "error", message);
                 }
             }
 
             if (newTasks.length > 0) {
                 // Initialize default config for new tasks
                 newTasks.forEach(task => {
-                    let isVideo
-                    let isAudio
-                    let isImage
                     let outputFormat = FormatEnum.MP4
 
                     if (task.streams.some(s => s.codec_type === "video")) {
-                        isVideo = true;
                         outputFormat = task.displayFormat === FormatEnum.MP4.toUpperCase() ? FormatEnum.MOV : FormatEnum.MP4;
                     } else if (task.streams.some(s => s.codec_type === "audio")) {
-                        isAudio = true;
                         outputFormat = task.displayFormat === FormatEnum.MP3.toUpperCase() ? FormatEnum.AAC : FormatEnum.MP3;
                     } else if (task.streams.some(s => s.codec_type === "image")) {
-                        isImage = true;
                         outputFormat = task.displayFormat === FormatEnum.PNG.toUpperCase() ? FormatEnum.JPG : FormatEnum.PNG;
                     }
                     task.config = {
@@ -168,7 +183,7 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
                         },
                         audioTracks: task.streams
                             .filter(s => s.codec_type === 'audio')
-                            .map((stream, index) => ({
+                            .map((stream) => ({
                                 trackIndex: stream.index,
                                 encoder: stream.codec_name,
                                 channels: 'original',
@@ -181,9 +196,8 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
                 await converterDB.addTasks(newTasks);
                 set((state) => ({ tasks: [...state.tasks, ...newTasks] }));
             }
-
         } catch (err) {
-            console.error("Error selecting files:", err);
+            console.error("Error adding files:", err);
         }
     },
     removeTask: async (id) => {
