@@ -2,7 +2,7 @@ import { emit, listen, UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { ConverterTask } from "@/types/converter";
 import { useConverterStore } from "@/stores/converterStore";
-import { isAudioFormat } from "@/data/formats";
+import { isAudioFormat, isImageFormat } from "@/data/formats";
 
 export type DownloadProgress = {
   stage: string;
@@ -132,12 +132,18 @@ class ConversionQueue {
   }
 
   private async runTask(task: ConverterTask) {
-    const { updateTaskById, outputPath, incrementUnreadFinishedCount, tasks, setActiveTab } = useConverterStore.getState();
-    const outputFormat = task.config?.outputFormat || 'mp4';
+    const {
+      updateTaskById,
+      outputPath,
+      incrementUnreadFinishedCount,
+      tasks,
+      setActiveTab,
+    } = useConverterStore.getState();
+    const outputFormat = task.config?.outputFormat || "mp4";
     const isAudioTarget = isAudioFormat(outputFormat);
 
     // Initial Status Update
-    updateTaskById(task.id, { status: 'converting', progress: 0 });
+    updateTaskById(task.id, { status: "converting", progress: 0 });
 
     const cleanup = () => {
       if (unlistenProgress) unlistenProgress();
@@ -152,41 +158,51 @@ class ConversionQueue {
     return new Promise<void>(async (resolve, reject) => {
       try {
         if (isAudioTarget) {
-          unlistenProgress = await listen<string>('audio-conversion-progress', (event) => {
-            const progress = parseFloat(event.payload.replace('%', ''));
-            if (!isNaN(progress)) {
-              updateTaskById(task.id, { progress });
+          unlistenProgress = await listen<string>(
+            "audio-conversion-progress",
+            (event) => {
+              const progress = parseFloat(event.payload.replace("%", ""));
+              if (!isNaN(progress)) {
+                updateTaskById(task.id, { progress });
+              }
             }
-          });
+          );
 
-          unlistenComplete = await listen<string>('audio-conversion-complete', (event) => {
-            console.log("Audio conversion complete:", event);
-            updateTaskById(task.id, {
-              status: 'finished',
-              progress: 100,
-              outputPath: event.payload
-            });
-            incrementUnreadFinishedCount();
-            cleanup();
-            resolve();
-          });
+          unlistenComplete = await listen<string>(
+            "audio-conversion-complete",
+            (event) => {
+              console.log("Audio conversion complete:", event);
+              updateTaskById(task.id, {
+                status: "finished",
+                progress: 100,
+                outputPath: event.payload,
+              });
+              incrementUnreadFinishedCount();
+              cleanup();
+              resolve();
+            }
+          );
 
-          unlistenError = await listen<string>('audio-conversion-error', (event) => {
-            updateTaskById(task.id, { status: 'error' });
-            console.error("Audio conversion failed:", event.payload);
-            cleanup();
-            resolve(); // Resolve to execute next task even on error
-          });
+          unlistenError = await listen<string>(
+            "audio-conversion-error",
+            (event) => {
+              updateTaskById(task.id, { status: "error" });
+              console.error("Audio conversion failed:", event.payload);
+              cleanup();
+              resolve(); // Resolve to execute next task even on error
+            }
+          );
 
           let finalOutputPath: string | null = null;
           if (outputPath) {
-            const separator = outputPath.includes('\\') ? '\\' : '/';
+            const separator = outputPath.includes("\\") ? "\\" : "/";
             const stem = task.config?.outputTitle || task.title;
             finalOutputPath = `${outputPath}${separator}${stem}.${outputFormat}`;
             updateTaskById(task.id, { outputPath: finalOutputPath });
           }
 
-          const { useHardwareAcceleration, useUltraFastSpeed } = useConverterStore.getState();
+          const { useHardwareAcceleration, useUltraFastSpeed } =
+            useConverterStore.getState();
           const audioTrack = task.config?.audioTracks?.[0];
 
           const args: any = {
@@ -196,25 +212,24 @@ class ConversionQueue {
             bitrate: audioTrack?.bitrate ? parseInt(audioTrack.bitrate) : 192,
             use_hardware_acceleration: useHardwareAcceleration,
             use_ultra_fast_speed: useUltraFastSpeed,
-            audio_encoder: audioTrack?.encoder
+            audio_encoder: audioTrack?.encoder,
           };
           const sampleRate = audioTrack?.sampleRate;
-          if (sampleRate && sampleRate === 'original') {
-            args.sample_rate = 0
+          if (sampleRate && sampleRate === "original") {
+            args.sample_rate = 0;
           } else {
-            args.sample_rate = parseInt(sampleRate || '0');
+            args.sample_rate = parseInt(sampleRate || "0");
           }
 
           console.log("Queue invoking convert_audio_file:", args);
-          await invoke('convert_audio_file', { args });
-
+          await invoke("convert_audio_file", { args });
         } else if (isImageFormat(outputFormat)) {
           // IMAGE CONVERSION LOGIC
           // updateTaskById(task.id, { status: 'converting', progress: 0 }); // Already done at the start of runTask
 
           let finalOutputPath: string | null = null;
           if (outputPath) {
-            const separator = outputPath.includes('\\') ? '\\' : '/';
+            const separator = outputPath.includes("\\") ? "\\" : "/";
             const stem = task.config?.outputTitle || task.title;
             finalOutputPath = `${outputPath}${separator}${stem}.${outputFormat}`;
             updateTaskById(task.id, { outputPath: finalOutputPath });
@@ -223,8 +238,12 @@ class ConversionQueue {
           const args = {
             input_path: task.path,
             output_path: finalOutputPath,
-            width: task.config?.video?.resolution ? parseInt(task.config.video.resolution.split('x')[0]) : null,
-            height: task.config?.video?.resolution ? parseInt(task.config.video.resolution.split('x')[1]) : null,
+            width: task.config?.video?.resolution
+              ? parseInt(task.config.video.resolution.split("x")[0])
+              : null,
+            height: task.config?.video?.resolution
+              ? parseInt(task.config.video.resolution.split("x")[1])
+              : null,
             format: outputFormat,
           };
 
@@ -232,79 +251,92 @@ class ConversionQueue {
 
           // Image conversion is blocking/async-return, so we await it directly
           // We can maybe simulate progress if needed, but for now 0->100 jump is fine for images
-          await invoke('convert_image_file', { args });
+          await invoke("convert_image_file", { args });
 
           updateTaskById(task.id, {
-            status: 'finished',
+            status: "finished",
             progress: 100,
-            outputPath: finalOutputPath || ''
+            outputPath: finalOutputPath || "",
           });
           incrementUnreadFinishedCount();
           cleanup();
           resolve();
-
         } else {
-          unlistenProgress = await listen<number>('video-conversion-progress', (event) => {
-            const progress = event.payload;
-            if (typeof progress === 'number' && !isNaN(progress)) {
-              updateTaskById(task.id, { progress });
+          unlistenProgress = await listen<number>(
+            "video-conversion-progress",
+            (event) => {
+              const progress = event.payload;
+              if (typeof progress === "number" && !isNaN(progress)) {
+                updateTaskById(task.id, { progress });
+              }
             }
-          });
+          );
 
-          unlistenComplete = await listen<string>('audio-conversion-complete', (event) => {
-            // Verify this complete event belongs to this task roughly by check title or just assume serial
-            // Since we strictly serialize (concurrency=1), we can assume it's ours.
-            // IMPORTANT: The backend emits 'audio-conversion-complete' for video too currently based on previous logs? 
-            // Wait, ConverterItem.tsx line 146 listens to 'audio-conversion-complete' for VIDEO too.
-            if (event.payload.includes(task.config?.outputTitle || task.title)) {
-              updateTaskById(task.id, {
-                status: 'finished',
-                progress: 100,
-                outputPath: event.payload
-              });
-              incrementUnreadFinishedCount();
+          unlistenComplete = await listen<string>(
+            "audio-conversion-complete",
+            (event) => {
+              // Verify this complete event belongs to this task roughly by check title or just assume serial
+              // Since we strictly serialize (concurrency=1), we can assume it's ours.
+              // IMPORTANT: The backend emits 'audio-conversion-complete' for video too currently based on previous logs?
+              // Wait, ConverterItem.tsx line 146 listens to 'audio-conversion-complete' for VIDEO too.
+              if (
+                event.payload.includes(task.config?.outputTitle || task.title)
+              ) {
+                updateTaskById(task.id, {
+                  status: "finished",
+                  progress: 100,
+                  outputPath: event.payload,
+                });
+                incrementUnreadFinishedCount();
+                cleanup();
+                resolve();
+              }
+            }
+          );
+
+          unlistenError = await listen<string>(
+            "audio-conversion-error",
+            (event) => {
+              updateTaskById(task.id, { status: "error" });
               cleanup();
               resolve();
             }
-          });
-
-          unlistenError = await listen<string>('audio-conversion-error', (event) => {
-            updateTaskById(task.id, { status: 'error' });
-            cleanup();
-            resolve();
-          });
+          );
 
           let finalOutputPath: string | null = null;
           if (outputPath) {
-            const separator = outputPath.includes('\\') ? '\\' : '/';
+            const separator = outputPath.includes("\\") ? "\\" : "/";
             const stem = task.config?.outputTitle || task.title;
             finalOutputPath = `${outputPath}${separator}${stem}.${outputFormat}`;
             updateTaskById(task.id, { outputPath: finalOutputPath });
           }
 
-          const { useHardwareAcceleration, useUltraFastSpeed } = useConverterStore.getState();
+          const { useHardwareAcceleration, useUltraFastSpeed } =
+            useConverterStore.getState();
 
           const args: any = {
             input_path: task.path,
             output_path: finalOutputPath,
             format: outputFormat,
-            video_encoder: task.config?.video?.encoder || 'h264',
+            video_encoder: task.config?.video?.encoder || "h264",
             resolution: task.config?.video?.resolution,
-            video_bitrate: task.config?.video?.bitrate && task.config.video.bitrate !== 'auto'
-              ? parseInt(task.config.video.bitrate.replace('k', ''))
-              : null,
+            video_bitrate:
+              task.config?.video?.bitrate &&
+              task.config.video.bitrate !== "auto"
+                ? parseInt(task.config.video.bitrate.replace("k", ""))
+                : null,
             frame_rate: task.config?.video?.frameRate,
             use_hardware_acceleration: useHardwareAcceleration,
             use_ultra_fast_speed: useUltraFastSpeed,
-            audio_encoder: task.config?.audioTracks?.[0]?.encoder
+            audio_encoder: task.config?.audioTracks?.[0]?.encoder,
           };
 
           console.log("Queue invoking convert_video_file:", args);
-          await invoke('convert_video_file', { args });
+          await invoke("convert_video_file", { args });
         }
       } catch (error) {
         console.error("Queue Run Task Error", error);
-        updateTaskById(task.id, { status: 'error' });
+        updateTaskById(task.id, { status: "error" });
         cleanup();
         resolve();
       }

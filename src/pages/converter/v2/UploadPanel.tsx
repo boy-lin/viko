@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import clsx from "clsx";
 import {
   UploadCloud,
-  FolderOpen,
   FileAudio,
   FileImage,
   FileVideo,
@@ -12,8 +10,6 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useConverterStore } from "@/stores/converterStore";
 import {
@@ -64,15 +60,9 @@ export function UploadPanel() {
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const progressTimers = useRef<Map<string, number>>(new Map());
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const supportedExtensions = useMemo(
     () => new Set(SupportedFormats.map((ext) => ext.toLowerCase())),
-    []
-  );
-  const acceptAttr = useMemo(
-    () => SupportedFormats.map((ext) => `.${ext}`).join(","),
     []
   );
   const supportedHint = useMemo(() => {
@@ -166,13 +156,28 @@ export function UploadPanel() {
     [addFilesFromPaths, startProgress, stopProgress, updateUpload]
   );
 
+  // 用于防止重复处理的 Set
+  const processingPathsRef = useRef(new Set<string>());
+
   // 处理文件路径（来自 Tauri 后端事件）
   const handlePaths = useCallback(
     async (paths: string[]) => {
       if (!paths.length) return;
+
+      // 过滤掉正在处理的路径
+      const filteredPaths = paths.filter((path) => {
+        if (processingPathsRef.current.has(path)) {
+          return false;
+        }
+        processingPathsRef.current.add(path);
+        return true;
+      });
+
+      if (!filteredPaths.length) return;
+
       const nextItems: UploadItem[] = [];
 
-      paths.forEach((path) => {
+      filteredPaths.forEach((path) => {
         const extension = path.split(".").pop()?.toLowerCase();
         const name = path.split(/[/\\]/).pop() || path;
         const kind = getFileKind(extension);
@@ -187,6 +192,7 @@ export function UploadPanel() {
             error: "不支持的文件格式",
             kind,
           });
+          processingPathsRef.current.delete(path);
           return;
         }
 
@@ -200,6 +206,7 @@ export function UploadPanel() {
             error: "文件已存在任务列表",
             kind,
           });
+          processingPathsRef.current.delete(path);
           return;
         }
 
@@ -214,33 +221,56 @@ export function UploadPanel() {
       });
 
       if (!nextItems.length) return;
+
+      console.log("nextItems", nextItems);
       setUploads((prev) => [...nextItems, ...prev]);
-      await processUploads(
-        nextItems.filter((item) => item.status === "queued")
-      );
+
+      const queuedItems = nextItems.filter((item) => item.status === "queued");
+      if (queuedItems.length > 0) {
+        await processUploads(queuedItems);
+      }
+
+      // 处理完成后，从 processingPathsRef 中移除
+      filteredPaths.forEach((path) => {
+        processingPathsRef.current.delete(path);
+      });
     },
     [existingPaths, processUploads, supportedExtensions]
   );
 
-  // 监听 Tauri 文件拖拽事件（使用窗口 API）
+  // 使用 ref 存储最新的 handlePaths，避免闭包问题
+  const handlePathsRef = useRef(handlePaths);
   useEffect(() => {
-    const appWindow = getCurrentWindow();
+    handlePathsRef.current = handlePaths;
+  }, [handlePaths]);
+
+  // 监听 Tauri 文件拖拽事件（使用 Webview API）
+  useEffect(() => {
     let unlisten: (() => void) | undefined;
 
     const setupListeners = async () => {
       try {
-        // 使用 Tauri 窗口的文件拖拽事件监听
-        // @ts-expect-error - onFileDropEvent 可能在类型定义中不存在，但运行时可用
-        unlisten = await appWindow.onFileDropEvent((event) => {
-          const { type, paths } = event.payload;
-          if (type === "hover") {
+        const webview = getCurrentWebview();
+        // 使用 Tauri Webview 的文件拖拽事件监听
+        unlisten = await webview.onDragDropEvent((event) => {
+          const payload = event.payload;
+          const type = payload.type;
+
+          if (type === "over" || type === "enter") {
             setIsDragging(true);
           } else if (type === "drop") {
+            console.log("drop event", payload);
             setIsDragging(false);
-            if (paths && paths.length > 0) {
-              handlePaths(paths);
+            // 在 drop 事件中，payload 包含 paths 数组
+            // 使用 ref 中的最新版本，避免闭包问题
+            if (
+              "paths" in payload &&
+              Array.isArray(payload.paths) &&
+              payload.paths.length > 0
+            ) {
+              handlePathsRef.current(payload.paths as string[]);
             }
-          } else if (type === "cancel") {
+          } else if (type === "leave" || type === "cancel") {
             setIsDragging(false);
           }
         });
@@ -254,104 +284,7 @@ export function UploadPanel() {
     return () => {
       unlisten?.();
     };
-  }, [handlePaths]);
-
-  const handleFiles = useCallback(
-    async (files: File[]) => {
-      if (!files.length) return;
-      const nextItems: UploadItem[] = [];
-
-      files.forEach((file) => {
-        const extension = file.name.split(".").pop()?.toLowerCase();
-        // 在 Tauri 环境中，File 对象可能有 path 属性
-        // 或者可以通过其他方式获取路径
-        const path =
-          (file as File & { path?: string }).path ||
-          (file as any).webkitRelativePath?.startsWith("/")
-            ? (file as any).webkitRelativePath
-            : undefined;
-        const kind = getFileKind(extension);
-        const displayName = file.webkitRelativePath || file.name;
-
-        if (!extension || !supportedExtensions.has(extension)) {
-          nextItems.push({
-            id: crypto.randomUUID(),
-            name: displayName,
-            size: file.size,
-            status: "error",
-            progress: 100,
-            error: "不支持的文件格式",
-            kind,
-          });
-          return;
-        }
-
-        // 在 Tauri 中，如果没有 path，尝试从文件名推断
-        // 或者提示用户使用文件选择对话框
-        if (!path) {
-          // 尝试从 File 对象获取路径（Tauri 可能提供）
-          const tauriPath =
-            (file as any).path || (file as any).webkitRelativePath;
-
-          if (!tauriPath) {
-            nextItems.push({
-              id: crypto.randomUUID(),
-              name: displayName,
-              size: file.size,
-              status: "error",
-              progress: 100,
-              error: "无法读取本地路径，请使用文件选择按钮",
-              kind,
-            });
-            return;
-          }
-        }
-
-        const finalPath =
-          path || (file as any).path || (file as any).webkitRelativePath;
-
-        if (existingPaths.has(finalPath)) {
-          nextItems.push({
-            id: crypto.randomUUID(),
-            name: displayName,
-            path: finalPath,
-            size: file.size,
-            status: "error",
-            progress: 100,
-            error: "文件已存在任务列表",
-            kind,
-          });
-          return;
-        }
-
-        nextItems.push({
-          id: crypto.randomUUID(),
-          name: displayName,
-          path: finalPath,
-          size: file.size,
-          status: "queued",
-          progress: 0,
-          kind,
-        });
-      });
-
-      if (!nextItems.length) return;
-      setUploads((prev) => [...nextItems, ...prev]);
-      await processUploads(
-        nextItems.filter((item) => item.status === "queued")
-      );
-    },
-    [existingPaths, processUploads, supportedExtensions]
-  );
-
-  const handleSelect = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(event.target.files || []);
-      event.target.value = "";
-      await handleFiles(files);
-    },
-    [handleFiles]
-  );
+  }, []); // 依赖项为空数组，因为使用 ref 来访问最新的 handlePaths
 
   const overallProgress =
     uploads.length > 0
@@ -361,43 +294,7 @@ export function UploadPanel() {
       : 0;
 
   return (
-    <Card className="border-border bg-gradient-to-br from-muted/60 via-background to-muted/40 p-6 shadow-sm">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full md:w-auto"
-          >
-            选择文件
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => folderInputRef.current?.click()}
-            className="w-full md:w-auto"
-          >
-            <FolderOpen className="mr-2 h-4 w-4" />
-            选择文件夹
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={acceptAttr}
-            multiple
-            className="hidden"
-            onChange={handleSelect}
-          />
-          <input
-            ref={folderInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleSelect}
-            // @ts-expect-error - non-standard directory attribute for Chromium
-            webkitdirectory="true"
-          />
-        </div>
-      </div>
-
+    <div>
       <div
         className={clsx(
           "mt-6 flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-all",
@@ -501,6 +398,6 @@ export function UploadPanel() {
           </div>
         </div>
       )}
-    </Card>
+    </div>
   );
 }
