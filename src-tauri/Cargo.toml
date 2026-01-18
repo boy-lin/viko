@@ -36,13 +36,8 @@ reqwest = { version = "0.11", default-features = false, features = [
 zip = "0.6"
 tar = "0.4"
 xz2 = "0.1"
-# 使用 libloading 进行动态加载，而不是编译时链接
 libloading = "0.8"
-# 使用 ffmpeg-next 作为主要 FFmpeg 接口（与 video-rs 对齐 7.1.x）
 ffmpeg-next = { version = "7.1.0", features = ["codec", "format", "filter", "software-scaling", "software-resampling"] }
-# 视频播放器相关依赖
-# 注意：当前实现通过 Tauri 事件发送帧数据到前端 Canvas 渲染，不需要 wgpu
-# 如果需要原生窗口渲染，可以后续添加 wgpu
 cpal = "0.15"
 bytemuck = { version = "1.14", features = ["derive"] }
 pollster = "0.3"

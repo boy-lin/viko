@@ -8,7 +8,6 @@ import BatchPage from "./pages/batch/BatchPage";
 import AudioTestPage from "./pages/audio-test/AudioTestPage";
 import Mp3ConverterPage from "./pages/mp3/converter";
 import ConverterPage from "./pages/converter/v2/v2";
-import ConverterPageOld from "./pages/converter";
 
 const App: React.FC = () => {
   return (
@@ -21,7 +20,6 @@ const App: React.FC = () => {
           <Route path="audio-test" element={<AudioTestPage />} />
           <Route path="mp3/converter" element={<Mp3ConverterPage />} />
           <Route path="converter" element={<ConverterPage />} />
-          <Route path="converter-old" element={<ConverterPageOld />} />
         </Route>
         <Route path="/old" element={<HomePageOld />} />
       </Routes>

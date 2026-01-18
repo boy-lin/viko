@@ -30,9 +30,9 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="auto">Smart Fit</SelectItem>
-          <SelectItem value="5000k">5000 kbps</SelectItem>
-          <SelectItem value="2000k">2000 kbps</SelectItem>
-          <SelectItem value="1000k">1000 kbps</SelectItem>
+          <SelectItem value="5000">5000 kbps</SelectItem>
+          <SelectItem value="2000">2000 kbps</SelectItem>
+          <SelectItem value="1000">1000 kbps</SelectItem>
         </SelectContent>
       </Select>
     </div>

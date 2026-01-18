@@ -10,7 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { ConverterTask, ConversionConfig } from "@/types/converter";
+import {
+  ConverterTask,
+  ConversionConfig,
+  isVideoConfig,
+  isAudioConfig,
+  isImageConfig,
+  VideoConversionConfig,
+  AudioConversionConfig,
+  ImageConversionConfig,
+} from "@/types/converter";
 import { useConverterStore } from "@/stores/converterStore";
 import { RefreshCw, X } from "lucide-react";
 import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
@@ -22,7 +31,7 @@ import { AudioEncoderSelect } from "@/components/biz-form/AudioEncoderSelect";
 import { AudioChannelSelect } from "@/components/biz-form/AudioChannelSelect";
 import { AudioSampleRateSelect } from "@/components/biz-form/AudioSampleRateSelect";
 import { AudioBitrateSelect } from "@/components/biz-form/AudioBitrateSelect";
-import { isAudioFormat } from "@/data/formats";
+import { isAudioFormat, isImageFormat } from "@/data/formats";
 
 interface ConversionSettingsDialogProps {
   task: ConverterTask;
@@ -33,19 +42,21 @@ interface ConversionSettingsDialogProps {
 export const ConversionSettingsDialog: React.FC<
   ConversionSettingsDialogProps
 > = ({ task, open, onOpenChange }) => {
-  const { updateTaskConfig } = useConverterStore();
+  const { updateUnfinishedTaskConfig } = useConverterStore();
   const [config, setConfig] = useState<ConversionConfig>(
-    task.config || {
-      outputTitle: task?.title,
-      outputFormat: "mp4",
-      video: {
-        encoder: "h264",
-        resolution: "original",
-        frameRate: "original",
-        bitrate: "auto",
-      },
-      audioTracks: [],
-    }
+    task.config ||
+      ({
+        type: "video",
+        outputTitle: task?.title,
+        outputFormat: "mp4",
+        video: {
+          encoder: "h264",
+          resolution: "original",
+          frameRate: "original",
+          bitrate: "auto",
+        },
+        audioTracks: [],
+      } as VideoConversionConfig)
   );
   const outputFormat = task.config?.outputFormat || "";
 
@@ -56,22 +67,48 @@ export const ConversionSettingsDialog: React.FC<
   }, [task]);
 
   const handleSave = () => {
-    updateTaskConfig(task.id, {
-      outputTitle: config.outputTitle,
-      video: config.video,
-      audioTracks: config.audioTracks,
-    });
+    if (isVideoConfig(config)) {
+      updateUnfinishedTaskConfig(task.id, {
+        outputTitle: config.outputTitle,
+        video: config.video,
+        audioTracks: config.audioTracks,
+      });
+    } else if (isAudioConfig(config)) {
+      updateUnfinishedTaskConfig(task.id, {
+        outputTitle: config.outputTitle,
+        audioTracks: config.audioTracks,
+      });
+    } else if (isImageConfig(config)) {
+      updateUnfinishedTaskConfig(task.id, {
+        outputTitle: config.outputTitle,
+        image: config.image,
+      });
+    }
     onOpenChange(false);
   };
 
   // Helper to update specific audio track
   const updateAudioTrack = (index: number, field: string, value: string) => {
-    const newTracks = config.audioTracks ? [...config.audioTracks] : [];
-    newTracks[index] = { ...newTracks[index], [field]: value };
-    setConfig({ ...config, audioTracks: newTracks });
+    if (isVideoConfig(config) || isAudioConfig(config)) {
+      const newTracks = config.audioTracks ? [...config.audioTracks] : [];
+      newTracks[index] = { ...newTracks[index], [field]: value };
+      if (isVideoConfig(config)) {
+        setConfig({
+          ...config,
+          audioTracks: newTracks,
+        } as VideoConversionConfig);
+      } else {
+        setConfig({
+          ...config,
+          audioTracks: newTracks,
+        } as AudioConversionConfig);
+      }
+    }
   };
 
   const isAudioTarget = isAudioFormat(outputFormat);
+  const isImageTarget = isImageFormat(outputFormat);
+  const isVideoTarget = !isAudioTarget && !isImageTarget;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -107,8 +144,8 @@ export const ConversionSettingsDialog: React.FC<
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Video Section - Only show if not audio format */}
-          {!isAudioTarget && (
+          {/* Video Section - Only show if video config */}
+          {isVideoTarget && isVideoConfig(config) && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-lg">Video:</h3>
@@ -125,42 +162,42 @@ export const ConversionSettingsDialog: React.FC<
 
               <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                 <VideoEncoderSelect
-                  value={config.video!.encoder}
+                  value={config.video.encoder}
                   onValueChange={(v) =>
                     setConfig({
                       ...config,
                       video: { ...config.video, encoder: v },
-                    })
+                    } as VideoConversionConfig)
                   }
                 />
 
                 <VideoResolutionSelect
-                  value={config.video!.resolution}
+                  value={config.video.resolution}
                   onValueChange={(v) =>
                     setConfig({
                       ...config,
                       video: { ...config.video, resolution: v },
-                    })
+                    } as VideoConversionConfig)
                   }
                 />
 
                 <VideoFrameRateSelect
-                  value={config.video!.frameRate}
+                  value={config.video.frameRate}
                   onValueChange={(v) =>
                     setConfig({
                       ...config,
                       video: { ...config.video, frameRate: v },
-                    })
+                    } as VideoConversionConfig)
                   }
                 />
 
                 <VideoBitrateSelect
-                  value={config.video!.bitrate}
+                  value={config.video.bitrate}
                   onValueChange={(v) =>
                     setConfig({
                       ...config,
                       video: { ...config.video, bitrate: v },
-                    })
+                    } as VideoConversionConfig)
                   }
                 />
               </div>
@@ -174,9 +211,32 @@ export const ConversionSettingsDialog: React.FC<
             </div>
           )}
 
+          {/* Image Section - Only show if image config */}
+          {isImageTarget && isImageConfig(config) && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-lg">Image:</h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    // Reset logic if needed
+                  }}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Image settings: Quality: {config.image.quality || "80"},
+                Resolution: {config.image.resolution || "original"}
+              </p>
+              <div className="w-full h-px bg-border"></div>
+            </div>
+          )}
+
           {/* Audio Section */}
           <div className="space-y-6">
-            {isAudioTarget ? (
+            {isAudioTarget && isAudioConfig(config) ? (
               // Simplified Audio View for Audio-Only formats
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -218,6 +278,7 @@ export const ConversionSettingsDialog: React.FC<
               </div>
             ) : (
               // Multi-track view for Video
+              isVideoConfig(config) &&
               config.audioTracks &&
               config.audioTracks.length > 0 &&
               config.audioTracks.map((track, index) => (

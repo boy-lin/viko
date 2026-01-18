@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Check, ChevronsUpDown, Search, Star, Clock, ChevronRight } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  Search,
+  Star,
+  Clock,
+  ChevronRight,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,62 +19,142 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { FORMAT_DATA, FORMAT_CATEGORIES } from "@/data/formats";
 import { EncoderEnum, FormatOption } from "@/types/options";
 import { useConverterStore } from "@/stores/converterStore";
+import { AUDIO_ENCODERS } from "@/data/encoders";
 
 export interface FormatSelectorValue {
   outputFormat: string;
+  // Video fields
   videoEncoder?: string;
   resolution?: string;
-  audioBitrate?: string;
+  // Audio fields
   audioEncoder?: string;
+  audioBitrate?: string;
+  // Image fields
+  quality?: string;
 }
 
-interface FormatSelectorProps {
+// 基础 Props（所有类型共享）
+interface BaseFormatSelectorProps {
   format: string;
-  encoder?: string;
-  resolution?: string;
-  audioBitrate?: string;
   onValueChange: (updates: FormatSelectorValue) => void;
   className?: string;
 }
 
-export const FormatSelector: React.FC<FormatSelectorProps> = ({
-  format,
-  encoder,
-  resolution,
-  audioBitrate, // bitrate or sample rate context
-  onValueChange,
-  className,
-}) => {
+// Video FormatSelector Props
+interface VideoFormatSelectorProps extends BaseFormatSelectorProps {
+  formatType: "video";
+  encoder?: string;
+  resolution?: string;
+  // audioBitrate 不应该在这里，因为视频的音频配置在 audioTracks 中
+}
+
+// Audio FormatSelector Props
+interface AudioFormatSelectorProps extends BaseFormatSelectorProps {
+  formatType: "audio";
+  audioEncoder?: string;
+  audioBitrate?: string;
+  // encoder, resolution 不应该在这里
+}
+
+// Image FormatSelector Props
+interface ImageFormatSelectorProps extends BaseFormatSelectorProps {
+  formatType: "image";
+  quality?: string;
+  resolution?: string;
+  // encoder, audioBitrate 不应该在这里
+}
+
+// 联合类型
+export type FormatSelectorProps =
+  | VideoFormatSelectorProps
+  | AudioFormatSelectorProps
+  | ImageFormatSelectorProps;
+
+export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
+  const { format, onValueChange, className } = props;
+
   /* State for 3-Level Navigation */
   const [open, setOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("favorites");
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { formatFavorites, formatRecents, addToRecents, toggleFavorite } = useConverterStore();
+  const { formatFavorites, formatRecents, addToRecents, toggleFavorite } =
+    useConverterStore();
+
+  // 根据 formatType 提取对应的参数
+  const formatType = props.formatType;
+  const videoParams =
+    formatType === "video"
+      ? {
+          encoder: props.encoder,
+          resolution: props.resolution,
+        }
+      : null;
+  const audioParams =
+    formatType === "audio"
+      ? {
+          audioEncoder: props.audioEncoder,
+          audioBitrate: props.audioBitrate,
+        }
+      : null;
+  const imageParams =
+    formatType === "image"
+      ? {
+          quality: props.quality,
+          resolution: props.resolution,
+        }
+      : null;
 
   // Find the selected format based on props
   const selectedFormat = React.useMemo(() => {
-    // 1. Try to find precise match including resolution/rate
-    let match = FORMAT_DATA.find(f => {
+    // 1. Try to find precise match including resolution/rate/quality
+    let match = FORMAT_DATA.find((f) => {
       if (f.extension !== format) return false;
 
-      // If resolution provided, check quality match
-      if (resolution && f.quality === resolution) return true;
+      // Video: check resolution match
+      if (
+        formatType === "video" &&
+        videoParams?.resolution &&
+        f.quality === videoParams.resolution
+      ) {
+        return true;
+      }
 
-      // If rate provided (e.g. 320k), check quality match
-      if (audioBitrate && f.quality === `${audioBitrate}k`) return true;
+      // Audio: check bitrate match (e.g. 320k)
+      if (
+        formatType === "audio" &&
+        audioParams?.audioBitrate &&
+        f.quality === `${audioParams.audioBitrate}k`
+      ) {
+        return true;
+      }
+
+      // Image: check quality or resolution match
+      if (formatType === "image") {
+        if (imageParams?.quality && f.quality === imageParams.quality)
+          return true;
+        if (imageParams?.resolution && f.quality === imageParams.resolution)
+          return true;
+      }
 
       return false;
     });
 
     // 2. Fallback to just format extension
     if (!match) {
-      match = FORMAT_DATA.find(f => f.extension === format);
+      match = FORMAT_DATA.find((f) => f.extension === format);
     }
 
     return match;
-  }, [format, resolution, audioBitrate]);
+  }, [
+    format,
+    formatType,
+    videoParams?.resolution,
+    audioParams?.audioBitrate,
+    imageParams?.quality,
+    imageParams?.resolution,
+  ]);
 
   const value = selectedFormat?.id || "";
 
@@ -81,80 +168,103 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
     if (["favorites", "recents"].includes(activeCategory)) return [];
 
     // Get all items in current category
-    const categoryItems = FORMAT_DATA.filter(item => item.category === activeCategory);
+    const categoryItems = FORMAT_DATA.filter(
+      (item) => item.category === activeCategory
+    );
 
     // Extract unique groups
-    const groups = Array.from(new Set(categoryItems.map(item => item.group))).filter(Boolean);
+    const groups = Array.from(
+      new Set(categoryItems.map((item) => item.group))
+    ).filter(Boolean);
     return groups;
   }, [activeCategory]);
 
   const filteredItems = React.useMemo(() => {
     // 1. Search Mode (Global Search)
     if (searchQuery) {
-      return FORMAT_DATA.filter((item) =>
-        item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.group?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+      return FORMAT_DATA.filter(
+        (item) =>
+          item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.group?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.tags?.some((tag) =>
+            tag.toLowerCase().includes(searchQuery.toLowerCase())
+          )
       );
     }
 
     // 2. Special Categories (Flat List)
     if (activeCategory === "favorites") {
-      return FORMAT_DATA.filter(item => formatFavorites.includes(item.id));
+      return FORMAT_DATA.filter((item) => formatFavorites.includes(item.id));
     }
     if (activeCategory === "recents") {
-      return formatRecents.map(id => FORMAT_DATA.find(f => f.id === id)).filter(Boolean) as FormatOption[];
+      return formatRecents
+        .map((id) => FORMAT_DATA.find((f) => f.id === id))
+        .filter(Boolean) as FormatOption[];
     }
 
     // 3. Category Mode
     // If a group is selected, show items in that group
     if (activeGroup) {
-      return FORMAT_DATA.filter(item =>
-        item.category === activeCategory && item.group === activeGroup
+      return FORMAT_DATA.filter(
+        (item) => item.category === activeCategory && item.group === activeGroup
       );
     }
 
     // If no group selected (and not special category), we might not show items directly
     // unless we want to show "All" or similar. But the UI will switch to Group View.
     return [];
-  }, [searchQuery, activeCategory, activeGroup, formatFavorites, formatRecents]);
+  }, [
+    searchQuery,
+    activeCategory,
+    activeGroup,
+    formatFavorites,
+    formatRecents,
+  ]);
 
   const handleSelect = (formatId: string) => {
-    // onValueChange(formatId);
     addToRecents(formatId);
     setOpen(false);
     setSearchQuery("");
 
     // Calculate updates
-    const preset = FORMAT_DATA.find(f => f.id === formatId);
+    const preset = FORMAT_DATA.find((f) => f.id === formatId);
     if (!preset) return;
 
-    const updates: any = {
-      outputFormat: preset.extension || 'mp4',
+    const updates: FormatSelectorValue = {
+      outputFormat: preset.extension || "mp4",
     };
 
-    // Video Resolution
-    if (preset.category.includes('video') && preset.quality && preset.quality !== 'original') {
-      updates.resolution = preset.quality;
-    }
-
-    // Audio Specifics
-    if (preset.category === 'audio') {
-      // Bitrate (e.g., 320k)
+    // 根据 formatType 设置对应的字段
+    if (formatType === "video") {
+      // Video Resolution
+      if (
+        preset.category.includes("video") &&
+        preset.quality &&
+        preset.quality !== "original"
+      ) {
+        updates.resolution = preset.quality;
+      }
+      // Video Encoder 可以从 preset 推断，但通常由用户在其他地方设置
+      // 这里不设置 videoEncoder，保持现有值
+    } else if (formatType === "audio") {
+      // Audio Bitrate (e.g., 320k)
       const bitrateMatch = preset.quality?.match(/(\d+)k/);
       if (bitrateMatch) {
         updates.audioBitrate = bitrateMatch[1];
       }
 
-      // Encoder inference
-      if (preset.extension === 'm4r') {
-        updates.audioEncoder = EncoderEnum.AAC;
-        // standard ringtone bitrate
-        if (!updates.audioBitrate) updates.audioBitrate = '256';
-      } else if (preset.group === 'MP3') {
-        updates.audioEncoder = EncoderEnum.MP3;
-      } else if (preset.tags?.includes('aac')) {
-        updates.audioEncoder = EncoderEnum.AAC;
+      const encoder = AUDIO_ENCODERS.find((encoder) =>
+        encoder.formats?.includes(updates.outputFormat.toLowerCase())
+      );
+      if (encoder) updates.audioEncoder = encoder.value;
+    } else if (formatType === "image") {
+      // Image Quality
+      if (preset.quality) {
+        updates.quality = preset.quality;
+      }
+      // Image Resolution (如果有)
+      if (preset.quality && preset.quality.includes("x")) {
+        updates.resolution = preset.quality;
       }
     }
 
@@ -162,12 +272,15 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
   };
 
   const currentCategoryLabel = React.useMemo(() => {
-    if (activeCategory === 'favorites') return "Favorites";
-    if (activeCategory === 'recents') return "Recently Used";
-    return FORMAT_CATEGORIES.find(c => c.id === activeCategory)?.label;
+    if (activeCategory === "favorites") return "Favorites";
+    if (activeCategory === "recents") return "Recently Used";
+    return FORMAT_CATEGORIES.find((c) => c.id === activeCategory)?.label;
   }, [activeCategory]);
 
-  const showGroupsView = !searchQuery && !activeGroup && !["favorites", "recents"].includes(activeCategory);
+  const showGroupsView =
+    !searchQuery &&
+    !activeGroup &&
+    !["favorites", "recents"].includes(activeCategory);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -181,8 +294,12 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
           {selectedFormat ? (
             <span className="flex items-center gap-2 truncate">
               {/* Can add icon here based on category */}
-              <span className="font-semibold">{selectedFormat.label.split("-")[0]}</span>
-              <span className="text-muted-foreground text-xs">{selectedFormat.quality}</span>
+              <span className="font-semibold">
+                {selectedFormat.label.split("-")[0]}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {selectedFormat.quality}
+              </span>
             </span>
           ) : (
             "Select format..."
@@ -192,7 +309,6 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
       </PopoverTrigger>
       <PopoverContent className="w-[600px] p-0" align="start">
         <div className="flex bg-popover h-[350px] overflow-hidden rounded-md border text-popover-foreground">
-
           {/* Left Sidebar: Categories (Level 1) */}
           <div className="w-[180px] border-r bg-muted/20 flex flex-col">
             <div className="p-2 border-b">
@@ -214,28 +330,37 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
                   id="favorites"
                   label="Favorites"
                   icon={Star}
-                  active={activeCategory === 'favorites' && !searchQuery}
-                  onClick={() => { setActiveCategory('favorites'); setSearchQuery(''); }}
+                  active={activeCategory === "favorites" && !searchQuery}
+                  onClick={() => {
+                    setActiveCategory("favorites");
+                    setSearchQuery("");
+                  }}
                 />
                 <CategoryItem
                   id="recents"
                   label="Recents"
                   icon={Clock}
-                  active={activeCategory === 'recents' && !searchQuery}
-                  onClick={() => { setActiveCategory('recents'); setSearchQuery(''); }}
+                  active={activeCategory === "recents" && !searchQuery}
+                  onClick={() => {
+                    setActiveCategory("recents");
+                    setSearchQuery("");
+                  }}
                 />
 
                 <div className="my-2 h-px bg-border mx-2" />
 
                 {/* Standard Categories */}
-                {FORMAT_CATEGORIES.map(cat => (
+                {FORMAT_CATEGORIES.map((cat) => (
                   <CategoryItem
                     key={cat.id}
                     id={cat.id}
                     label={cat.label}
                     icon={cat.icon}
                     active={activeCategory === cat.id && !searchQuery}
-                    onClick={() => { setActiveCategory(cat.id); setSearchQuery(''); }}
+                    onClick={() => {
+                      setActiveCategory(cat.id);
+                      setSearchQuery("");
+                    }}
                   />
                 ))}
               </ScrollArea>
@@ -250,8 +375,14 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
                 <span>Search Results</span>
               ) : (
                 <div className="flex items-center gap-1">
-                  <span className={cn(activeGroup ? "text-muted-foreground cursor-pointer hover:underline" : "")}
-                    onClick={() => activeGroup && setActiveGroup(null)}>
+                  <span
+                    className={cn(
+                      activeGroup
+                        ? "text-muted-foreground cursor-pointer hover:underline"
+                        : ""
+                    )}
+                    onClick={() => activeGroup && setActiveGroup(null)}
+                  >
                     {currentCategoryLabel}
                   </span>
                   {activeGroup && (
@@ -263,17 +394,18 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
                 </div>
               )}
               <span className="text-xs text-muted-foreground">
-                {showGroupsView ? `${formatGroups.length} groups` : `${filteredItems.length} options`}
+                {showGroupsView
+                  ? `${formatGroups.length} groups`
+                  : `${filteredItems.length} options`}
               </span>
             </div>
 
             <div className="flex-1 overflow-hidden p-2">
               <ScrollArea className="h-full">
-
                 {/* View 1: Groups List (Level 2) */}
                 {showGroupsView && (
                   <div className="grid grid-cols-2 gap-2 p-1">
-                    {formatGroups.map(group => (
+                    {formatGroups.map((group) => (
                       <button
                         key={group}
                         onClick={() => setActiveGroup(group)}
@@ -295,7 +427,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 gap-1">
-                        {filteredItems.map(item => (
+                        {filteredItems.map((item) => (
                           <div
                             key={item.id}
                             role="button"
@@ -313,11 +445,19 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
                             )}
                           >
                             <div className="flex flex-col">
-                              <span className="text-sm font-medium">{item.label}</span>
+                              <span className="text-sm font-medium">
+                                {item.label}
+                              </span>
                               <div className="flex items-end gap-2 max-w-[300px] text-xs text-muted-foreground">
-                                <span className=" whitespace-nowrap">{item.quality} • {item.extension?.toUpperCase()}</span>
+                                <span className=" whitespace-nowrap">
+                                  {item.quality} •{" "}
+                                  {item.extension?.toUpperCase()}
+                                </span>
                                 {item.description && (
-                                  <span className="truncate" title={item.description}>
+                                  <span
+                                    className="truncate"
+                                    title={item.description}
+                                  >
                                     ({item.description})
                                   </span>
                                 )}
@@ -328,15 +468,28 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className={cn("h-6 w-6", formatFavorites.includes(item.id) ? "text-yellow-400 opacity-100" : "text-muted-foreground")}
+                                className={cn(
+                                  "h-6 w-6",
+                                  formatFavorites.includes(item.id)
+                                    ? "text-yellow-400 opacity-100"
+                                    : "text-muted-foreground"
+                                )}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggleFavorite(item.id);
                                 }}
                               >
-                                <Star className={cn("w-3 h-3", formatFavorites.includes(item.id) && "fill-current")} />
+                                <Star
+                                  className={cn(
+                                    "w-3 h-3",
+                                    formatFavorites.includes(item.id) &&
+                                      "fill-current"
+                                  )}
+                                />
                               </Button>
-                              {value === item.id && <Check className="w-4 h-4 text-primary" />}
+                              {value === item.id && (
+                                <Check className="w-4 h-4 text-primary" />
+                              )}
                             </div>
                           </div>
                         ))}
@@ -354,12 +507,13 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
 };
 
 // Helper component for category listing
-const CategoryItem = ({ id, label, icon: Icon, active, onClick }: any) => (
+const CategoryItem = ({ label, icon: Icon, active, onClick }: any) => (
   <button
     onClick={onClick}
     className={cn(
       "w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50 text-muted-foreground rounded-r-full mr-2",
-      active && "bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-300"
+      active &&
+        "bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-300"
     )}
   >
     <div className="flex items-center gap-2">
