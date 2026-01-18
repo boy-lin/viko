@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -27,29 +27,51 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { UploadPanel } from "./UploadPanel";
-import { useConverterStore } from "@/stores/converterStore";
-import { ConverterTask } from "@/types/converter";
-import { MediaThumbnail } from "../components/MediaThumbnail";
+import { useCompressorStore } from "@/stores/compressorStore";
+import { CompressionConfig, ConverterTask } from "@/types/converter";
+import { MediaThumbnail } from "../../components/MediaThumbnail";
 import { formatFileSize, getFormatByPath } from "@/lib/file";
-import { formatDuration } from "@/lib/time";
-import { isVideoFormat } from "@/data/formats";
-import { ConversionSettingsDialog } from "../components/ConversionSettingsDialog";
+import { isVideoFormat, isAudioFormat, isImageFormat } from "@/data/formats";
+import { CompressionSettingsDialog } from "./CompressionSettingsDialog";
 
 interface ConvertingTaskProps {
   globalFilter?: string;
   onGlobalFilterChange?: (value: string) => void;
+  activeTab: "video" | "audio" | "image";
 }
 
 export default function ConvertingTask({
   globalFilter = "",
   onGlobalFilterChange,
-}: ConvertingTaskProps = {}) {
-  const { convertingTasks, removeTask } = useConverterStore();
+  activeTab,
+}: ConvertingTaskProps) {
+  const { compressingTasks, removeTask, updateUnfinishedTaskConfig } =
+    useCompressorStore();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<ConverterTask | null>(null);
+
+  // 根据 activeTab 过滤任务类型 - 使用 useMemo 优化性能
+  const filteredTasks = useMemo(() => {
+    return compressingTasks.filter((task) => {
+      if (activeTab === "video") {
+        return task.streams?.some((s) => s.codec_type === "video");
+      } else if (activeTab === "audio") {
+        return (
+          task.streams?.some((s) => s.codec_type === "audio") &&
+          !task.streams?.some((s) => s.codec_type === "video")
+        );
+      } else if (activeTab === "image") {
+        return (
+          task.streams?.some((s) => s.codec_type === "image") ||
+          isImageFormat(getFormatByPath(task.path))
+        );
+      }
+      return true;
+    });
+  }, [compressingTasks, activeTab]);
 
   // 定义列
   const columns = useMemo<ColumnDef<ConverterTask>[]>(
@@ -59,13 +81,12 @@ export default function ConvertingTask({
         header: "预览/文件名",
         cell: ({ row }) => {
           const task = row.original;
-          const isVideo = isVideoFormat(getFormatByPath(task.path));
           return (
             <div className="flex items-center gap-3">
               <MediaThumbnail
                 path={task.path}
                 title={task.title}
-                isVideo={isVideo}
+                fileType={task.fileType}
                 className="shrink-0 w-10 h-10 rounded"
               />
               <div className="flex flex-col max-w-[200px]">
@@ -104,41 +125,22 @@ export default function ConvertingTask({
         ),
       },
       {
-        accessorKey: "duration",
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() =>
-                column.toggleSorting(column.getIsSorted() === "asc")
-              }
-              className="h-auto p-0 hover:bg-transparent"
-            >
-              时长
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
-        cell: ({ row }) => (
-          <span className="text-sm font-normal text-foreground">
-            {formatDuration(row.getValue("duration"))}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "quality",
-        header: "格式/分辨率",
+        accessorKey: "codec",
+        header: "编码格式",
         cell: ({ row }) => {
           const task = row.original;
+          // 获取主要编码格式
+          const videoStream = task.streams?.find(
+            (s) => s.codec_type === "video"
+          );
+          const audioStream = task.streams?.find(
+            (s) => s.codec_type === "audio"
+          );
+          const codec = videoStream?.codec_name || audioStream?.codec_name;
           return (
-            <div className="flex flex-col">
-              <span className="text-sm">{task.format.toUpperCase()}</span>
-              {task.displayResolution && (
-                <span className="text-xs text-muted-foreground">
-                  {task.displayResolution}
-                </span>
-              )}
-            </div>
+            <span className="text-sm font-normal text-foreground">
+              {codec?.toUpperCase()}
+            </span>
           );
         },
         enableSorting: false,
@@ -184,19 +186,19 @@ export default function ConvertingTask({
                         {task.progress.toFixed(0)}%
                       </span>
                     )}
+                  {task.status === "error" && errorMessage && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-help">
+                          <ShieldAlert className="h-4 w-4 text-red-600" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-sm">{errorMessage}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </Badge>
-                {task.status === "error" && errorMessage && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="cursor-help">
-                        <ShieldAlert className="h-4 w-4 text-red-600" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="text-sm">{errorMessage}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
               </div>
             </div>
           );
@@ -248,20 +250,20 @@ export default function ConvertingTask({
         enableSorting: false,
       },
     ],
-    [removeTask]
+    [removeTask, setCurrentTask, setSettingsOpen]
   );
 
-  const table = useReactTable({
-    data: convertingTasks,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: onGlobalFilterChange || (() => {}),
-    globalFilterFn: (row, _, filterValue) => {
+  // 使用 useCallback 稳定 onGlobalFilterChange 引用
+  const stableOnGlobalFilterChange = useCallback(
+    (value: string) => {
+      onGlobalFilterChange?.(value);
+    },
+    [onGlobalFilterChange]
+  );
+
+  // 使用 useMemo 稳定 globalFilterFn
+  const globalFilterFn = useCallback(
+    (row: any, _: any, filterValue: string) => {
       if (!filterValue || filterValue.trim() === "") {
         return true;
       }
@@ -279,6 +281,20 @@ export default function ConvertingTask({
         displayResolution.includes(search)
       );
     },
+    []
+  );
+
+  const table = useReactTable({
+    data: filteredTasks,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: stableOnGlobalFilterChange,
+    globalFilterFn,
     state: {
       sorting,
       columnFilters,
@@ -353,8 +369,11 @@ export default function ConvertingTask({
         </TableBody>
       </Table>
       {currentTask && (
-        <ConversionSettingsDialog
-          task={currentTask}
+        <CompressionSettingsDialog
+          taskConfig={currentTask.compressionConfig}
+          onTaskConfigChange={(config) => {
+            updateUnfinishedTaskConfig(currentTask.id, config);
+          }}
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
         />

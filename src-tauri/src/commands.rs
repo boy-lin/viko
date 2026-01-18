@@ -24,6 +24,7 @@ use ffmpeg_next as ffmpeg;
 use crate::audio::AudioPlayer;
 use crate::audio_converter::{self, AudioConversionParams};
 use crate::ffmpeg_media_info::{self, MediaDetails};
+use crate::gif_converter;
 use crate::video_player::{PreviewSize, VideoPlayer};
 
 #[command]
@@ -145,7 +146,12 @@ pub fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
     let hevc_hardware = ffmpeg::encoder::find_by_name("hevc_videotoolbox").is_some();
     let prores_hardware = ffmpeg::encoder::find_by_name("prores_videotoolbox").is_some();
 
-    log::info!("Hardware Acceleration Check (Library): H.264={}, HEVC={}, ProRes={}", h264_hardware, hevc_hardware, prores_hardware);
+    log::info!(
+        "Hardware Acceleration Check (Library): H.264={}, HEVC={}, ProRes={}",
+        h264_hardware,
+        hevc_hardware,
+        prores_hardware
+    );
 
     Ok(HardwareSupport {
         h264_hardware,
@@ -772,8 +778,8 @@ pub fn video_player_open(
     }
 
     // 创建新的播放器
-    let player = VideoPlayer::new(&path, window, preview)
-        .map_err(|e| format!("打开视频文件失败: {}", e))?;
+    let player =
+        VideoPlayer::new(&path, window, preview).map_err(|e| format!("打开视频文件失败: {}", e))?;
 
     // 保存播放器实例
     *player_state.lock().unwrap() = Some(player);
@@ -900,9 +906,7 @@ pub fn audio_player_play(audio_player_state: State<'_, AudioPlayerState>) -> Res
 }
 
 #[command]
-pub fn audio_player_pause(
-    audio_player_state: State<'_, AudioPlayerState>,
-) -> Result<(), String> {
+pub fn audio_player_pause(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
     let player = audio_player_state.lock().unwrap();
     if let Some(ref p) = *player {
         p.command(crate::video_player::PlayerCommand::Pause)
@@ -982,6 +986,7 @@ pub fn audio_player_get_duration(
 
 #[derive(Deserialize)]
 pub struct AudioConversionArgs {
+    pub task_id: String,
     pub input_path: String,
     pub output_path: Option<String>, // 如果未提供，自动生成
     pub format: String,
@@ -1019,13 +1024,8 @@ pub fn get_audio_file_info(path: String) -> Result<serde_json::Value, String> {
 }
 
 #[command]
-pub fn convert_audio_file(
-    app: AppHandle,
-    args: AudioConversionArgs,
-) -> Result<(), String> {
-    let window = app
-        .get_webview_window("main")
-        .ok_or("未找到主窗口")?;
+pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
 
     // 如果没有提供输出路径，自动生成
     let output_path = if let Some(path) = args.output_path {
@@ -1048,11 +1048,30 @@ pub fn convert_audio_file(
     // 在新线程中执行转换
     let window_clone = window.clone();
     let output_path_clone = output_path.clone();
+    let task_id = args.task_id.clone();
     std::thread::spawn(move || {
-        if let Err(e) = audio_converter::convert_audio(&window_clone, params) {
-            let _ = window_clone.emit("audio-conversion-error", e);
+        if let Err(e) = audio_converter::convert_audio(&window_clone, params, task_id.clone()) {
+            crate::events::emit_media_task_event(
+                &window_clone,
+                &task_id,
+                "convert",
+                "audio",
+                "error",
+                None,
+                None,
+                Some(e),
+            );
         } else {
-            let _ = window_clone.emit("audio-conversion-complete", output_path_clone);
+            crate::events::emit_media_task_event(
+                &window_clone,
+                &task_id,
+                "convert",
+                "audio",
+                "complete",
+                Some(100.0),
+                Some(output_path_clone),
+                None,
+            );
         }
     });
 
@@ -1063,6 +1082,7 @@ pub fn convert_audio_file(
 
 #[derive(Deserialize)]
 pub struct VideoConversionArgs {
+    pub task_id: String,
     pub input_path: String,
     pub output_path: Option<String>,
     pub format: String,
@@ -1076,13 +1096,8 @@ pub struct VideoConversionArgs {
 }
 
 #[command]
-pub fn convert_video_file(
-    app: AppHandle,
-    args: VideoConversionArgs,
-) -> Result<(), String> {
-    let window = app
-        .get_webview_window("main")
-        .ok_or("未找到主窗口")?;
+pub fn convert_video_file(app: AppHandle, args: VideoConversionArgs) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
 
     // 如果没有提供输出路径，自动生成
     let output_path = if let Some(path) = args.output_path {
@@ -1092,11 +1107,15 @@ pub fn convert_video_file(
         let path = Path::new(&args.input_path);
         let stem = path.file_stem().unwrap().to_str().unwrap();
         let parent = path.parent().unwrap();
-        parent.join(format!("{}.{}", stem, args.format)).to_str().unwrap().to_string()
+        parent
+            .join(format!("{}.{}", stem, args.format))
+            .to_str()
+            .unwrap()
+            .to_string()
     };
-    
+
     let window = window.clone();
-    let task_id = "temp_task_id".to_string(); // In real implementation, pass task id from frontend if needed for detailed tracking
+    let task_id = args.task_id.clone();
 
     std::thread::spawn(move || {
         let params = crate::video_converter::VideoConversionParams {
@@ -1112,12 +1131,103 @@ pub fn convert_video_file(
             use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
         };
 
-        if let Err(e) = crate::video_converter::convert_video(&window, params, task_id) {
-            // Re-use audio events or create video specific ones?
-            // Using video specific ones for clarity
-            let _ = window.emit("audio-conversion-error", e); // Reuse error listener for now or add video listener
+        if let Err(e) = crate::video_converter::convert_video(&window, params, task_id.clone()) {
+            crate::events::emit_media_task_event(
+                &window,
+                &task_id,
+                "convert",
+                "video",
+                "error",
+                None,
+                None,
+                Some(e),
+            );
         } else {
-            let _ = window.emit("audio-conversion-complete", output_path); // Reuse complete listener for now
+            crate::events::emit_media_task_event(
+                &window,
+                &task_id,
+                "convert",
+                "video",
+                "complete",
+                Some(100.0),
+                Some(output_path),
+                None,
+            );
+        }
+    });
+
+    Ok(())
+}
+
+// ==================== GIF 转换相关命令 ====================
+
+#[derive(Deserialize)]
+pub struct GifConversionArgs {
+    pub task_id: String,
+    pub input_path: String,
+    #[serde(default)]
+    pub output_path: Option<String>,
+    pub format: String, // 应该是 "gif"
+    #[serde(default)]
+    pub width: Option<u32>,
+    #[serde(default)]
+    pub height: Option<u32>,
+    #[serde(default)]
+    pub frame_rate: Option<f32>, // GIF 帧率，默认 10fps
+}
+
+#[command]
+pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
+
+    // 如果没有提供输出路径，自动生成
+    let output_path = if let Some(path) = args.output_path {
+        path
+    } else {
+        let path = Path::new(&args.input_path);
+        let stem = path.file_stem().unwrap().to_str().unwrap();
+        let parent = path.parent().unwrap();
+        parent
+            .join(format!("{}.gif", stem))
+            .to_str()
+            .unwrap()
+            .to_string()
+    };
+
+    let window = window.clone();
+    let task_id = args.task_id.clone();
+
+    std::thread::spawn(move || {
+        let params = gif_converter::GifConversionParams {
+            input_path: args.input_path,
+            output_path: output_path.clone(),
+            width: args.width,
+            height: args.height,
+            frame_rate: args.frame_rate,
+        };
+
+        if let Err(e) = gif_converter::convert_video_to_gif(&window, params, task_id.clone()) {
+            crate::events::emit_media_task_event(
+                &window,
+                &task_id,
+                "convert",
+                "image",
+                "error",
+                None,
+                None,
+                Some(e),
+            );
+        } else {
+            crate::events::emit_media_task_event(
+                &window,
+                &task_id,
+                "convert",
+                "image",
+                "complete",
+                Some(100.0),
+                Some(output_path),
+                None,
+            );
         }
     });
 
@@ -1129,4 +1239,126 @@ pub fn convert_video_file(
 #[command]
 pub fn generate_media_thumbnail(path: String) -> Result<Option<String>, String> {
     crate::thumbnail::generate_thumbnail(&path)
+}
+
+// ==================== 压缩相关命令 ====================
+
+#[derive(Deserialize)]
+pub struct VideoCompressionArgs {
+    pub task_id: String,
+    pub input_path: String,
+    pub output_path: String,
+    pub compression_ratio: u32, // 0-100
+}
+
+#[command]
+pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
+    let window = window.clone();
+    let task_id = args.task_id.clone();
+
+    std::thread::spawn(move || {
+        let params = crate::video_compressor::VideoCompressionParams {
+            input_path: args.input_path,
+            output_path: args.output_path.clone(),
+            compression_ratio: args.compression_ratio,
+        };
+
+        if let Err(e) =
+            crate::video_compressor::compress_video_file(&window, params, task_id.clone())
+        {
+            crate::events::emit_media_task_event(
+                &window,
+                &task_id,
+                "compress",
+                "video",
+                "error",
+                None,
+                None,
+                Some(e),
+            );
+        }
+    });
+
+    Ok(())
+}
+
+#[derive(Deserialize)]
+pub struct AudioCompressionArgs {
+    pub task_id: String,
+    pub input_path: String,
+    pub output_path: String,
+    pub compression_ratio: u32, // 0-100
+}
+
+#[command]
+pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
+    let window = window.clone();
+    let task_id = args.task_id.clone();
+
+    std::thread::spawn(move || {
+        let params = crate::audio_compressor::AudioCompressionParams {
+            input_path: args.input_path,
+            output_path: args.output_path.clone(),
+            compression_ratio: args.compression_ratio,
+        };
+
+        if let Err(e) =
+            crate::audio_compressor::compress_audio_file(&window, params, task_id.clone())
+        {
+            crate::events::emit_media_task_event(
+                &window,
+                &task_id,
+                "compress",
+                "audio",
+                "error",
+                None,
+                None,
+                Some(e),
+            );
+        }
+    });
+
+    Ok(())
+}
+
+#[derive(Deserialize)]
+pub struct ImageCompressionArgs {
+    pub task_id: String,
+    pub input_path: String,
+    pub output_path: String,
+    pub quality: u32, // 0-100
+}
+
+#[command]
+pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
+    let window = window.clone();
+    let task_id = args.task_id.clone();
+
+    std::thread::spawn(move || {
+        let params = crate::image_compressor::ImageCompressionParams {
+            input_path: args.input_path,
+            output_path: args.output_path.clone(),
+            quality: args.quality,
+        };
+
+        if let Err(e) =
+            crate::image_compressor::compress_image_file(&window, params, task_id.clone())
+        {
+            crate::events::emit_media_task_event(
+                &window,
+                &task_id,
+                "compress",
+                "image",
+                "error",
+                None,
+                None,
+                Some(e),
+            );
+        }
+    });
+
+    Ok(())
 }

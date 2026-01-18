@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge";
 import { Gift, MessageSquare, Headphones } from "lucide-react";
 import { Theme } from "@/components/ui/theme";
+import { HighSpeedConversionBadge } from "@/layout/HighSpeedConversionBadge";
 
 export default function Header() {
   return (
@@ -16,12 +17,14 @@ export default function Header() {
       <Button variant="secondary" size="icon" className="shadow-none">
         <Gift className="w-5 h-5 text-pink-500" />
       </Button>
-      <Badge
+      {/* <Badge
         variant="outline"
         className="bg-purple-50 text-purple-700 border-purple-200 py-2 rounded-lg"
       >
         🎁 First Login Credit Bonus
-      </Badge>
+      </Badge> */}
+      <HighSpeedConversionBadge />
+
       <Button variant="secondary" size="icon" className="shadow-none">
         <MessageSquare className="w-5 h-5" />
       </Button>

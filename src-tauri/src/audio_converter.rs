@@ -3,7 +3,6 @@
 // 使用 ffmpeg-next 库的 API，不依赖命令行工具
 
 use std::path::Path;
-use tauri::Emitter;
 use tauri::WebviewWindow;
 
 use ffmpeg::codec;
@@ -20,9 +19,9 @@ use ffmpeg_next as ffmpeg;
 pub struct AudioConversionParams {
     pub input_path: String,
     pub output_path: String,
-    pub format: String,   // mp3, wav, flac, ogg, aac
-    pub bitrate: u32,     // kbps
-    pub sample_rate: u32, // Hz
+    pub format: String,                  // mp3, wav, flac, ogg, aac
+    pub bitrate: u32,                    // kbps
+    pub sample_rate: u32,                // Hz
     pub use_hardware_acceleration: bool, // Try to use hardware encoders (e.g. aac_at)
     pub use_ultra_fast_speed: bool,      // Optimize for speed
 }
@@ -73,7 +72,7 @@ fn get_audio_codec_for_format(format: &str, use_hardware_acceleration: bool) -> 
             } else {
                 "aac".to_string()
             }
-        },
+        }
         _ => "libmp3lame".to_string(), // 默认使用 MP3
     }
 }
@@ -98,10 +97,10 @@ fn get_codec_id_for_format(format: &str, use_hardware_acceleration: bool) -> cod
         "flac" => codec::Id::FLAC,
         "ogg" => codec::Id::VORBIS,
         "aac" => {
-             // We return standard AAC ID, the specific encoder implementation (aac vs aac_at) 
-             // is selected by name later, but the ID remains AAC.
-             codec::Id::AAC
-        },
+            // We return standard AAC ID, the specific encoder implementation (aac vs aac_at)
+            // is selected by name later, but the ID remains AAC.
+            codec::Id::AAC
+        }
         _ => codec::Id::MP3, // 默认使用 MP3
     }
 }
@@ -272,7 +271,11 @@ fn create_audio_filter(
 }
 
 /// 执行音频转换（使用 ffmpeg-next 库 API 和 filter graph）
-pub fn convert_audio(window: &WebviewWindow, params: AudioConversionParams) -> Result<(), String> {
+pub fn convert_audio(
+    window: &WebviewWindow,
+    params: AudioConversionParams,
+    task_id: String,
+) -> Result<(), String> {
     // 初始化 FFmpeg
     ffmpeg::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))?;
 
@@ -291,7 +294,16 @@ pub fn convert_audio(window: &WebviewWindow, params: AudioConversionParams) -> R
     });
 
     // 发送开始转换事件
-    let _ = window.emit("audio-conversion-progress", "0.0%");
+    crate::events::emit_media_task_event(
+        window,
+        &task_id,
+        "convert",
+        "audio",
+        "progress",
+        Some(0.0),
+        None,
+        None,
+    );
 
     // 获取输入文件时长（用于计算进度）
     let duration = get_audio_duration(&params.input_path)?;
@@ -349,8 +361,9 @@ pub fn convert_audio(window: &WebviewWindow, params: AudioConversionParams) -> R
         encoder_codec = ffmpeg::encoder::find(id);
         id
     };
-    
-    let encoder_codec = encoder_codec.ok_or_else(|| format!("未找到编码器: {:?} ({})", codec_id, codec_name))?;
+
+    let encoder_codec =
+        encoder_codec.ok_or_else(|| format!("未找到编码器: {:?} ({})", codec_id, codec_name))?;
     log::info!(
         "选用编码器: id={:?}, name={:?}, profile_supported={:?}",
         codec_id,
@@ -499,8 +512,16 @@ pub fn convert_audio(window: &WebviewWindow, params: AudioConversionParams) -> R
                         let current_time = pts as f64 * input_time_base.numerator() as f64
                             / input_time_base.denominator() as f64;
                         let progress = (current_time / duration * 100.0).min(100.0);
-                        let _ =
-                            window.emit("audio-conversion-progress", format!("{:.1}%", progress));
+                        crate::events::emit_media_task_event(
+                            window,
+                            &task_id,
+                            "convert",
+                            "audio",
+                            "progress",
+                            Some(progress),
+                            None,
+                            None,
+                        );
                     }
                 }
 
@@ -682,7 +703,16 @@ pub fn convert_audio(window: &WebviewWindow, params: AudioConversionParams) -> R
         .map_err(|e| format!("写入文件尾失败: {}", e))?;
 
     // 发送完成事件
-    let _ = window.emit("audio-conversion-progress", "100.0%");
+    crate::events::emit_media_task_event(
+        window,
+        &task_id,
+        "convert",
+        "audio",
+        "complete",
+        Some(100.0),
+        Some(params.output_path.clone()),
+        None,
+    );
 
     // 验证输出文件是否存在
     if !Path::new(&params.output_path).exists() {

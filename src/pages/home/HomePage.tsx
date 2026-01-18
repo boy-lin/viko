@@ -3,7 +3,7 @@ import { downloadDir } from "@tauri-apps/api/path";
 import { Link } from "react-router-dom";
 import { Sparkles, Wand2 } from "lucide-react";
 import FileSelector from "@/components/FileSelector";
-import VideoPreview from "@/components/VideoPreview";
+import { ShakaPlayer } from "@/components/player/ShakaPlayer";
 import ConfigCard from "@/components/ConfigCard";
 import FFmpegCommand from "@/components/FFmpegCommand";
 import TranscodeButton from "@/components/TranscodeButton";
@@ -91,7 +91,7 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="space-y-6">
-            <VideoPreview filePath={fileInfo?.path} />
+            <ShakaPlayer filePath={fileInfo?.path} />
             {fileInfo && <FFmpegCommand fileInfo={fileInfo} config={config} />}
             {isOk && <OutputPreview config={config} />}
           </div>

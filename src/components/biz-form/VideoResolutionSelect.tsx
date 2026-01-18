@@ -30,6 +30,7 @@ export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="original">Original</SelectItem>
+          <SelectItem value="7680x4320">7680x4320</SelectItem>
           <SelectItem value="3840x2160">3840x2160</SelectItem>
           <SelectItem value="1920x1080">1920x1080</SelectItem>
           <SelectItem value="1280x720">1280x720</SelectItem>

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FORMAT_DATA, FORMAT_CATEGORIES } from "@/data/formats";
-import { EncoderEnum, FormatOption } from "@/types/options";
+import { FormatOption } from "@/types/options";
 import { useConverterStore } from "@/stores/converterStore";
 import { AUDIO_ENCODERS } from "@/data/encoders";
 
@@ -36,7 +36,7 @@ export interface FormatSelectorValue {
 // 基础 Props（所有类型共享）
 interface BaseFormatSelectorProps {
   format: string;
-  onValueChange: (updates: FormatSelectorValue) => void;
+  onValueChange: (formatType: string, updates: FormatSelectorValue) => void;
   className?: string;
 }
 
@@ -74,13 +74,16 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
   const { format, onValueChange, className } = props;
 
   /* State for 3-Level Navigation */
-  const [open, setOpen] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string>("favorites");
-  const [activeGroup, setActiveGroup] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-
   const { formatFavorites, formatRecents, addToRecents, toggleFavorite } =
     useConverterStore();
+
+  const [open, setOpen] = useState(false);
+  // 首次打开时，如果 recents 有值就打开 recents 分类
+  const [activeCategory, setActiveCategory] = useState<string>(
+    formatRecents.length > 0 ? "recents" : "favorites"
+  );
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // 根据 formatType 提取对应的参数
   const formatType = props.formatType;
@@ -268,7 +271,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       }
     }
 
-    onValueChange(updates);
+    onValueChange(formatType, updates);
   };
 
   const currentCategoryLabel = React.useMemo(() => {
@@ -464,14 +467,21 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div
+                              className={cn(
+                                "flex items-center gap-2 transition-opacity",
+                                formatFavorites.includes(item.id)
+                                  ? "opacity-100"
+                                  : "opacity-0 group-hover:opacity-100"
+                              )}
+                            >
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className={cn(
                                   "h-6 w-6",
                                   formatFavorites.includes(item.id)
-                                    ? "text-yellow-400 opacity-100"
+                                    ? "text-yellow-400"
                                     : "text-muted-foreground"
                                 )}
                                 onClick={(e) => {

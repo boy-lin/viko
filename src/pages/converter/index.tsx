@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConverterFooter } from "./ConverterFooter";
 import { useConverterStore } from "@/stores/converterStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import ConvertingTask from "./convertingTask";
 import FinishedTask from "./finishedTask";
 
@@ -26,26 +27,19 @@ const TABS = [
 ];
 
 export default function ConverterPage() {
-  const {
-    init,
-    activeTab,
-    setActiveTab,
-    addFiles,
-    unreadFinishedCount,
-    resetUnreadFinishedCount,
-  } = useConverterStore();
+  const { init, activeTab, setActiveTab, addFiles, unreadFinishedCount } =
+    useConverterStore();
+  const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 
   useEffect(() => {
     init();
-  }, [init]);
+    initSettings();
+  }, [init, initSettings]);
 
   // 当切换到已完成 tab 时，重置未读数
   const handleTabChange = (tab: "converting" | "finished") => {
     setActiveTab(tab);
-    if (tab === "finished") {
-      resetUnreadFinishedCount();
-    }
   };
 
   return (

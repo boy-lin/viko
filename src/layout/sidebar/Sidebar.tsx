@@ -8,6 +8,9 @@ import {
   Home,
   Plus,
   Wrench,
+  AudioLines,
+  Download,
+  Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +22,7 @@ type NavItem = {
 
 type QuickAccessItem = {
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   color: string;
   href?: string;
 };
@@ -45,33 +48,45 @@ const useSidebar = () => {
 const sidebarNavItems: NavItem[] = [
   { label: "Home", icon: Home, href: "/" },
   { label: "AI Tools", icon: Wrench, href: "/tools" },
-  { label: "My Files", icon: FileText, href: "/files" },
+  { label: "My Files", icon: FileText, href: "/my/files" },
 ];
 
 const quickAccessItems: QuickAccessItem[] = [
   {
     label: "Converter",
-    icon: "🔄",
+    icon: Download,
     color: "text-purple-600",
     href: "/converter",
   },
   {
     label: "Downloader",
-    icon: "⬇️",
+    icon: Download,
     color: "text-orange-600",
     href: "/downloader",
   },
   {
     label: "Compressor",
-    icon: "🗜️",
-    color: "text-blue-600",
+    icon: Download,
+    color: "text-green-600",
     href: "/compressor",
   },
   {
-    label: "Converter Old",
-    icon: "🔄",
+    label: "Audio Test",
+    icon: AudioLines,
     color: "text-purple-600",
-    href: "/converter-old",
+    href: "/demo/audio-test",
+  },
+  {
+    label: "Home V1",
+    icon: Home,
+    color: "text-purple-600",
+    href: "/demo/v1",
+  },
+  {
+    label: "Video Player",
+    icon: Video,
+    color: "text-purple-600",
+    href: "/ui/video-player",
   },
 ];
 
@@ -219,7 +234,9 @@ const SidebarQuickAccessItem = ({ item }: { item: QuickAccessItem }) => {
           : "text-gray-700 hover:bg-white/50"
       )}
     >
-      <div className={cn("w-5 h-5 flex-shrink-0", item.color)}>{item.icon}</div>
+      <div className={cn("w-5 h-5 flex-shrink-0", item.color)}>
+        <item.icon className="w-5 h-5" />
+      </div>
       <SidebarLabel>{item.label}</SidebarLabel>
     </motion.button>
   );
@@ -278,7 +295,7 @@ const SidebarToggle = () => {
       type="button"
       title={open ? "收起侧边栏" : "展开侧边栏"}
       onClick={() => setOpen((prev) => !prev)}
-      className="absolute right-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm transition hover:bg-muted"
+      className="cursor-pointer absolute right-0 top-1/2 z-10 flex h-9 w-2 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-border/50 bg-background backdrop-blur-sm text-foreground shadow-sm transition hover:bg-muted hover:scale-110"
     >
       <Icon className="h-4 w-4" />
     </button>

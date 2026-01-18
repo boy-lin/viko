@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { FormatSelector } from "@/components/biz-form/FormatSelector";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
-import { useConverterStore } from "@/stores/converterStore";
+import { useConverterStore, defaultVideoConfig } from "@/stores/converterStore";
 import type { FormatSelectorValue } from "@/components/biz-form/FormatSelector";
 import { ConversionSettingsDialog } from "./SettingsDialog";
 import { converterQueue } from "@/lib/bridge";
@@ -36,24 +36,15 @@ export const ConverterFooter: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
-  const handleFormatChange = (updates: FormatSelectorValue) => {
+  const handleFormatChange = (
+    formatType: string,
+    updates: FormatSelectorValue
+  ) => {
     if (!globalConfig) return;
-
-    // 判断新格式类型
-    const newFormatType = isVideoFormat(updates.outputFormat)
-      ? "video"
-      : isAudioFormat(updates.outputFormat)
-      ? "audio"
-      : isImageFormat(updates.outputFormat)
-      ? "image"
-      : null;
-
-    if (!newFormatType) return;
-
     // 根据当前配置类型和新格式类型创建新配置
     let newConfig: ConversionConfig;
 
-    if (newFormatType === "video") {
+    if (formatType === "video") {
       // 创建或更新 Video 配置
       const existingVideo = isVideoConfig(globalConfig)
         ? globalConfig.video
@@ -74,11 +65,14 @@ export const ConverterFooter: React.FC = () => {
           encoder: updates.videoEncoder || existingVideo.encoder,
         },
         // 保留现有的 audioTracks（如果有）
-        audioTracks: isVideoConfig(globalConfig)
-          ? globalConfig.audioTracks
-          : undefined,
+        audioTracks:
+          isVideoConfig(globalConfig) &&
+          globalConfig.audioTracks &&
+          globalConfig.audioTracks.length > 0
+            ? globalConfig.audioTracks
+            : defaultVideoConfig.audioTracks,
       };
-    } else if (newFormatType === "audio") {
+    } else if (formatType === "audio") {
       // 创建或更新 Audio 配置
       const existingAudioTracks = isAudioConfig(globalConfig)
         ? globalConfig.audioTracks
@@ -102,7 +96,7 @@ export const ConverterFooter: React.FC = () => {
           encoder: updates.audioEncoder || track.encoder,
         })),
       };
-    } else {
+    } else if (formatType === "image") {
       // Image 配置
       const existingImage = isImageConfig(globalConfig)
         ? globalConfig.image
@@ -118,6 +112,8 @@ export const ConverterFooter: React.FC = () => {
           resolution: updates.resolution || existingImage.resolution,
         },
       };
+    } else {
+      return;
     }
 
     updateGlobalConfig(newConfig);
@@ -178,7 +174,7 @@ export const ConverterFooter: React.FC = () => {
               if (formatType === "video") {
                 return (
                   <FormatSelector
-                    className="w-[10em]"
+                    className="w-[14em]"
                     formatType="video"
                     format={globalConfig.outputFormat}
                     encoder={
@@ -197,7 +193,7 @@ export const ConverterFooter: React.FC = () => {
               } else if (formatType === "audio") {
                 return (
                   <FormatSelector
-                    className="w-[10em]"
+                    className="w-[14em]"
                     formatType="audio"
                     format={globalConfig.outputFormat}
                     audioEncoder={
@@ -218,7 +214,7 @@ export const ConverterFooter: React.FC = () => {
               } else {
                 return (
                   <FormatSelector
-                    className="w-[10em]"
+                    className="w-[14em]"
                     formatType="image"
                     format={globalConfig.outputFormat}
                     quality={
@@ -253,7 +249,7 @@ export const ConverterFooter: React.FC = () => {
             保存到
           </span>
           <div className="flex items-center gap-2">
-            <OutputLocationSelect className="w-[10em]" />
+            <OutputLocationSelect className="w-[14em]" />
           </div>
         </div>
       </div>

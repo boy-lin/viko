@@ -5,7 +5,8 @@ use std::path::Path;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaDetails {
     pub path: String,
-    pub format: String,
+    pub extension: String,
+    pub format_names: String,
     pub duration: f64, // seconds
     pub size: u64,     // bytes
     pub streams: Vec<StreamDetails>,
@@ -35,38 +36,29 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
 
     let duration = context.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
     let format_names = context.format().name().to_string();
-    let extension = path.extension()
+    let extension = path
+        .extension()
         .and_then(|ext| ext.to_str())
         .map(|s| s.to_lowercase())
         .unwrap_or_default();
-    
-    let format = if !extension.is_empty() && format_names.split(',').any(|s| s == extension) {
-        extension
-    } else {
-        // Return the first format name if extension doesn't match or is not found
-        format_names.split(',').next().unwrap_or(format_names.as_str()).to_string()
-    };
-    let size = std::fs::metadata(path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
     let mut streams = Vec::new();
 
     for stream in context.streams() {
         let codec_params = stream.parameters();
         let medium = codec_params.medium();
-        
+
         // Skip streams that fail parameter parsing, or handle errors gracefully
-        let codec_context = match ffmpeg::codec::context::Context::from_parameters(codec_params.clone()) {
-            Ok(ctx) => ctx,
-            Err(_) => continue, 
-        };
+        let codec_context =
+            match ffmpeg::codec::context::Context::from_parameters(codec_params.clone()) {
+                Ok(ctx) => ctx,
+                Err(_) => continue,
+            };
 
         let codec_id = codec_params.id();
         let codec_name = codec_id.name().to_string();
-        // ffmpeg-next 8.0/7.1 might not expose long_name directly on id(), using name as fallback or description if available
-        let codec_long_name = None; // codec_id.description().map(|s| s.to_string()); 
-
+        let codec_long_name = None;
         let mut stream_details = StreamDetails {
             index: stream.index(),
             codec_type: format!("{:?}", medium).to_lowercase(),
@@ -85,10 +77,13 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
                 if let Ok(video) = codec_context.decoder().video() {
                     stream_details.width = Some(video.width());
                     stream_details.height = Some(video.height());
-                    
+
                     let fps = stream.avg_frame_rate();
                     if fps.denominator() > 0 {
-                        stream_details.frame_rate = Some(format!("{:.2}", fps.numerator() as f64 / fps.denominator() as f64));
+                        stream_details.frame_rate = Some(format!(
+                            "{:.2}",
+                            fps.numerator() as f64 / fps.denominator() as f64
+                        ));
                     }
                     stream_details.bit_rate = Some(video.bit_rate() as i64);
                 }
@@ -108,7 +103,8 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
 
     Ok(MediaDetails {
         path: path_str.to_string(),
-        format,
+        extension,
+        format_names,
         duration,
         size,
         streams,

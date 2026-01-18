@@ -1146,7 +1146,7 @@ export const FORMAT_DATA: FormatOption[] = [
   },
 ];
 
-const AUDIO_FORMATS = [
+export const AUDIO_FORMATS = [
   FormatEnum.MP3,
   FormatEnum.M4A,
   FormatEnum.WAV,
@@ -1163,7 +1163,7 @@ const AUDIO_FORMATS = [
   FormatEnum.CAF,
 ];
 
-const VIDEO_FORMATS = [
+export const VIDEO_FORMATS = [
   FormatEnum.MP4,
   FormatEnum.MOV,
   FormatEnum.MKV,
@@ -1177,7 +1177,7 @@ const VIDEO_FORMATS = [
   FormatEnum.OGV,
 ];
 
-const IMAGE_FORMATS = [
+export const IMAGE_FORMATS = [
   FormatEnum.JPG,
   FormatEnum.PNG,
   FormatEnum.WEBP,

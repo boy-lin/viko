@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useConverterStore } from "@/stores/converterStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 interface OutputLocationSelectProps {
   className?: string;
@@ -13,7 +13,7 @@ interface OutputLocationSelectProps {
 export const OutputLocationSelect: React.FC<OutputLocationSelectProps> = ({
   className,
 }) => {
-  const { outputPath, setOutputPath } = useConverterStore();
+  const { outputPath, setOutputPath } = useSettingsStore();
 
   const handleBrowse = async () => {
     try {

@@ -1,12 +1,17 @@
 // 声明模块 Cursor Write It
 pub mod audio;
+pub mod audio_compressor;
 pub mod audio_converter;
 pub mod commands;
+pub mod events;
 pub mod ffmpeg_ffi;
 pub mod ffmpeg_loader;
 pub mod ffmpeg_media_info;
+pub mod gif_converter;
+pub mod image_compressor;
 pub mod image_converter;
 pub mod thumbnail;
+pub mod video_compressor;
 pub mod video_converter;
 pub mod video_player;
 
@@ -116,8 +121,12 @@ pub fn run() {
             crate::commands::get_detailed_media_info,
             crate::commands::check_hardware_acceleration,
             crate::commands::convert_video_file,
+            crate::commands::convert_gif_file,
             crate::commands::generate_media_thumbnail,
             crate::image_converter::convert_image_file,
+            crate::commands::compress_video_file,
+            crate::commands::compress_audio_file,
+            crate::commands::compress_image_file,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main");

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -25,12 +25,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useConverterStore } from "@/stores/converterStore";
+import { useCompressorStore } from "@/stores/compressorStore";
 import { ConverterTask } from "@/types/converter";
-import { MediaThumbnail } from "../components/MediaThumbnail";
+import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { formatFileSize, getFormatByPath } from "@/lib/file";
-import { formatDuration } from "@/lib/time";
-import { isAudioFormat, isVideoFormat } from "@/data/formats";
+import { isVideoFormat } from "@/data/formats";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
 interface FinishedTaskProps {
@@ -42,9 +41,14 @@ export default function FinishedTask({
   globalFilter = "",
   onGlobalFilterChange,
 }: FinishedTaskProps = {}) {
-  const { finishedTasks, removeFinishedTask } = useConverterStore();
+  const { finishedTasks, removeFinishedTask, resetUnreadFinishedCount } =
+    useCompressorStore();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+
+  useEffect(() => {
+    resetUnreadFinishedCount();
+  }, []);
 
   // 定义列
   const columns = useMemo<ColumnDef<ConverterTask>[]>(
@@ -54,13 +58,12 @@ export default function FinishedTask({
         header: "预览/文件名",
         cell: ({ row }) => {
           const task = row.original;
-          const isVideo = isVideoFormat(getFormatByPath(task.path));
           return (
             <div className="flex items-center gap-3">
               <MediaThumbnail
                 path={task.path}
                 title={task.title}
-                isVideo={isVideo}
+                fileType={task.fileType}
                 className="shrink-0 w-10 h-10 rounded"
               />
               <div className="flex flex-col max-w-[200px]">
@@ -100,60 +103,49 @@ export default function FinishedTask({
             </Button>
           );
         },
-        cell: ({ row }) => (
-          <span className="text-sm font-normal text-foreground">
-            {formatFileSize(row.getValue("size"))}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "duration",
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() =>
-                column.toggleSorting(column.getIsSorted() === "asc")
-              }
-              className="h-auto p-0 hover:bg-transparent"
-            >
-              时长
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
-        cell: ({ row }) => (
-          <span className="text-sm font-normal text-foreground">
-            {formatDuration(row.getValue("duration"))}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "quality",
-        header: "格式/分辨率",
         cell: ({ row }) => {
           const task = row.original;
-          const format = task.config?.outputFormat;
-          if (!format) return null;
-          let quality = null;
-          switch (task.config?.type) {
-            case "video":
-              quality = task.config?.video?.resolution;
-              break;
-            case "audio":
-              quality = task.config?.audioTracks?.[0]?.bitrate + "kbps";
-              break;
-            case "image":
-              quality = task.config?.image?.quality;
-              break;
-          }
+          const originalSize = task.size;
           return (
             <div className="flex flex-col">
-              <span className="text-sm">{format.toUpperCase()}</span>
-              {quality && (
-                <span className="text-xs text-muted-foreground">{quality}</span>
+              <span className="text-sm font-normal text-foreground">
+                原文件: {formatFileSize(originalSize)}
+              </span>
+              {task.outputPath && (
+                <span className="text-xs text-muted-foreground">
+                  压缩后: 计算中...
+                </span>
               )}
             </div>
+          );
+        },
+      },
+      {
+        accessorKey: "compressionRatio",
+        header: "压缩率",
+        cell: ({ row }) => {
+          const task = row.original;
+          // 从 compressionConfig 获取压缩比例
+          if (task.compressionConfig) {
+            if (
+              task.compressionConfig.type === "video" ||
+              task.compressionConfig.type === "audio"
+            ) {
+              return (
+                <span className="text-sm font-normal text-foreground">
+                  {task.compressionConfig.compressionRatio}%
+                </span>
+              );
+            } else if (task.compressionConfig.type === "image") {
+              return (
+                <span className="text-sm font-normal text-foreground">
+                  质量: {task.compressionConfig.quality}%
+                </span>
+              );
+            }
+          }
+          return (
+            <span className="text-sm font-normal text-muted-foreground">-</span>
           );
         },
         enableSorting: false,
@@ -213,17 +205,17 @@ export default function FinishedTask({
     [removeFinishedTask]
   );
 
-  const table = useReactTable({
-    data: finishedTasks,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: onGlobalFilterChange || (() => {}),
-    globalFilterFn: (row, _, filterValue) => {
+  // 使用 useCallback 稳定 onGlobalFilterChange 引用
+  const stableOnGlobalFilterChange = useCallback(
+    (value: string) => {
+      onGlobalFilterChange?.(value);
+    },
+    [onGlobalFilterChange]
+  );
+
+  // 使用 useCallback 稳定 globalFilterFn
+  const globalFilterFn = useCallback(
+    (row: any, _: any, filterValue: string) => {
       if (!filterValue || filterValue.trim() === "") {
         return true;
       }
@@ -246,6 +238,20 @@ export default function FinishedTask({
         outputFileName.includes(search)
       );
     },
+    []
+  );
+
+  const table = useReactTable({
+    data: finishedTasks,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: stableOnGlobalFilterChange,
+    globalFilterFn,
     state: {
       sorting,
       columnFilters,

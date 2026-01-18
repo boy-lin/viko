@@ -13,7 +13,8 @@ export interface StreamDetails {
 
 export interface MediaDetails {
   path: string;
-  format: string;
+  extension: string;
+  format_names: string;
   duration: number;
   size: number;
   streams: StreamDetails[];
@@ -75,6 +76,27 @@ export type ConversionConfig =
   | AudioConversionConfig
   | ImageConversionConfig;
 
+// 压缩配置类型
+export interface VideoCompressionConfig {
+  type: "video";
+  compressionRatio: number; // 0-100，表示压缩到原文件的百分比
+}
+
+export interface AudioCompressionConfig {
+  type: "audio";
+  compressionRatio: number; // 0-100
+}
+
+export interface ImageCompressionConfig {
+  type: "image";
+  quality: number; // 0-100，质量百分比
+}
+
+export type CompressionConfig =
+  | VideoCompressionConfig
+  | AudioCompressionConfig
+  | ImageCompressionConfig;
+
 // 类型守卫函数
 export function isVideoConfig(
   config: ConversionConfig
@@ -94,12 +116,34 @@ export function isImageConfig(
   return config.type === "image";
 }
 
+export function isVideoCompressionConfig(
+  config: CompressionConfig
+): config is VideoCompressionConfig {
+  return config.type === "video";
+}
+
+export function isAudioCompressionConfig(
+  config: CompressionConfig
+): config is AudioCompressionConfig {
+  return config.type === "audio";
+}
+
+export function isImageCompressionConfig(
+  config: CompressionConfig
+): config is ImageCompressionConfig {
+  return config.type === "image";
+}
+
+export type FileType = "video" | "audio" | "image";
 export interface ConverterTask extends MediaDetails {
   id: string;
   status: "idle" | "converting" | "finished" | "error";
   progress: number;
+  fileType: FileType;
   outputPath?: string;
   config?: ConversionConfig;
+  compressionConfig?: CompressionConfig; // 压缩配置
+  taskType?: "convert" | "compress"; // 任务类型：转码或压缩
   errorMessage?: string;
   // Helper fields for UI
   title: string;

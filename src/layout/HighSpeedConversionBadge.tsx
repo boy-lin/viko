@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { invoke } from "@tauri-apps/api/core";
-import { useConverterStore } from "@/stores/converterStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 interface HardwareSupport {
   h264_hardware: boolean;
@@ -20,9 +20,9 @@ interface HighSpeedConversionBadgeProps {
   className?: string;
 }
 
-export const HighSpeedConversionBadge: React.FC<HighSpeedConversionBadgeProps> = ({
-  className,
-}) => {
+export const HighSpeedConversionBadge: React.FC<
+  HighSpeedConversionBadgeProps
+> = ({ className }) => {
   const [support, setSupport] = useState<HardwareSupport>({
     h264_hardware: false,
     hevc_hardware: false,
@@ -35,17 +35,20 @@ export const HighSpeedConversionBadge: React.FC<HighSpeedConversionBadgeProps> =
     useUltraFastSpeed,
     toggleHardwareAcceleration,
     toggleUltraFastSpeed,
-  } = useConverterStore();
+  } = useSettingsStore();
 
   useEffect(() => {
     const checkSupport = async () => {
       try {
-        const result = await invoke<HardwareSupport>("check_hardware_acceleration");
-        console.log('result', result)
+        const result = await invoke<HardwareSupport>(
+          "check_hardware_acceleration"
+        );
+        console.log("result", result);
         setSupport(result);
 
         if (result.h264_hardware || result.hevc_hardware) {
-          const { useHardwareAcceleration, useUltraFastSpeed } = useConverterStore.getState();
+          const { useHardwareAcceleration, useUltraFastSpeed } =
+            useSettingsStore.getState();
           if (!useHardwareAcceleration) {
             toggleHardwareAcceleration(true);
           }
@@ -74,7 +77,7 @@ export const HighSpeedConversionBadge: React.FC<HighSpeedConversionBadgeProps> =
           )}
         >
           <Zap className="w-4 h-4" fill="currentColor" />
-          High Speed Conversion
+          High
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-4" align="end">
@@ -115,7 +118,9 @@ export const HighSpeedConversionBadge: React.FC<HighSpeedConversionBadgeProps> =
               <Checkbox
                 id="gpu-accel"
                 checked={useHardwareAcceleration}
-                onCheckedChange={(checked) => toggleHardwareAcceleration(!!checked)}
+                onCheckedChange={(checked) =>
+                  toggleHardwareAcceleration(!!checked)
+                }
                 disabled={!hasHardwareSupport || loading}
               />
               <div className="grid gap-1.5 leading-none">
@@ -129,8 +134,8 @@ export const HighSpeedConversionBadge: React.FC<HighSpeedConversionBadgeProps> =
                   {loading
                     ? "Checking hardware support..."
                     : hasHardwareSupport
-                      ? "Uses hardware encoders (e.g., VideoToolbox) when available."
-                      : "No supported hardware encoder detected."}
+                    ? "Uses hardware encoders (e.g., VideoToolbox) when available."
+                    : "No supported hardware encoder detected."}
                 </p>
               </div>
             </div>
@@ -140,4 +145,3 @@ export const HighSpeedConversionBadge: React.FC<HighSpeedConversionBadgeProps> =
     </Popover>
   );
 };
-

@@ -1,5 +1,5 @@
 import React from "react";
-import { FormatSelector } from "./FormatSelector";
+import { FormatSelector, FormatSelectorValue } from "./FormatSelector";
 
 interface TargetFormatPresetSelectProps {
   value?: string;
@@ -12,10 +12,18 @@ export const TargetFormatPresetSelect: React.FC<TargetFormatPresetSelectProps> =
   onValueChange,
   className,
 }) => {
+  const handleValueChange = (updates: FormatSelectorValue) => {
+    if (onValueChange) {
+      // Extract the format value from updates
+      onValueChange(updates.outputFormat);
+    }
+  };
+
   return (
     <FormatSelector
-      value={value}
-      onValueChange={onValueChange || (() => { })}
+      format={value}
+      formatType="video"
+      onValueChange={handleValueChange}
       className={className}
     />
   );

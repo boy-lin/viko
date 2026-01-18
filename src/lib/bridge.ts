@@ -6,14 +6,31 @@ import {
   isVideoConfig,
   isAudioConfig,
   isImageConfig,
+  isVideoCompressionConfig,
+  isAudioCompressionConfig,
+  isImageCompressionConfig,
+  MediaDetails,
 } from "@/types/converter";
 import { useConverterStore } from "@/stores/converterStore";
+import { useCompressorStore } from "@/stores/compressorStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { isAudioFormat, isImageFormat, SupportedFormats } from "@/data/formats";
+import { converterDB } from "@/db/converterDB";
 
 export type DownloadProgress = {
   stage: string;
   downloaded: number;
   total?: number | null;
+};
+
+export type MediaTaskEvent = {
+  task_id: string;
+  task_type: "convert" | "compress";
+  media_type: "video" | "audio" | "image";
+  event_type: "progress" | "complete" | "error";
+  progress?: number;
+  output_path?: string;
+  error_message?: string;
 };
 
 export type BridgeEvents = {
@@ -24,6 +41,7 @@ export type BridgeEvents = {
   "video-frame": { width: number; height: number; data: number[] | Uint8Array };
   "video-complete": string;
   "video-error": string;
+  "media-task-event": MediaTaskEvent;
 };
 
 type KnownEvent = keyof BridgeEvents;
@@ -87,6 +105,23 @@ class Bridge {
       return Promise.reject(new Error("Tauri runtime unavailable"));
     }
     return invoke<T>(cmd, args);
+  }
+
+  async getMediaDetails(
+    path: string
+  ): Promise<MediaDetails & { format: string }> {
+    const details = await this.invoke<MediaDetails>("get_detailed_media_info", {
+      path,
+    });
+    let format = details.extension;
+    if (!details.extension) {
+      format = details.format_names.split(",")[0];
+    }
+
+    return {
+      ...details,
+      format,
+    };
   }
 
   clear() {
@@ -153,19 +188,37 @@ export async function readDirectoryFiles(
   return filePaths;
 }
 
-class ConversionQueue {
-  private queue: ConverterTask[] = [];
+type TaskPriority = "high" | "normal" | "low";
+
+interface QueuedTask {
+  task: ConverterTask;
+  priority: TaskPriority;
+}
+
+class MediaTaskQueue {
+  private queue: QueuedTask[] = [];
   private running = false;
   private concurrency = 1;
   private activeCount = 0;
+  private taskType: "convert" | "compress";
 
-  add(tasks: ConverterTask[]) {
+  constructor(taskType: "convert" | "compress" = "convert") {
+    this.taskType = taskType;
+  }
+
+  add(tasks: ConverterTask[], priority: TaskPriority = "normal") {
+    console.log("add", tasks);
     // Avoid duplicates
     for (const task of tasks) {
-      if (!this.queue.find((t) => t.id === task.id)) {
-        this.queue.push(task);
+      if (!this.queue.find((q) => q.task.id === task.id)) {
+        this.queue.push({ task, priority });
       }
     }
+    // 按优先级排序：high > normal > low
+    this.queue.sort((a, b) => {
+      const priorityOrder = { high: 3, normal: 2, low: 1 };
+      return priorityOrder[b.priority] - priorityOrder[a.priority];
+    });
     this.process();
   }
 
@@ -208,13 +261,13 @@ class ConversionQueue {
 
     this.running = true;
     this.activeCount++;
-    const task = this.queue.shift();
-
-    if (task) {
+    const queuedTask = this.queue.shift();
+    console.log("process", queuedTask);
+    if (queuedTask) {
       try {
-        await this.runTask(task);
+        await this.runTask(queuedTask.task);
       } catch (error) {
-        console.error(`Task ${task.id} failed:`, error);
+        console.error(`Task ${queuedTask.task.id} failed:`, error);
       } finally {
         this.activeCount--;
         this.process();
@@ -223,77 +276,288 @@ class ConversionQueue {
   }
 
   private async runTask(task: ConverterTask) {
-    const {
-      updateTaskById,
-      outputPath,
-      incrementUnreadFinishedCount,
-      globalConfig, // 保留作为后备，向后兼容
-    } = useConverterStore.getState();
-    // 优先使用 task.config，如果不存在则使用 globalConfig（向后兼容）
-    const taskConfig = task.config || globalConfig;
-    const outputFormat = taskConfig?.outputFormat;
-    const isAudioTarget = isAudioFormat(outputFormat);
+    // 根据任务类型选择对应的 store
+    const taskType = task.taskType || this.taskType;
+
+    if (taskType === "compress") {
+      await this.runCompressionTask(task);
+    } else {
+      await this.runConversionTask(task);
+    }
+  }
+
+  private async runCompressionTask(task: ConverterTask) {
+    const { updateTaskById, incrementUnreadFinishedCount, globalConfig } =
+      useCompressorStore.getState();
+    const { outputPath } = useSettingsStore.getState();
+    const compressionConfig = task.compressionConfig || globalConfig;
 
     // Initial Status Update
     updateTaskById(task.id, { status: "converting", progress: 0 });
 
-    const cleanup = () => {
-      if (unlistenProgress) unlistenProgress();
-      if (unlistenComplete) unlistenComplete();
-      if (unlistenError) unlistenError();
-    };
+    // 检测媒体类型
+    const hasVideoStream =
+      task.streams?.some((s) => s.codec_type === "video") ?? false;
+    const hasAudioStream =
+      task.streams?.some((s) => s.codec_type === "audio") ?? false;
+    const hasImageStream =
+      task.streams?.some((s) => s.codec_type === "image") ?? false;
 
-    let unlistenProgress: UnlistenFn | null = null;
-    let unlistenComplete: UnlistenFn | null = null;
-    let unlistenError: UnlistenFn | null = null;
+    let mediaType: "video" | "audio" | "image" = "video";
+    if (hasVideoStream && isVideoCompressionConfig(compressionConfig)) {
+      mediaType = "video";
+    } else if (hasAudioStream && isAudioCompressionConfig(compressionConfig)) {
+      mediaType = "audio";
+    } else if (
+      (hasImageStream || hasVideoStream) &&
+      isImageCompressionConfig(compressionConfig)
+    ) {
+      mediaType = "image";
+    } else {
+      console.error("Unsupported media type for compression", task);
+      updateTaskById(task.id, {
+        status: "error",
+        errorMessage: "不支持的媒体类型",
+      });
+      return;
+    }
+
+    let finalOutputPath: string | null = null;
+    if (outputPath) {
+      const separator = outputPath.includes("\\") ? "\\" : "/";
+      const stem = task.title;
+      const extension = task.extension || "mp4";
+      finalOutputPath = `${outputPath}${separator}${stem}_compressed.${extension}`;
+      updateTaskById(task.id, { outputPath: finalOutputPath });
+    }
+
+    // 统一的事件监听器
+    let unlistenEvent: UnlistenFn | null = null;
+
+    const cleanup = () => {
+      if (unlistenEvent) unlistenEvent();
+    };
 
     return new Promise<void>(async (resolve) => {
       try {
-        if (isAudioTarget) {
-          unlistenProgress = await listen<string>(
-            "audio-conversion-progress",
-            (event) => {
-              const progress = parseFloat(event.payload.replace("%", ""));
-              if (!isNaN(progress)) {
-                updateTaskById(task.id, { progress });
-              }
-            }
-          );
+        // 监听统一的事件
+        unlistenEvent = await listen<MediaTaskEvent>(
+          "media-task-event",
+          (event) => {
+            const eventData = event.payload;
+            console.log("media-task-event", eventData);
+            // 只处理当前任务的事件
+            if (eventData.task_id !== task.id) return;
 
-          unlistenComplete = await listen<string>(
-            "audio-conversion-complete",
-            (event) => {
-              console.log("Audio conversion complete:", event);
+            if (
+              eventData.event_type === "progress" &&
+              eventData.progress !== undefined
+            ) {
+              const clampedProgress = Math.min(
+                100,
+                Math.max(0, eventData.progress)
+              );
+              updateTaskById(task.id, { progress: clampedProgress });
+            } else if (
+              eventData.event_type === "complete" &&
+              eventData.output_path
+            ) {
               updateTaskById(task.id, {
                 status: "finished",
                 progress: 100,
-                outputPath: event.payload,
+                outputPath: eventData.output_path,
               });
-              // 只有在不在 "finished" tab 时才增加未读数
-              const { activeTab } = useConverterStore.getState();
+              const { activeTab } = useCompressorStore.getState();
               if (activeTab !== "finished") {
                 incrementUnreadFinishedCount();
               }
+              // 异步写入 my-files 表
+              const updatedTask: ConverterTask = {
+                ...task,
+                status: "finished",
+                progress: 100,
+                outputPath: eventData.output_path,
+              };
+              converterDB
+                .addToMyFiles({
+                  ...updatedTask,
+                  taskType: "compress",
+                })
+                .catch((err) => {
+                  console.error("Failed to save to my-files:", err);
+                });
               cleanup();
               resolve();
-            }
-          );
-
-          unlistenError = await listen<string>(
-            "audio-conversion-error",
-            (event) => {
-              const errorMessage = event.payload || "音频转换失败";
+            } else if (eventData.event_type === "error") {
+              const errorMessage =
+                eventData.error_message || `${mediaType}压缩失败`;
               updateTaskById(task.id, {
                 status: "error",
                 errorMessage,
               });
-              console.error("Audio conversion failed:", task);
-              // 失败时不增加未读数
               cleanup();
-              resolve(); // Resolve to execute next task even on error
+              resolve();
             }
-          );
+          }
+        );
 
+        // 调用对应的压缩函数
+        if (
+          mediaType === "video" &&
+          isVideoCompressionConfig(compressionConfig)
+        ) {
+          const args: any = {
+            task_id: task.id,
+            input_path: task.path,
+            output_path: finalOutputPath,
+            compression_ratio: compressionConfig.compressionRatio,
+          };
+          console.log("Queue invoking compress_video_file:", args);
+          await invoke("compress_video_file", { args });
+        } else if (
+          mediaType === "audio" &&
+          isAudioCompressionConfig(compressionConfig)
+        ) {
+          const args: any = {
+            task_id: task.id,
+            input_path: task.path,
+            output_path: finalOutputPath,
+            compression_ratio: compressionConfig.compressionRatio,
+          };
+          console.log("Queue invoking compress_audio_file:", args);
+          await invoke("compress_audio_file", { args });
+        } else if (
+          mediaType === "image" &&
+          isImageCompressionConfig(compressionConfig)
+        ) {
+          const args: any = {
+            task_id: task.id,
+            input_path: task.path,
+            output_path: finalOutputPath,
+            quality: compressionConfig.quality,
+          };
+          console.log("Queue invoking compress_image_file:", args);
+          await invoke("compress_image_file", { args });
+        }
+      } catch (error) {
+        console.error("Compression task error:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+            ? error
+            : "压缩任务执行失败";
+        updateTaskById(task.id, {
+          status: "error",
+          errorMessage,
+        });
+        cleanup();
+        resolve();
+      }
+    });
+  }
+
+  private async runConversionTask(task: ConverterTask) {
+    const { updateTaskById, incrementUnreadFinishedCount, globalConfig } =
+      useConverterStore.getState();
+    const { outputPath } = useSettingsStore.getState();
+    // 优先使用 task.config，如果不存在则使用 globalConfig（向后兼容）
+    const taskConfig = task.config || globalConfig;
+    const outputFormat = taskConfig?.outputFormat;
+    const isAudioTarget = isAudioFormat(outputFormat);
+    const isGifFormat = outputFormat?.toLowerCase() === "gif";
+    // 检测输入是否为视频（有视频流）
+    const hasVideoStream =
+      task.streams?.some((s) => s.codec_type === "video") ?? false;
+    // GIF 转换：输出格式是 GIF 且输入是视频
+    const isGifConversion = isGifFormat && hasVideoStream;
+
+    // 确定媒体类型
+    let mediaType: "video" | "audio" | "image" = "video";
+    if (isAudioTarget) {
+      mediaType = "audio";
+    } else if (isImageFormat(outputFormat)) {
+      mediaType = "image";
+    } else {
+      mediaType = "video";
+    }
+
+    // Initial Status Update
+    updateTaskById(task.id, { status: "converting", progress: 0 });
+
+    // 统一的事件监听器
+    let unlistenEvent: UnlistenFn | null = null;
+
+    const cleanup = () => {
+      if (unlistenEvent) unlistenEvent();
+    };
+
+    return new Promise<void>(async (resolve) => {
+      try {
+        // 监听统一的事件
+        unlistenEvent = await listen<MediaTaskEvent>(
+          "media-task-event",
+          (event) => {
+            console.log("media-task-event", event);
+            const eventData = event.payload;
+            // 只处理当前任务的事件
+            if (eventData.task_id !== task.id) return;
+
+            if (
+              eventData.event_type === "progress" &&
+              eventData.progress !== undefined
+            ) {
+              const clampedProgress = Math.min(
+                100,
+                Math.max(0, eventData.progress)
+              );
+              updateTaskById(task.id, { progress: clampedProgress });
+            } else if (
+              eventData.event_type === "complete" &&
+              eventData.output_path
+            ) {
+              console.log(`${mediaType} conversion complete:`, eventData);
+              updateTaskById(task.id, {
+                status: "finished",
+                progress: 100,
+                outputPath: eventData.output_path,
+              });
+              const { activeTab } = useConverterStore.getState();
+              if (activeTab !== "finished") {
+                incrementUnreadFinishedCount();
+              }
+              // 异步写入 my-files 表
+              const updatedTask: ConverterTask = {
+                ...task,
+                status: "finished",
+                progress: 100,
+                outputPath: eventData.output_path,
+              };
+              converterDB
+                .addToMyFiles({
+                  ...updatedTask,
+                  taskType: task.taskType || "convert",
+                })
+                .catch((err) => {
+                  console.error("Failed to save to my-files:", err);
+                });
+              cleanup();
+              resolve();
+            } else if (eventData.event_type === "error") {
+              const errorMessage =
+                eventData.error_message || `${mediaType}转换失败`;
+              updateTaskById(task.id, {
+                status: "error",
+                errorMessage,
+              });
+              console.error(`${mediaType} conversion failed:`, task);
+              cleanup();
+              resolve();
+            }
+          }
+        );
+
+        if (isAudioTarget) {
           let finalOutputPath: string | null = null;
           if (outputPath) {
             const separator = outputPath.includes("\\") ? "\\" : "/";
@@ -303,7 +567,7 @@ class ConversionQueue {
           }
 
           const { useHardwareAcceleration, useUltraFastSpeed } =
-            useConverterStore.getState();
+            useSettingsStore.getState();
           // 使用类型守卫获取 audioTracks
           const audioTrack =
             task.config && isAudioConfig(task.config)
@@ -313,6 +577,7 @@ class ConversionQueue {
               : undefined;
 
           const args: any = {
+            task_id: task.id,
             input_path: task.path,
             output_path: finalOutputPath,
             format: outputFormat,
@@ -330,6 +595,54 @@ class ConversionQueue {
 
           console.log("Queue invoking convert_audio_file:", args);
           await invoke("convert_audio_file", { args });
+        } else if (isGifConversion) {
+          // GIF 转换逻辑（视频转 GIF）
+
+          let finalOutputPath: string | null = null;
+          if (outputPath) {
+            const separator = outputPath.includes("\\") ? "\\" : "/";
+            const stem = task.config?.outputTitle || task.title;
+            finalOutputPath = `${outputPath}${separator}${stem}.gif`;
+            updateTaskById(task.id, { outputPath: finalOutputPath });
+          }
+
+          // 使用 task.config 中的配置
+          const imageConfig =
+            taskConfig && isImageConfig(taskConfig)
+              ? taskConfig.image
+              : undefined;
+
+          // 解析分辨率
+          let width: number | null = null;
+          let height: number | null = null;
+          if (
+            imageConfig?.resolution &&
+            imageConfig.resolution !== "original"
+          ) {
+            const [w, h] = imageConfig.resolution.split("x").map(Number);
+            if (!isNaN(w)) width = w;
+            if (!isNaN(h)) height = h;
+          }
+
+          // 构建参数对象，只包含有值的字段（避免 undefined）
+          const args: any = {
+            task_id: task.id,
+            input_path: task.path,
+            output_path: finalOutputPath || null,
+            format: "gif",
+          };
+
+          // 只在有值时才添加可选参数
+          if (width !== null && width !== undefined) {
+            args.width = width;
+          }
+          if (height !== null && height !== undefined) {
+            args.height = height;
+          }
+          // frame_rate 使用默认值 10fps，不传入（后端会使用默认值）
+
+          console.log("Queue invoking convert_gif_file:", args);
+          await invoke("convert_gif_file", { args });
         } else if (isImageFormat(outputFormat)) {
           // IMAGE CONVERSION LOGIC
           // updateTaskById(task.id, { status: 'converting', progress: 0 }); // Already done at the start of runTask
@@ -349,6 +662,7 @@ class ConversionQueue {
               : undefined;
 
           const args = {
+            task_id: task.id,
             input_path: task.path,
             output_path: finalOutputPath,
             width: imageConfig?.resolution
@@ -362,109 +676,8 @@ class ConversionQueue {
           };
 
           console.log("Queue invoking convert_image_file:", args);
-
-          // Image conversion is blocking/async-return, so we await it directly
-          // We can maybe simulate progress if needed, but for now 0->100 jump is fine for images
-          try {
-            await invoke("convert_image_file", { args });
-
-            updateTaskById(task.id, {
-              status: "finished",
-              progress: 100,
-              outputPath: finalOutputPath || "",
-            });
-            // 只有在不在 "finished" tab 时才增加未读数
-            const { activeTab } = useConverterStore.getState();
-            if (activeTab !== "finished") {
-              incrementUnreadFinishedCount();
-            }
-            cleanup();
-            resolve();
-          } catch (imageError) {
-            const errorMessage =
-              imageError instanceof Error
-                ? imageError.message
-                : typeof imageError === "string"
-                ? imageError
-                : "图片转换失败";
-            updateTaskById(task.id, {
-              status: "error",
-              errorMessage,
-            });
-            // 失败时不增加未读数
-            cleanup();
-            resolve();
-          }
+          await invoke("convert_image_file", { args });
         } else {
-          unlistenProgress = await listen<number>(
-            "video-conversion-progress",
-            (event) => {
-              const progress = event.payload;
-              if (typeof progress === "number" && !isNaN(progress)) {
-                // 确保进度不超过100%
-                const clampedProgress = Math.min(100, Math.max(0, progress));
-                updateTaskById(task.id, { progress: clampedProgress });
-              }
-            }
-          );
-
-          unlistenComplete = await listen<string>(
-            "audio-conversion-complete",
-            (event) => {
-              // Verify this complete event belongs to this task roughly by check title or just assume serial
-              // Since we strictly serialize (concurrency=1), we can assume it's ours.
-              // IMPORTANT: The backend emits 'audio-conversion-complete' for video too currently based on previous logs?
-              // Wait, ConverterItem.tsx line 146 listens to 'audio-conversion-complete' for VIDEO too.
-              const outputPath = event.payload;
-              const taskTitle = task.config?.outputTitle || task.title;
-              const taskPath = task.path;
-
-              // 更宽松的匹配：检查输出路径是否包含任务标题，或者检查输入路径
-              // 由于是串行执行，也可以直接接受（但为了安全还是检查一下）
-              const matches =
-                outputPath.includes(taskTitle) ||
-                outputPath.includes(taskPath.split(/[/\\]/).pop() || "") ||
-                // 如果都不匹配，但当前没有其他任务在运行，也认为是当前任务
-                true; // 由于是串行执行，可以更宽松
-
-              if (matches) {
-                console.log(
-                  `Video conversion complete for task ${task.id}: ${outputPath}`
-                );
-                updateTaskById(task.id, {
-                  status: "finished",
-                  progress: 100,
-                  outputPath: outputPath,
-                });
-                // 只有在不在 "finished" tab 时才增加未读数
-                const { activeTab } = useConverterStore.getState();
-                if (activeTab !== "finished") {
-                  incrementUnreadFinishedCount();
-                }
-                cleanup();
-                resolve();
-              } else {
-                console.warn(
-                  `Video completion event mismatch for task ${task.id}. Expected: ${taskTitle}, Got: ${outputPath}`
-                );
-              }
-            }
-          );
-
-          unlistenError = await listen<string>(
-            "audio-conversion-error",
-            (event) => {
-              const errorMessage = event.payload || "视频转换失败";
-              updateTaskById(task.id, {
-                status: "error",
-                errorMessage,
-              });
-              // 失败时不增加未读数
-              cleanup();
-              resolve();
-            }
-          );
-
           let finalOutputPath: string | null = null;
           if (outputPath) {
             const separator = outputPath.includes("\\") ? "\\" : "/";
@@ -474,9 +687,10 @@ class ConversionQueue {
           }
 
           const { useHardwareAcceleration, useUltraFastSpeed } =
-            useConverterStore.getState();
+            useSettingsStore.getState();
 
           const args: any = {
+            task_id: task.id,
             input_path: task.path,
             output_path: finalOutputPath,
             format: outputFormat,
@@ -532,4 +746,5 @@ class ConversionQueue {
   }
 }
 
-export const converterQueue = new ConversionQueue();
+export const converterQueue = new MediaTaskQueue("convert");
+export const compressorQueue = new MediaTaskQueue("compress");

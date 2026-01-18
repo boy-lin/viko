@@ -80,12 +80,10 @@ export const ConversionSettingsDialog: React.FC<
     }
   };
 
-  console.log("config", config);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-4">
-        <DialogHeader className="flex flex-row items-center justify-between space-y-0 pt-8 pb-4 border-b">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="flex flex-row items-center justify-between space-y-0 pt-8 pb-4 px-4 border-b">
           {/* <SettingsDialogTitle
             title={config.outputTitle}
             onTitleChange={handleTitleChange}
@@ -96,7 +94,7 @@ export const ConversionSettingsDialog: React.FC<
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 px-4">
           {/* Video Section */}
           {isVideoConfig(config) && (
             <>
@@ -134,7 +132,7 @@ export const ConversionSettingsDialog: React.FC<
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t sticky bottom-0 bg-background/95 backdrop-blur z-10">
+        <div className="flex justify-end gap-2 py-4 px-4 border-t sticky bottom-0 bg-background/95 backdrop-blur z-10">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>

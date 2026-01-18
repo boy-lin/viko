@@ -1,60 +1,23 @@
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { downloadDir } from "@tauri-apps/api/path";
 import {
   ConverterTask,
-  MediaDetails,
   ConversionConfig,
   VideoConversionConfig,
   AudioConversionConfig,
   ImageConversionConfig,
+  FileType,
 } from "../types/converter";
 import { converterDB } from "../db/converterDB";
 import { extractFilenameFromPath } from "@/lib/utils";
-import { SupportedFormats } from "@/data/formats";
+import { isAudioFormat, isVideoFormat, SupportedFormats } from "@/data/formats";
 import { FormatEnum } from "../types/options";
-
-interface ConverterState {
-  convertingTasks: ConverterTask[];
-  finishedTasks: ConverterTask[];
-  isLoading: boolean;
-  outputPath: string;
-  activeTab: "converting" | "finished";
-  unreadFinishedCount: number;
-  formatFavorites: string[];
-  formatRecents: string[];
-  useHardwareAcceleration: boolean;
-  useUltraFastSpeed: boolean; // For "Ultra-fast Speed"
-  globalConfig: ConversionConfig;
-  setActiveTab: (tab: "converting" | "finished") => void;
-  incrementUnreadFinishedCount: () => void;
-  resetUnreadFinishedCount: () => void;
-  toggleFavorite: (formatId: string) => void;
-  toggleHardwareAcceleration: (enabled: boolean) => void;
-  toggleUltraFastSpeed: (enabled: boolean) => void;
-  addToRecents: (formatId: string) => void;
-  init: () => Promise<void>;
-  addFiles: () => Promise<void>;
-  addFilesFromPaths: (
-    paths: string[],
-    onFileProcessed?: (
-      path: string,
-      status: "success" | "error",
-      message?: string
-    ) => void
-  ) => Promise<void>;
-  removeTask: (id: string) => void;
-  removeFinishedTask: (id: string) => void;
-  clearConvertingTasks: () => Promise<void>;
-  updateUnfinishedTaskConfig: (
-    id: string,
-    config: Partial<ConversionConfig>
-  ) => void;
-  updateTaskById: (id: string, updates: Partial<ConverterTask>) => void;
-  setOutputPath: (path: string) => void;
-  updateGlobalConfig: (config: ConversionConfig) => void;
-}
+import { bridge } from "@/lib/bridge";
+import {
+  defaultAudioCompressionConfig,
+  defaultImageCompressionConfig,
+  defaultVideoCompressionConfig,
+} from "./compressorStore";
 
 export const defaultVideoConfig: VideoConversionConfig = {
   type: "video",
@@ -77,48 +40,78 @@ export const defaultVideoConfig: VideoConversionConfig = {
   ],
 };
 
+interface ConverterState {
+  convertingTasks: ConverterTask[];
+  finishedTasks: ConverterTask[];
+  isLoading: boolean;
+  activeTab: "converting" | "finished";
+  unreadFinishedCount: number;
+  globalConfig: ConversionConfig;
+  formatFavorites: string[];
+  formatRecents: string[];
+  setActiveTab: (tab: "converting" | "finished") => void;
+  incrementUnreadFinishedCount: () => void;
+  resetUnreadFinishedCount: () => void;
+  init: () => Promise<void>;
+  addFiles: () => Promise<void>;
+  addFilesFromPaths: (
+    paths: string[],
+    onFileProcessed?: (
+      path: string,
+      status: "success" | "error",
+      message?: string
+    ) => void
+  ) => Promise<void>;
+  removeTask: (id: string) => void;
+  removeFinishedTask: (id: string) => void;
+  clearConvertingTasks: () => Promise<void>;
+  updateUnfinishedTaskConfig: (
+    id: string,
+    config: Partial<ConversionConfig>
+  ) => void;
+  updateTaskById: (id: string, updates: Partial<ConverterTask>) => void;
+  updateGlobalConfig: (config: ConversionConfig) => Promise<void>;
+  toggleFavorite: (formatId: string) => Promise<void>;
+  addToRecents: (formatId: string) => Promise<void>;
+}
+
 export const useConverterStore = create<ConverterState>((set, get) => ({
   convertingTasks: [],
   finishedTasks: [],
   isLoading: true,
-  outputPath: "",
   activeTab: "converting",
   unreadFinishedCount: 0,
+  globalConfig: defaultVideoConfig,
   formatFavorites: [],
   formatRecents: [],
-  useHardwareAcceleration: false,
-  useUltraFastSpeed: false,
-  globalConfig: defaultVideoConfig,
   init: async () => {
     try {
-      const convertingTasks = await converterDB.getConvertingTasks();
-      const finishedTasks = await converterDB.getFinishedTasks();
+      const allTasks = await converterDB.getAllTasks();
+      const convertingTasks: ConverterTask[] = [];
+      const finishedTasks: ConverterTask[] = [];
+
+      // 使用 filter 而不是 forEach，因为 forEach 中的 async 不会等待
+      allTasks.forEach((task) => {
+        // 只处理转换任务（taskType 为 undefined 或 "convert"）
+        if (task.taskType && task.taskType !== "convert") return;
+
+        if (task.status === "finished") {
+          finishedTasks.push(task);
+        } else {
+          convertingTasks.push(task);
+        }
+      });
       const favs = await converterDB.getSetting("format_favorites");
       const recents = await converterDB.getSetting("format_recents");
-      const useHardwareAcceleration = await converterDB.getSetting(
-        "use_hardware_acceleration"
-      );
-      const useUltraFastSpeed = await converterDB.getSetting(
-        "use_ultra_fast_speed"
-      );
-
-      let outputPath = await converterDB.getSetting("outputPath");
-      if (!outputPath) {
-        outputPath = await downloadDir();
-        // Optional: save default to DB immediately or wait for explicit change?
-        // Let's save it so DB is consistent
-        await converterDB.saveSetting("outputPath", outputPath);
-      }
+      const globalConfig = await converterDB.getSetting("globalConfig");
 
       set({
         convertingTasks,
         finishedTasks,
-        isLoading: false,
-        outputPath,
+        globalConfig: globalConfig || defaultVideoConfig,
         formatFavorites: favs || [],
         formatRecents: recents || [],
-        useHardwareAcceleration: !!useHardwareAcceleration,
-        useUltraFastSpeed: !!useUltraFastSpeed,
+        isLoading: false,
       });
     } catch (error) {
       console.error("Failed to load tasks from DB:", error);
@@ -163,12 +156,32 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       for (const path of paths) {
         if (!path) continue;
         try {
-          const details = await invoke<MediaDetails>(
-            "get_detailed_media_info",
-            { path }
-          );
-
+          const details = await bridge.getMediaDetails(path);
+          console.log("details", details);
           // Logic to determine primary stream info for display
+
+          // 根据媒体类型确定压缩配置
+          const hasVideo = details.streams.some(
+            (s) => s.codec_type === "video"
+          );
+          const hasAudio = details.streams.some(
+            (s) => s.codec_type === "audio"
+          );
+          const hasImage = details.streams.some(
+            (s) => s.codec_type === "image" || s.codec_name === "png"
+          );
+          let fileType: FileType = "video";
+
+          if (isVideoFormat(details.format) && hasVideo) {
+            fileType = "video";
+          } else if (isAudioFormat(details.format) && hasAudio) {
+            fileType = "audio";
+          } else if (hasImage) {
+            fileType = "image";
+          } else {
+            throw new Error("Unsupported media type");
+          }
+
           let displayResolution = "";
           const vidStream = details.streams.find(
             (s) => s.codec_type === "video"
@@ -186,6 +199,7 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
 
           newTasks.push({
             ...details,
+            fileType,
             id: crypto.randomUUID(),
             status: "idle",
             progress: 0,
@@ -286,7 +300,7 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
   },
   removeTask: async (id) => {
     try {
-      await converterDB.removeConvertingTask(id);
+      await converterDB.removeTask(id);
       set((state) => ({
         convertingTasks: state.convertingTasks.filter((t) => t.id !== id),
       }));
@@ -296,7 +310,7 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
   },
   removeFinishedTask: async (id) => {
     try {
-      await converterDB.removeFinishedTask(id);
+      await converterDB.removeTask(id);
       set((state) => ({
         finishedTasks: state.finishedTasks.filter((t) => t.id !== id),
       }));
@@ -309,7 +323,7 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       const { convertingTasks } = get();
       // 从数据库删除所有转换中的任务
       for (const task of convertingTasks) {
-        await converterDB.removeConvertingTask(task.id);
+        await converterDB.removeTask(task.id);
       }
 
       // 从状态中删除
@@ -348,18 +362,14 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       if (task) {
         const updatedTask = { ...task, ...updates };
         const isFinished = updatedTask.status === "finished";
-        const isInConverting = convertingTasks.find((t) => t.id === id);
-        const isInFinished = finishedTasks.find((t) => t.id === id);
 
-        // 如果任务状态变为 finished，需要移动到 finished_tasks 表
-        if (isFinished && isInConverting) {
-          // 从 convertingTasks 移除，添加到 finishedTasks
-          // 先更新状态，确保原子性
-          await converterDB.removeConvertingTask(id);
-          await converterDB.addTask(updatedTask);
+        // 只更新 converting_tasks 表
+        await converterDB.addTask(updatedTask);
 
-          // 使用最新的状态，避免竞态条件
-          const currentState = get();
+        // 更新状态：根据 status 决定在哪个列表中
+        const currentState = get();
+        if (isFinished) {
+          // 如果状态是 finished，从 convertingTasks 移除，添加到 finishedTasks
           set({
             convertingTasks: currentState.convertingTasks.filter(
               (t) => t.id !== id
@@ -369,34 +379,17 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
               ...currentState.finishedTasks.filter((t) => t.id !== id),
             ],
           });
-        } else if (isFinished && isInFinished) {
-          // 如果已经在 finishedTasks 中，只更新
-          await converterDB.addTask(updatedTask);
-          const currentState = get();
+        } else {
+          // 如果状态不是 finished，从 finishedTasks 移除，添加到 convertingTasks
           set({
-            finishedTasks: currentState.finishedTasks.map((t) =>
-              t.id === id ? updatedTask : t
+            convertingTasks: [
+              updatedTask,
+              ...currentState.convertingTasks.filter((t) => t.id !== id),
+            ],
+            finishedTasks: currentState.finishedTasks.filter(
+              (t) => t.id !== id
             ),
           });
-        } else {
-          // 普通更新
-          await converterDB.addTask(updatedTask);
-
-          if (isInConverting) {
-            const currentState = get();
-            set({
-              convertingTasks: currentState.convertingTasks.map((t) =>
-                t.id === id ? updatedTask : t
-              ),
-            });
-          } else if (isInFinished) {
-            const currentState = get();
-            set({
-              finishedTasks: currentState.finishedTasks.map((t) =>
-                t.id === id ? updatedTask : t
-              ),
-            });
-          }
         }
       }
     } catch (error) {
@@ -407,19 +400,15 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       );
     }
   },
-  setOutputPath: async (path: string) => {
-    try {
-      await converterDB.saveSetting("outputPath", path);
-      set({ outputPath: path });
-    } catch (error) {
-      console.error("Failed to save output path:", error);
-    }
-  },
   setActiveTab: (tab) => set({ activeTab: tab }),
   incrementUnreadFinishedCount: () =>
     set((state) => ({ unreadFinishedCount: state.unreadFinishedCount + 1 })),
   resetUnreadFinishedCount: () => set({ unreadFinishedCount: 0 }),
-  toggleFavorite: async (formatId) => {
+  updateGlobalConfig: async (config: ConversionConfig) => {
+    set({ globalConfig: config });
+    await converterDB.saveSetting("globalConfig", config);
+  },
+  toggleFavorite: async (formatId: string) => {
     const { formatFavorites } = get();
     const newFavs = formatFavorites.includes(formatId)
       ? formatFavorites.filter((id) => id !== formatId)
@@ -428,7 +417,7 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
     set({ formatFavorites: newFavs });
     await converterDB.saveSetting("format_favorites", newFavs);
   },
-  addToRecents: async (formatId) => {
+  addToRecents: async (formatId: string) => {
     const { formatRecents } = get();
     // Keep only last 10, remove if exists to push to top
     const newRecents = [
@@ -438,17 +427,5 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
 
     set({ formatRecents: newRecents });
     await converterDB.saveSetting("format_recents", newRecents);
-  },
-  toggleHardwareAcceleration: async (enabled) => {
-    set({ useHardwareAcceleration: enabled });
-    await converterDB.saveSetting("use_hardware_acceleration", enabled);
-  },
-  toggleUltraFastSpeed: async (enabled) => {
-    set({ useUltraFastSpeed: enabled });
-    await converterDB.saveSetting("use_ultra_fast_speed", enabled);
-  },
-  updateGlobalConfig: async (config: ConversionConfig) => {
-    set({ globalConfig: config });
-    await converterDB.saveSetting("globalConfig", config);
   },
 }));
