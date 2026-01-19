@@ -1,15 +1,127 @@
-use ffmpeg::{codec, encoder, format, frame, media, packet};
-use ffmpeg_next as ffmpeg;
+﻿use ffmpeg_next as ffmpeg;
+use ffmpeg::{codec, encoder, format, frame, media};
 use serde::Deserialize;
+use std::f32;
 use std::time::Instant;
+use ffmpeg::util::channel_layout::ChannelLayout;
 use tauri::WebviewWindow;
 
-/// 音频压缩参数
+/// 音频压缩参数（全部可选）
 #[derive(Deserialize)]
 pub struct AudioCompressionParams {
     pub input_path: String,
     pub output_path: String,
-    pub compression_ratio: u32, // 0-100，表示压缩到原文件的百分比
+    pub compression_ratio: Option<u32>,  // 0-100 (兼容旧参数)
+    pub sample_rate: Option<u32>,        // 目标采样率
+    pub bitrate: Option<u32>,            // 目标码率（kbps）
+    pub codec: Option<String>,           // "aac", "mp3", "opus", "flac"
+    pub channels: Option<u32>,           // 1=mono, 2=stereo
+    pub bit_depth: Option<u32>,          // 16, 24, 32（优先匹配编码器支持的格式）
+    pub remove_silence: Option<bool>,    // 是否移除静音片段
+    pub silence_threshold: Option<f32>,  // 静音阈值 dB（默认 -50.0）
+    pub volume_gain: Option<f32>,        // 音量增益 dB（正增益，负衰减）
+}
+
+fn map_codec(name: &str) -> Option<&'static str> {
+    match name.to_lowercase().as_str() {
+        "aac" => Some("aac"),
+        "mp3" => Some("libmp3lame"),
+        "opus" => Some("libopus"),
+        "flac" => Some("flac"),
+        _ => None,
+    }
+}
+
+fn pick_sample_format(
+    supported: &[ffmpeg::format::Sample],
+    bit_depth: Option<u32>,
+) -> Option<ffmpeg::format::Sample> {
+    let prefer = match bit_depth {
+        Some(16) => vec![
+            ffmpeg::format::Sample::I16(ffmpeg::format::sample::Type::Planar),
+            ffmpeg::format::Sample::I16(ffmpeg::format::sample::Type::Packed),
+        ],
+        Some(24) => vec![
+            ffmpeg::format::Sample::I32(ffmpeg::format::sample::Type::Planar),
+            ffmpeg::format::Sample::I32(ffmpeg::format::sample::Type::Packed),
+        ],
+        Some(32) => vec![
+            ffmpeg::format::Sample::F32(ffmpeg::format::sample::Type::Planar),
+            ffmpeg::format::Sample::F32(ffmpeg::format::sample::Type::Packed),
+            ffmpeg::format::Sample::I32(ffmpeg::format::sample::Type::Planar),
+            ffmpeg::format::Sample::I32(ffmpeg::format::sample::Type::Packed),
+        ],
+        _ => vec![
+            ffmpeg::format::Sample::F32(ffmpeg::format::sample::Type::Planar),
+            ffmpeg::format::Sample::F32(ffmpeg::format::sample::Type::Packed),
+        ],
+    };
+
+    for fmt in prefer {
+        if supported.contains(&fmt) {
+            return Some(fmt);
+        }
+    }
+    supported.first().copied()
+}
+
+fn channel_layout_from_count(ch: u32) -> Option<ChannelLayout> {
+    match ch {
+        1 => Some(ChannelLayout::MONO),
+        2 => Some(ChannelLayout::STEREO),
+        _ => None,
+    }
+}
+
+fn apply_volume_and_silence(
+    frame: &mut frame::Audio,
+    volume_gain_db: f32,
+    remove_silence: bool,
+    silence_db: f32,
+) -> bool {
+    // 仅处理 f32 类型，其它格式直接跳过处理
+    if frame.format() != ffmpeg::format::Sample::F32(ffmpeg::format::sample::Type::Planar)
+        && frame.format() != ffmpeg::format::Sample::F32(ffmpeg::format::sample::Type::Packed)
+    {
+        return true;
+    }
+
+    let gain = 10f32.powf(volume_gain_db / 20.0);
+    let silence_amp = 10f32.powf(silence_db / 20.0).abs();
+
+    let mut max_amp = 0f32;
+    if frame.is_planar() {
+        for p in 0..frame.planes() {
+            let data = frame.data_mut(p);
+            let samples: &mut [f32] = unsafe {
+                std::slice::from_raw_parts_mut(
+                    data.as_mut_ptr() as *mut f32,
+                    frame.samples() as usize,
+                )
+            };
+            for s in samples.iter_mut() {
+                *s *= gain;
+                max_amp = max_amp.max(s.abs());
+            }
+        }
+    } else {
+        let data = frame.data_mut(0);
+        let samples: &mut [f32] = unsafe {
+            std::slice::from_raw_parts_mut(
+                data.as_mut_ptr() as *mut f32,
+                frame.samples() as usize * frame.channels() as usize,
+            )
+        };
+        for s in samples.iter_mut() {
+            *s *= gain;
+            max_amp = max_amp.max(s.abs());
+        }
+    }
+
+    if remove_silence && max_amp < silence_amp {
+        return false; // 丢弃静音帧
+    }
+    true
 }
 
 /// 使用 FFmpeg 压缩音频文件
@@ -20,155 +132,106 @@ pub fn compress_audio_file(
 ) -> Result<(), String> {
     ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {}", e))?;
 
-    let mut ictx =
-        format::input(&params.input_path).map_err(|e| format!("无法打开输入文件: {}", e))?;
+    let mut ictx = format::input(&params.input_path)
+        .map_err(|e| format!("无法打开输入文件: {}", e))?;
+    let mut octx = format::output(&params.output_path)
+        .map_err(|e| format!("无法创建输出文件: {}", e))?;
 
-    let mut octx =
-        format::output(&params.output_path).map_err(|e| format!("无法打开输出文件: {}", e))?;
-
-    // 获取音频时长
-    let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
-
-    // 找到最佳音频流
     let audio_stream = ictx
         .streams()
         .best(media::Type::Audio)
         .ok_or("未找到音频流")?;
     let stream_index = audio_stream.index();
 
-    // 设置音频解码器
     let decoder_ctx = codec::context::Context::from_parameters(audio_stream.parameters())
-        .map_err(|e| format!("无法创建解码器上下文: {}", e))?;
+        .map_err(|e| format!("创建解码器失败: {}", e))?;
     let mut decoder = decoder_ctx
         .decoder()
         .audio()
-        .map_err(|e| format!("无法创建音频解码器: {}", e))?;
+        .map_err(|e| format!("创建音频解码器失败: {}", e))?;
 
-    // 获取原始比特率
-    let original_bitrate = decoder.bit_rate() as i64;
-    // 如果为0，使用默认值
-    let original_bitrate = if original_bitrate == 0 {
-        128 * 1000 // 默认 128kbps
+    let original_bitrate = decoder.bit_rate().max(128_000) as i64;
+    let target_bitrate = if let Some(br) = params.bitrate {
+        (br as i64 * 1000).max(32_000)
+    } else if let Some(ratio) = params.compression_ratio {
+        ((original_bitrate as f64 * ratio as f64 / 100.0) as i64).max(32_000)
     } else {
-        original_bitrate
+        128_000
     };
 
-    // 计算目标比特率（根据压缩比例）
-    let target_bitrate = (original_bitrate as f64 * params.compression_ratio as f64 / 100.0) as i64;
-    // 确保最小比特率
-    let target_bitrate = target_bitrate.max(32 * 1000); // 最小 32kbps
-
-    // 设置音频编码器（保持原格式和编码器）
-    let codec_id = audio_stream.parameters().id();
-    // 尝试通过 ID 查找，如果失败则尝试通过名称查找
-    let encoder_codec = encoder::find(codec_id)
-        .or_else(|| encoder::find_by_name(codec_id.name()))
-        .ok_or_else(|| format!("未找到编码器: {:?}", codec_id))?;
+    // 选择编码器
+    let encoder_name = params.codec.as_deref().and_then(map_codec);
+    let codec_id = encoder_name
+        .and_then(|name| encoder::find_by_name(name))
+        .or_else(|| encoder::find(audio_stream.parameters().id()))
+        .ok_or("找不到合适的音频编码器")?;
 
     let mut ost = octx
-        .add_stream(encoder_codec)
-        .map_err(|e| format!("无法添加输出流: {}", e))?;
+        .add_stream(codec_id)
+        .map_err(|e| format!("添加输出流失败: {}", e))?;
 
-    // 检查编码器支持的采样格式
-    let encoder_supported_formats = encoder_codec
+    let supported_formats = codec_id
         .audio()
-        .unwrap()
-        .formats()
+        .ok()
+        .and_then(|a| a.formats())
         .map(|iter| iter.collect::<Vec<_>>())
         .unwrap_or_default();
+    let target_format = pick_sample_format(&supported_formats, params.bit_depth)
+        .ok_or("编码器不支持任何采样格式")?;
 
-    // 选择最佳采样格式
-    let target_format = if encoder_supported_formats.contains(&decoder.format()) {
-        decoder.format()
-    } else {
-        // 如果原格式不支持，优先选择 FLTP (浮点 planar) 或 S16 (16位整数)
-        *encoder_supported_formats
-            .iter()
-            .find(|&&fmt| fmt == format::Sample::F32(format::sample::Type::Planar))
-            .or_else(|| {
-                encoder_supported_formats
-                    .iter()
-                    .find(|&&fmt| fmt == format::Sample::F32(format::sample::Type::Packed))
-            })
-            .or_else(|| {
-                encoder_supported_formats
-                    .iter()
-                    .find(|&&fmt| fmt == format::Sample::I16(format::sample::Type::Planar))
-            })
-            .or_else(|| {
-                encoder_supported_formats
-                    .iter()
-                    .find(|&&fmt| fmt == format::Sample::I16(format::sample::Type::Packed))
-            })
-            .unwrap_or(
-                encoder_supported_formats
-                    .first()
-                    .ok_or("编码器没有支持的采样格式")?,
-            )
-    };
-
-    // 检查编码器支持的采样率
-    let encoder_supported_rates: Vec<i32> = encoder_codec
+    let supported_rates: Vec<i32> = codec_id
         .audio()
-        .unwrap()
-        .rates()
+        .ok()
+        .and_then(|a| a.rates())
         .map(|iter| iter.collect())
         .unwrap_or_default();
 
-    // 选择最佳采样率
-    let input_rate = decoder.rate() as i32;
-    let target_rate =
-        if encoder_supported_rates.is_empty() || encoder_supported_rates.contains(&input_rate) {
-            input_rate
-        } else {
-            // 找最接近的
-            *encoder_supported_rates
-                .iter()
-                .min_by_key(|&&rate| (rate - input_rate).abs())
-                .unwrap_or(&input_rate)
-        };
-
-    // 检查编码器支持的声道布局
-    let encoder_supported_layouts = encoder_codec
-        .audio()
-        .unwrap()
-        .channel_layouts()
-        .map(|iter| iter.collect::<Vec<_>>())
-        .unwrap_or_default();
-
-    // 选择最佳声道布局
-    let target_layout = if encoder_supported_layouts.is_empty()
-        || encoder_supported_layouts.contains(&decoder.channel_layout())
-    {
-        decoder.channel_layout()
+    let desired_rate = params.sample_rate.unwrap_or_else(|| decoder.rate() as u32);
+    let target_rate: i32 = if supported_rates.is_empty() || supported_rates.contains(&(desired_rate as i32)) {
+        desired_rate as i32
     } else {
-        // 默认使用第一个支持的布局
-        // 如果需要默认立体声，可能需要查找 ffmpeg::util::channel_layout::STEREO，但路径可能不同
-        *encoder_supported_layouts
+        *supported_rates
             .iter()
-            .find(|&&layout| layout.channels() == 2) // 尝试找双声道的
-            .or_else(|| encoder_supported_layouts.first())
-            .ok_or("编码器没有支持的声道布局")?
+            .min_by_key(|&&r| (r - desired_rate as i32).abs())
+            .unwrap_or(&(desired_rate as i32))
     };
 
-    let mut encoder = codec::context::Context::new_with_codec(encoder_codec)
+    let desired_layout = params
+        .channels
+        .and_then(channel_layout_from_count)
+        .unwrap_or_else(|| decoder.channel_layout());
+
+    let supported_layouts = codec_id
+        .audio()
+        .ok()
+        .and_then(|a| a.channel_layouts())
+        .map(|iter| iter.collect::<Vec<_>>())
+        .unwrap_or_default();
+    let target_layout = if supported_layouts.is_empty() || supported_layouts.contains(&desired_layout) {
+        desired_layout
+    } else {
+        *supported_layouts
+            .iter()
+            .find(|&&l| l.channels() == desired_layout.channels())
+            .or_else(|| supported_layouts.first())
+            .ok_or("编码器不支持任何声道布局")?
+    };
+
+    let mut encoder_ctx = codec::context::Context::new_with_codec(codec_id)
         .encoder()
         .audio()
-        .map_err(|e| format!("无法创建音频编码器: {}", e))?;
+        .map_err(|e| format!("创建编码器失败: {}", e))?;
 
-    // 设置编码器参数
-    encoder.set_rate(target_rate);
-    encoder.set_channel_layout(target_layout);
-    encoder.set_format(target_format);
-    encoder.set_bit_rate(target_bitrate as usize);
-    encoder.set_time_base((1, target_rate));
+    encoder_ctx.set_rate(target_rate);
+    encoder_ctx.set_channel_layout(target_layout);
+    encoder_ctx.set_format(target_format);
+    encoder_ctx.set_bit_rate(target_bitrate as usize);
+    encoder_ctx.set_time_base((1, target_rate));
 
-    // 打开编码器
-    let mut encoder = encoder
-        .open_as(encoder_codec)
-        .map_err(|e| format!("无法打开音频编码器: {}", e))?;
+    let mut encoder = encoder_ctx
+        .open_as(codec_id)
+        .map_err(|e| format!("打开编码器失败: {}", e))?;
 
-    // 创建重采样器
     let mut resampler = ffmpeg::software::resampling::Context::get(
         decoder.format(),
         decoder.channel_layout(),
@@ -177,212 +240,101 @@ pub fn compress_audio_file(
         target_layout,
         target_rate as u32,
     )
-    .map_err(|e| format!("无法创建重采样器: {}", e))?;
-
-    // 初始化环形缓冲区 (容量设为几秒钟的音频数据)
-    // ffmpeg 7.1.0 可能需要 ringbuf 0.3 或 0.4 API，这里假设 Cargo.toml 中是 0.3
-    // 如果是 video-rs 依赖的 ringbuf 版本，需确认 API
-    use ringbuf::HeapRb;
-    let buffer_capacity = (target_rate as usize) * 5 * target_layout.channels() as usize;
-    let buffer = HeapRb::<f32>::new(buffer_capacity);
-    let (mut producer, mut consumer) = buffer.split();
-
-    // 重新获取 encoder_frame_size，如果为 0 (某些编码器)，则设为一个合理值 (例如 1024)
-    let frame_size = if encoder.frame_size() == 0 {
-        1024
-    } else {
-        encoder.frame_size() as usize
-    };
+    .map_err(|e| format!("创建重采样器失败: {}", e))?;
 
     ost.set_parameters(&encoder);
-    let ost_time_base = ost.time_base();
     let ost_index = ost.index();
-
-    // 写入文件头
+    let ost_time_base = ost.time_base();
+    drop(ost);
     octx.write_header()
-        .map_err(|e| format!("无法写入文件头: {}", e))?;
+        .map_err(|e| format!("写入输出头失败: {}", e))?;
 
+    let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
+    let mut pts_counter: i64 = 0;
+    let mut last_progress = 0.0;
     let start_time = Instant::now();
-    let mut sample_count = 0;
-    let mut total_samples_encoded = 0;
-    let mut last_progress_emitted = 0.0;
-    let mut pts_counter = 0;
 
-    // 处理所有音频数据包
     for (stream, packet) in ictx.packets() {
-        if stream.index() == stream_index {
-            decoder
-                .send_packet(&packet)
-                .map_err(|e| format!("发送数据包失败: {}", e))?;
+        if stream.index() != stream_index {
+            continue;
+        }
+        decoder
+            .send_packet(&packet)
+            .map_err(|e| format!("发送数据包失败: {}", e))?;
 
-            let mut decoded = frame::Audio::empty();
-            while decoder.receive_frame(&mut decoded).is_ok() {
-                // 重采样
-                let mut resampled = frame::Audio::empty();
-                resampled.set_channel_layout(target_layout);
+        let mut decoded = frame::Audio::empty();
+        while decoder.receive_frame(&mut decoded).is_ok() {
+            let mut resampled = frame::Audio::empty();
+            resampled.set_channel_layout(target_layout);
+            resampled.set_format(target_format);
+            resampled.set_rate(target_rate as u32);
 
-                resampler
-                    .run(&decoded, &mut resampled)
-                    .map_err(|e| format!("重采样失败: {}", e))?;
+            resampler
+                .run(&decoded, &mut resampled)
+                .map_err(|e| format!("重采样失败: {}", e))?;
 
-                // 将重采样后的数据写入缓冲区
-                // 注意：这里假设 target_format 是 F32 (Planar 或 Packed)
-                // 如果是其他格式 (S16)，Buf 类型需要调整。
-                // 鉴于我们之前优先选择了 F32/FLTP，这里先处理 float。
-                // 如果必须支持 S16，需要更复杂的泛型或枚举处理。
-                // 为简化，这里假设我们能转换成 float 或编码器接受 float。
+            // 处理音量/静音
+            let keep_frame = apply_volume_and_silence(
+                &mut resampled,
+                params.volume_gain.unwrap_or(0.0),
+                params.remove_silence.unwrap_or(false),
+                params.silence_threshold.unwrap_or(-50.0),
+            );
+            if !keep_frame {
+                continue;
+            }
 
-                // 为了安全，我们需要从 resampled frame 读取数据并 push 到 ringbuf
-                // Data reading depends on format (planar vs packed)
-                if resampled.is_packed() {
-                    let data: &[f32] = resampled.plane(0);
-                    producer.push_slice(data);
-                } else {
-                    // Planar: 需交错 (interleave) 或如果 ringbuf 支持多通道...
-                    // 简单起见，我们手动交错 packed 到 ringbuf
-                    // 或者如果 ringbuf 存的是 interleaved samples
-                    let channels = target_layout.channels() as usize;
-                    let samples = resampled.samples();
-                    // 简单的交错实现
-                    for i in 0..samples {
-                        for ch in 0..channels {
-                            let val: f32 = resampled.plane::<f32>(ch)[i];
-                            producer.push(val).ok(); // 忽略溢出，假设 buffer 够大
-                        }
-                    }
-                }
+            resampled.set_pts(Some(pts_counter));
+            pts_counter += resampled.samples() as i64;
 
-                // 当缓冲区足够一个 frame 时，弹出并编码
-                let samples_needed = frame_size * target_layout.channels() as usize;
-                while consumer.len() >= samples_needed {
-                    let mut frame_data = vec![0.0f32; samples_needed];
-                    consumer.pop_slice(&mut frame_data);
+            encoder
+                .send_frame(&resampled)
+                .map_err(|e| format!("发送音频帧失败: {}", e))?;
 
-                    let mut new_frame = frame::Audio::new(target_format, frame_size, target_layout);
-                    new_frame.set_rate(target_rate as u32);
-                    new_frame.set_pts(Some(pts_counter));
-                    pts_counter += frame_size as i64;
+            let mut encoded = ffmpeg::Packet::empty();
+            while encoder.receive_packet(&mut encoded).is_ok() {
+                encoded.set_stream(ost_index);
+                encoded.rescale_ts(decoder.time_base(), ost_time_base);
+                encoded
+                    .write_interleaved(&mut octx)
+                    .map_err(|e| format!("写入数据包失败: {}", e))?;
+            }
 
-                    // 填充 frame 数据
-                    if new_frame.is_packed() {
-                        new_frame.plane_mut(0).copy_from_slice(&frame_data);
-                    } else {
-                        // De-interleave if planar
-                        let channels = target_layout.channels() as usize;
-                        for i in 0..frame_size {
-                            for ch in 0..channels {
-                                new_frame.plane_mut::<f32>(ch)[i] = frame_data[i * channels + ch];
-                            }
-                        }
-                    }
-
-                    // 编码帧
-                    encoder
-                        .send_frame(&new_frame)
-                        .map_err(|e| format!("发送帧到编码器失败: {}", e))?;
-
-                    let mut encoded = packet::Packet::empty();
-                    while encoder.receive_packet(&mut encoded).is_ok() {
-                        encoded.set_stream(ost_index);
-                        encoded.rescale_ts(encoder.time_base(), ost_time_base);
-                        encoded
-                            .write_interleaved(&mut octx)
-                            .map_err(|e| format!("写入数据包失败: {}", e))?;
-                    }
-
-                    total_samples_encoded += frame_size;
-                }
-
-                sample_count += decoded.samples();
-
-                // 发送进度更新
-                if sample_count % (decoder.rate() as usize * 2) == 0
-                    || start_time.elapsed().as_secs_f64() >= 1.0
-                {
-                    let progress = if duration > 0.0 {
-                        let current_time = decoded.pts().unwrap_or(0) as f64
-                            * decoder.time_base().0 as f64
-                            / decoder.time_base().1 as f64;
-                        ((current_time / duration) * 100.0).min(100.0)
-                    } else {
-                        0.0
-                    };
-
-                    if (progress - last_progress_emitted).abs() >= 1.0 {
-                        crate::events::emit_media_task_event(
-                            window,
-                            &task_id,
-                            "compress",
-                            "audio",
-                            "progress",
-                            Some(progress),
-                            None,
-                            None,
-                        );
-                        last_progress_emitted = progress;
-                    }
+            // 进度
+            if duration > 0.0 {
+                let progress = (pts_counter as f64 / target_rate as f64) / duration * 100.0;
+                if (progress - last_progress).abs() >= 1.0 {
+                    last_progress = progress;
+                    crate::events::emit_media_task_event(
+                        window,
+                        &task_id,
+                        "compress",
+                        "audio",
+                        "progress",
+                        Some(progress.min(99.0)),
+                        None,
+                        None,
+                    );
                 }
             }
         }
     }
 
-    // Flush 剩余数据
-    let channels = target_layout.channels() as usize;
-    let remaining_samples = consumer.len() / channels;
-    if remaining_samples > 0 {
-        let mut frame_data = vec![0.0f32; remaining_samples * channels];
-        consumer.pop_slice(&mut frame_data);
-
-        let mut new_frame = frame::Audio::new(target_format, remaining_samples, target_layout);
-        new_frame.set_rate(target_rate as u32);
-        new_frame.set_pts(Some(pts_counter));
-
-        if new_frame.is_packed() {
-            new_frame.plane_mut(0).copy_from_slice(&frame_data);
-        } else {
-            for i in 0..remaining_samples {
-                for ch in 0..channels {
-                    new_frame.plane_mut::<f32>(ch)[i] = frame_data[i * channels + ch];
-                }
-            }
-        }
-
-        encoder
-            .send_frame(&new_frame)
-            .map_err(|e| format!("发送剩余帧到编码器失败: {}", e))?;
-
-        // 接收 flush 产生的数据包
-        let mut encoded = packet::Packet::empty();
-        while encoder.receive_packet(&mut encoded).is_ok() {
-            encoded.set_stream(ost_index);
-            encoded.rescale_ts(encoder.time_base(), ost_time_base);
-            encoded
-                .write_interleaved(&mut octx)
-                .map_err(|e| format!("写入数据包失败: {}", e))?;
-        }
-    }
-
-    // 在发送 EOF 之前，确保所有 encoded packet 都写完了
-    // 这里的逻辑已经在上面的 loop 里了，但为了保险，再次 check
-
-    // 发送 EOF 到编码器（在清空所有待处理帧之后）
+    // 冲刷编码器
     encoder
         .send_eof()
         .map_err(|e| format!("发送 EOF 失败: {}", e))?;
-
-    // 接收所有最终的编码数据包（包括 EOF 后的剩余数据）
-    let mut encoded = packet::Packet::empty();
+    let mut encoded = ffmpeg::Packet::empty();
     while encoder.receive_packet(&mut encoded).is_ok() {
         encoded.set_stream(ost_index);
-        encoded.rescale_ts(encoder.time_base(), ost_time_base);
+        encoded.rescale_ts(decoder.time_base(), ost_time_base);
         encoded
             .write_interleaved(&mut octx)
-            .map_err(|e| format!("写入最终数据包失败: {}", e))?;
+            .map_err(|e| format!("写入数据包失败: {}", e))?;
     }
 
-    // 写入文件尾
     octx.write_trailer()
-        .map_err(|e| format!("写入文件尾失败: {}", e))?;
+        .map_err(|e| format!("写入尾部失败: {}", e))?;
 
     crate::events::emit_media_task_event(
         window,
@@ -395,5 +347,6 @@ pub fn compress_audio_file(
         None,
     );
 
+    let _elapsed = start_time.elapsed();
     Ok(())
 }

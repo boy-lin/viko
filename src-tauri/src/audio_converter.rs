@@ -1,29 +1,37 @@
-// src-tauri/src/audio_converter.rs
-// 音频转换模块 - 使用 FFmpeg 库进行音频格式转换
-// 使用 ffmpeg-next 库的 API，不依赖命令行工具
-
-use std::path::Path;
+﻿use std::path::Path;
 use tauri::WebviewWindow;
 
-use ffmpeg::codec;
-use ffmpeg::filter;
-use ffmpeg::format;
+use ffmpeg::{codec, format, frame, packet, software};
 use ffmpeg::format::sample::Type as SampleType;
 use ffmpeg::util::channel_layout::ChannelLayout;
 use ffmpeg::util::format::Sample;
-use ffmpeg::util::frame::Audio;
 use ffmpeg_next as ffmpeg;
 
-/// 音频转换参数
+/// 音频编码参数（可复用于视频多轨配置）
+#[derive(Debug, Clone, Deserialize)]
+pub struct AudioEncodingParams {
+    pub codec: Option<String>,        // libmp3lame, aac, flac, pcm 等
+    pub bitrate: Option<u32>,         // kbps
+    pub sample_rate: Option<u32>,     // Hz
+    pub channels: Option<u32>,        // 声道数
+    pub bit_depth: Option<u32>,       // 16/24/32
+    pub quality: Option<u32>,         // VBR 质量 0-10
+}
+
+/// 音频转换参数（全部可选，提供默认或沿用原始值）
 #[derive(Debug, Clone)]
 pub struct AudioConversionParams {
     pub input_path: String,
     pub output_path: String,
-    pub format: String,                  // mp3, wav, flac, ogg, aac
-    pub bitrate: u32,                    // kbps
-    pub sample_rate: u32,                // Hz
-    pub use_hardware_acceleration: bool, // Try to use hardware encoders (e.g. aac_at)
-    pub use_ultra_fast_speed: bool,      // Optimize for speed
+    pub format: Option<String>,           // mp3, wav, flac, ogg, aac, m4a, opus, wma
+    pub codec: Option<String>,            // libmp3lame, pcm_s16le, flac, aac, libopus, wmav2...
+    pub bitrate: Option<u32>,             // kbps
+    pub sample_rate: Option<u32>,         // Hz
+    pub channels: Option<u32>,            // 1/2...
+    pub bit_depth: Option<u32>,           // 16/24/32
+    pub quality: Option<u32>,             // 0-10 VBR
+    pub use_hardware_acceleration: Option<bool>, // Try hardware encoders
+    pub use_ultra_fast_speed: Option<bool>,      // Optimize for speed
 }
 
 /// 获取音频文件的时长（秒）
@@ -32,7 +40,6 @@ pub fn get_audio_duration(input_path: &str) -> Result<f64, String> {
 
     let ictx = ffmpeg::format::input(input_path).map_err(|e| format!("打开文件失败: {}", e))?;
 
-    // 优先使用流级别的 duration
     let duration = if let Some(audio_stream) = ictx.streams().best(ffmpeg::media::Type::Audio) {
         let time_base = audio_stream.time_base();
         let duration_ts = audio_stream.duration();
@@ -58,242 +65,152 @@ pub fn get_audio_duration(input_path: &str) -> Result<f64, String> {
     Ok(duration)
 }
 
-/// 根据格式获取音频编码器
-fn get_audio_codec_for_format(format: &str, use_hardware_acceleration: bool) -> String {
-    match format.to_lowercase().as_str() {
+fn resolve_format(params: &AudioConversionParams) -> String {
+    if let Some(fmt) = &params.format { return fmt.to_lowercase(); }
+    Path::new(&params.output_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_else(|| "mp3".to_string())
+}
+
+fn map_codec_name(format: &str, codec_override: Option<&str>, use_hw: bool) -> String {
+    if let Some(c) = codec_override { return c.to_string(); }
+    match format {
         "mp3" => "libmp3lame".to_string(),
         "wav" => "pcm_s16le".to_string(),
         "flac" => "flac".to_string(),
         "ogg" => "libvorbis".to_string(),
-        "aac" => {
-            // MacOS AudioToolbox hardware acceleration for AAC
-            if use_hardware_acceleration && cfg!(target_os = "macos") {
-                "aac_at".to_string()
-            } else {
-                "aac".to_string()
-            }
-        }
-        _ => "libmp3lame".to_string(), // 默认使用 MP3
+        "aac" | "m4a" => {
+            if use_hw && cfg!(target_os = "macos") { "aac_at" } else { "aac" }
+        }.to_string(),
+        "opus" => "libopus".to_string(),
+        "wma" => "wmav2".to_string(),
+        _ => "libmp3lame".to_string(),
     }
 }
 
-/// 根据格式获取输出文件扩展名
-fn get_output_extension(format: &str) -> &str {
-    match format.to_lowercase().as_str() {
-        "mp3" => "mp3",
-        "wav" => "wav",
-        "flac" => "flac",
-        "ogg" => "ogg",
-        "aac" => "m4a",
-        _ => "mp3",
-    }
-}
-
-/// 根据格式获取编码器 ID
-fn get_codec_id_for_format(format: &str, use_hardware_acceleration: bool) -> codec::Id {
-    match format.to_lowercase().as_str() {
+fn map_codec_id(format: &str) -> codec::Id {
+    match format {
         "mp3" => codec::Id::MP3,
         "wav" => codec::Id::PCM_S16LE,
         "flac" => codec::Id::FLAC,
         "ogg" => codec::Id::VORBIS,
-        "aac" => {
-            // We return standard AAC ID, the specific encoder implementation (aac vs aac_at)
-            // is selected by name later, but the ID remains AAC.
-            codec::Id::AAC
-        }
-        _ => codec::Id::MP3, // 默认使用 MP3
+        "aac" | "m4a" => codec::Id::AAC,
+        "opus" => codec::Id::OPUS,
+        "wma" => codec::Id::WMAV2,
+        _ => codec::Id::MP3,
     }
 }
 
-/// 选择编码器支持的采样格式，优先使用期望的格式
+fn is_lossless(codec_id: codec::Id, codec_name: &str) -> bool {
+    matches!(codec_id, codec::Id::FLAC | codec::Id::PCM_S16LE | codec::Id::PCM_S24LE | codec::Id::PCM_S32LE)
+        || codec_name.starts_with("pcm_")
+}
+
+fn preferred_sample_from_bit_depth(bit_depth: Option<u32>, format: &str) -> Sample {
+    match bit_depth {
+        Some(16) => Sample::I16(SampleType::Packed),
+        Some(24) => Sample::I32(SampleType::Packed),
+        Some(32) => Sample::F32(SampleType::Packed),
+        _ => match format {
+            "wav" | "flac" => Sample::I16(SampleType::Packed),
+            _ => Sample::F32(SampleType::Planar),
+        },
+    }
+}
+
 fn pick_sample_format(encoder_codec: &ffmpeg::Codec, preferred: Sample) -> Sample {
     if let Ok(audio) = encoder_codec.audio() {
         if let Some(formats) = audio.formats() {
             let supported: Vec<Sample> = formats.collect();
-            for candidate in [
-                preferred,
-                preferred.planar(),
-                preferred.packed(),
-                Sample::F32(SampleType::Planar),
-                Sample::F32(SampleType::Packed),
-            ] {
+            for candidate in [preferred, preferred.planar(), preferred.packed(), Sample::F32(SampleType::Planar), Sample::F32(SampleType::Packed)] {
                 if supported.iter().any(|f| *f == candidate) {
                     return candidate;
                 }
             }
-            if let Some(first) = supported.first() {
+            if let Some(first) = supported.first() { return *first; }
+        }
+    }
+    preferred
+}
+
+fn pick_channel_layout(encoder_codec: &ffmpeg::Codec, desired: Option<ChannelLayout>, input_layout: ChannelLayout) -> ChannelLayout {
+    let wanted = desired.unwrap_or_else(|| if input_layout.is_empty() { ChannelLayout::STEREO } else { input_layout });
+    if let Ok(audio) = encoder_codec.audio() {
+        if let Some(layouts) = audio.channel_layouts() {
+            let mut collected = Vec::new();
+            for l in layouts {
+                if l == wanted {
+                    return wanted;
+                }
+                collected.push(l);
+            }
+            if let Some(best) = collected.iter().find(|l| l.channels() == wanted.channels()) {
+                return *best;
+            }
+            if let Some(first) = collected.first() {
                 return *first;
             }
         }
     }
-
-    preferred
+    wanted
 }
 
-/// 选择编码器可接受的声道布局，优先沿用输入布局
-fn pick_channel_layout(
-    encoder_codec: &ffmpeg::Codec,
-    input_layout: ChannelLayout,
-) -> ChannelLayout {
-    if let Ok(audio) = encoder_codec.audio() {
-        if let Some(layouts) = audio.channel_layouts() {
-            let target_channels = if input_layout.is_empty() {
-                2
-            } else {
-                input_layout.channels()
-            };
-            let best = layouts.best(target_channels);
-            if !best.is_empty() {
-                return best;
-            }
-        }
-    }
-
-    if input_layout.is_empty() {
-        ChannelLayout::STEREO
-    } else {
-        input_layout
-    }
-}
-
-/// 选择编码器支持的采样率，尽量使用用户指定值
 fn pick_sample_rate(encoder_codec: &ffmpeg::Codec, requested: u32, fallback: u32) -> u32 {
     if let Ok(audio) = encoder_codec.audio() {
         if let Some(rates) = audio.rates() {
             let supported: Vec<i32> = rates.collect();
-            if supported.is_empty() {
-                return requested.max(1);
-            }
-
-            if supported.iter().any(|r| *r == requested as i32) {
-                return requested;
-            }
-
-            let mut sorted = supported.clone();
-            sorted.sort_by_key(|r| (requested as i32 - *r).abs());
-            if let Some(best) = sorted.first() {
-                return (*best) as u32;
+            if supported.is_empty() { return requested.max(1); }
+            if supported.iter().any(|r| *r == requested as i32) { return requested; }
+            if let Some(best) = supported.iter().min_by_key(|r| (requested as i32 - **r).abs()) {
+                return *best as u32;
             }
         }
     }
-
-    if requested > 0 {
-        requested
-    } else {
-        fallback
-    }
+    if requested > 0 { requested } else { fallback }
 }
 
-/// 创建音频过滤器图，用于格式转换和重采样
-fn create_audio_filter(
-    decoder: &codec::decoder::Audio,
-    encoder: &codec::encoder::Audio,
-    target_sample_rate: u32,
-) -> Result<filter::Graph, String> {
-    let mut filter_graph = filter::Graph::new();
-
-    // 构建 abuffer 输入参数
-    let decoder_time_base = decoder.time_base();
-    let decoder_rate = decoder.rate();
-    let decoder_format_name = decoder.format().name();
-    let decoder_layout_bits = decoder.channel_layout().bits();
-
-    let abuffer_args = format!(
-        "time_base={}:sample_rate={}:sample_fmt={}:channel_layout=0x{:x}",
-        decoder_time_base, decoder_rate, decoder_format_name, decoder_layout_bits
-    );
-
-    // 添加 abuffer 输入过滤器
-    filter_graph
-        .add(
-            &filter::find("abuffer").ok_or("未找到 abuffer 过滤器")?,
-            "in",
-            &abuffer_args,
-        )
-        .map_err(|e| format!("添加 abuffer 失败: {}", e))?;
-
-    // 添加 abuffersink 输出过滤器
-    filter_graph
-        .add(
-            &filter::find("abuffersink").ok_or("未找到 abuffersink 过滤器")?,
-            "out",
-            "",
-        )
-        .map_err(|e| format!("添加 abuffersink 失败: {}", e))?;
-
-    // 配置输出格式
-    {
-        let mut out = filter_graph.get("out").ok_or("无法获取输出过滤器")?;
-
-        out.set_sample_format(encoder.format());
-        out.set_channel_layout(encoder.channel_layout());
-        out.set_sample_rate(encoder.rate() as u32);
-    }
-
-    // 构建过滤器链：如果需要重采样，使用 aresample，否则使用 anull
-    let filter_spec = if decoder.rate() as u32 != target_sample_rate {
-        format!("aresample={}", target_sample_rate)
-    } else {
-        "anull".to_string()
-    };
-
-    // 连接过滤器
-    filter_graph
-        .output("in", 0)
-        .map_err(|e| format!("连接过滤器输出失败: {}", e))?
-        .input("out", 0)
-        .map_err(|e| format!("连接过滤器输入失败: {}", e))?
-        .parse(&filter_spec)
-        .map_err(|e| format!("解析过滤器失败: {}", e))?;
-
-    // 验证过滤器图
-    filter_graph
-        .validate()
-        .map_err(|e| format!("验证过滤器图失败: {}", e))?;
-
-    // 如果编码器不支持可变帧大小，设置固定帧大小
-    if let Some(codec) = encoder.codec() {
-        if !codec
-            .capabilities()
-            .contains(codec::capabilities::Capabilities::VARIABLE_FRAME_SIZE)
-        {
-            filter_graph
-                .get("out")
-                .ok_or("无法获取输出过滤器")?
-                .sink()
-                .set_frame_size(encoder.frame_size());
+fn build_quality_options(codec_name: &str, quality: Option<u32>) -> ffmpeg::Dictionary<'static> {
+    let mut opts = ffmpeg::Dictionary::new();
+    if let Some(q) = quality {
+        match codec_name {
+            name if name.contains("mp3") => {
+                let v = q.min(9);
+                opts.set("q:a", v.to_string().as_str());
+            }
+            name if name.contains("vorbis") => {
+                let v = q.min(10);
+                opts.set("q:a", v.to_string().as_str());
+            }
+            name if name.contains("aac") => {
+                let v = q.clamp(1, 5);
+                opts.set("vbr", v.to_string().as_str());
+            }
+            name if name.contains("opus") => {
+                let v = q.clamp(1, 10);
+                opts.set("application", "audio");
+                opts.set("vbr", "on");
+                opts.set("compression_level", v.to_string().as_str());
+            }
+            _ => {}
         }
     }
-
-    log::debug!("过滤器图: {}", filter_graph.dump());
-
-    Ok(filter_graph)
+    opts
 }
 
-/// 执行音频转换（使用 ffmpeg-next 库 API 和 filter graph）
+/// 执行音频转换（使用 ffmpeg-next 库 API）
 pub fn convert_audio(
     window: &WebviewWindow,
     params: AudioConversionParams,
     task_id: String,
 ) -> Result<(), String> {
-    // 初始化 FFmpeg
     ffmpeg::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))?;
 
-    // 记录转换参数
-    log::info!(
-        "音频转换参数: 输入={}, 输出={}, 格式={}, 比特率={}kbps, 采样率={}Hz",
-        params.input_path,
-        params.output_path,
-        params.format,
-        params.bitrate,
-        params.sample_rate
-    );
-    log::debug!("转码内部初始: ffmpeg_version={:?}", unsafe {
-        let ptr = ffmpeg::ffi::av_version_info();
-        std::ffi::CStr::from_ptr(ptr).to_string_lossy()
-    });
+    let use_hw = params.use_hardware_acceleration.unwrap_or(false);
+    let format = resolve_format(&params);
+    let codec_name = map_codec_name(&format, params.codec.as_deref(), use_hw);
 
-    // 发送开始转换事件
     crate::events::emit_media_task_event(
         window,
         &task_id,
@@ -305,341 +222,129 @@ pub fn convert_audio(
         None,
     );
 
-    // 获取输入文件时长（用于计算进度）
     let duration = get_audio_duration(&params.input_path)?;
 
-    // 打开输入文件
-    let mut ictx =
-        format::input(&params.input_path).map_err(|e| format!("打开输入文件失败: {}", e))?;
+    let mut ictx = format::input(&params.input_path).map_err(|e| format!("打开输入文件失败: {}", e))?;
+    let mut octx = format::output(&params.output_path).map_err(|e| format!("创建输出文件失败: {}", e))?;
 
-    // 查找音频流
     let input_stream = ictx
         .streams()
         .best(ffmpeg::media::Type::Audio)
         .ok_or_else(|| "未找到音频流".to_string())?;
     let input_stream_index = input_stream.index();
-    let input_time_base = input_stream.time_base();
+    let _input_time_base = input_stream.time_base();
     let input_parameters = input_stream.parameters();
-    drop(input_stream);
 
-    // 创建解码器
-    let mut decoder_context = codec::context::Context::from_parameters(input_parameters)
+    let decoder_ctx = codec::context::Context::from_parameters(input_parameters)
         .map_err(|e| format!("创建解码器失败: {}", e))?;
-    let mut decoder = decoder_context
+    let mut decoder = decoder_ctx
         .decoder()
         .audio()
         .map_err(|e| format!("获取音频解码器失败: {}", e))?;
 
-    // 获取输入格式信息
     let input_sample_rate = decoder.rate() as u32;
     let input_channels = decoder.channels() as usize;
-    let input_format = decoder.format();
-    let input_channel_layout = {
-        let layout = decoder.channel_layout();
-        if layout.is_empty() {
-            ChannelLayout::default(input_channels as i32)
-        } else {
-            layout
-        }
-    };
+    let mut input_layout = decoder.channel_layout();
+    if input_layout.is_empty() { input_layout = ChannelLayout::default(input_channels as i32); }
+    let _input_format = decoder.format();
 
-    // 创建输出格式上下文
-    let mut octx =
-        format::output(&params.output_path).map_err(|e| format!("创建输出文件失败: {}", e))?;
+    let codec_id = map_codec_id(&format);
+    let encoder_codec = ffmpeg::encoder::find_by_name(&codec_name)
+        .or_else(|| ffmpeg::encoder::find(codec_id))
+        .ok_or_else(|| format!("未找到编码器: {}", codec_name))?;
 
-    // 获取编码器
-    // 获取编码器
-    // 首先尝试获取特定的编码器名称（可能包含 hardware accel 的选择）
-    let codec_name = get_audio_codec_for_format(&params.format, params.use_hardware_acceleration);
-    // 尝试通过名称查找
-    let mut encoder_codec = ffmpeg::encoder::find_by_name(&codec_name);
-    // 如果找不到指定的（例如 aac_at），回退到通用 ID
-    let codec_id = if let Some(ref codec) = encoder_codec {
-        codec.id()
-    } else {
-        let id = get_codec_id_for_format(&params.format, params.use_hardware_acceleration);
-        encoder_codec = ffmpeg::encoder::find(id);
-        id
-    };
+    let global_header = octx.format().flags().contains(format::flag::Flags::GLOBAL_HEADER);
 
-    let encoder_codec =
-        encoder_codec.ok_or_else(|| format!("未找到编码器: {:?} ({})", codec_id, codec_name))?;
-    log::info!(
-        "选用编码器: id={:?}, name={:?}, profile_supported={:?}",
-        codec_id,
-        encoder_codec.name(),
-        encoder_codec
-            .profiles()
-            .map(|p| p.collect::<Vec<_>>().len())
-    );
-
-    let global_header = octx
-        .format()
-        .flags()
-        .contains(format::flag::Flags::GLOBAL_HEADER);
-
-    // 添加输出流
     let mut output_stream = octx
         .add_stream(encoder_codec)
         .map_err(|e| format!("添加输出流失败: {}", e))?;
 
-    // 选择编码参数（采样格式、声道布局、采样率）
-    let preferred_format = match params.format.to_lowercase().as_str() {
-        "wav" | "flac" => Sample::I16(SampleType::Packed),
-        "aac" | "ogg" | "mp3" => Sample::F32(SampleType::Planar),
-        _ => Sample::F32(SampleType::Planar),
-    };
-    let target_sample_format = pick_sample_format(&encoder_codec, preferred_format);
-    let target_channel_layout = pick_channel_layout(&encoder_codec, input_channel_layout);
-    let target_sample_rate =
-        pick_sample_rate(&encoder_codec, params.sample_rate, input_sample_rate);
+    let desired_sample_rate = params.sample_rate.unwrap_or(input_sample_rate.max(44100));
+    let target_sample_rate = pick_sample_rate(&encoder_codec, desired_sample_rate, input_sample_rate);
 
-    // 创建编码器上下文
-    let mut encoder_context = codec::context::Context::new_with_codec(encoder_codec);
+    let desired_layout = params
+        .channels
+        .map(|ch| ChannelLayout::default(ch as i32));
+    let target_channel_layout = pick_channel_layout(&encoder_codec, desired_layout, input_layout);
 
-    // 如果格式需要全局头，设置标志
+    let preferred_sample = preferred_sample_from_bit_depth(params.bit_depth, &format);
+    let target_sample_format = pick_sample_format(&encoder_codec, preferred_sample);
+
+    let mut encoder_ctx = codec::context::Context::new_with_codec(encoder_codec);
     if global_header {
-        encoder_context.set_flags(codec::flag::Flags::GLOBAL_HEADER);
+        encoder_ctx.set_flags(codec::flag::Flags::GLOBAL_HEADER);
     }
 
-    // 配置并打开编码器
-    let mut encoder = {
-        let mut enc = encoder_context
-            .encoder()
-            .audio()
-            .map_err(|e| format!("获取音频编码器失败: {}", e))?;
+    let mut enc = encoder_ctx
+        .encoder()
+        .audio()
+        .map_err(|e| format!("创建音频编码器失败: {}", e))?;
 
-        // 设置编码器参数
-        let mut target_bit_rate = (params.bitrate.max(32) * 1000) as usize;
-        if matches!(codec_id, codec::Id::PCM_S16LE | codec::Id::FLAC) {
-            // 对于无损/PCM，根据采样格式估算比特率，避免过低数值
-            let bits_per_sample = match target_sample_format {
-                Sample::I16(_) => 16,
-                Sample::I32(_) => 32,
-                Sample::I64(_) => 64,
-                Sample::F64(_) => 64,
-                _ => 32,
-            } as usize;
-            target_bit_rate = target_sample_rate as usize
-                * target_channel_layout.channels() as usize
-                * bits_per_sample;
-        }
-        log::info!(
-            "编码器 set_bit_rate={} bps (requested={} kbps)",
-            target_bit_rate,
-            params.bitrate
-        );
+    let is_lossless_codec = is_lossless(codec_id, &codec_name);
+    if let Some(br) = params.bitrate {
+        enc.set_bit_rate((br.max(32) * 1000) as usize);
+    } else if !is_lossless_codec {
+        enc.set_bit_rate(128_000);
+    }
 
-        enc.set_bit_rate(target_bit_rate);
-        enc.set_rate(target_sample_rate as i32);
-        enc.set_channel_layout(target_channel_layout);
-        enc.set_format(target_sample_format);
-        enc.set_time_base((1, target_sample_rate as i32));
+    enc.set_rate(target_sample_rate as i32);
+    enc.set_channel_layout(target_channel_layout);
+    enc.set_format(target_sample_format);
+    enc.set_time_base((1, target_sample_rate as i32));
 
-        // 打开编码器
-        enc.open_as(encoder_codec)
-            .map_err(|e| format!("打开编码器失败: {}", e))?
-    };
+    let mut opts = build_quality_options(&codec_name, params.quality);
+    if params.use_ultra_fast_speed.unwrap_or(false) {
+        opts.set("compression_level", "0");
+    }
 
-    let target_channels = target_channel_layout.channels() as usize;
-    let target_bytes_per_sample = target_sample_format.bytes();
-    let target_is_planar = target_sample_format.is_planar();
-    let encoder_frame_size = encoder.frame_size() as usize;
-    log::info!(
-        "编码参数: format={:?}, channels={}, layout={:?}, sample_rate={}, frame_size={}, planar={}, bytes_per_sample={}, input_rate={}, input_channels={}, input_layout={:?}, input_fmt={:?}",
-        target_sample_format,
-        target_channels,
-        target_channel_layout,
-        target_sample_rate,
-        encoder_frame_size,
-        target_is_planar,
-        target_bytes_per_sample,
-        input_sample_rate,
-        input_channels,
-        input_channel_layout,
-        input_format
-    );
+    let mut encoder = enc
+        .open_as_with(encoder_codec, opts)
+        .map_err(|e| format!("打开编码器失败: {}", e))?;
 
-    // 从编码器获取参数并设置到输出流
     output_stream.set_parameters(&encoder);
     output_stream.set_time_base(encoder.time_base());
     let output_stream_index = output_stream.index();
     let output_time_base = output_stream.time_base();
-    drop(output_stream);
 
-    // 创建音频过滤器图
-    let mut filter_graph = create_audio_filter(&decoder, &encoder, target_sample_rate)?;
+    let target_layout = target_channel_layout;
+    let target_format = target_sample_format;
+    let target_rate = target_sample_rate;
+    let mut resampler = software::resampling::Context::get(
+        decoder.format(),
+        input_layout,
+        decoder.rate(),
+        target_format,
+        target_layout,
+        target_rate,
+    )
+    .map_err(|e| format!("创建重采样器失败: {}", e))?;
 
-    log::info!(
-        "过滤器配置: input_rate={}, output_rate={}, input_fmt={:?}, output_fmt={:?}, input_layout={:?}, output_layout={:?}",
-        input_sample_rate,
-        target_sample_rate,
-        input_format,
-        target_sample_format,
-        input_channel_layout,
-        target_channel_layout
-    );
+    octx.write_header().map_err(|e| format!("写入头失败: {}", e))?;
 
-    // 写入文件头
-    octx.write_header()
-        .map_err(|e| format!("写入文件头失败: {}", e))?;
-
-    // 处理数据包和帧
-    let mut decoded = Audio::empty();
-    let mut filtered = Audio::empty();
-    let mut encoded = ffmpeg::packet::Packet::empty();
+    let mut decoded = frame::Audio::empty();
+    let mut encoded = packet::Packet::empty();
+    let mut pts_counter: i64 = 0;
     let mut packets_processed = 0u64;
     let mut frames_processed = 0u64;
 
-    // 处理输入数据包
-    for (stream, mut packet) in ictx.packets() {
-        if stream.index() == input_stream_index {
-            // 重新缩放时间戳到解码器的时间基准
-            packet.rescale_ts(stream.time_base(), decoder.time_base());
+    for (stream, mut pkt) in ictx.packets() {
+        if stream.index() != input_stream_index { continue; }
+        pkt.rescale_ts(stream.time_base(), decoder.time_base());
 
-            // 发送数据包到解码器
-            decoder
-                .send_packet(&packet)
-                .map_err(|e| format!("发送数据包到解码器失败: {}", e))?;
+        decoder.send_packet(&pkt).map_err(|e| format!("发送数据包失败: {}", e))?;
 
-            // 接收并处理解码后的帧
-            while decoder.receive_frame(&mut decoded).is_ok() {
-                frames_processed += 1;
+        while decoder.receive_frame(&mut decoded).is_ok() {
+            let mut resampled = frame::Audio::empty();
+            resampled.set_channel_layout(target_layout);
+            resampled.set_format(target_format);
+            resampled.set_rate(target_rate);
 
-                // 更新进度（每 100 帧更新一次）
-                if frames_processed % 100 == 0 && duration > 0.0 {
-                    if let Some(pts) = decoded.pts() {
-                        let current_time = pts as f64 * input_time_base.numerator() as f64
-                            / input_time_base.denominator() as f64;
-                        let progress = (current_time / duration * 100.0).min(100.0);
-                        crate::events::emit_media_task_event(
-                            window,
-                            &task_id,
-                            "convert",
-                            "audio",
-                            "progress",
-                            Some(progress),
-                            None,
-                            None,
-                        );
-                    }
-                }
+            resampler.run(&decoded, &mut resampled).map_err(|e| format!("重采样失败: {}", e))?;
 
-                // 设置帧的时间戳
-                if let Some(timestamp) = decoded.timestamp() {
-                    decoded.set_pts(Some(timestamp));
-                }
+            resampled.set_pts(Some(pts_counter));
+            pts_counter = pts_counter.saturating_add(resampled.samples() as i64);
 
-                // 将解码后的帧添加到过滤器图
-                filter_graph
-                    .get("in")
-                    .ok_or("无法获取输入过滤器")?
-                    .source()
-                    .add(&decoded)
-                    .map_err(|e| format!("添加帧到过滤器失败: {}", e))?;
-
-                // 从过滤器图获取处理后的帧并编码
-                while filter_graph
-                    .get("out")
-                    .ok_or("无法获取输出过滤器")?
-                    .sink()
-                    .frame(&mut filtered)
-                    .is_ok()
-                {
-                    // 过滤后的帧应该已经有正确的时间戳（由过滤器图处理）
-                    // 但如果时间戳缺失，尝试从解码帧继承
-                    if filtered.pts().is_none() {
-                        if let Some(decoded_pts) = decoded.pts() {
-                            // 需要将时间戳从解码器时间基准转换到编码器时间基准
-                            let pts_in_encoder_base = (decoded_pts as f64
-                                * decoder.time_base().numerator() as f64
-                                / decoder.time_base().denominator() as f64
-                                * encoder.time_base().denominator() as f64
-                                / encoder.time_base().numerator() as f64)
-                                as i64;
-                            filtered.set_pts(Some(pts_in_encoder_base));
-                        }
-                    }
-
-                    // 发送过滤后的帧到编码器
-                    // 如果发送失败，记录详细信息以便调试
-                    if let Err(e) = encoder.send_frame(&filtered) {
-                        log::error!(
-                            "发送帧到编码器失败: {}, frame_samples={}, frame_pts={:?}, frame_format={:?}",
-                            e,
-                            filtered.samples(),
-                            filtered.pts(),
-                            filtered.format()
-                        );
-                        return Err(format!("发送帧到编码器失败: {}", e));
-                    }
-
-                    // 接收编码后的数据包
-                    while encoder.receive_packet(&mut encoded).is_ok() {
-                        encoded.set_stream(output_stream_index);
-                        encoded.rescale_ts(encoder.time_base(), output_time_base);
-
-                        // 记录数据包信息以便调试
-                        log::debug!(
-                            "写入数据包: stream={}, pts={:?}, size={}, time_base={:?}",
-                            output_stream_index,
-                            encoded.pts(),
-                            encoded.size(),
-                            output_time_base
-                        );
-
-                        encoded
-                            .write_interleaved(&mut octx)
-                            .map_err(|e| {
-                                log::error!(
-                                    "写入数据包失败: {}, packet_stream={}, packet_pts={:?}, packet_size={}",
-                                    e,
-                                    encoded.stream(),
-                                    encoded.pts(),
-                                    encoded.size()
-                                );
-                                format!("写入数据包失败: {}", e)
-                            })?;
-                        packets_processed += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    // 刷新解码器（处理剩余的帧）
-    decoder
-        .send_eof()
-        .map_err(|e| format!("发送 EOF 到解码器失败: {}", e))?;
-    while decoder.receive_frame(&mut decoded).is_ok() {
-        if let Some(timestamp) = decoded.timestamp() {
-            decoded.set_pts(Some(timestamp));
-        }
-
-        filter_graph
-            .get("in")
-            .ok_or("无法获取输入过滤器")?
-            .source()
-            .add(&decoded)
-            .map_err(|e| format!("添加帧到过滤器失败: {}", e))?;
-
-        while filter_graph
-            .get("out")
-            .ok_or("无法获取输出过滤器")?
-            .sink()
-            .frame(&mut filtered)
-            .is_ok()
-        {
-            // 确保过滤后的帧有正确的时间戳
-            if filtered.pts().is_none() {
-                if let Some(decoded_pts) = decoded.pts() {
-                    filtered.set_pts(Some(decoded_pts));
-                }
-            }
-
-            encoder
-                .send_frame(&filtered)
-                .map_err(|e| format!("发送帧到编码器失败: {}", e))?;
+            encoder.send_frame(&resampled).map_err(|e| format!("发送音频帧失败: {}", e))?;
 
             while encoder.receive_packet(&mut encoded).is_ok() {
                 encoded.set_stream(output_stream_index);
@@ -649,60 +354,51 @@ pub fn convert_audio(
                     .map_err(|e| format!("写入数据包失败: {}", e))?;
                 packets_processed += 1;
             }
+
+            frames_processed += 1;
+            if frames_processed % 50 == 0 && duration > 0.0 {
+                let progress = (pts_counter as f64 / target_rate as f64) / duration * 100.0;
+                crate::events::emit_media_task_event(
+                    window,
+                    &task_id,
+                    "convert",
+                    "audio",
+                    "progress",
+                    Some(progress.min(99.0)),
+                    None,
+                    None,
+                );
+            }
         }
     }
 
-    // 刷新过滤器图
-    filter_graph
-        .get("in")
-        .ok_or("无法获取输入过滤器")?
-        .source()
-        .flush()
-        .map_err(|e| format!("刷新过滤器失败: {}", e))?;
-
-    // 处理过滤器图剩余的帧
-    while filter_graph
-        .get("out")
-        .ok_or("无法获取输出过滤器")?
-        .sink()
-        .frame(&mut filtered)
-        .is_ok()
-    {
-        encoder
-            .send_frame(&filtered)
-            .map_err(|e| format!("发送帧到编码器失败: {}", e))?;
-
+    decoder.send_eof().map_err(|e| format!("发送 EOF 失败: {}", e))?;
+    while decoder.receive_frame(&mut decoded).is_ok() {
+        let mut resampled = frame::Audio::empty();
+        resampled.set_channel_layout(target_layout);
+        resampled.set_format(target_format);
+        resampled.set_rate(target_rate);
+        resampler.run(&decoded, &mut resampled).map_err(|e| format!("重采样失败: {}", e))?;
+        resampled.set_pts(Some(pts_counter));
+        pts_counter = pts_counter.saturating_add(resampled.samples() as i64);
+        encoder.send_frame(&resampled).map_err(|e| format!("发送音频帧失败: {}", e))?;
         while encoder.receive_packet(&mut encoded).is_ok() {
             encoded.set_stream(output_stream_index);
             encoded.rescale_ts(encoder.time_base(), output_time_base);
-            encoded
-                .write_interleaved(&mut octx)
-                .map_err(|e| format!("写入数据包失败: {}", e))?;
+            encoded.write_interleaved(&mut octx).map_err(|e| format!("写入数据包失败: {}", e))?;
             packets_processed += 1;
         }
     }
 
-    // 刷新编码器
-    encoder
-        .send_eof()
-        .map_err(|e| format!("发送 EOF 到编码器失败: {}", e))?;
-    let mut trailer_packets = Vec::new();
+    encoder.send_eof().map_err(|e| format!("编码器 EOF 失败: {}", e))?;
     while encoder.receive_packet(&mut encoded).is_ok() {
-        let mut pkt = encoded.clone();
-        pkt.set_stream(output_stream_index);
-        pkt.rescale_ts(encoder.time_base(), output_time_base);
-        trailer_packets.push(pkt);
-    }
-    for pkt in trailer_packets {
-        pkt.write_interleaved(&mut octx)
-            .map_err(|e| format!("写入数据包失败: {}", e))?;
+        encoded.set_stream(output_stream_index);
+        encoded.rescale_ts(encoder.time_base(), output_time_base);
+        encoded.write_interleaved(&mut octx).map_err(|e| format!("写入尾部数据包失败: {}", e))?;
     }
 
-    // 写入文件尾
-    octx.write_trailer()
-        .map_err(|e| format!("写入文件尾失败: {}", e))?;
+    octx.write_trailer().map_err(|e| format!("写入文件尾失败: {}", e))?;
 
-    // 发送完成事件
     crate::events::emit_media_task_event(
         window,
         &task_id,
@@ -714,13 +410,12 @@ pub fn convert_audio(
         None,
     );
 
-    // 验证输出文件是否存在
     if !Path::new(&params.output_path).exists() {
         return Err(format!("转换完成但输出文件不存在: {}", params.output_path));
     }
 
     log::info!(
-        "音频转换成功完成: {} (处理了 {} 个数据包, {} 帧)",
+        "音频转换完成: {} (数据包={}, 帧数={})",
         params.output_path,
         packets_processed,
         frames_processed
@@ -736,7 +431,17 @@ pub fn generate_output_path(input_path: &str, format: &str) -> Result<String, St
         .file_stem()
         .and_then(|s| s.to_str())
         .ok_or("无法获取输入文件名")?;
-    let extension = get_output_extension(format);
+    let extension = match format.to_lowercase().as_str() {
+        "mp3" => "mp3",
+        "wav" => "wav",
+        "flac" => "flac",
+        "ogg" => "ogg",
+        "aac" => "m4a",
+        "m4a" => "m4a",
+        "opus" => "opus",
+        "wma" => "wma",
+        _ => "mp3",
+    };
 
     let output_path = parent.join(format!("{}.{}", stem, extension));
     Ok(output_path.to_string_lossy().to_string())

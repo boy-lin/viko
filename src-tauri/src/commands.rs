@@ -1,4 +1,4 @@
-// src-tauri/src/lib/commands.rs
+﻿// src-tauri/src/lib/commands.rs
 // Tauri 后端命令定义 - 使用 ffmpeg-next
 //
 // 注意：ffmpeg-next 需要在编译时链接 FFmpeg 库
@@ -989,9 +989,13 @@ pub struct AudioConversionArgs {
     pub task_id: String,
     pub input_path: String,
     pub output_path: Option<String>, // 如果未提供，自动生成
-    pub format: String,
-    pub bitrate: u32,
-    pub sample_rate: u32,
+    pub format: Option<String>,
+    pub codec: Option<String>,
+    pub bitrate: Option<u32>,
+    pub sample_rate: Option<u32>,
+    pub channels: Option<u32>,
+    pub bit_depth: Option<u32>,
+    pub quality: Option<u32>,
     pub use_hardware_acceleration: Option<bool>,
     pub use_ultra_fast_speed: Option<bool>,
 }
@@ -1028,21 +1032,36 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
 
     // 如果没有提供输出路径，自动生成
+    let resolved_format = args
+        .format
+        .clone()
+        .or_else(|| {
+            Path::new(&args.input_path)
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|s| s.to_lowercase())
+        })
+        .unwrap_or_else(|| "mp3".to_string());
+
     let output_path = if let Some(path) = args.output_path {
         path
     } else {
-        audio_converter::generate_output_path(&args.input_path, &args.format)?
+        audio_converter::generate_output_path(&args.input_path, &resolved_format)?
     };
 
     // 构建转换参数
     let params = AudioConversionParams {
         input_path: args.input_path,
         output_path: output_path.clone(),
-        format: args.format,
+        format: args.format.or(Some(resolved_format)),
+        codec: args.codec,
         bitrate: args.bitrate,
         sample_rate: args.sample_rate,
-        use_hardware_acceleration: args.use_hardware_acceleration.unwrap_or(false),
-        use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
+        channels: args.channels,
+        bit_depth: args.bit_depth,
+        quality: args.quality,
+        use_hardware_acceleration: args.use_hardware_acceleration,
+        use_ultra_fast_speed: args.use_ultra_fast_speed,
     };
 
     // 在新线程中执行转换
@@ -1085,12 +1104,29 @@ pub struct VideoConversionArgs {
     pub task_id: String,
     pub input_path: String,
     pub output_path: Option<String>,
-    pub format: String,
+    pub format: Option<String>,
     pub video_encoder: Option<String>,
     pub video_bitrate: Option<u32>,
+    pub min_bitrate: Option<u32>,
+    pub max_bitrate: Option<u32>,
+    pub rc_mode: Option<String>,
     pub resolution: Option<String>,
+    pub aspect_ratio: Option<String>,
+    pub scaling_mode: Option<String>,
     pub frame_rate: Option<String>,
+    pub gop_size: Option<u32>,
+    pub preset: Option<String>,
+    pub profile: Option<String>,
+    pub tune: Option<String>,
+    pub color_space: Option<String>,
+    pub bit_depth: Option<u32>,
+    pub crop: Option<String>,
     pub audio_encoder: Option<String>,
+    pub audio_bitrate: Option<u32>,
+    pub audio_sample_rate: Option<u32>,
+    pub audio_channels: Option<u32>,
+    pub audio_bit_depth: Option<u32>,
+    pub audio_quality: Option<u32>,
     pub use_hardware_acceleration: Option<bool>,
     pub use_ultra_fast_speed: Option<bool>,
 }
@@ -1100,15 +1136,25 @@ pub fn convert_video_file(app: AppHandle, args: VideoConversionArgs) -> Result<(
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
 
     // 如果没有提供输出路径，自动生成
+    let resolved_format = args
+        .format
+        .clone()
+        .or_else(|| {
+            Path::new(&args.input_path)
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|s| s.to_lowercase())
+        })
+        .unwrap_or_else(|| "mp4".to_string());
+
     let output_path = if let Some(path) = args.output_path {
         path
     } else {
-        // 简单的自动生成逻辑，或者重用 audio_converter 的
         let path = Path::new(&args.input_path);
         let stem = path.file_stem().unwrap().to_str().unwrap();
         let parent = path.parent().unwrap();
         parent
-            .join(format!("{}.{}", stem, args.format))
+            .join(format!("{}.{}", stem, resolved_format))
             .to_str()
             .unwrap()
             .to_string()
@@ -1121,14 +1167,31 @@ pub fn convert_video_file(app: AppHandle, args: VideoConversionArgs) -> Result<(
         let params = crate::video_converter::VideoConversionParams {
             input_path: args.input_path,
             output_path: output_path.clone(),
-            format: args.format,
-            video_encoder: args.video_encoder.unwrap_or_else(|| "h264".to_string()),
+            format: args.format.or(Some(resolved_format)),
+            video_encoder: args.video_encoder,
             video_bitrate: args.video_bitrate,
+            min_bitrate: args.min_bitrate,
+            max_bitrate: args.max_bitrate,
+            rc_mode: args.rc_mode,
             resolution: args.resolution,
+            aspect_ratio: args.aspect_ratio,
+            scaling_mode: args.scaling_mode,
             frame_rate: args.frame_rate,
+            gop_size: args.gop_size,
+            preset: args.preset,
+            profile: args.profile,
+            tune: args.tune,
+            color_space: args.color_space,
+            bit_depth: args.bit_depth,
+            crop: args.crop,
             audio_encoder: args.audio_encoder,
-            use_hardware_acceleration: args.use_hardware_acceleration.unwrap_or(false),
-            use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
+            audio_bitrate: args.audio_bitrate,
+            audio_sample_rate: args.audio_sample_rate,
+            audio_channels: args.audio_channels,
+            audio_bit_depth: args.audio_bit_depth,
+            audio_quality: args.audio_quality,
+            use_hardware_acceleration: args.use_hardware_acceleration,
+            use_ultra_fast_speed: args.use_ultra_fast_speed,
         };
 
         if let Err(e) = crate::video_converter::convert_video(&window, params, task_id.clone()) {
@@ -1173,7 +1236,27 @@ pub struct GifConversionArgs {
     #[serde(default)]
     pub height: Option<u32>,
     #[serde(default)]
-    pub frame_rate: Option<f32>, // GIF 帧率，默认 10fps
+    pub frame_rate: Option<f32>,
+    #[serde(default)]
+    pub quality: Option<u32>,
+    #[serde(default)]
+    pub preserve_transparency: Option<bool>,
+    #[serde(default)]
+    pub color_mode: Option<String>,
+    #[serde(default)]
+    pub dpi: Option<f64>,
+    #[serde(default)]
+    pub loop_count: Option<i32>,
+    #[serde(default)]
+    pub frame_delay: Option<u32>,
+    #[serde(default)]
+    pub colors: Option<u32>,
+    #[serde(default)]
+    pub preserve_extensions: Option<bool>,
+    #[serde(default)]
+    pub sharpen: Option<bool>,
+    #[serde(default)]
+    pub denoise: Option<bool>,
 }
 
 #[command]
@@ -1204,6 +1287,16 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
             width: args.width,
             height: args.height,
             frame_rate: args.frame_rate,
+            quality: args.quality,
+            preserve_transparency: args.preserve_transparency,
+            color_mode: args.color_mode,
+            dpi: args.dpi,
+            loop_count: args.loop_count,
+            frame_delay: args.frame_delay,
+            colors: args.colors,
+            preserve_extensions: args.preserve_extensions,
+            sharpen: args.sharpen,
+            denoise: args.denoise,
         };
 
         if let Err(e) = gif_converter::convert_video_to_gif(&window, params, task_id.clone()) {
@@ -1248,7 +1341,18 @@ pub struct VideoCompressionArgs {
     pub task_id: String,
     pub input_path: String,
     pub output_path: String,
-    pub compression_ratio: u32, // 0-100
+    pub compression_ratio: Option<u32>,  // 0-100
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub bitrate: Option<u32>,            // 视频码率 kbps
+    pub frame_rate: Option<f32>,         // 目标帧率
+    pub codec: Option<String>,           // h264/h265/vp9/av1
+    pub keyframe_interval: Option<u32>,  // GOP 间隔
+    pub color_depth: Option<u32>,        // 8/10/12 bit
+    pub aspect_ratio: Option<String>,    // 16:9 等
+    pub remove_audio: Option<bool>,      // 去除音轨
+    pub audio_bitrate: Option<u32>,      // 音频码率 kbps
+    pub preset: Option<String>,          // ultrafast/fast/medium/slow
 }
 
 #[command]
@@ -1262,6 +1366,17 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
             input_path: args.input_path,
             output_path: args.output_path.clone(),
             compression_ratio: args.compression_ratio,
+            width: args.width,
+            height: args.height,
+            bitrate: args.bitrate,
+            frame_rate: args.frame_rate,
+            codec: args.codec,
+            keyframe_interval: args.keyframe_interval,
+            color_depth: args.color_depth,
+            aspect_ratio: args.aspect_ratio,
+            remove_audio: args.remove_audio,
+            audio_bitrate: args.audio_bitrate,
+            preset: args.preset,
         };
 
         if let Err(e) =
@@ -1289,6 +1404,14 @@ pub struct AudioCompressionArgs {
     pub input_path: String,
     pub output_path: String,
     pub compression_ratio: u32, // 0-100
+    pub sample_rate: Option<u32>,
+    pub bitrate: Option<u32>,
+    pub codec: Option<String>,
+    pub channels: Option<u32>,
+    pub bit_depth: Option<u32>,
+    pub remove_silence: Option<bool>,
+    pub silence_threshold: Option<f32>,
+    pub volume_gain: Option<f32>,
 }
 
 #[command]
@@ -1301,7 +1424,15 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
         let params = crate::audio_compressor::AudioCompressionParams {
             input_path: args.input_path,
             output_path: args.output_path.clone(),
-            compression_ratio: args.compression_ratio,
+            compression_ratio: Some(args.compression_ratio),
+            sample_rate: args.sample_rate,
+            bitrate: args.bitrate,
+            codec: args.codec,
+            channels: args.channels,
+            bit_depth: args.bit_depth,
+            remove_silence: args.remove_silence,
+            silence_threshold: args.silence_threshold,
+            volume_gain: args.volume_gain,
         };
 
         if let Err(e) =
@@ -1328,7 +1459,15 @@ pub struct ImageCompressionArgs {
     pub task_id: String,
     pub input_path: String,
     pub output_path: String,
-    pub quality: u32, // 0-100
+    pub quality: Option<u32>,        // 0-100
+    pub format: Option<String>,      // "jpg", "png", "webp" ...
+    pub width: Option<u32>,          // 目标宽度
+    pub height: Option<u32>,         // 目标高度
+    pub color_mode: Option<String>,  // "RGB", "RGBA", "Gray", "CMYK"
+    pub strip_metadata: Option<bool>,// 是否去除元数据
+    pub keep_transparency: Option<bool>, // 是否保留透明通道
+    pub dpi: Option<f64>,            // DPI
+    pub crop_whitespace: Option<bool>, // 自动裁剪
 }
 
 #[command]
@@ -1342,6 +1481,14 @@ pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result
             input_path: args.input_path,
             output_path: args.output_path.clone(),
             quality: args.quality,
+            format: args.format,
+            width: args.width,
+            height: args.height,
+            color_mode: args.color_mode,
+            strip_metadata: args.strip_metadata,
+            keep_transparency: args.keep_transparency,
+            dpi: args.dpi,
+            crop_whitespace: args.crop_whitespace,
         };
 
         if let Err(e) =

@@ -1,5 +1,4 @@
-
-use std::sync::Arc;
+﻿use std::sync::Arc;
 use std::time::Instant;
 use tauri::WebviewWindow;
 use ffmpeg::{
@@ -9,12 +8,94 @@ use ffmpeg_next as ffmpeg;
 use serde::Deserialize;
 use ringbuf::{HeapRb, Producer, Consumer};
 
-/// 视频压缩参数
+/// 视频压缩参数（全部可选，使用默认值兜底）
 #[derive(Deserialize, Clone)]
 pub struct VideoCompressionParams {
     pub input_path: String,
     pub output_path: String,
-    pub compression_ratio: u32, // 0-100
+    pub compression_ratio: Option<u32>,  // 0-100 (兼容旧参数)
+    pub width: Option<u32>,              // 目标宽度
+    pub height: Option<u32>,             // 目标高度
+    pub bitrate: Option<u32>,            // 视频码率 kbps
+    pub frame_rate: Option<f32>,         // 目标帧率
+    pub codec: Option<String>,           // h264/h265/vp9/av1
+    pub keyframe_interval: Option<u32>,  // GOP 间隔
+    pub color_depth: Option<u32>,        // 8/10/12 bit
+    pub aspect_ratio: Option<String>,    // 16:9 等
+    pub remove_audio: Option<bool>,      // 去除音轨
+    pub audio_bitrate: Option<u32>,      // 音频码率 kbps
+    pub preset: Option<String>,          // ultrafast/fast/medium/slow
+}
+
+fn map_video_codec(name: &str) -> Option<&'static str> {
+    match name.to_lowercase().as_str() {
+        "h264" | "avc" => Some("libx264"),
+        "h265" | "hevc" => Some("libx265"),
+        "vp9" => Some("libvpx-vp9"),
+        "av1" => Some("libaom-av1"),
+        _ => None,
+    }
+}
+
+fn pick_pixel_format(color_depth: Option<u32>) -> format::Pixel {
+    match color_depth {
+        Some(10) => format::Pixel::YUV420P10LE,
+        Some(12) => format::Pixel::YUV420P12LE,
+        _ => format::Pixel::YUV420P,
+    }
+}
+
+fn parse_aspect_ratio_str(ar: Option<&str>) -> Option<Rational> {
+    ar.and_then(|s| {
+        let parts: Vec<&str> = s.split(':').collect();
+        if parts.len() == 2 {
+            if let (Ok(w), Ok(h)) = (parts[0].trim().parse::<i32>(), parts[1].trim().parse::<i32>()) {
+                if w > 0 && h > 0 {
+                    return Some(Rational(w, h));
+                }
+            }
+        }
+        None
+    })
+}
+
+fn scaled_dimensions(src_w: u32, src_h: u32, target_w: Option<u32>, target_h: Option<u32>) -> (u32, u32) {
+    match (target_w, target_h) {
+        (Some(w), Some(h)) => (w.max(1), h.max(1)),
+        (Some(w), None) => {
+            let h = ((w as f64 * src_h as f64 / src_w as f64).round() as u32).max(1);
+            (w.max(1), h)
+        }
+        (None, Some(h)) => {
+            let w = ((h as f64 * src_w as f64 / src_h as f64).round() as u32).max(1);
+            (w, h.max(1))
+        }
+        _ => (src_w, src_h),
+    }
+}
+
+fn calc_video_bitrate(decoder_bitrate: i64, params: &VideoCompressionParams) -> usize {
+    let base = if let Some(br) = params.bitrate {
+        (br as i64) * 1000
+    } else if let Some(ratio) = params.compression_ratio {
+        let ref_bitrate = if decoder_bitrate > 0 { decoder_bitrate } else { 2_000_000 };
+        (ref_bitrate as f64 * ratio as f64 / 100.0) as i64
+    } else {
+        2_000_000
+    };
+    base.max(100_000) as usize
+}
+
+fn calc_audio_bitrate(decoder_bitrate: i64, params: &VideoCompressionParams) -> usize {
+    let base = if let Some(br) = params.audio_bitrate {
+        (br as i64) * 1000
+    } else if let Some(ratio) = params.compression_ratio {
+        let ref_bitrate = if decoder_bitrate > 0 { decoder_bitrate } else { 128_000 };
+        (ref_bitrate as f64 * ratio as f64 / 100.0) as i64
+    } else {
+        128_000
+    };
+    base.max(32_000) as usize
 }
 
 struct VideoProcessor {
@@ -28,7 +109,6 @@ struct VideoProcessor {
     last_progress_emitted: f64,
     duration: f64,
     start_time: Instant,
-    // stream_index: usize, // Unused
 }
 
 impl VideoProcessor {
@@ -38,25 +118,23 @@ impl VideoProcessor {
         params: &VideoCompressionParams,
         duration: f64,
     ) -> Result<Self, String> {
-        let _stream_index = video_stream.index();
         let decoder_ctx = codec::context::Context::from_parameters(video_stream.parameters())
-            .map_err(|e| format!("无法创建解码器上下文: {}", e))?;
+            .map_err(|e| format!("无法创建视频解码器上下文: {}", e))?;
         let decoder = decoder_ctx
             .decoder()
             .video()
             .map_err(|e| format!("无法创建视频解码器: {}", e))?;
 
-        let mut original_bitrate = decoder.bit_rate() as i64;
-        if original_bitrate == 0 {
-            original_bitrate = 2000 * 1000;
-        }
-        let target_bitrate = (original_bitrate as f64 * params.compression_ratio as f64 / 100.0) as i64;
-        let target_bitrate = target_bitrate.max(100 * 1000);
-
-        let codec_id = video_stream.parameters().id();
-        let codec = encoder::find(codec_id)
-            .or_else(|| encoder::find_by_name(codec_id.name()))
-            .ok_or_else(|| format!("未找到编码器: {:?}", codec_id))?;
+        let codec = params
+            .codec
+            .as_deref()
+            .and_then(map_video_codec)
+            .and_then(|name| encoder::find_by_name(name))
+            .or_else(|| {
+                let cid = video_stream.parameters().id();
+                encoder::find(cid).or_else(|| encoder::find_by_name(cid.name()))
+            })
+            .ok_or_else(|| "未找到匹配的视频编码器".to_string())?;
 
         let mut video_ost = octx
             .add_stream(codec)
@@ -67,37 +145,52 @@ impl VideoProcessor {
             .video()
             .map_err(|e| format!("无法创建视频编码器: {}", e))?;
 
-        encoder.set_width(decoder.width());
-        encoder.set_height(decoder.height());
-        encoder.set_aspect_ratio(decoder.aspect_ratio());
-        let target_pixel_format = format::Pixel::YUV420P;
+        let (target_w, target_h) = scaled_dimensions(
+            decoder.width(),
+            decoder.height(),
+            params.width,
+            params.height,
+        );
+
+        let target_pixel_format = pick_pixel_format(params.color_depth);
+        let aspect_ratio = parse_aspect_ratio_str(params.aspect_ratio.as_deref())
+            .unwrap_or_else(|| decoder.aspect_ratio());
+
+        encoder.set_width(target_w);
+        encoder.set_height(target_h);
+        encoder.set_aspect_ratio(aspect_ratio);
         encoder.set_format(target_pixel_format);
-        
-        let frame_rate = decoder.frame_rate();
-        encoder.set_frame_rate(frame_rate);
-        
-        let encoder_time_base = if let Some(fps) = frame_rate {
-            if fps.numerator() > 0 && fps.denominator() > 0 {
-                Rational(fps.denominator(), fps.numerator())
-            } else {
-                Rational(1, 30)
-            }
-        } else {
-            Rational(1, 30)
-        };
-        
+
+        let target_frame_rate = params
+            .frame_rate
+            .map(|f| Rational(f.round().max(1.0) as i32, 1))
+            .or_else(|| decoder.frame_rate());
+        encoder.set_frame_rate(target_frame_rate);
+
+        let encoder_time_base = target_frame_rate
+            .map(|fps| {
+                if fps.numerator() > 0 && fps.denominator() > 0 {
+                    Rational(fps.denominator(), fps.numerator())
+                } else {
+                    Rational(1, 30)
+                }
+            })
+            .unwrap_or(Rational(1, 30));
         encoder.set_time_base(encoder_time_base);
-        encoder.set_bit_rate(target_bitrate as usize);
+
+        let target_bitrate = calc_video_bitrate(decoder.bit_rate() as i64, params);
+        encoder.set_bit_rate(target_bitrate);
 
         let mut opts = ffmpeg::Dictionary::new();
-        opts.set("preset", "medium");
+        opts.set("preset", params.preset.as_deref().unwrap_or("medium"));
+        let g_value = params.keyframe_interval.unwrap_or(250).to_string();
+        opts.set("g", g_value.as_str());
 
         let encoder = encoder
             .open_with(opts)
             .map_err(|e| format!("无法打开视频编码器: {}", e))?;
 
         video_ost.set_parameters(&encoder);
-        
         let encoder_time_base_after = encoder.time_base();
         let final_encoder_time_base = if encoder_time_base_after.numerator() > 0 {
             video_ost.set_time_base(encoder_time_base_after);
@@ -112,10 +205,11 @@ impl VideoProcessor {
             decoder.width(),
             decoder.height(),
             target_pixel_format,
-            decoder.width(),
-            decoder.height(),
+            target_w,
+            target_h,
             software::scaling::flag::Flags::BILINEAR,
-        ).map_err(|e| format!("无法创建视频缩放器: {}", e))?;
+        )
+        .map_err(|e| format!("无法创建视频缩放器: {}", e))?;
 
         Ok(Self {
             encoder,
@@ -128,7 +222,6 @@ impl VideoProcessor {
             last_progress_emitted: 0.0,
             duration,
             start_time: Instant::now(),
-            // stream_index,
         })
     }
 
@@ -146,14 +239,15 @@ impl VideoProcessor {
         let mut decoded = frame::Video::empty();
         while self.decoder.receive_frame(&mut decoded).is_ok() {
             let mut scaled = frame::Video::empty();
-            self.scaler.run(&decoded, &mut scaled)
+            self.scaler
+                .run(&decoded, &mut scaled)
                 .map_err(|e| format!("视频缩放失败: {}", e))?;
-            
+
             scaled.set_pts(decoded.pts());
-            
+
             self.encoder
                 .send_frame(&scaled)
-                .map_err(|e| format!("发送帧到编码器失败: {}", e))?;
+                .map_err(|e| format!("发送视频帧失败: {}", e))?;
 
             self.receive_and_write_packets(octx)?;
 
@@ -175,7 +269,16 @@ impl VideoProcessor {
             };
 
             if (progress - self.last_progress_emitted).abs() >= 1.0 {
-                crate::events::emit_media_task_event(window, &task_id, "compress", "video", "progress", Some(progress), None, None);
+                crate::events::emit_media_task_event(
+                    window,
+                    &task_id,
+                    "compress",
+                    "video",
+                    "progress",
+                    Some(progress),
+                    None,
+                    None,
+                );
                 self.last_progress_emitted = progress;
             }
         }
@@ -194,7 +297,9 @@ impl VideoProcessor {
     }
 
     fn finish(&mut self, octx: &mut format::context::Output) -> Result<(), String> {
-        self.encoder.send_eof().map_err(|e| format!("发送 EOF 失败: {}", e))?;
+        self.encoder
+            .send_eof()
+            .map_err(|e| format!("发送视频 EOF 失败: {}", e))?;
         self.receive_and_write_packets(octx)?;
         Ok(())
     }
@@ -240,13 +345,25 @@ impl AudioProcessor {
             .audio()
             .map_err(|e| format!("无法创建音频解码器: {}", e))?;
 
-        let supported_formats = codec.audio().unwrap().formats().map(|i| i.collect::<Vec<_>>()).unwrap_or_default();
+        let audio_caps = codec
+            .audio()
+            .map_err(|_| "音频编码器不支持音频".to_string())?;
+        let supported_formats = audio_caps
+            .formats()
+            .map(|i| i.collect::<Vec<_>>())
+            .unwrap_or_default();
         let target_format = Self::pick_best_format(&supported_formats, decoder.format())?;
-        
-        let supported_rates = codec.audio().unwrap().rates().map(|i| i.collect::<Vec<_>>()).unwrap_or_default();
+
+        let supported_rates = audio_caps
+            .rates()
+            .map(|i| i.collect::<Vec<_>>())
+            .unwrap_or_default();
         let target_rate = Self::pick_best_rate(&supported_rates, decoder.rate() as i32) as u32;
 
-        let supported_layouts = codec.audio().unwrap().channel_layouts().map(|i| i.collect::<Vec<_>>()).unwrap_or_default();
+        let supported_layouts = audio_caps
+            .channel_layouts()
+            .map(|i| i.collect::<Vec<_>>())
+            .unwrap_or_default();
         let target_layout = Self::pick_best_layout(&supported_layouts, decoder.channel_layout())?;
 
         let mut encoder = codec::context::Context::new_with_codec(codec)
@@ -257,19 +374,19 @@ impl AudioProcessor {
         encoder.set_rate(target_rate as i32);
         encoder.set_channel_layout(target_layout);
         encoder.set_format(target_format);
-        
-        let target_bitrate = (decoder.bit_rate() as f64 * params.compression_ratio as f64 / 100.0) as i64;
-        encoder.set_bit_rate(target_bitrate.max(32000) as usize);
-        
-        // Ensure time_base is set before open
+
+        let target_bitrate = calc_audio_bitrate(decoder.bit_rate() as i64, params);
+        encoder.set_bit_rate(target_bitrate);
+
         let initial_time_base = Rational(1, target_rate as i32);
         encoder.set_time_base(initial_time_base);
 
-        let encoder = encoder.open_as(codec).map_err(|e| format!("无法打开音频编码器: {}", e))?;
+        let encoder = encoder
+            .open_as(codec)
+            .map_err(|e| format!("无法打开音频编码器: {}", e))?;
 
         audio_ost_stream.set_parameters(&encoder);
-        
-        // Sync timebase after open
+
         let encoder_time_base_after = encoder.time_base();
         let final_encoder_time_base = if encoder_time_base_after.numerator() > 0 {
             audio_ost_stream.set_time_base(encoder_time_base_after);
@@ -278,7 +395,7 @@ impl AudioProcessor {
             audio_ost_stream.set_time_base(initial_time_base);
             initial_time_base
         };
-        
+
         let ost_time_base = audio_ost_stream.time_base();
         let ost_index = audio_ost_stream.index();
 
@@ -289,9 +406,14 @@ impl AudioProcessor {
             target_format,
             target_layout,
             target_rate,
-        ).map_err(|e| format!("无法创建重采样器: {}", e))?;
+        )
+        .map_err(|e| format!("无法创建重采样器: {}", e))?;
 
-        let frame_size = if encoder.frame_size() == 0 { 1024 } else { encoder.frame_size() as usize };
+        let frame_size = if encoder.frame_size() == 0 {
+            1024
+        } else {
+            encoder.frame_size() as usize
+        };
         let buffer_capacity = (target_rate as usize) * 5 * target_layout.channels() as usize;
         let buffer = HeapRb::<f32>::new(buffer_capacity);
         let (producer, consumer) = buffer.split();
@@ -315,8 +437,11 @@ impl AudioProcessor {
     }
 
     fn pick_best_format(supported: &[format::Sample], current: format::Sample) -> Result<format::Sample, String> {
-        if supported.contains(&current) { return Ok(current); }
-        supported.iter()
+        if supported.contains(&current) {
+            return Ok(current);
+        }
+        supported
+            .iter()
             .find(|&&fmt| fmt == format::Sample::F32(format::sample::Type::Planar))
             .or_else(|| supported.iter().find(|&&fmt| fmt == format::Sample::F32(format::sample::Type::Packed)))
             .or_else(|| supported.iter().find(|&&fmt| fmt == format::Sample::I16(format::sample::Type::Planar)))
@@ -327,30 +452,49 @@ impl AudioProcessor {
     }
 
     fn pick_best_rate(supported: &[i32], current: i32) -> i32 {
-        if supported.is_empty() || supported.contains(&current) { return current; }
-        *supported.iter().min_by_key(|&&rate| (rate - current).abs()).unwrap_or(&current)
+        if supported.is_empty() || supported.contains(&current) {
+            return current;
+        }
+        *supported
+            .iter()
+            .min_by_key(|&&rate| (rate - current).abs())
+            .unwrap_or(&current)
     }
 
-    fn pick_best_layout(supported: &[ffmpeg::ChannelLayout], current: ffmpeg::ChannelLayout) -> Result<ffmpeg::ChannelLayout, String> {
-        if supported.is_empty() || supported.contains(&current) { return Ok(current); }
-        supported.iter()
+    fn pick_best_layout(
+        supported: &[ffmpeg::ChannelLayout],
+        current: ffmpeg::ChannelLayout,
+    ) -> Result<ffmpeg::ChannelLayout, String> {
+        if supported.is_empty() || supported.contains(&current) {
+            return Ok(current);
+        }
+        supported
+            .iter()
             .find(|&&l| l.channels() == 2)
             .or_else(|| supported.first())
             .cloned()
             .ok_or_else(|| "编码器没有支持的声道布局".to_string())
     }
 
-    fn process_packet(&mut self, packet: &packet::Packet, octx: &mut format::context::Output) -> Result<(), String> {
+    fn process_packet(
+        &mut self,
+        packet: &packet::Packet,
+        octx: &mut format::context::Output,
+    ) -> Result<(), String> {
         let mut p = packet.clone();
         p.rescale_ts(packet.time_base(), self.decoder.time_base());
-        self.decoder.send_packet(&p).map_err(|e| format!("发送音频包失败: {}", e))?;
+        self.decoder
+            .send_packet(&p)
+            .map_err(|e| format!("发送音频包失败: {}", e))?;
 
         let mut decoded = frame::Audio::empty();
         while self.decoder.receive_frame(&mut decoded).is_ok() {
             let mut resampled = frame::Audio::empty();
             resampled.set_channel_layout(self.target_layout);
-            self.resampler.run(&decoded, &mut resampled).map_err(|e| format!("重采样失败: {}", e))?;
-            
+            self.resampler
+                .run(&decoded, &mut resampled)
+                .map_err(|e| format!("重采样失败: {}", e))?;
+
             self.push_to_buffer(&resampled);
             self.encode_buffered(octx)?;
         }
@@ -366,7 +510,7 @@ impl AudioProcessor {
             for i in 0..frame.samples() {
                 for ch in 0..channels {
                     let val: f32 = frame.plane::<f32>(ch)[i];
-                    self.producer.push(val).ok();
+                    let _ = self.producer.push(val);
                 }
             }
         }
@@ -380,7 +524,12 @@ impl AudioProcessor {
         Ok(())
     }
 
-    fn encode_chunk(&mut self, total_samples: usize, frame_samples: usize, octx: &mut format::context::Output) -> Result<(), String> {
+    fn encode_chunk(
+        &mut self,
+        total_samples: usize,
+        frame_samples: usize,
+        octx: &mut format::context::Output,
+    ) -> Result<(), String> {
         let mut frame_data = vec![0.0f32; total_samples];
         self.consumer.pop_slice(&mut frame_data);
 
@@ -388,10 +537,12 @@ impl AudioProcessor {
         frame.set_rate(self.target_rate);
         frame.set_pts(Some(self.next_pts));
         self.next_pts += frame_samples as i64;
-        
+
         self.fill_frame(&mut frame, &frame_data);
-        
-        self.encoder.send_frame(&frame).map_err(|e| format!("发送帧失败: {}", e))?;
+
+        self.encoder
+            .send_frame(&frame)
+            .map_err(|e| format!("发送音频帧失败: {}", e))?;
         self.receive_and_write_packets(octx)?;
         Ok(())
     }
@@ -414,20 +565,21 @@ impl AudioProcessor {
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             encoded.set_stream(self.ost_index);
             encoded.rescale_ts(self.encoder_time_base, self.ost_time_base);
-            
-            // Fix Duration if missing
+
             if encoded.duration() <= 0 {
                 let duration = unsafe {
                     ffmpeg::ffi::av_rescale_q(
                         self.frame_size as i64,
                         self.encoder_time_base.into(),
-                        self.ost_time_base.into()
+                        self.ost_time_base.into(),
                     )
                 };
                 encoded.set_duration(duration);
             }
-            
-            encoded.write_interleaved(octx).map_err(|e| format!("写入音频包失败: {}", e))?;
+
+            encoded
+                .write_interleaved(octx)
+                .map_err(|e| format!("写入音频数据包失败: {}", e))?;
         }
         Ok(())
     }
@@ -439,8 +591,10 @@ impl AudioProcessor {
             let samples = remaining / channels;
             self.encode_chunk(remaining, samples, octx)?;
         }
-        
-        self.encoder.send_eof().map_err(|e| format!("音频 EOF 失败: {}", e))?;
+
+        self.encoder
+            .send_eof()
+            .map_err(|e| format!("音频 EOF 失败: {}", e))?;
         self.receive_and_write_packets(octx)?;
         Ok(())
     }
@@ -459,18 +613,23 @@ pub fn compress_video_file(
 
     let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
 
-    // Setup Video
-    let video_stream = ictx.streams().best(media::Type::Video).ok_or("No Video Stream")?;
+    let video_stream = ictx
+        .streams()
+        .best(media::Type::Video)
+        .ok_or("No Video Stream")?;
     let mut video_proc = VideoProcessor::new(&video_stream, &mut octx, &params, duration)?;
     let video_idx = video_stream.index();
 
-    // Setup Audio
     let mut audio_proc = None;
-    if let Some(audio_stream) = ictx.streams().best(media::Type::Audio) {
-        audio_proc = Some(AudioProcessor::new(&audio_stream, &mut octx, &params)?);
+    if !params.remove_audio.unwrap_or(false) {
+        if let Some(audio_stream) = ictx.streams().best(media::Type::Audio) {
+            audio_proc = Some(AudioProcessor::new(&audio_stream, &mut octx, &params)?);
+        }
     }
 
-    octx.write_header().map_err(|e| format!("Head Write Error: {}", e))?;
+    octx
+        .write_header()
+        .map_err(|e| format!("Head Write Error: {}", e))?;
 
     for (stream, packet) in ictx.packets() {
         if stream.index() == video_idx {
@@ -487,8 +646,19 @@ pub fn compress_video_file(
         audio.finish(&mut octx)?;
     }
 
-    octx.write_trailer().map_err(|e| format!("Trailer Error: {}", e))?;
-    crate::events::emit_media_task_event(window, &task_id, "compress", "video", "complete", Some(100.0), Some(params.output_path), None);
+    octx
+        .write_trailer()
+        .map_err(|e| format!("Trailer Error: {}", e))?;
+    crate::events::emit_media_task_event(
+        window,
+        &task_id,
+        "compress",
+        "video",
+        "complete",
+        Some(100.0),
+        Some(params.output_path),
+        None,
+    );
 
     Ok(())
 }
