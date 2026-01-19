@@ -1127,6 +1127,8 @@ pub struct VideoConversionArgs {
     pub audio_channels: Option<u32>,
     pub audio_bit_depth: Option<u32>,
     pub audio_quality: Option<u32>,
+    pub audio_tracks: Option<Vec<crate::video_converter::AudioTrackConfig>>,
+    pub default_audio_params: Option<crate::audio_converter::AudioEncodingParams>,
     pub use_hardware_acceleration: Option<bool>,
     pub use_ultra_fast_speed: Option<bool>,
 }
@@ -1184,14 +1186,11 @@ pub fn convert_video_file(app: AppHandle, args: VideoConversionArgs) -> Result<(
             color_space: args.color_space,
             bit_depth: args.bit_depth,
             crop: args.crop,
+            audio_tracks: args.audio_tracks,
+            default_audio_params: args.default_audio_params,
             audio_encoder: args.audio_encoder,
-            audio_bitrate: args.audio_bitrate,
-            audio_sample_rate: args.audio_sample_rate,
-            audio_channels: args.audio_channels,
-            audio_bit_depth: args.audio_bit_depth,
-            audio_quality: args.audio_quality,
-            use_hardware_acceleration: args.use_hardware_acceleration,
-            use_ultra_fast_speed: args.use_ultra_fast_speed,
+            use_hardware_acceleration: args.use_hardware_acceleration.unwrap_or(false),
+            use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
         };
 
         if let Err(e) = crate::video_converter::convert_video(&window, params, task_id.clone()) {

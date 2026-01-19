@@ -6,6 +6,7 @@ use ffmpeg::format::sample::Type as SampleType;
 use ffmpeg::util::channel_layout::ChannelLayout;
 use ffmpeg::util::format::Sample;
 use ffmpeg_next as ffmpeg;
+use serde::Deserialize;
 
 /// 音频编码参数（可复用于视频多轨配置）
 #[derive(Debug, Clone, Deserialize)]
