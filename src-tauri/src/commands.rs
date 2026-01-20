@@ -23,6 +23,7 @@ use ffmpeg_next as ffmpeg;
 
 use crate::audio::AudioPlayer;
 use crate::audio_converter::{self, AudioConversionParams};
+use crate::media_common;
 use crate::ffmpeg_media_info::{self, MediaDetails};
 use crate::gif_converter;
 use crate::video_player::{PreviewSize, VideoPlayer};
@@ -1010,7 +1011,7 @@ pub fn get_audio_file_info(path: String) -> Result<serde_json::Value, String> {
         .len();
 
     // 获取音频时长
-    let duration = audio_converter::get_audio_duration(&path)?;
+    let duration = media_common::get_audio_duration(&path)?;
 
     // 获取文件扩展名
     let format = Path::new(&path)

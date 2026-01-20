@@ -10,9 +10,10 @@ import {
 } from "../types/converter";
 import { converterDB } from "../db/converterDB";
 import { extractFilenameFromPath } from "@/lib/utils";
-import { isAudioFormat, isVideoFormat, SupportedFormats } from "@/data/formats";
+import { isAudioFormat, isVideoFormat, SupportedFormats, isImageFormat } from "@/data/formats";
 import { FormatEnum } from "../types/options";
 import { bridge } from "@/lib/bridge";
+import { IMAGE_ENCODERS } from "@/data/encoders";
 import {
   defaultAudioCompressionConfig,
   defaultImageCompressionConfig,
@@ -168,15 +169,15 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
             (s) => s.codec_type === "audio"
           );
           const hasImage = details.streams.some(
-            (s) => s.codec_type === "image" || s.codec_name === "png"
+            (s) => s.codec_type === "image" || IMAGE_ENCODERS.find((e) => e.value === s.codec_name)
           );
           let fileType: FileType = "video";
 
-          if (isVideoFormat(details.format) && hasVideo) {
+          if (isVideoFormat(details.extension) && hasVideo) {
             fileType = "video";
-          } else if (isAudioFormat(details.format) && hasAudio) {
+          } else if (isAudioFormat(details.extension) && hasAudio) {
             fileType = "audio";
-          } else if (hasImage) {
+          } else if (isImageFormat(details.extension) && hasImage) {
             fileType = "image";
           } else {
             throw new Error("Unsupported media type");

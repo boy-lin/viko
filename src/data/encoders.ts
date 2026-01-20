@@ -137,3 +137,52 @@ export const VIDEO_ENCODERS: EncoderOption[] = [
   { value: EncoderEnum.VP9, label: "VP9", description: "Google VP9" },
   { value: EncoderEnum.AV1, label: "AV1", description: "AOMedia Video 1" },
 ];
+
+export const IMAGE_ENCODERS: EncoderOption[] = [
+  {
+    value: EncoderEnum.JPEG,
+    label: "JPEG",
+    description: "JPEG Image",
+  },
+  {
+    value: EncoderEnum.PNG,
+    label: "PNG",
+    description: "PNG Image",
+  },
+  {
+    value: EncoderEnum.WEBP,
+    label: "WEBP",
+    description: "WEBP Image",
+  },
+  {
+    value: EncoderEnum.HEIC,
+    label: "HEIC",
+    description: "HEIC Image",
+  },
+  {
+    value: EncoderEnum.GIF,
+    label: "GIF",
+    description: "GIF Image",
+  },
+  {
+    value: EncoderEnum.TIFF,
+    label: "TIFF",
+    description: "TIFF Image",
+  },
+  {
+    value: EncoderEnum.BMP,
+    label: "BMP",
+    description: "BMP Image",
+  },
+  {
+    value: EncoderEnum.JPEG2000,
+    label: "JPEG 2000",
+    description: "JPEG 2000 Image",
+  },
+  {
+    value: EncoderEnum.AVIF,
+    label: "AVIF",
+    description: "AVIF Image",
+  },
+]
+

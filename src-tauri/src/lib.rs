@@ -10,6 +10,7 @@ pub mod ffmpeg_media_info;
 pub mod gif_converter;
 pub mod image_compressor;
 pub mod image_converter;
+pub mod media_common;
 pub mod thumbnail;
 pub mod video_compressor;
 pub mod video_converter;
