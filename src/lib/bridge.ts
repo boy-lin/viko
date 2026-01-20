@@ -445,8 +445,8 @@ class MediaTaskQueue {
           error instanceof Error
             ? error.message
             : typeof error === "string"
-            ? error
-            : "压缩任务执行失败";
+              ? error
+              : "压缩任务执行失败";
         updateTaskById(task.id, {
           status: "error",
           errorMessage,
@@ -573,8 +573,8 @@ class MediaTaskQueue {
             task.config && isAudioConfig(task.config)
               ? task.config.audioTracks[0]
               : task.config && isVideoConfig(task.config)
-              ? task.config.audioTracks?.[0]
-              : undefined;
+                ? task.config.audioTracks?.[0]
+                : undefined;
 
           const args: any = {
             task_id: task.id,
@@ -587,10 +587,11 @@ class MediaTaskQueue {
             audio_encoder: audioTrack?.encoder,
           };
           const sampleRate = audioTrack?.sampleRate;
-          if (sampleRate && sampleRate === "original") {
-            args.sample_rate = 0;
-          } else {
-            args.sample_rate = parseInt(sampleRate || "0");
+
+          if (sampleRate === "original") {
+            args.sample_rate = undefined
+          } else if (sampleRate) {
+            args.sample_rate = parseInt(sampleRate);
           }
 
           console.log("Queue invoking convert_audio_file:", args);
@@ -704,9 +705,9 @@ class MediaTaskQueue {
                 : undefined,
             video_bitrate:
               task.config &&
-              isVideoConfig(task.config) &&
-              task.config.video.bitrate &&
-              task.config.video.bitrate !== "auto"
+                isVideoConfig(task.config) &&
+                task.config.video.bitrate &&
+                task.config.video.bitrate !== "auto"
                 ? parseInt(task.config.video.bitrate.replace("k", ""))
                 : null,
             frame_rate:
@@ -719,8 +720,8 @@ class MediaTaskQueue {
               task.config && isVideoConfig(task.config)
                 ? task.config.audioTracks?.[0]?.encoder
                 : task.config && isAudioConfig(task.config)
-                ? task.config.audioTracks[0]?.encoder
-                : undefined,
+                  ? task.config.audioTracks[0]?.encoder
+                  : undefined,
           };
 
           console.log("Queue invoking convert_video_file:", args);
@@ -732,8 +733,8 @@ class MediaTaskQueue {
           error instanceof Error
             ? error.message
             : typeof error === "string"
-            ? error
-            : "转换任务执行失败";
+              ? error
+              : "转换任务执行失败";
         updateTaskById(task.id, {
           status: "error",
           errorMessage,

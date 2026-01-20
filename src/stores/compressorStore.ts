@@ -11,11 +11,12 @@ import {
 import { converterDB } from "../db/converterDB";
 import { extractFilenameFromPath } from "@/lib/utils";
 import {
-  IMAGE_FORMATS,
   isAudioFormat,
   isVideoFormat,
   SupportedFormats,
+  isImageFormat
 } from "@/data/formats";
+import { IMAGE_ENCODERS } from "@/data/encoders";
 import { bridge } from "@/lib/bridge";
 
 export const defaultVideoCompressionConfig: VideoCompressionConfig = {
@@ -159,7 +160,7 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
           const hasImage = details.streams.some(
             (s) =>
               s.codec_type === "image" ||
-              IMAGE_FORMATS.some((f) => f === s.codec_name)
+              IMAGE_ENCODERS.some((f) => f.value === s.codec_name)
           );
           console.log("compressionConfig", details);
 
@@ -172,7 +173,7 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
           } else if (isAudioFormat(details.extension) && hasAudio) {
             compressionConfig = defaultAudioCompressionConfig;
             fileType = "audio";
-          } else if (hasImage) {
+          } else if (isImageFormat(details.extension) && hasImage) {
             compressionConfig = defaultImageCompressionConfig;
             fileType = "image";
           } else {
