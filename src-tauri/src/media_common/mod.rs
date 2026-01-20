@@ -3,6 +3,10 @@ use ffmpeg::format::sample::Type as SampleType;
 use ffmpeg::util::channel_layout::ChannelLayout;
 use ffmpeg::util::format::Sample;
 
+pub mod fifo;
+
+pub use fifo::AudioFifo;
+
 pub fn ensure_ffmpeg_init() -> Result<(), String> {
     ffmpeg::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))
 }
