@@ -3,8 +3,6 @@ use ffmpeg::{format, frame};
 use ringbuf::{Consumer, HeapRb, Producer};
 use std::sync::Arc;
 
-// 重构计划已就绪 - 可随时按需实施
-// 如果您想继续进行重构工作(如统一FIFO实现、提取codec选择逻辑等),请告知具体要实施哪个部分。否则,当前的分析和基础设施已为未来的优化做好准备。
 /// Audio FIFO buffer for handling variable-sized resampled frames
 /// and producing fixed-size frames for encoders (e.g., MP3 requires 1152 samples per frame)
 pub struct AudioFifo {
@@ -37,15 +35,53 @@ impl AudioFifo {
 
     /// Push a resampled audio frame into the FIFO buffer
     pub fn push_frame(&mut self, frame: &frame::Audio) {
-        if frame.is_packed() {
-            let data: &[f32] = frame.plane(0);
-            self.producer.push_slice(data);
-        } else {
-            let channels = self.target_layout.channels() as usize;
-            for i in 0..frame.samples() {
-                for ch in 0..channels {
-                    let val: f32 = frame.plane::<f32>(ch)[i];
-                    let _ = self.producer.push(val);
+        let channels = self.target_layout.channels() as usize;
+        match (frame.format(), frame.is_packed()) {
+            (format::Sample::F32(_), true) => {
+                let data: &[f32] = frame.plane(0);
+                self.producer.push_slice(data);
+            }
+            (format::Sample::F32(_), false) => {
+                for i in 0..frame.samples() {
+                    for ch in 0..channels {
+                        let val: f32 = frame.plane::<f32>(ch)[i];
+                        let _ = self.producer.push(val);
+                    }
+                }
+            }
+            (format::Sample::I16(_), true) => {
+                let data: &[i16] = frame.plane(0);
+                for &s in data {
+                    let _ = self.producer.push(s as f32 / i16::MAX as f32);
+                }
+            }
+            (format::Sample::I16(_), false) => {
+                for i in 0..frame.samples() {
+                    for ch in 0..channels {
+                        let val: i16 = frame.plane::<i16>(ch)[i];
+                        let _ = self.producer.push(val as f32 / i16::MAX as f32);
+                    }
+                }
+            }
+            (format::Sample::I32(_), true) => {
+                let data: &[i32] = frame.plane(0);
+                for &s in data {
+                    let _ = self.producer.push(s as f32 / i32::MAX as f32);
+                }
+            }
+            (format::Sample::I32(_), false) => {
+                for i in 0..frame.samples() {
+                    for ch in 0..channels {
+                        let val: i32 = frame.plane::<i32>(ch)[i];
+                        let _ = self.producer.push(val as f32 / i32::MAX as f32);
+                    }
+                }
+            }
+            _ => {
+                // Fallback: treat as f32-packed bytes if unknown; prevents panic.
+                if frame.is_packed() {
+                    let data: &[f32] = frame.plane(0);
+                    self.producer.push_slice(data);
                 }
             }
         }
@@ -66,7 +102,7 @@ impl AudioFifo {
     /// Returns true if successful, false if not enough samples
     pub fn pop_into_frame(&mut self, frame: &mut frame::Audio, frame_samples: usize) -> bool {
         let total_samples = frame_samples * self.target_layout.channels() as usize;
-        
+
         if self.consumer.len() < total_samples {
             return false;
         }
@@ -79,16 +115,50 @@ impl AudioFifo {
     }
 
     /// Fill an audio frame with the provided data
-    fn fill_frame(&self, frame: &mut frame::Audio, data: &[f32], frame_samples: usize) {
-        if frame.is_packed() {
-            frame.plane_mut(0).copy_from_slice(data);
-        } else {
-            let channels = self.target_layout.channels() as usize;
-            for i in 0..frame_samples {
-                for ch in 0..channels {
-                    frame.plane_mut::<f32>(ch)[i] = data[i * channels + ch];
+    pub fn fill_frame(&self, frame: &mut frame::Audio, data: &[f32], frame_samples: usize) {
+        match (self.target_format, frame.is_packed()) {
+            (format::Sample::F32(_), true) => {
+                frame.plane_mut(0).copy_from_slice(data);
+            }
+            (format::Sample::F32(_), false) => {
+                let channels = self.target_layout.channels() as usize;
+                for i in 0..frame_samples {
+                    for ch in 0..channels {
+                        frame.plane_mut::<f32>(ch)[i] = data[i * channels + ch];
+                    }
                 }
             }
+            (format::Sample::I16(_), true) => {
+                let dest: &mut [i16] = frame.plane_mut(0);
+                for (d, s) in dest.iter_mut().zip(data.iter().copied()) {
+                    *d = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+                }
+            }
+            (format::Sample::I16(_), false) => {
+                let channels = self.target_layout.channels() as usize;
+                for i in 0..frame_samples {
+                    for ch in 0..channels {
+                        frame.plane_mut::<i16>(ch)[i] =
+                            (data[i * channels + ch].clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+                    }
+                }
+            }
+            (format::Sample::I32(_), true) => {
+                let dest: &mut [i32] = frame.plane_mut(0);
+                for (d, s) in dest.iter_mut().zip(data.iter().copied()) {
+                    *d = (s.clamp(-1.0, 1.0) * i32::MAX as f32) as i32;
+                }
+            }
+            (format::Sample::I32(_), false) => {
+                let channels = self.target_layout.channels() as usize;
+                for i in 0..frame_samples {
+                    for ch in 0..channels {
+                        frame.plane_mut::<i32>(ch)[i] =
+                            (data[i * channels + ch].clamp(-1.0, 1.0) * i32::MAX as f32) as i32;
+                    }
+                }
+            }
+            _ => {}
         }
     }
 

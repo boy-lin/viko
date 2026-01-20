@@ -2,6 +2,8 @@ use ffmpeg_next as ffmpeg;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+use crate::media_common;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaDetails {
     pub path: String,
@@ -29,10 +31,10 @@ pub struct StreamDetails {
 }
 
 pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
-    ffmpeg::init().map_err(|e| format!("FFmpeg initialization failed: {}", e))?;
+    media_common::init_ffmpeg()?;
 
     let path = Path::new(path_str);
-    let context = ffmpeg::format::input(&path).map_err(|e| format!("Input failed: {}", e))?;
+    let context = media_common::open_input(path_str)?;
 
     let duration = context.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
     let format_names = context.format().name().to_string();

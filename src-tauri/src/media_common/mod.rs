@@ -4,17 +4,24 @@ use ffmpeg::util::channel_layout::ChannelLayout;
 use ffmpeg::util::format::Sample;
 
 pub mod fifo;
+pub mod codec;
+pub mod resolution;
 
 pub use fifo::AudioFifo;
+pub use codec::*;
+pub use resolution::*;
+
+use image::RgbImage;
 
 pub fn ensure_ffmpeg_init() -> Result<(), String> {
-    ffmpeg::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))
+    ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {}", e))
 }
 
 pub fn get_audio_duration(input_path: &str) -> Result<f64, String> {
     ensure_ffmpeg_init()?;
 
-    let ictx = ffmpeg::format::input(input_path).map_err(|e| format!("打开文件失败: {}", e))?;
+    let ictx = ffmpeg::format::input(input_path)
+        .map_err(|e| format!("Failed to open file: {}", e))?;
 
     let duration = if let Some(audio_stream) = ictx.streams().best(ffmpeg::media::Type::Audio) {
         let time_base = audio_stream.time_base();
@@ -39,6 +46,74 @@ pub fn get_audio_duration(input_path: &str) -> Result<f64, String> {
     };
 
     Ok(duration)
+}
+
+/// Media duration helper for future audio/video callers.
+pub fn get_media_duration(input_path: &str) -> Result<f64, String> {
+    get_audio_duration(input_path)
+}
+
+/// Initialize FFmpeg once.
+pub fn init_ffmpeg() -> Result<(), String> {
+    ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {}", e))
+}
+
+/// Open input context with common error handling.
+pub fn open_input(path: &str) -> Result<ffmpeg::format::context::Input, String> {
+    ffmpeg::format::input(path).map_err(|e| format!("Failed to open input: {}", e))
+}
+
+/// Greatest common divisor.
+pub fn gcd(a: u32, b: u32) -> u32 {
+    let (mut x, mut y) = (a, b);
+    while y != 0 {
+        let tmp = y;
+        y = x % y;
+        x = tmp;
+    }
+    x
+}
+
+/// Calculate scaled dimensions preserving aspect ratio if one side missing.
+pub fn calculate_scaled_dimensions(
+    src_w: u32,
+    src_h: u32,
+    target_w: Option<u32>,
+    target_h: Option<u32>,
+) -> (u32, u32) {
+    match (target_w, target_h) {
+        (Some(w), Some(h)) => (w.max(1), h.max(1)),
+        (Some(w), None) => {
+            let h = ((w as f64 * src_h as f64 / src_w as f64).round() as u32).max(1);
+            (w.max(1), h)
+        }
+        (None, Some(h)) => {
+            let w = ((h as f64 * src_w as f64 / src_h as f64).round() as u32).max(1);
+            (w, h.max(1))
+        }
+        _ => (src_w, src_h),
+    }
+}
+
+/// Convert an FFmpeg video frame (RGB24) to image::RgbImage, respecting stride.
+pub fn frame_to_rgb_image(frame: &ffmpeg::frame::Video) -> Result<RgbImage, String> {
+    let width = frame.width();
+    let height = frame.height();
+    let data = frame.data(0);
+    let stride = frame.stride(0);
+    let row_bytes = (width as usize) * 3;
+
+    let mut buffer = Vec::with_capacity(row_bytes * height as usize);
+    if stride == row_bytes {
+        buffer.extend_from_slice(&data[..row_bytes * height as usize]);
+    } else {
+        for y in 0..height {
+            let offset = y as usize * stride;
+            buffer.extend_from_slice(&data[offset..offset + row_bytes]);
+        }
+    }
+
+    RgbImage::from_raw(width, height, buffer).ok_or_else(|| "Failed to create RgbImage".to_string())
 }
 
 pub fn preferred_sample_from_bit_depth(
@@ -121,9 +196,7 @@ pub fn pick_sample_rate(encoder_codec: &ffmpeg::Codec, requested: u32, fallback:
             if supported.iter().any(|r| *r == requested as i32) {
                 return requested;
             }
-            if let Some(best) =
-                supported.iter().min_by_key(|r| (requested as i32 - **r).abs())
-            {
+            if let Some(best) = supported.iter().min_by_key(|r| (requested as i32 - **r).abs()) {
                 return *best as u32;
             }
         }

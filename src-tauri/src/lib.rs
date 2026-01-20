@@ -13,6 +13,7 @@ pub mod image_converter;
 pub mod media_common;
 pub mod thumbnail;
 pub mod video_compressor;
+pub mod video_converter_audio;
 pub mod video_converter;
 pub mod video_player;
 

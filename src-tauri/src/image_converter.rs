@@ -2,6 +2,7 @@ use image::ImageFormat;
 use tauri::command;
 use ffmpeg_next as ffmpeg;
 use serde::Deserialize;
+use crate::media_common;
 
 #[derive(Deserialize)]
 pub struct ImageConversionParams {
@@ -21,9 +22,9 @@ pub async fn convert_image_file(args: ImageConversionParams) -> Result<String, S
 }
 
 fn convert_image_file_impl(args: ImageConversionParams) -> Result<String, String> {
-    ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {}", e))?;
+    media_common::init_ffmpeg()?;
 
-    let mut ictx = ffmpeg::format::input(&args.input_path).map_err(|e| format!("Input failed: {}", e))?;
+    let mut ictx = media_common::open_input(&args.input_path)?;
 
     // Find best video stream (covers video files and audio with cover art)
     let stream = ictx.streams().best(ffmpeg::media::Type::Video)
@@ -41,27 +42,12 @@ fn convert_image_file_impl(args: ImageConversionParams) -> Result<String, String
     // If only one provided, maintain aspect ratio? For now simple implementation:
     // If args provided, scale. specific scaler setup loop logic similar to thumbnail.
     
-    let (target_width, target_height) = match (args.width, args.height) {
-        (Some(w), Some(h)) => (w, h),
-        (Some(w), None) => {
-             // Calculate height maintaining aspect ratio
-             if decoder.width() > 0 {
-                 let h = (decoder.height() as f64 * w as f64 / decoder.width() as f64) as u32;
-                 (w, h)
-             } else {
-                 (w, w) // Fallback
-             }
-        },
-        (None, Some(h)) => {
-            if decoder.height() > 0 {
-                 let w = (decoder.width() as f64 * h as f64 / decoder.height() as f64) as u32;
-                 (w, h)
-            } else {
-                 (h, h)
-            }
-        },
-        (None, None) => (decoder.width(), decoder.height()),
-    };
+    let (target_width, target_height) = media_common::calculate_scaled_dimensions(
+        decoder.width(),
+        decoder.height(),
+        args.width,
+        args.height,
+    );
     
     // Setup Scaler
     // We always want to scale/convert to RGB24 for the image crate
@@ -86,20 +72,7 @@ fn convert_image_file_impl(args: ImageConversionParams) -> Result<String, String
                 scaler.run(&decoded, &mut rgb_frame).map_err(|e| format!("Scaling failed: {}", e))?;
 
                 // Convert to image crate buffer
-                let width = rgb_frame.width();
-                let height = rgb_frame.height();
-                let data = rgb_frame.data(0);
-                let stride = rgb_frame.stride(0);
-
-                let mut diff_buffer = Vec::with_capacity((width * height * 3) as usize);
-                for y in 0..height {
-                    let offset = (y as usize) * stride;
-                    let line = &data[offset..offset + (width as usize) * 3];
-                    diff_buffer.extend_from_slice(line);
-                }
-
-                let img_buffer = image::RgbImage::from_raw(width, height, diff_buffer)
-                    .ok_or("Failed to create image buffer")?;
+                let img_buffer = media_common::frame_to_rgb_image(&rgb_frame)?;
 
                 // Save to file
                 let save_format = match args.format.to_lowercase().as_str() {

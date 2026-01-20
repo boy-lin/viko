@@ -1353,6 +1353,7 @@ pub struct VideoCompressionArgs {
     pub remove_audio: Option<bool>,      // 去除音轨
     pub audio_bitrate: Option<u32>,      // 音频码率 kbps
     pub preset: Option<String>,          // ultrafast/fast/medium/slow
+    pub use_hardware_acceleration: Option<bool>, // 硬件编码
 }
 
 #[command]
@@ -1377,6 +1378,7 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
             remove_audio: args.remove_audio,
             audio_bitrate: args.audio_bitrate,
             preset: args.preset,
+            use_hardware_acceleration: args.use_hardware_acceleration,
         };
 
         if let Err(e) =

@@ -4,13 +4,15 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use ffmpeg_next as ffmpeg;
 use image::ImageFormat;
 
+use crate::media_common;
+
 /// Generate a base64 encoded thumbnail for the given media file.
 /// For video: extracts the first frame.
 /// For audio: extracts attached picture (cover art).
 pub fn generate_thumbnail(path: &str) -> Result<Option<String>, String> {
-    ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {}", e))?;
+    media_common::init_ffmpeg()?;
 
-    let mut ictx = ffmpeg::format::input(&path).map_err(|e| format!("Input failed: {}", e))?;
+    let mut ictx = media_common::open_input(path)?;
 
     // 1. Try to find a video stream (for video files or audio with cover art as video stream)
     if let Some(stream) = ictx.streams().best(ffmpeg::media::Type::Video) {
@@ -58,24 +60,8 @@ pub fn generate_thumbnail(path: &str) -> Result<Option<String>, String> {
                     }
 
                     // Encode to JPEG using image crate
-                    let width = rgb_frame.width();
-                    let height = rgb_frame.height();
-                    let data = rgb_frame.data(0);
-                    let stride = rgb_frame.stride(0);
-                    
-                    // Create image buffer
-                    // Note: ffmpeg frame data might have padding (stride > width * 3)
-                    // We need to copy line by line if stride != width * 3
-                    let mut diff_buffer = Vec::with_capacity((width * height * 3) as usize);
-                    for y in 0..height {
-                        let offset = (y as usize) * stride;
-                        let line = &data[offset..offset + (width as usize) * 3];
-                        diff_buffer.extend_from_slice(line);
-                    }
+                    let img_buffer = media_common::frame_to_rgb_image(&rgb_frame)?;
 
-                    let img_buffer = image::RgbImage::from_raw(width, height, diff_buffer)
-                        .ok_or("Failed to create image buffer")?;
-                    
                     let mut cursor = Cursor::new(Vec::new());
                     img_buffer.write_to(&mut cursor, ImageFormat::Jpeg)
                         .map_err(|e| format!("Image encode failed: {}", e))?;

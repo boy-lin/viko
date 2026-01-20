@@ -7,6 +7,7 @@ use ffmpeg::{
 use ffmpeg_next as ffmpeg;
 use serde::Deserialize;
 use ringbuf::{HeapRb, Producer, Consumer};
+use crate::media_common;
 
 /// 视频压缩参数（全部可选，使用默认值兜底）
 #[derive(Deserialize, Clone)]
@@ -25,53 +26,7 @@ pub struct VideoCompressionParams {
     pub remove_audio: Option<bool>,      // 去除音轨
     pub audio_bitrate: Option<u32>,      // 音频码率 kbps
     pub preset: Option<String>,          // ultrafast/fast/medium/slow
-}
-
-fn map_video_codec(name: &str) -> Option<&'static str> {
-    match name.to_lowercase().as_str() {
-        "h264" | "avc" => Some("libx264"),
-        "h265" | "hevc" => Some("libx265"),
-        "vp9" => Some("libvpx-vp9"),
-        "av1" => Some("libaom-av1"),
-        _ => None,
-    }
-}
-
-fn pick_pixel_format(color_depth: Option<u32>) -> format::Pixel {
-    match color_depth {
-        Some(10) => format::Pixel::YUV420P10LE,
-        Some(12) => format::Pixel::YUV420P12LE,
-        _ => format::Pixel::YUV420P,
-    }
-}
-
-fn parse_aspect_ratio_str(ar: Option<&str>) -> Option<Rational> {
-    ar.and_then(|s| {
-        let parts: Vec<&str> = s.split(':').collect();
-        if parts.len() == 2 {
-            if let (Ok(w), Ok(h)) = (parts[0].trim().parse::<i32>(), parts[1].trim().parse::<i32>()) {
-                if w > 0 && h > 0 {
-                    return Some(Rational(w, h));
-                }
-            }
-        }
-        None
-    })
-}
-
-fn scaled_dimensions(src_w: u32, src_h: u32, target_w: Option<u32>, target_h: Option<u32>) -> (u32, u32) {
-    match (target_w, target_h) {
-        (Some(w), Some(h)) => (w.max(1), h.max(1)),
-        (Some(w), None) => {
-            let h = ((w as f64 * src_h as f64 / src_w as f64).round() as u32).max(1);
-            (w.max(1), h)
-        }
-        (None, Some(h)) => {
-            let w = ((h as f64 * src_w as f64 / src_h as f64).round() as u32).max(1);
-            (w, h.max(1))
-        }
-        _ => (src_w, src_h),
-    }
+    pub use_hardware_acceleration: Option<bool>, // 是否启用硬件编码（如可用）
 }
 
 fn calc_video_bitrate(decoder_bitrate: i64, params: &VideoCompressionParams) -> usize {
@@ -125,11 +80,8 @@ impl VideoProcessor {
             .video()
             .map_err(|e| format!("无法创建视频解码器: {}", e))?;
 
-        let codec = params
-            .codec
-            .as_deref()
-            .and_then(map_video_codec)
-            .and_then(|name| encoder::find_by_name(name))
+        let use_hw = params.use_hardware_acceleration.unwrap_or(false);
+        let codec = media_common::select_video_encoder(params.codec.as_deref(), use_hw)
             .or_else(|| {
                 let cid = video_stream.parameters().id();
                 encoder::find(cid).or_else(|| encoder::find_by_name(cid.name()))
@@ -145,15 +97,15 @@ impl VideoProcessor {
             .video()
             .map_err(|e| format!("无法创建视频编码器: {}", e))?;
 
-        let (target_w, target_h) = scaled_dimensions(
+        let (target_w, target_h) = media_common::scale_dimensions(
             decoder.width(),
             decoder.height(),
             params.width,
             params.height,
         );
 
-        let target_pixel_format = pick_pixel_format(params.color_depth);
-        let aspect_ratio = parse_aspect_ratio_str(params.aspect_ratio.as_deref())
+        let target_pixel_format = media_common::pick_pixel_format(params.color_depth, use_hw);
+        let aspect_ratio = media_common::parse_aspect_ratio(params.aspect_ratio.as_deref())
             .unwrap_or_else(|| decoder.aspect_ratio());
 
         encoder.set_width(target_w);
@@ -662,3 +614,4 @@ pub fn compress_video_file(
 
     Ok(())
 }
+

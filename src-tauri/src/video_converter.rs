@@ -8,7 +8,9 @@ use ffmpeg::{
 use ffmpeg_next as ffmpeg;
 use serde::Deserialize;
 
+use crate::media_common;
 use crate::audio_converter::AudioEncodingParams;
+use crate::video_converter_audio::AudioTrackProcessor;
 
 /// 视频转换参数（全部可选，使用默认值兜底）
 #[derive(Debug, Clone)]
@@ -199,36 +201,12 @@ impl Transcoder {
             .map_err(|e| format!("无法创建视频解码器: {}", e))?;
 
         // 2. 选择编码器
-        let codec_name = if params.use_hardware_acceleration {
-            match params.video_encoder.as_str() {
-                "h264" => {
-                    if cfg!(target_os = "macos") {
-                        "h264_videotoolbox"
-                    } else {
-                        "libx264"
-                    }
-                }
-                "hevc" | "h265" => {
-                    if cfg!(target_os = "macos") {
-                        "hevc_videotoolbox"
-                    } else {
-                        "libx265"
-                    }
-                }
-                _ => "libx264",
-            }
-        } else {
-            match params.video_encoder.as_str() {
-                "h264" => "libx264",
-                "hevc" | "h265" => "libx265",
-                "vp9" => "libvpx-vp9",
-                _ => "libx264",
-            }
-        };
-
-        let codec = ffmpeg::encoder::find_by_name(codec_name)
-            .or_else(|| ffmpeg::encoder::find(codec::Id::H264))
-            .ok_or("未找到合适的视频编码器")?;
+        let codec = media_common::select_video_encoder(
+            Some(params.video_encoder.as_str()),
+            params.use_hardware_acceleration,
+        )
+        .or_else(|| ffmpeg::encoder::find(codec::Id::H264))
+        .ok_or("未找到合适的视频编码器")?;
 
         let mut ost = octx
             .add_stream(codec)
@@ -241,24 +219,15 @@ impl Transcoder {
 
         // 3. 配置编码器参数
         // 分辨率处理
-        let (width, height) = if let Some(res) = &params.resolution {
-            if res == "original" {
-                (decoder.width(), decoder.height())
-            } else {
-                parse_resolution(res).unwrap_or((decoder.width(), decoder.height()))
-            }
-        } else {
-            (decoder.width(), decoder.height())
-        };
+        let (width, height) =
+            media_common::resolve_resolution(decoder.width(), decoder.height(), params.resolution.as_deref());
 
         encoder.set_width(width);
         encoder.set_height(height);
-        encoder.set_format(if params.use_hardware_acceleration {
-            // VideoToolbox 通常需要 nv12 或 yuv420p
-            ffmpeg::format::Pixel::NV12
-        } else {
-            ffmpeg::format::Pixel::YUV420P
-        });
+        encoder.set_format(media_common::pick_pixel_format(
+            params.bit_depth,
+            params.use_hardware_acceleration,
+        ));
 
         encoder.set_time_base(ist.time_base());
 
@@ -427,6 +396,21 @@ pub fn convert_video(
     let mut octx =
         format::output(&resolved.output_path).map_err(|e| format!("无法打开输出文件: {}", e))?;
 
+    // 为音轨创建处理器（多轨转码）
+    let mut audio_processors: Vec<AudioTrackProcessor> = Vec::new();
+    let mut audio_map: HashMap<usize, Vec<usize>> = HashMap::new();
+    for track in &resolved.audio_tracks {
+        if let Some(ist) = ictx.stream(track.source_stream_index) {
+            let proc = AudioTrackProcessor::new(&ist, &mut octx, &track.encoding)?;
+            let idx = audio_processors.len();
+            audio_map
+                .entry(track.source_stream_index)
+                .or_default()
+                .push(idx);
+            audio_processors.push(proc);
+        }
+    }
+
     // 获取时长
     let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
 
@@ -446,7 +430,7 @@ pub fn convert_video(
 
     let mut stream_mapping: Vec<isize> = vec![0; ictx.nb_streams() as usize];
     let mut ist_time_bases = vec![Rational(0, 1); ictx.nb_streams() as usize];
-    let mut ost_time_bases = vec![Rational(0, 1); ictx.nb_streams() as usize];
+    let mut ost_time_bases: Vec<Rational> = Vec::new();
     let mut transcoders = HashMap::new();
     let mut ost_index = 0;
 
@@ -481,17 +465,8 @@ pub fn convert_video(
                 }
             }
         } else if ist_medium == media::Type::Audio {
-            let keep = selected_audio.is_empty() || selected_audio.contains(&ist_index);
-            if keep {
-                stream_mapping[ist_index] = ost_index as isize;
-                let mut ost = octx
-                    .add_stream(ffmpeg::encoder::find(codec::Id::None))
-                    .map_err(|e| format!("Audio add_stream failed: {}", e))?;
-                ost.set_parameters(ist.parameters());
-                unsafe {
-                    (*ost.parameters().as_mut_ptr()).codec_tag = 0;
-                }
-                ost_index += 1;
+            if audio_map.contains_key(&ist_index) {
+                stream_mapping[ist_index] = -2; // handled by processors
             } else {
                 stream_mapping[ist_index] = -1;
             }
@@ -517,9 +492,9 @@ pub fn convert_video(
     octx.write_header()
         .map_err(|e| format!("Write header failed: {}", e))?;
 
-    for (i, _) in octx.streams().enumerate() {
-        ost_time_bases[i] = octx.stream(i).unwrap().time_base();
-    }
+    ost_time_bases = (0..octx.nb_streams())
+        .map(|i| octx.stream(i as usize).unwrap().time_base())
+        .collect();
 
     // Process packets
     for (stream, mut packet) in ictx.packets() {
@@ -538,6 +513,15 @@ pub fn convert_video(
         if let Some(transcoder) = transcoders.get_mut(&ist_index) {
             transcoder.send_packet_to_decoder(&packet)?;
             transcoder.receive_and_process_decoded_frames(&mut octx, ost_time_base)?;
+        } else if let Some(indices) = audio_map.get(&ist_index) {
+            for (n, &proc_idx) in indices.iter().enumerate() {
+                let pkt_clone = if n == 0 { None } else { Some(packet.clone()) };
+                let pkt_ref = pkt_clone.as_ref().unwrap_or(&packet);
+                let proc = audio_processors
+                    .get_mut(proc_idx)
+                    .ok_or("音频处理器索引无效")?;
+                proc.process_packet(pkt_ref, ist_time_bases[ist_index], &mut octx)?;
+            }
         } else {
             // Stream copy
             packet.rescale_ts(ist_time_bases[ist_index], ost_time_base);
@@ -558,6 +542,10 @@ pub fn convert_video(
         transcoder.receive_and_process_decoded_frames(&mut octx, ost_time_base)?;
         transcoder.send_eof_to_encoder()?;
         transcoder.receive_and_process_encoded_packets(&mut octx, ost_time_base)?;
+    }
+
+    for proc in audio_processors.iter_mut() {
+        proc.finish(&mut octx)?;
     }
 
     // 如果没有视频流，生成黑屏视频帧
@@ -584,16 +572,6 @@ pub fn convert_video(
         .map_err(|e| format!("Write trailer failed: {}", e))?;
 
     Ok(())
-}
-
-fn parse_resolution(res: &str) -> Option<(u32, u32)> {
-    let parts: Vec<&str> = res.split('x').collect();
-    if parts.len() == 2 {
-        if let (Ok(w), Ok(h)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
-            return Some((w, h));
-        }
-    }
-    None
 }
 
 /// 创建黑屏视频编码器（用于音频转视频）
@@ -633,9 +611,12 @@ fn create_black_video_encoder(
         }
     };
 
-    let codec = ffmpeg::encoder::find_by_name(codec_name)
-        .or_else(|| ffmpeg::encoder::find(codec::Id::H264))
-        .ok_or("未找到合适的视频编码器")?;
+    let codec = media_common::select_video_encoder(
+        Some(params.video_encoder.as_str()),
+        params.use_hardware_acceleration,
+    )
+    .or_else(|| ffmpeg::encoder::find(codec::Id::H264))
+    .ok_or("未找到合适的视频编码器")?;
 
     let mut ost = octx
         .add_stream(codec)
@@ -647,23 +628,15 @@ fn create_black_video_encoder(
         .map_err(|e| format!("无法创建视频编码器: {}", e))?;
 
     // 分辨率处理（默认 1920x1080）
-    let (width, height) = if let Some(res) = &params.resolution {
-        if res == "original" {
-            (1920, 1080) // 默认分辨率
-        } else {
-            parse_resolution(res).unwrap_or((1920, 1080))
-        }
-    } else {
-        (1920, 1080)
-    };
+    let (width, height) =
+        media_common::resolve_resolution(1920, 1080, params.resolution.as_deref());
 
     encoder.set_width(width);
     encoder.set_height(height);
-    encoder.set_format(if params.use_hardware_acceleration {
-        ffmpeg::format::Pixel::NV12
-    } else {
-        ffmpeg::format::Pixel::YUV420P
-    });
+    encoder.set_format(media_common::pick_pixel_format(
+        params.bit_depth,
+        params.use_hardware_acceleration,
+    ));
 
     // 帧率（默认 30fps）
     let fps = if let Some(fps_str) = &params.frame_rate {
@@ -886,3 +859,4 @@ fn generate_black_video_frames(
 
     Ok(())
 }
+

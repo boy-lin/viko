@@ -1,5 +1,4 @@
-﻿use std::ffi::c_void;
-
+﻿
 use ffmpeg_next as ffmpeg;
 use ffmpeg::{codec, encoder, format, frame, media};
 use serde::Deserialize;
@@ -8,70 +7,7 @@ use std::time::Instant;
 use ffmpeg::util::channel_layout::ChannelLayout;
 use tauri::WebviewWindow;
 
-use crate::media_common;
-
-struct AudioFifo {
-    ptr: *mut ffmpeg::ffi::AVAudioFifo,
-}
-
-impl AudioFifo {
-    fn new(format: ffmpeg::format::Sample, channels: i32, capacity: i32) -> Result<Self, String> {
-        let capacity = capacity.max(1);
-        let ptr = unsafe { ffmpeg::ffi::av_audio_fifo_alloc(format.into(), channels, capacity) };
-        if ptr.is_null() {
-            return Err("创建音频 FIFO 失败".to_string());
-        }
-        Ok(Self { ptr })
-    }
-
-    fn size(&self) -> i32 {
-        unsafe { ffmpeg::ffi::av_audio_fifo_size(self.ptr) }
-    }
-
-    fn space(&self) -> i32 {
-        unsafe { ffmpeg::ffi::av_audio_fifo_space(self.ptr) }
-    }
-
-    fn ensure_capacity(&mut self, needed: i32) -> Result<(), String> {
-        if self.space() >= needed {
-            return Ok(());
-        }
-        let target = self.size().saturating_add(needed);
-        let ret = unsafe { ffmpeg::ffi::av_audio_fifo_realloc(self.ptr, target) };
-        if ret < 0 {
-            return Err("扩展音频 FIFO 失败".to_string());
-        }
-        Ok(())
-    }
-
-    fn write(&mut self, frame: &frame::Audio) -> Result<(), String> {
-        let samples = frame.samples() as i32;
-        self.ensure_capacity(samples)?;
-        let data = unsafe { (*frame.as_ptr()).data.as_ptr() as *mut *mut c_void };
-        let written = unsafe { ffmpeg::ffi::av_audio_fifo_write(self.ptr, data, samples) };
-        if written < samples {
-            return Err("写入音频 FIFO 失败".to_string());
-        }
-        Ok(())
-    }
-
-    fn read(&mut self, frame: &mut frame::Audio, samples: i32) -> Result<(), String> {
-        let data = unsafe { (*frame.as_mut_ptr()).data.as_mut_ptr() as *mut *mut c_void };
-        let read = unsafe { ffmpeg::ffi::av_audio_fifo_read(self.ptr, data, samples) };
-        if read < samples {
-            return Err("读取音频 FIFO 失败".to_string());
-        }
-        Ok(())
-    }
-}
-
-impl Drop for AudioFifo {
-    fn drop(&mut self) {
-        if !self.ptr.is_null() {
-            unsafe { ffmpeg::ffi::av_audio_fifo_free(self.ptr) };
-        }
-    }
-}
+use crate::media_common::{self, AudioFifo};
 
 /// 音频压缩参数（全部可选）
 #[derive(Deserialize)]
@@ -87,16 +23,6 @@ pub struct AudioCompressionParams {
     pub remove_silence: Option<bool>,    // 是否移除静音片段
     pub silence_threshold: Option<f32>,  // 静音阈值 dB（默认 -50.0）
     pub volume_gain: Option<f32>,        // 音量增益 dB（正增益，负衰减）
-}
-
-fn map_codec(name: &str) -> Option<&'static str> {
-    match name.to_lowercase().as_str() {
-        "aac" => Some("aac"),
-        "mp3" => Some("libmp3lame"),
-        "opus" => Some("libopus"),
-        "flac" => Some("flac"),
-        _ => None,
-    }
 }
 
 fn apply_volume_and_silence(
@@ -186,8 +112,9 @@ pub fn compress_audio_file(
     };
 
     // 选择编码器
-    let encoder_name = params.codec.as_deref().and_then(map_codec);
-    let codec_id = encoder_name
+    let codec_id = params
+        .codec
+        .as_deref()
         .and_then(|name| encoder::find_by_name(name))
         .or_else(|| encoder::find(audio_stream.parameters().id()))
         .ok_or("找不到合适的音频编码器")?;
@@ -230,13 +157,13 @@ pub fn compress_audio_file(
         .open_as(codec_id)
         .map_err(|e| format!("打开编码器失败: {}", e))?;
 
-    let encoder_frame_size = encoder.frame_size() as i32;
+    let encoder_frame_size = encoder.frame_size() as usize;
     let mut audio_fifo = if encoder_frame_size > 0 {
         Some(AudioFifo::new(
             target_format,
-            target_layout.channels() as i32,
-            encoder_frame_size,
-        )?)
+            target_layout,
+            target_rate as u32,
+        ))
     } else {
         None
     };
@@ -295,18 +222,16 @@ pub fn compress_audio_file(
             }
 
             if let Some(fifo) = audio_fifo.as_mut() {
-                fifo.write(&resampled)?;
-                while fifo.size() >= encoder_frame_size {
-                    let mut output_frame = frame::Audio::new(
-                        target_format,
-                        encoder_frame_size as usize,
-                        target_layout,
-                    );
+                fifo.push_frame(&resampled);
+                while fifo.has_samples(encoder_frame_size) {
+                    let mut output_frame =
+                        frame::Audio::new(target_format, encoder_frame_size, target_layout);
                     output_frame.set_rate(target_rate as u32);
-                    fifo.read(&mut output_frame, encoder_frame_size)?;
+                    if !fifo.pop_into_frame(&mut output_frame, encoder_frame_size) {
+                        break;
+                    }
                     output_frame.set_pts(Some(pts_counter));
                     pts_counter += encoder_frame_size as i64;
-
                     encoder
                         .send_frame(&output_frame)
                         .map_err(|e| format!("发送音频帧失败: {}", e))?;
@@ -356,14 +281,15 @@ pub fn compress_audio_file(
     }
 
     if let Some(fifo) = audio_fifo.as_mut() {
-        let remaining = fifo.size();
-        if remaining > 0 {
+        let remaining_samples = fifo.available_samples();
+        if remaining_samples > 0 {
             let mut output_frame =
-                frame::Audio::new(target_format, remaining as usize, target_layout);
+                frame::Audio::new(target_format, remaining_samples, target_layout);
             output_frame.set_rate(target_rate as u32);
-            fifo.read(&mut output_frame, remaining)?;
+            let data = fifo.drain_remaining();
+            fifo.fill_frame(&mut output_frame, &data, remaining_samples);
             output_frame.set_pts(Some(pts_counter));
-            pts_counter += remaining as i64;
+            pts_counter += remaining_samples as i64;
             encoder
                 .send_frame(&output_frame)
                 .map_err(|e| format!("发送音频帧失败: {}", e))?;
@@ -372,12 +298,11 @@ pub fn compress_audio_file(
                 encoded.rescale_ts(decoder.time_base(), ost_time_base);
                 encoded
                     .write_interleaved(&mut octx)
-                    .map_err(|e| format!("写入数据包失败: {}", e))?;
+                    .map_err(|e| format!("写入尾部数据包失败: {}", e))?;
             }
         }
     }
 
-    // 冲刷编码器
     encoder
         .send_eof()
         .map_err(|e| format!("发送 EOF 失败: {}", e))?;
@@ -406,3 +331,4 @@ pub fn compress_audio_file(
     let _elapsed = start_time.elapsed();
     Ok(())
 }
+

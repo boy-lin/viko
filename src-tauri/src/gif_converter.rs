@@ -3,6 +3,7 @@ use ffmpeg_next as ffmpeg;
 use serde::Deserialize;
 use std::time::Instant;
 use tauri::WebviewWindow;
+use crate::media_common;
 
 /// GIF 转换参数（全部可选）
 #[derive(Deserialize, Clone)]
@@ -24,53 +25,12 @@ pub struct GifConversionParams {
     pub denoise: Option<bool>,           // 降噪
 }
 
-fn gcd_u32(a: u32, b: u32) -> u32 {
-    let mut x = a;
-    let mut y = b;
-    while y != 0 {
-        let tmp = y;
-        y = x % y;
-        x = tmp;
-    }
-    x
-}
-
-fn scaled_dimensions(src_w: u32, src_h: u32, target_w: Option<u32>, target_h: Option<u32>) -> (u32, u32) {
-    match (target_w, target_h) {
-        (Some(w), Some(h)) => (w.max(1), h.max(1)),
-        (Some(w), None) => {
-            let h = ((w as f64 * src_h as f64 / src_w as f64).round() as u32).max(1);
-            (w.max(1), h)
-        }
-        (None, Some(h)) => {
-            let w = ((h as f64 * src_w as f64 / src_h as f64).round() as u32).max(1);
-            (w, h.max(1))
-        }
-        _ => {
-            let max_dim = 800u32;
-            let mut w = src_w;
-            let mut h = src_h;
-            if w > h && w > max_dim {
-                let scale = max_dim as f64 / w as f64;
-                w = max_dim;
-                h = (h as f64 * scale).round() as u32;
-            } else if h >= w && h > max_dim {
-                let scale = max_dim as f64 / h as f64;
-                h = max_dim;
-                w = (w as f64 * scale).round() as u32;
-            }
-            (w.max(1), h.max(1))
-        }
-    }
-}
-
-fn pick_pixel_format(color_mode: Option<&str>, preserve_alpha: bool) -> format::Pixel {
+fn pick_pixel_format(color_mode: Option<&str>) -> format::Pixel {
     let mode = color_mode.unwrap_or("rgb").to_lowercase();
     if mode == "grayscale" || mode == "gray" {
         format::Pixel::GRAY8
-    } else if preserve_alpha {
-        format::Pixel::RGBA
     } else {
+        // GIF 编码器支持 rgb8/bgr8，使用 rgb8 直接编码，透明度依赖调色板索引
         format::Pixel::RGB8
     }
 }
@@ -79,7 +39,7 @@ fn compute_fps(frame_delay: Option<u32>, frame_rate: Option<f32>) -> (f32, Ratio
     if let Some(delay_ms) = frame_delay {
         let delay = delay_ms.max(1);
         let fps = 1000.0 / delay as f32;
-        let g = gcd_u32(1000, delay);
+        let g = media_common::gcd(1000, delay);
         let num = 1000 / g;
         let den = delay / g;
         (fps, Rational(den as i32, num as i32), delay as i64)
@@ -105,10 +65,9 @@ pub fn convert_video_to_gif(
     params: GifConversionParams,
     task_id: String,
 ) -> Result<(), String> {
-    ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {}", e))?;
+    media_common::init_ffmpeg()?;
 
-    let mut ictx = format::input(&params.input_path)
-        .map_err(|e| format!("无法打开输入文件: {}", e))?;
+    let mut ictx = media_common::open_input(&params.input_path)?;
 
     let mut octx = format::output(&params.output_path)
         .map_err(|e| format!("无法打开输出文件: {}", e))?;
@@ -128,15 +87,14 @@ pub fn convert_video_to_gif(
         .video()
         .map_err(|e| format!("无法创建视频解码器: {}", e))?;
 
-    let (target_width, target_height) = scaled_dimensions(
+    let (target_width, target_height) = media_common::calculate_scaled_dimensions(
         decoder.width(),
         decoder.height(),
         params.width,
         params.height,
     );
 
-    let preserve_alpha = params.preserve_transparency.unwrap_or(true);
-    let pixel_format = pick_pixel_format(params.color_mode.as_deref(), preserve_alpha);
+    let pixel_format = pick_pixel_format(params.color_mode.as_deref());
 
     let mut scaler = software::scaling::context::Context::get(
         decoder.format(),
@@ -158,6 +116,8 @@ pub fn convert_video_to_gif(
         .add_stream(codec)
         .map_err(|e| format!("无法添加输出流: {}", e))?;
 
+    let (target_fps, time_base, pts_step) = compute_fps(params.frame_delay, params.frame_rate);
+
     let mut encoder = codec::context::Context::new_with_codec(codec)
         .encoder()
         .video()
@@ -166,19 +126,15 @@ pub fn convert_video_to_gif(
     encoder.set_width(target_width);
     encoder.set_height(target_height);
     encoder.set_format(pixel_format);
-
-    let (target_fps, time_base, pts_step) = compute_fps(params.frame_delay, params.frame_rate);
     encoder.set_frame_rate(Some((time_base.1, time_base.0))); // fps = denom / numer
     encoder.set_time_base(time_base);
 
-    let mut opts = ffmpeg::Dictionary::new();
     let quality = params.quality.unwrap_or(75).min(100);
     let color_count = params.colors.unwrap_or(256).clamp(2, 256);
-    let (dither, bayer_scale) = dither_from_quality(quality);
-    opts.set("colors", color_count.to_string().as_str());
-    opts.set("dither", dither);
-    opts.set("bayer_scale", bayer_scale);
+    let (_dither, _bayer_scale) = dither_from_quality(quality);
 
+    // 设置 loop
+    let mut opts = ffmpeg::Dictionary::new();
     if let Some(loop_count) = params.loop_count {
         if loop_count >= 0 {
             opts.set("loop", loop_count.to_string().as_str());
@@ -187,6 +143,7 @@ pub fn convert_video_to_gif(
         opts.set("loop", "0"); // 默认无限循环
     }
 
+    // 打开编码器
     let mut encoder = encoder
         .open_with(opts)
         .map_err(|e| format!("无法打开 GIF 编码器: {}", e))?;

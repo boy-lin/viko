@@ -1,77 +1,12 @@
-﻿use std::ffi::c_void;
-use std::path::Path;
+﻿use std::path::Path;
 use tauri::WebviewWindow;
 
 use ffmpeg::{codec, format, frame, packet, software};
 use ffmpeg::util::channel_layout::ChannelLayout;
-use ffmpeg::util::format::Sample;
 use ffmpeg_next as ffmpeg;
 use serde::Deserialize;
 
-use crate::media_common;
-
-struct AudioFifo {
-    ptr: *mut ffmpeg::ffi::AVAudioFifo,
-}
-
-impl AudioFifo {
-    fn new(format: Sample, channels: i32, capacity: i32) -> Result<Self, String> {
-        let capacity = capacity.max(1);
-        let ptr = unsafe { ffmpeg::ffi::av_audio_fifo_alloc(format.into(), channels, capacity) };
-        if ptr.is_null() {
-            return Err("创建音频 FIFO 失败".to_string());
-        }
-        Ok(Self { ptr })
-    }
-
-    fn size(&self) -> i32 {
-        unsafe { ffmpeg::ffi::av_audio_fifo_size(self.ptr) }
-    }
-
-    fn space(&self) -> i32 {
-        unsafe { ffmpeg::ffi::av_audio_fifo_space(self.ptr) }
-    }
-
-    fn ensure_capacity(&mut self, needed: i32) -> Result<(), String> {
-        if self.space() >= needed {
-            return Ok(());
-        }
-        let target = self.size().saturating_add(needed);
-        let ret = unsafe { ffmpeg::ffi::av_audio_fifo_realloc(self.ptr, target) };
-        if ret < 0 {
-            return Err("扩展音频 FIFO 失败".to_string());
-        }
-        Ok(())
-    }
-
-    fn write(&mut self, frame: &frame::Audio) -> Result<(), String> {
-        let samples = frame.samples() as i32;
-        self.ensure_capacity(samples)?;
-        let data = unsafe { (*frame.as_ptr()).data.as_ptr() as *mut *mut c_void };
-        let written = unsafe { ffmpeg::ffi::av_audio_fifo_write(self.ptr, data, samples) };
-        if written < samples {
-            return Err("写入音频 FIFO 失败".to_string());
-        }
-        Ok(())
-    }
-
-    fn read(&mut self, frame: &mut frame::Audio, samples: i32) -> Result<(), String> {
-        let data = unsafe { (*frame.as_mut_ptr()).data.as_mut_ptr() as *mut *mut c_void };
-        let read = unsafe { ffmpeg::ffi::av_audio_fifo_read(self.ptr, data, samples) };
-        if read < samples {
-            return Err("读取音频 FIFO 失败".to_string());
-        }
-        Ok(())
-    }
-}
-
-impl Drop for AudioFifo {
-    fn drop(&mut self) {
-        if !self.ptr.is_null() {
-            unsafe { ffmpeg::ffi::av_audio_fifo_free(self.ptr) };
-        }
-    }
-}
+use crate::media_common::{self, AudioFifo};
 
 /// 音频编码参数（可复用于视频多轨配置）
 #[derive(Debug, Clone, Deserialize)]
@@ -308,13 +243,13 @@ pub fn convert_audio(
     let target_layout = target_channel_layout;
     let target_format = target_sample_format;
     let target_rate = target_sample_rate;
-    let encoder_frame_size = encoder.frame_size() as i32;
+    let encoder_frame_size = encoder.frame_size() as usize;
     let mut audio_fifo = if encoder_frame_size > 0 {
         Some(AudioFifo::new(
             target_format,
-            target_layout.channels() as i32,
-            encoder_frame_size,
-        )?)
+            target_layout,
+            target_rate,
+        ))
     } else {
         None
     };
@@ -351,12 +286,14 @@ pub fn convert_audio(
             resampler.run(&decoded, &mut resampled).map_err(|e| format!("重采样失败: {}", e))?;
 
             if let Some(fifo) = audio_fifo.as_mut() {
-                fifo.write(&resampled)?;
-                while fifo.size() >= encoder_frame_size {
+                fifo.push_frame(&resampled);
+                while fifo.has_samples(encoder_frame_size) {
                     let mut output_frame =
-                        frame::Audio::new(target_format, encoder_frame_size as usize, target_layout);
+                        frame::Audio::new(target_format, encoder_frame_size, target_layout);
                     output_frame.set_rate(target_rate);
-                    fifo.read(&mut output_frame, encoder_frame_size)?;
+                    if !fifo.pop_into_frame(&mut output_frame, encoder_frame_size) {
+                        break;
+                    }
                     output_frame.set_pts(Some(pts_counter));
                     pts_counter = pts_counter.saturating_add(encoder_frame_size as i64);
 
@@ -423,12 +360,14 @@ pub fn convert_audio(
         resampled.set_rate(target_rate);
         resampler.run(&decoded, &mut resampled).map_err(|e| format!("重采样失败: {}", e))?;
         if let Some(fifo) = audio_fifo.as_mut() {
-            fifo.write(&resampled)?;
-            while fifo.size() >= encoder_frame_size {
+            fifo.push_frame(&resampled);
+            while fifo.has_samples(encoder_frame_size) {
                 let mut output_frame =
-                    frame::Audio::new(target_format, encoder_frame_size as usize, target_layout);
+                    frame::Audio::new(target_format, encoder_frame_size, target_layout);
                 output_frame.set_rate(target_rate);
-                fifo.read(&mut output_frame, encoder_frame_size)?;
+                if !fifo.pop_into_frame(&mut output_frame, encoder_frame_size) {
+                    break;
+                }
                 output_frame.set_pts(Some(pts_counter));
                 pts_counter = pts_counter.saturating_add(encoder_frame_size as i64);
                 send_frame_and_drain(
@@ -459,14 +398,15 @@ pub fn convert_audio(
     }
 
     if let Some(fifo) = audio_fifo.as_mut() {
-        let remaining = fifo.size();
-        if remaining > 0 {
+        let remaining_samples = fifo.available_samples();
+        if remaining_samples > 0 {
             let mut output_frame =
-                frame::Audio::new(target_format, remaining as usize, target_layout);
+                frame::Audio::new(target_format, remaining_samples, target_layout);
             output_frame.set_rate(target_rate);
-            fifo.read(&mut output_frame, remaining)?;
+            let data = fifo.drain_remaining();
+            fifo.fill_frame(&mut output_frame, &data, remaining_samples);
             output_frame.set_pts(Some(pts_counter));
-            pts_counter = pts_counter.saturating_add(remaining as i64);
+            pts_counter = pts_counter.saturating_add(remaining_samples as i64);
             send_frame_and_drain(
                 &mut encoder,
                 &output_frame,
@@ -536,3 +476,4 @@ pub fn generate_output_path(input_path: &str, format: &str) -> Result<String, St
     let output_path = parent.join(format!("{}.{}", stem, extension));
     Ok(output_path.to_string_lossy().to_string())
 }
+
