@@ -85,8 +85,9 @@ struct ResolvedVideoParams {
 fn resolve_audio_tracks(
     params: &VideoConversionParams,
     input_audio_indices: &[usize],
+    output_format: &str,
 ) -> Vec<ResolvedAudioTrack> {
-    let default_encoding = params
+    let mut default_encoding = params
         .default_audio_params
         .clone()
         .unwrap_or(AudioEncodingParams {
@@ -97,6 +98,22 @@ fn resolve_audio_tracks(
             bit_depth: None,
             quality: None,
         });
+
+    // 兼容旧字段 audio_encoder 优先级最高
+    if let Some(enc) = &params.audio_encoder {
+        default_encoding.codec = Some(enc.clone());
+    }
+
+    // 如果未指定音频编码器，针对容器给出默认值（mp4/mov 默认 aac，webm 默认 libopus）
+    if default_encoding.codec.is_none() {
+        match output_format {
+            "mp4" | "m4v" | "m4a" | "mov" | "3gp" | "3g2" => {
+                default_encoding.codec = Some("aac".to_string())
+            }
+            "webm" => default_encoding.codec = Some("libopus".to_string()),
+            _ => {}
+        }
+    }
 
     if let Some(configs) = &params.audio_tracks {
         let mut resolved = Vec::new();
@@ -139,7 +156,7 @@ fn resolve_video_params(params: VideoConversionParams, input_audio_indices: &[us
         .clone()
         .unwrap_or_else(|| "h264".to_string());
 
-    let audio_tracks = resolve_audio_tracks(&params, input_audio_indices);
+    let audio_tracks = resolve_audio_tracks(&params, input_audio_indices, fmt.as_str());
 
     ResolvedVideoParams {
         input_path: params.input_path,

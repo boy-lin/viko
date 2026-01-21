@@ -196,9 +196,17 @@ impl AudioTrackProcessor {
                 .map_err(|e| format!("重采样失败: {}", e))?;
 
             if self.fifo.is_some() {
+                {
+                    // 先推入 FIFO，避免后续 pop 时出现空数据
+                    let fifo = self.fifo.as_mut().unwrap();
+                    fifo.push_frame(&resampled);
+                }
                 loop {
-                    let mut output_frame =
-                        frame::Audio::new(self.target_format, self.frame_size, self.target_layout);
+                    let mut output_frame = frame::Audio::new(
+                        self.target_format,
+                        self.frame_size,
+                        self.target_layout,
+                    );
                     output_frame.set_rate(self.target_rate);
                     let popped = {
                         let fifo = self.fifo.as_mut().unwrap();
