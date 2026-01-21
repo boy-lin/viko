@@ -23,15 +23,10 @@ export const AudioEncoderSelect: React.FC<AudioEncoderSelectProps> = ({
 }) => {
   const filteredEncoders = React.useMemo(() => {
     if (!format) return AUDIO_ENCODERS;
-    console.log("format", format);
     return AUDIO_ENCODERS.filter((encoder) => {
-      // Always show generic options
-      if (["auto", "copy"].includes(encoder.value)) return true;
-      // If formats defined, check inclusion
       if (encoder.formats) {
         return encoder.formats.includes(format.toLowerCase());
       }
-      // If no formats constraint defined on encoder, assume safe or generic
       return true;
     });
   }, [format]);

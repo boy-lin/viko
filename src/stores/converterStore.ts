@@ -14,11 +14,6 @@ import { isAudioFormat, isVideoFormat, SupportedFormats, isImageFormat } from "@
 import { FormatEnum } from "../types/options";
 import { bridge } from "@/lib/bridge";
 import { IMAGE_ENCODERS } from "@/data/encoders";
-import {
-  defaultAudioCompressionConfig,
-  defaultImageCompressionConfig,
-  defaultVideoCompressionConfig,
-} from "./compressorStore";
 
 export const defaultVideoConfig: VideoConversionConfig = {
   type: "video",
@@ -34,9 +29,9 @@ export const defaultVideoConfig: VideoConversionConfig = {
     {
       trackIndex: 0,
       encoder: "aac",
-      channels: "original",
-      sampleRate: "original",
-      bitrate: "128",
+      channels: "auto",
+      sampleRate: "auto",
+      bitrate: "auto",
     },
   ],
 };
@@ -247,8 +242,8 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
               outputTitle: task.title,
               video: {
                 encoder: "h264",
-                resolution: "original",
-                frameRate: "original",
+                resolution: "auto",
+                frameRate: "auto",
                 bitrate: "auto",
               },
               audioTracks: task.streams
@@ -256,9 +251,8 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
                 .map((stream) => ({
                   trackIndex: stream.index,
                   encoder: stream.codec_name,
-                  channels: "original",
-                  sampleRate: "original",
-                  bitrate: "128",
+                  channels: "auto",
+                  sampleRate: "auto",
                 })),
             } as VideoConversionConfig;
           } else if (task.streams.some((s) => s.codec_type === "audio")) {
@@ -272,9 +266,8 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
                 .map((stream) => ({
                   trackIndex: stream.index,
                   encoder: stream.codec_name,
-                  channels: "original",
-                  sampleRate: "original",
-                  bitrate: "128",
+                  channels: "auto",
+                  sampleRate: "auto",
                 })),
             } as AudioConversionConfig;
           } else if (task.streams.some((s) => s.codec_type === "image")) {

@@ -79,6 +79,14 @@ pub fn convert_video_to_gif(
         .best(media::Type::Video)
         .ok_or("未找到视频流")?;
     let stream_index = video_stream.index();
+    let source_fps = {
+        let avg = video_stream.avg_frame_rate();
+        if avg.numerator() > 0 && avg.denominator() > 0 {
+            avg.numerator() as f64 / avg.denominator() as f64
+        } else {
+            0.0
+        }
+    };
 
     let decoder_ctx = codec::context::Context::from_parameters(video_stream.parameters())
         .map_err(|e| format!("无法创建解码器上下文: {}", e))?;
@@ -164,14 +172,15 @@ pub fn convert_video_to_gif(
 
     let start_time = Instant::now();
     let mut frame_count = 0;
+    let mut decoded_index: i64 = 0;
     let mut last_progress_emitted = 0.0;
     let mut next_pts: i64 = 0;
-    let mut last_emit_ts: f64 = -1.0;
-    let target_interval: f64 = if let Some(delay_ms) = params.frame_delay {
-        delay_ms as f64 / 1000.0
+    let frame_step = if source_fps > 0.0 && target_fps > 0.0 {
+        (source_fps / target_fps as f64).max(1.0)
     } else {
-        1.0f64 / target_fps.max(0.0001) as f64
+        1.0
     };
+    let mut next_emit_index: f64 = 0.0;
 
     for (stream, packet) in ictx.packets() {
         if stream.index() == stream_index {
@@ -181,13 +190,13 @@ pub fn convert_video_to_gif(
 
             let mut decoded = frame::Video::empty();
             while decoder.receive_frame(&mut decoded).is_ok() {
-                let current_ts = decoded.pts().unwrap_or(0) as f64
-                    * decoder.time_base().0 as f64
-                    / decoder.time_base().1 as f64;
-                if last_emit_ts >= 0.0 && current_ts + 1e-9 < last_emit_ts + target_interval {
-                    continue; // 降帧
+                let current_index = decoded_index as f64;
+                let should_emit = current_index + 1e-9 >= next_emit_index;
+                if !should_emit {
+                    decoded_index += 1;
+                    continue; // 按源帧率降帧
                 }
-                last_emit_ts = current_ts;
+                next_emit_index += frame_step;
 
                 let mut converted = frame::Video::empty();
                 scaler
@@ -229,12 +238,18 @@ pub fn convert_video_to_gif(
                 }
 
                 frame_count += 1;
+                decoded_index += 1;
 
                 if frame_count % 10 == 0 || start_time.elapsed().as_secs_f64() >= 1.0 {
                     let progress = if duration > 0.0 {
-                        let current_time = decoded.pts().unwrap_or(0) as f64
-                            * decoder.time_base().0 as f64
-                            / decoder.time_base().1 as f64;
+                        let current_time = if let Some(pts) = decoded.pts() {
+                            pts as f64 * decoder.time_base().0 as f64
+                                / decoder.time_base().1 as f64
+                        } else if source_fps > 0.0 {
+                            decoded_index as f64 / source_fps
+                        } else {
+                            0.0
+                        };
                         ((current_time / duration) * 100.0).min(100.0)
                     } else {
                         0.0

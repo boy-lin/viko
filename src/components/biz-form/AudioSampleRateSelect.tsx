@@ -9,16 +9,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AUDIO_SAMPLE_RATES } from "@/data/audio_options";
+import type { SelectOption } from "@/types/options";
 
 interface AudioSampleRateSelectProps {
   value: string;
   onValueChange: (value: string) => void;
+  options?: SelectOption[];
 }
 
 export const AudioSampleRateSelect: React.FC<AudioSampleRateSelectProps> = ({
   value,
   onValueChange,
+  options,
 }) => {
+  const rateOptions = options ?? AUDIO_SAMPLE_RATES;
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -30,7 +35,7 @@ export const AudioSampleRateSelect: React.FC<AudioSampleRateSelectProps> = ({
           <SelectValue placeholder="Select sample rate" />
         </SelectTrigger>
         <SelectContent>
-          {AUDIO_SAMPLE_RATES.map((option) => (
+          {rateOptions.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.label}
             </SelectItem>

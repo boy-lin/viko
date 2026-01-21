@@ -9,16 +9,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AUDIO_BITRATES } from "@/data/audio_options";
+import type { SelectOption } from "@/types/options";
 
 interface AudioBitrateSelectProps {
   value: string;
   onValueChange: (value: string) => void;
+  options?: SelectOption[];
 }
 
 export const AudioBitrateSelect: React.FC<AudioBitrateSelectProps> = ({
   value,
   onValueChange,
+  options,
 }) => {
+  const bitrateOptions = options ?? AUDIO_BITRATES;
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -30,7 +35,7 @@ export const AudioBitrateSelect: React.FC<AudioBitrateSelectProps> = ({
           <SelectValue placeholder="Select bitrate" />
         </SelectTrigger>
         <SelectContent>
-          {AUDIO_BITRATES.map((rate) => (
+          {bitrateOptions.map((rate) => (
             <SelectItem key={rate.value} value={rate.value}>
               {rate.label}
             </SelectItem>

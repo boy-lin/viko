@@ -20,6 +20,7 @@ import { FORMAT_DATA, FORMAT_CATEGORIES } from "@/data/formats";
 import { FormatOption } from "@/types/options";
 import { useConverterStore } from "@/stores/converterStore";
 import { AUDIO_ENCODERS } from "@/data/encoders";
+import { getAudioEncoderOptions } from "@/data/encoder_options";
 
 export interface FormatSelectorValue {
   outputFormat: string;
@@ -29,6 +30,8 @@ export interface FormatSelectorValue {
   // Audio fields
   audioEncoder?: string;
   audioBitrate?: string;
+  audioSampleRate?: string;
+  audioChannels?: string;
   // Image fields
   quality?: string;
 }
@@ -90,23 +93,23 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
   const videoParams =
     formatType === "video"
       ? {
-          encoder: props.encoder,
-          resolution: props.resolution,
-        }
+        encoder: props.encoder,
+        resolution: props.resolution,
+      }
       : null;
   const audioParams =
     formatType === "audio"
       ? {
-          audioEncoder: props.audioEncoder,
-          audioBitrate: props.audioBitrate,
-        }
+        audioEncoder: props.audioEncoder,
+        audioBitrate: props.audioBitrate,
+      }
       : null;
   const imageParams =
     formatType === "image"
       ? {
-          quality: props.quality,
-          resolution: props.resolution,
-        }
+        quality: props.quality,
+        resolution: props.resolution,
+      }
       : null;
 
   // Find the selected format based on props
@@ -231,10 +234,10 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
 
     // Calculate updates
     const preset = FORMAT_DATA.find((f) => f.id === formatId);
-    if (!preset) return;
+    if (!preset || !preset.extension) return;
 
     const updates: FormatSelectorValue = {
-      outputFormat: preset.extension || "mp4",
+      outputFormat: preset.extension,
     };
 
     // 根据 formatType 设置对应的字段
@@ -243,23 +246,37 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       if (
         preset.category.includes("video") &&
         preset.quality &&
-        preset.quality !== "original"
+        preset.quality !== "auto"
       ) {
         updates.resolution = preset.quality;
       }
       // Video Encoder 可以从 preset 推断，但通常由用户在其他地方设置
       // 这里不设置 videoEncoder，保持现有值
     } else if (formatType === "audio") {
-      // Audio Bitrate (e.g., 320k)
-      const bitrateMatch = preset.quality?.match(/(\d+)k/);
-      if (bitrateMatch) {
-        updates.audioBitrate = bitrateMatch[1];
+      if (preset.quality) {
+        updates.audioBitrate = preset.quality;
+      } else {
+        updates.audioBitrate = "auto";
       }
 
       const encoder = AUDIO_ENCODERS.find((encoder) =>
         encoder.formats?.includes(updates.outputFormat.toLowerCase())
       );
-      if (encoder) updates.audioEncoder = encoder.value;
+      console.log("encoder", encoder);
+
+      if (encoder) {
+        updates.audioEncoder = encoder.value;
+        const options = getAudioEncoderOptions(encoder.value);
+        if (options.sampleRates.length) {
+          updates.audioSampleRate = options.sampleRates[0].value;
+        }
+        if (options.channels.length) {
+          updates.audioChannels = options.channels[0].value;
+        }
+        if (options.bitrates.length) {
+          updates.audioBitrate = options.bitrates[0].value;
+        }
+      }
     } else if (formatType === "image") {
       // Image Quality
       if (preset.quality) {
@@ -298,10 +315,10 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
             <span className="flex items-center gap-2 truncate">
               {/* Can add icon here based on category */}
               <span className="font-semibold">
-                {selectedFormat.label.split("-")[0]}
+                {selectedFormat.extension?.toUpperCase()}
               </span>
               <span className="text-muted-foreground text-xs">
-                {selectedFormat.quality}
+                {selectedFormat.label}
               </span>
             </span>
           ) : (
@@ -493,7 +510,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                                   className={cn(
                                     "w-3 h-3",
                                     formatFavorites.includes(item.id) &&
-                                      "fill-current"
+                                    "fill-current"
                                   )}
                                 />
                               </Button>
@@ -523,7 +540,7 @@ const CategoryItem = ({ label, icon: Icon, active, onClick }: any) => (
     className={cn(
       "w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50 text-muted-foreground rounded-r-full mr-2",
       active &&
-        "bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-300"
+      "bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-300"
     )}
   >
     <div className="flex items-center gap-2">

@@ -55,13 +55,23 @@ impl AudioTrackProcessor {
             .map_err(|e| format!("无法添加音频输出流: {}", e))?;
 
         let desired_sample_rate = params.sample_rate.unwrap_or(input_sample_rate);
+        let is_amr = params
+            .codec
+            .as_deref()
+            .map(|c| c.contains("amr"))
+            .unwrap_or(false);
+        let desired_sample_rate = if is_amr { 8000 } else { desired_sample_rate };
         let target_rate =
             media_common::pick_sample_rate(&codec, desired_sample_rate, input_sample_rate);
 
-        let desired_layout = params
-            .channels
-            .and_then(media_common::channel_layout_from_count)
-            .unwrap_or(input_layout);
+        let desired_layout = if is_amr {
+            ffmpeg::ChannelLayout::MONO
+        } else {
+            params
+                .channels
+                .and_then(media_common::channel_layout_from_count)
+                .unwrap_or(input_layout)
+        };
         let target_layout =
             media_common::pick_channel_layout(&codec, Some(desired_layout), input_layout);
 
@@ -80,7 +90,8 @@ impl AudioTrackProcessor {
             .map_err(|e| format!("创建音频编码器失败: {}", e))?;
 
         if let Some(br) = params.bitrate {
-            enc.set_bit_rate((br.max(32) * 1000) as usize);
+            let kbps = br.max(1.0);
+            enc.set_bit_rate((kbps * 1000.0).round() as usize);
         } else if decoder.bit_rate() > 0 {
             enc.set_bit_rate(decoder.bit_rate() as usize);
         } else {
@@ -101,11 +112,31 @@ impl AudioTrackProcessor {
             .open_with(opts)
             .map_err(|e| format!("打开音频编码器失败: {}", e))?;
 
+        let encoder_format = encoder.format();
+        let encoder_layout = encoder.channel_layout();
+        let encoder_rate = encoder.rate() as u32;
+
         ost.set_parameters(&encoder);
         let encoder_time_base = encoder.time_base();
         let ost_time_base = encoder_time_base;
         ost.set_time_base(encoder_time_base);
         let ost_index = ost.index();
+
+        let target_layout = if encoder_layout.is_empty() {
+            target_layout
+        } else {
+            encoder_layout
+        };
+        let target_format = if encoder_format == target_format {
+            target_format
+        } else {
+            encoder_format
+        };
+        let target_rate = if encoder_rate == 0 {
+            target_rate
+        } else {
+            encoder_rate
+        };
 
         let resampler = software::resampling::Context::get(
             decoder.format(),

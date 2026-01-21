@@ -9,10 +9,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { COLOR_SPACES } from "@/data/video_options";
+import type { ColorSpaceOption } from "@/types/options";
 
 interface ColorSpaceSelectProps {
   value?: string;
   onValueChange?: (value: string) => void;
+  options?: ColorSpaceOption[];
 }
 
 /**
@@ -24,7 +26,10 @@ interface ColorSpaceSelectProps {
 export const ColorSpaceSelect: React.FC<ColorSpaceSelectProps> = ({
   value = "auto",
   onValueChange,
+  options,
 }) => {
+  const colorSpaceOptions = options ?? COLOR_SPACES;
+
   return (
     <div className="space-y-2 w-1/2 pr-4">
       <div className="flex items-center justify-between">
@@ -36,7 +41,7 @@ export const ColorSpaceSelect: React.FC<ColorSpaceSelectProps> = ({
           <SelectValue placeholder="Select color space" />
         </SelectTrigger>
         <SelectContent>
-          {COLOR_SPACES.map((option) => (
+          {colorSpaceOptions.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.label}
             </SelectItem>

@@ -12,6 +12,9 @@ export interface SelectOption {
  */
 export interface EncoderOption extends SelectOption {
   formats?: string[]; // 支持的容器格式
+  sampleRateOptions?: SelectOption[]; // 支持的采样率
+  channelsOptions?: SelectOption[]; // 支持的声道数
+  bitrateOptions?: SelectOption[]; // 支持的码率
 }
 
 /**
@@ -106,7 +109,10 @@ export enum EncoderEnum {
   EAC3 = "eac3",
   PCM_S16LE = "pcm_s16le",
   PCM_S24LE = "pcm_s24le",
-
+  MP2 = "libmp2lame",
+  AMR_NB = "libopencore_amrnb",
+  APE = "ape",
+  // AMR_WB = "libopencore_amrwb",
   // Video
   H264 = "libx264",
   H265 = "libx265",
@@ -127,4 +133,3 @@ export enum EncoderEnum {
   JPEG2000 = "jpeg2000",
   AVIF = "av1",
 }
-

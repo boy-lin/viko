@@ -8,16 +8,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { SelectOption } from "@/types/options";
 
 interface VideoResolutionSelectProps {
   value: string;
   onValueChange: (value: string) => void;
+  options?: SelectOption[];
 }
 
 export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
   value,
   onValueChange,
+  options,
 }) => {
+  const resolutionOptions = options ?? [
+    { value: "auto", label: "auto" },
+    { value: "7680x4320", label: "7680x4320" },
+    { value: "3840x2160", label: "3840x2160" },
+    { value: "1920x1080", label: "1920x1080" },
+    { value: "1280x720", label: "1280x720" },
+    { value: "720x576", label: "720x576" },
+  ];
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -29,12 +41,11 @@ export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
           <SelectValue placeholder="Select resolution" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="original">Original</SelectItem>
-          <SelectItem value="7680x4320">7680x4320</SelectItem>
-          <SelectItem value="3840x2160">3840x2160</SelectItem>
-          <SelectItem value="1920x1080">1920x1080</SelectItem>
-          <SelectItem value="1280x720">1280x720</SelectItem>
-          <SelectItem value="720x576">720x576</SelectItem>
+          {resolutionOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>

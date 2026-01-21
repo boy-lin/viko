@@ -7,6 +7,7 @@ import { VideoResolutionSelect } from "@/components/biz-form/VideoResolutionSele
 import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect";
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
+import { getVideoEncoderOptions } from "@/data/encoder_options";
 
 interface VideoSettingsSectionProps {
   video: VideoTrackConfig;
@@ -19,6 +20,8 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
   onVideoChange,
   onReset,
 }) => {
+  const encoderOptions = getVideoEncoderOptions(video.encoder);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -39,22 +42,26 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
         <VideoResolutionSelect
           value={video.resolution}
           onValueChange={(v) => onVideoChange({ ...video, resolution: v })}
+          options={encoderOptions.resolutions}
         />
 
         <VideoFrameRateSelect
           value={video.frameRate}
           onValueChange={(v) => onVideoChange({ ...video, frameRate: v })}
+          options={encoderOptions.frameRates}
         />
 
         <VideoBitrateSelect
           value={video.bitrate}
           onValueChange={(v) => onVideoChange({ ...video, bitrate: v })}
+          options={encoderOptions.bitrates}
         />
       </div>
 
       <ColorSpaceSelect
         value="auto"
         onValueChange={() => {}}
+        options={encoderOptions.colorSpaces}
       />
 
       <div className="w-full h-px bg-border"></div>

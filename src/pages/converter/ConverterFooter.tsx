@@ -49,11 +49,11 @@ export const ConverterFooter: React.FC = () => {
       const existingVideo = isVideoConfig(globalConfig)
         ? globalConfig.video
         : {
-            encoder: "h264",
-            resolution: "1920x1080",
-            frameRate: "30",
-            bitrate: "1000",
-          };
+          encoder: "h264",
+          resolution: "1920x1080",
+          frameRate: "30",
+          bitrate: "1000",
+        };
 
       newConfig = {
         type: "video",
@@ -67,8 +67,8 @@ export const ConverterFooter: React.FC = () => {
         // 保留现有的 audioTracks（如果有）
         audioTracks:
           isVideoConfig(globalConfig) &&
-          globalConfig.audioTracks &&
-          globalConfig.audioTracks.length > 0
+            globalConfig.audioTracks &&
+            globalConfig.audioTracks.length > 0
             ? globalConfig.audioTracks
             : defaultVideoConfig.audioTracks,
       };
@@ -77,25 +77,26 @@ export const ConverterFooter: React.FC = () => {
       const existingAudioTracks = isAudioConfig(globalConfig)
         ? globalConfig.audioTracks
         : [
-            {
-              trackIndex: 0,
-              encoder: "aac",
-              channels: "original",
-              sampleRate: "original",
-              bitrate: "128",
-            },
-          ];
-
+          {
+            trackIndex: 0,
+            encoder: "aac",
+            channels: "auto",
+            sampleRate: "auto",
+          },
+        ];
       newConfig = {
         type: "audio",
         outputFormat: updates.outputFormat || globalConfig.outputFormat,
         outputTitle: globalConfig.outputTitle,
         audioTracks: existingAudioTracks.map((track) => ({
           ...track,
-          bitrate: updates.audioBitrate || track.bitrate,
           encoder: updates.audioEncoder || track.encoder,
+          bitrate: updates.audioBitrate || track.bitrate,
+          sampleRate: updates.audioSampleRate || track.sampleRate,
+          channels: updates.audioChannels || track.channels,
         })),
       };
+      console.log("newConfig", updates, globalConfig);
     } else if (formatType === "image") {
       // Image 配置
       const existingImage = isImageConfig(globalConfig)
@@ -115,13 +116,13 @@ export const ConverterFooter: React.FC = () => {
     } else {
       return;
     }
-
     updateGlobalConfig(newConfig);
   };
 
   const handleConvertAll = async () => {
     const pendingTasks = convertingTasks;
     if (pendingTasks.length > 0 && globalConfig) {
+      console.log("globalConfig", globalConfig);
       // 为每个任务设置 config（浅拷贝 globalConfig）
       for (const task of pendingTasks) {
         await updateUnfinishedTaskConfig(task.id, { ...globalConfig });
@@ -166,10 +167,10 @@ export const ConverterFooter: React.FC = () => {
               const formatType = isVideoFormat(globalConfig.outputFormat)
                 ? "video"
                 : isAudioFormat(globalConfig.outputFormat)
-                ? "audio"
-                : isImageFormat(globalConfig.outputFormat)
-                ? "image"
-                : "video"; // 默认值
+                  ? "audio"
+                  : isImageFormat(globalConfig.outputFormat)
+                    ? "image"
+                    : "video"; // 默认值
 
               if (formatType === "video") {
                 return (
@@ -198,13 +199,13 @@ export const ConverterFooter: React.FC = () => {
                     format={globalConfig.outputFormat}
                     audioEncoder={
                       isAudioConfig(globalConfig) &&
-                      globalConfig.audioTracks.length > 0
+                        globalConfig.audioTracks.length > 0
                         ? globalConfig.audioTracks[0].encoder
                         : undefined
                     }
                     audioBitrate={
                       isAudioConfig(globalConfig) &&
-                      globalConfig.audioTracks.length > 0
+                        globalConfig.audioTracks.length > 0
                         ? globalConfig.audioTracks[0].bitrate
                         : undefined
                     }

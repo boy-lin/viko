@@ -12,7 +12,7 @@ use crate::media_common::{self, AudioFifo};
 #[derive(Debug, Clone, Deserialize)]
 pub struct AudioEncodingParams {
     pub codec: Option<String>,        // libmp3lame, aac, flac, pcm 等
-    pub bitrate: Option<u32>,         // kbps
+    pub bitrate: Option<f32>,         // kbps
     pub sample_rate: Option<u32>,     // Hz
     pub channels: Option<u32>,        // 声道数
     pub bit_depth: Option<u32>,       // 16/24/32
@@ -26,7 +26,7 @@ pub struct AudioConversionParams {
     pub output_path: String,
     pub format: Option<String>,           // mp3, wav, flac, ogg, aac, m4a, opus, wma
     pub codec: Option<String>,            // libmp3lame, pcm_s16le, flac, aac, libopus, wmav2...
-    pub bitrate: Option<u32>,             // kbps
+    pub bitrate: Option<f32>,             // kbps
     pub sample_rate: Option<u32>,         // Hz
     pub channels: Option<u32>,            // 1/2...
     pub bit_depth: Option<u32>,           // 16/24/32
@@ -44,14 +44,35 @@ fn resolve_format(params: &AudioConversionParams) -> String {
         .unwrap_or_else(|| "mp3".to_string())
 }
 
+fn open_output_context(path: &str, format_name: &str) -> Result<format::context::Output, String> {
+    if format_name == "m4r" {
+        if let Ok(ctx) = format::output_as(path, "ipod") {
+            return Ok(ctx);
+        }
+        if let Ok(ctx) = format::output_as(path, "mp4") {
+            return Ok(ctx);
+        }
+    }
+    if format_name == "ape" {
+        if let Ok(ctx) = format::output_as(path, "ape") {
+            return Ok(ctx);
+        }
+    }
+
+    format::output(path).map_err(|e| format!("创建输出文件失败: {}", e))
+}
+
 fn map_codec_name(format: &str, codec_override: Option<&str>, use_hw: bool) -> String {
     if let Some(c) = codec_override { return c.to_string(); }
     match format {
         "mp3" => "libmp3lame".to_string(),
+        "mp2" => "libmp2lame".to_string(),
         "wav" => "pcm_s16le".to_string(),
         "flac" => "flac".to_string(),
         "ogg" => "libvorbis".to_string(),
-        "aac" | "m4a" => {
+        "amr" => "libopencore_amrnb".to_string(),
+        "ape" => "ape".to_string(),
+        "aac" | "m4a" | "m4r" => {
             if use_hw && cfg!(target_os = "macos") { "aac_at" } else { "aac" }
         }.to_string(),
         "opus" => "libopus".to_string(),
@@ -63,10 +84,13 @@ fn map_codec_name(format: &str, codec_override: Option<&str>, use_hw: bool) -> S
 fn map_codec_id(format: &str) -> codec::Id {
     match format {
         "mp3" => codec::Id::MP3,
+        "mp2" => codec::Id::MP2,
         "wav" => codec::Id::PCM_S16LE,
         "flac" => codec::Id::FLAC,
         "ogg" => codec::Id::VORBIS,
-        "aac" | "m4a" => codec::Id::AAC,
+        "amr" => codec::Id::AMR_NB,
+        "ape" => codec::Id::APE,
+        "aac" | "m4a" | "m4r" => codec::Id::AAC,
         "opus" => codec::Id::OPUS,
         "wma" => codec::Id::WMAV2,
         _ => codec::Id::MP3,
@@ -120,6 +144,9 @@ fn send_frame_and_drain(
         .map_err(|e| format!("发送音频帧失败: {}", e))?;
 
     while encoder.receive_packet(encoded).is_ok() {
+        if encoded.size() == 0 {
+            continue;
+        }
         encoded.set_stream(output_stream_index);
         encoded.rescale_ts(encoder.time_base(), output_time_base);
         encoded
@@ -141,6 +168,7 @@ pub fn convert_audio(
     let use_hw = params.use_hardware_acceleration.unwrap_or(false);
     let format = resolve_format(&params);
     let codec_name = map_codec_name(&format, params.codec.as_deref(), use_hw);
+    let is_amr = format == "amr" || codec_name.contains("amr");
 
     crate::events::emit_media_task_event(
         window,
@@ -156,7 +184,7 @@ pub fn convert_audio(
     let duration = media_common::get_audio_duration(&params.input_path)?;
 
     let mut ictx = format::input(&params.input_path).map_err(|e| format!("打开输入文件失败: {}", e))?;
-    let mut octx = format::output(&params.output_path).map_err(|e| format!("创建输出文件失败: {}", e))?;
+    let mut octx = open_output_context(&params.output_path, &format)?;
 
     let input_stream = ictx
         .streams()
@@ -190,13 +218,19 @@ pub fn convert_audio(
         .add_stream(encoder_codec)
         .map_err(|e| format!("添加输出流失败: {}", e))?;
 
-    let desired_sample_rate = params.sample_rate.unwrap_or(input_sample_rate.max(44100));
+    let desired_sample_rate = if is_amr {
+        8000
+    } else {
+        params.sample_rate.unwrap_or(input_sample_rate.max(44100))
+    };
     let target_sample_rate =
         media_common::pick_sample_rate(&encoder_codec, desired_sample_rate, input_sample_rate);
 
-    let desired_layout = params
-        .channels
-        .map(|ch| ChannelLayout::default(ch as i32));
+    let desired_layout = if is_amr {
+        Some(ChannelLayout::MONO)
+    } else {
+        params.channels.map(|ch| ChannelLayout::default(ch as i32))
+    };
     let target_channel_layout =
         media_common::pick_channel_layout(&encoder_codec, desired_layout, input_layout);
 
@@ -216,7 +250,8 @@ pub fn convert_audio(
 
     let is_lossless_codec = is_lossless(codec_id, &codec_name);
     if let Some(br) = params.bitrate {
-        enc.set_bit_rate((br.max(32) * 1000) as usize);
+        let kbps = br.max(1.0);
+        enc.set_bit_rate((kbps * 1000.0).round() as usize);
     } else if !is_lossless_codec {
         enc.set_bit_rate(128_000);
     }
@@ -235,16 +270,37 @@ pub fn convert_audio(
         .open_as_with(encoder_codec, opts)
         .map_err(|e| format!("打开编码器失败: {}", e))?;
 
+    let encoder_format = encoder.format();
+    let encoder_layout = encoder.channel_layout();
+    let encoder_rate = encoder.rate() as u32;
+
     output_stream.set_parameters(&encoder);
     output_stream.set_time_base(encoder.time_base());
     let output_stream_index = output_stream.index();
     let output_time_base = output_stream.time_base();
 
-    let target_layout = target_channel_layout;
-    let target_format = target_sample_format;
-    let target_rate = target_sample_rate;
+    let target_layout = if encoder_layout.is_empty() {
+        target_channel_layout
+    } else {
+        encoder_layout
+    };
+    let target_format = if encoder_format == target_sample_format {
+        target_sample_format
+    } else {
+        encoder_format
+    };
+    let target_rate = if encoder_rate == 0 {
+        target_sample_rate
+    } else {
+        encoder_rate
+    };
     let encoder_frame_size = encoder.frame_size() as usize;
-    let mut audio_fifo = if encoder_frame_size > 0 {
+    let use_i16_buffer = target_format == format::Sample::I16(format::sample::Type::Packed)
+        && codec_name.contains("flac")
+        && encoder_frame_size > 0;
+    let use_fifo = encoder_frame_size > 0 && !use_i16_buffer;
+    let mut i16_buffer: Vec<i16> = Vec::new();
+    let mut audio_fifo = if use_fifo {
         Some(AudioFifo::new(
             target_format,
             target_layout,
@@ -285,7 +341,49 @@ pub fn convert_audio(
 
             resampler.run(&decoded, &mut resampled).map_err(|e| format!("重采样失败: {}", e))?;
 
-            if let Some(fifo) = audio_fifo.as_mut() {
+            if use_i16_buffer {
+                let bytes = resampled.data(0);
+                let sample_count = bytes.len() / std::mem::size_of::<i16>();
+                let expected = resampled.samples() * target_layout.channels() as usize;
+                let count = sample_count.min(expected);
+                if count > 0 {
+                    let data = unsafe {
+                        std::slice::from_raw_parts(bytes.as_ptr() as *const i16, sample_count)
+                    };
+                    i16_buffer.extend_from_slice(&data[..count]);
+                }
+                let channels = target_layout.channels() as usize;
+                let needed = encoder_frame_size * channels;
+                while i16_buffer.len() >= needed {
+                    let mut output_frame =
+                        frame::Audio::new(target_format, encoder_frame_size, target_layout);
+                    output_frame.set_rate(target_rate);
+                    output_frame.set_pts(Some(pts_counter));
+                    pts_counter = pts_counter.saturating_add(encoder_frame_size as i64);
+
+                    let out_bytes = output_frame.data_mut(0);
+                    let out_samples = out_bytes.len() / std::mem::size_of::<i16>();
+                    let dest = unsafe {
+                        std::slice::from_raw_parts_mut(
+                            out_bytes.as_mut_ptr() as *mut i16,
+                            out_samples,
+                        )
+                    };
+                    dest[..needed].copy_from_slice(&i16_buffer[..needed]);
+                    i16_buffer.drain(..needed);
+
+                    send_frame_and_drain(
+                        &mut encoder,
+                        &output_frame,
+                        &mut encoded,
+                        &mut octx,
+                        output_stream_index,
+                        output_time_base,
+                        &mut packets_processed,
+                    )?;
+                    frames_processed += 1;
+                }
+            } else if let Some(fifo) = audio_fifo.as_mut() {
                 fifo.push_frame(&resampled);
                 while fifo.has_samples(encoder_frame_size) {
                     let mut output_frame =
@@ -359,7 +457,49 @@ pub fn convert_audio(
         resampled.set_format(target_format);
         resampled.set_rate(target_rate);
         resampler.run(&decoded, &mut resampled).map_err(|e| format!("重采样失败: {}", e))?;
-        if let Some(fifo) = audio_fifo.as_mut() {
+        if use_i16_buffer {
+            let bytes = resampled.data(0);
+            let sample_count = bytes.len() / std::mem::size_of::<i16>();
+            let expected = resampled.samples() * target_layout.channels() as usize;
+            let count = sample_count.min(expected);
+            if count > 0 {
+                let data = unsafe {
+                    std::slice::from_raw_parts(bytes.as_ptr() as *const i16, sample_count)
+                };
+                i16_buffer.extend_from_slice(&data[..count]);
+            }
+            let channels = target_layout.channels() as usize;
+            let needed = encoder_frame_size * channels;
+            while i16_buffer.len() >= needed {
+                let mut output_frame =
+                    frame::Audio::new(target_format, encoder_frame_size, target_layout);
+                output_frame.set_rate(target_rate);
+                output_frame.set_pts(Some(pts_counter));
+                pts_counter = pts_counter.saturating_add(encoder_frame_size as i64);
+
+                let out_bytes = output_frame.data_mut(0);
+                let out_samples = out_bytes.len() / std::mem::size_of::<i16>();
+                let dest = unsafe {
+                    std::slice::from_raw_parts_mut(
+                        out_bytes.as_mut_ptr() as *mut i16,
+                        out_samples,
+                    )
+                };
+                dest[..needed].copy_from_slice(&i16_buffer[..needed]);
+                i16_buffer.drain(..needed);
+
+                send_frame_and_drain(
+                    &mut encoder,
+                    &output_frame,
+                    &mut encoded,
+                    &mut octx,
+                    output_stream_index,
+                    output_time_base,
+                    &mut packets_processed,
+                )?;
+                frames_processed += 1;
+            }
+        } else if let Some(fifo) = audio_fifo.as_mut() {
             fifo.push_frame(&resampled);
             while fifo.has_samples(encoder_frame_size) {
                 let mut output_frame =
@@ -397,7 +537,40 @@ pub fn convert_audio(
         }
     }
 
-    if let Some(fifo) = audio_fifo.as_mut() {
+    if use_i16_buffer {
+        let channels = target_layout.channels() as usize;
+        let remaining_samples = i16_buffer.len() / channels;
+        let needed = remaining_samples * channels;
+        if remaining_samples > 0 {
+            let mut output_frame =
+                frame::Audio::new(target_format, remaining_samples, target_layout);
+            output_frame.set_rate(target_rate);
+            output_frame.set_pts(Some(pts_counter));
+            pts_counter = pts_counter.saturating_add(remaining_samples as i64);
+
+            let out_bytes = output_frame.data_mut(0);
+            let out_samples = out_bytes.len() / std::mem::size_of::<i16>();
+            let dest = unsafe {
+                std::slice::from_raw_parts_mut(
+                    out_bytes.as_mut_ptr() as *mut i16,
+                    out_samples,
+                )
+            };
+            dest[..needed].copy_from_slice(&i16_buffer[..needed]);
+            i16_buffer.drain(..needed);
+
+            send_frame_and_drain(
+                &mut encoder,
+                &output_frame,
+                &mut encoded,
+                &mut octx,
+                output_stream_index,
+                output_time_base,
+                &mut packets_processed,
+            )?;
+            frames_processed += 1;
+        }
+    } else if let Some(fifo) = audio_fifo.as_mut() {
         let remaining_samples = fifo.available_samples();
         if remaining_samples > 0 {
             let mut output_frame =
@@ -422,6 +595,9 @@ pub fn convert_audio(
 
     encoder.send_eof().map_err(|e| format!("编码器 EOF 失败: {}", e))?;
     while encoder.receive_packet(&mut encoded).is_ok() {
+        if encoded.size() == 0 {
+            continue;
+        }
         encoded.set_stream(output_stream_index);
         encoded.rescale_ts(encoder.time_base(), output_time_base);
         encoded.write_interleaved(&mut octx).map_err(|e| format!("写入尾部数据包失败: {}", e))?;
@@ -463,11 +639,15 @@ pub fn generate_output_path(input_path: &str, format: &str) -> Result<String, St
         .ok_or("无法获取输入文件名")?;
     let extension = match format.to_lowercase().as_str() {
         "mp3" => "mp3",
+        "mp2" => "mp2",
         "wav" => "wav",
         "flac" => "flac",
         "ogg" => "ogg",
+        "amr" => "amr",
+        "ape" => "ape",
         "aac" => "m4a",
         "m4a" => "m4a",
+        "m4r" => "m4r",
         "opus" => "opus",
         "wma" => "wma",
         _ => "mp3",
@@ -476,4 +656,3 @@ pub fn generate_output_path(input_path: &str, format: &str) -> Result<String, St
     let output_path = parent.join(format!("{}.{}", stem, extension));
     Ok(output_path.to_string_lossy().to_string())
 }
-

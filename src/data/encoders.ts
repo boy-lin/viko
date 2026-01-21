@@ -5,19 +5,22 @@ export const AUDIO_ENCODERS: EncoderOption[] = [
     value: EncoderEnum.AUTO,
     label: "Auto",
     description: "Automatically select best encoder",
+    formats: []
   },
-  { value: EncoderEnum.COPY, label: "Copy", description: "Direct stream copy" },
+  { value: EncoderEnum.COPY, label: "Copy", description: "Direct stream copy", formats: [] },
   {
     value: EncoderEnum.AAC,
     label: "AAC",
     description: "Advanced Audio Coding",
     formats: [
+      FormatEnum.M4R,
       FormatEnum.MP4,
       FormatEnum.MOV,
       FormatEnum.MKV,
       FormatEnum.M4A,
       FormatEnum.GP3,
       FormatEnum.AAC,
+      FormatEnum.M4B
     ],
   },
   {
@@ -54,7 +57,13 @@ export const AUDIO_ENCODERS: EncoderOption[] = [
     value: EncoderEnum.ALAC,
     label: "ALAC",
     description: "Apple Lossless Audio Codec",
-    formats: [FormatEnum.M4A, FormatEnum.MOV, FormatEnum.MP4, FormatEnum.MKV],
+    formats: [
+      FormatEnum.M4A,
+      FormatEnum.MOV,
+      FormatEnum.MP4,
+      FormatEnum.MKV,
+      FormatEnum.CAF
+    ],
   },
   {
     value: EncoderEnum.VORBIS,
@@ -90,6 +99,7 @@ export const AUDIO_ENCODERS: EncoderOption[] = [
       FormatEnum.MOV,
       FormatEnum.MKV,
       FormatEnum.AVI,
+      FormatEnum.CAF
     ],
   },
   {
@@ -104,6 +114,18 @@ export const AUDIO_ENCODERS: EncoderOption[] = [
       FormatEnum.AVI,
     ],
   },
+  {
+    value: EncoderEnum.AMR_NB,
+    label: "AMR NB",
+    description: "AMR Narrowband",
+    formats: [FormatEnum.AMR]
+  },
+  {
+    value: EncoderEnum.MP2,
+    label: "MP2",
+    description: "MP2 Audio",
+    formats: [FormatEnum.MP2],
+  }
 ];
 
 export const VIDEO_ENCODERS: EncoderOption[] = [
@@ -185,4 +207,3 @@ export const IMAGE_ENCODERS: EncoderOption[] = [
     description: "AVIF Image",
   },
 ]
-

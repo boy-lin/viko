@@ -44,11 +44,11 @@ export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
           <Label className="text-muted-foreground">Resolution:</Label>
           <Input
             type="text"
-            value={image.resolution || "original"}
+            value={image.resolution || "auto"}
             onChange={(e) =>
               onImageChange({ ...image, resolution: e.target.value })
             }
-            placeholder="original"
+            placeholder="auto"
           />
         </div>
       </div>

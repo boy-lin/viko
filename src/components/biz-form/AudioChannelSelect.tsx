@@ -9,16 +9,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AUDIO_CHANNELS } from "@/data/audio_options";
+import type { SelectOption } from "@/types/options";
 
 interface AudioChannelSelectProps {
   value: string;
   onValueChange: (value: string) => void;
+  options?: SelectOption[];
 }
 
 export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
   value,
   onValueChange,
+  options,
 }) => {
+  const channelOptions = options ?? AUDIO_CHANNELS;
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -30,7 +35,7 @@ export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
           <SelectValue placeholder="Select channels" />
         </SelectTrigger>
         <SelectContent>
-          {AUDIO_CHANNELS.map((option) => (
+          {channelOptions.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.label}
             </SelectItem>

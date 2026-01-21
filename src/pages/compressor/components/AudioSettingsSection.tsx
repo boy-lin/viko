@@ -8,6 +8,7 @@ import { AudioEncoderSelect } from "@/components/biz-form/AudioEncoderSelect";
 import { AudioChannelSelect } from "@/components/biz-form/AudioChannelSelect";
 import { AudioSampleRateSelect } from "@/components/biz-form/AudioSampleRateSelect";
 import { AudioBitrateSelect } from "@/components/biz-form/AudioBitrateSelect";
+import { getAudioEncoderOptions } from "@/data/encoder_options";
 
 interface AudioSettingsSectionProps {
   audioTracks: AudioTrackConfig[];
@@ -30,6 +31,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
     newTracks[index] = { ...newTracks[index], [field]: value };
     onAudioTracksChange(newTracks);
   };
+  const getEncoderOptions = (encoder?: string) => getAudioEncoderOptions(encoder);
 
   if (audioTracks.length === 0) {
     return (
@@ -69,14 +71,17 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
           <AudioChannelSelect
             value={track.channels}
             onValueChange={(v) => updateTrack(0, "channels", v)}
+            options={getEncoderOptions(track.encoder).channels}
           />
           <AudioSampleRateSelect
             value={track.sampleRate}
             onValueChange={(v) => updateTrack(0, "sampleRate", v)}
+            options={getEncoderOptions(track.encoder).sampleRates}
           />
           <AudioBitrateSelect
             value={track.bitrate}
             onValueChange={(v) => updateTrack(0, "bitrate", v)}
+            options={getEncoderOptions(track.encoder).bitrates}
           />
         </div>
       </div>
@@ -120,14 +125,17 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
             <AudioChannelSelect
               value={track.channels}
               onValueChange={(v) => updateTrack(index, "channels", v)}
+              options={getEncoderOptions(track.encoder).channels}
             />
             <AudioSampleRateSelect
               value={track.sampleRate}
               onValueChange={(v) => updateTrack(index, "sampleRate", v)}
+              options={getEncoderOptions(track.encoder).sampleRates}
             />
             <AudioBitrateSelect
               value={track.bitrate}
               onValueChange={(v) => updateTrack(index, "bitrate", v)}
+              options={getEncoderOptions(track.encoder).bitrates}
             />
           </div>
         </div>

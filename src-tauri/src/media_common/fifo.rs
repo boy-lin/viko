@@ -14,6 +14,15 @@ pub struct AudioFifo {
 }
 
 impl AudioFifo {
+    fn is_packed_format(sample: format::Sample) -> bool {
+        matches!(
+            sample,
+            format::Sample::F32(format::sample::Type::Packed)
+                | format::Sample::I16(format::sample::Type::Packed)
+                | format::Sample::I32(format::sample::Type::Packed)
+        )
+    }
+
     /// Create a new AudioFifo with the specified parameters
     pub fn new(
         target_format: format::Sample,
@@ -36,10 +45,22 @@ impl AudioFifo {
     /// Push a resampled audio frame into the FIFO buffer
     pub fn push_frame(&mut self, frame: &frame::Audio) {
         let channels = self.target_layout.channels() as usize;
-        match (frame.format(), frame.is_packed()) {
+        let sample_format = frame.format();
+        // For packed audio, use data(0) bytes to get interleaved samples across channels.
+        let packed = Self::is_packed_format(sample_format) || frame.is_packed();
+        match (sample_format, packed) {
             (format::Sample::F32(_), true) => {
-                let data: &[f32] = frame.plane(0);
-                self.producer.push_slice(data);
+                let bytes = frame.data(0);
+                let sample_count = bytes.len() / std::mem::size_of::<f32>();
+                let expected = frame.samples() * channels;
+                // data(0) can include padding; only keep samples*channels.
+                let count = sample_count.min(expected);
+                if sample_count > 0 {
+                    let data = unsafe {
+                        std::slice::from_raw_parts(bytes.as_ptr() as *const f32, sample_count)
+                    };
+                    self.producer.push_slice(&data[..count]);
+                }
             }
             (format::Sample::F32(_), false) => {
                 for i in 0..frame.samples() {
@@ -50,9 +71,17 @@ impl AudioFifo {
                 }
             }
             (format::Sample::I16(_), true) => {
-                let data: &[i16] = frame.plane(0);
-                for &s in data {
-                    let _ = self.producer.push(s as f32 / i16::MAX as f32);
+                let bytes = frame.data(0);
+                let sample_count = bytes.len() / std::mem::size_of::<i16>();
+                let expected = frame.samples() * channels;
+                let count = sample_count.min(expected);
+                if sample_count > 0 {
+                    let data = unsafe {
+                        std::slice::from_raw_parts(bytes.as_ptr() as *const i16, sample_count)
+                    };
+                    for &s in &data[..count] {
+                        let _ = self.producer.push(s as f32 / i16::MAX as f32);
+                    }
                 }
             }
             (format::Sample::I16(_), false) => {
@@ -64,9 +93,17 @@ impl AudioFifo {
                 }
             }
             (format::Sample::I32(_), true) => {
-                let data: &[i32] = frame.plane(0);
-                for &s in data {
-                    let _ = self.producer.push(s as f32 / i32::MAX as f32);
+                let bytes = frame.data(0);
+                let sample_count = bytes.len() / std::mem::size_of::<i32>();
+                let expected = frame.samples() * channels;
+                let count = sample_count.min(expected);
+                if sample_count > 0 {
+                    let data = unsafe {
+                        std::slice::from_raw_parts(bytes.as_ptr() as *const i32, sample_count)
+                    };
+                    for &s in &data[..count] {
+                        let _ = self.producer.push(s as f32 / i32::MAX as f32);
+                    }
                 }
             }
             (format::Sample::I32(_), false) => {
@@ -116,9 +153,17 @@ impl AudioFifo {
 
     /// Fill an audio frame with the provided data
     pub fn fill_frame(&self, frame: &mut frame::Audio, data: &[f32], frame_samples: usize) {
-        match (self.target_format, frame.is_packed()) {
+        let packed = Self::is_packed_format(self.target_format) || frame.is_packed();
+        match (self.target_format, packed) {
             (format::Sample::F32(_), true) => {
-                frame.plane_mut(0).copy_from_slice(data);
+                let bytes = frame.data_mut(0);
+                let sample_count = bytes.len() / std::mem::size_of::<f32>();
+                let total = frame_samples * self.target_layout.channels() as usize;
+                let count = total.min(sample_count);
+                let dest = unsafe {
+                    std::slice::from_raw_parts_mut(bytes.as_mut_ptr() as *mut f32, sample_count)
+                };
+                dest[..count].copy_from_slice(&data[..count]);
             }
             (format::Sample::F32(_), false) => {
                 let channels = self.target_layout.channels() as usize;
@@ -129,8 +174,14 @@ impl AudioFifo {
                 }
             }
             (format::Sample::I16(_), true) => {
-                let dest: &mut [i16] = frame.plane_mut(0);
-                for (d, s) in dest.iter_mut().zip(data.iter().copied()) {
+                let bytes = frame.data_mut(0);
+                let sample_count = bytes.len() / std::mem::size_of::<i16>();
+                let total = frame_samples * self.target_layout.channels() as usize;
+                let count = total.min(sample_count);
+                let dest = unsafe {
+                    std::slice::from_raw_parts_mut(bytes.as_mut_ptr() as *mut i16, sample_count)
+                };
+                for (d, s) in dest[..count].iter_mut().zip(data.iter().copied()) {
                     *d = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
                 }
             }
@@ -144,8 +195,14 @@ impl AudioFifo {
                 }
             }
             (format::Sample::I32(_), true) => {
-                let dest: &mut [i32] = frame.plane_mut(0);
-                for (d, s) in dest.iter_mut().zip(data.iter().copied()) {
+                let bytes = frame.data_mut(0);
+                let sample_count = bytes.len() / std::mem::size_of::<i32>();
+                let total = frame_samples * self.target_layout.channels() as usize;
+                let count = total.min(sample_count);
+                let dest = unsafe {
+                    std::slice::from_raw_parts_mut(bytes.as_mut_ptr() as *mut i32, sample_count)
+                };
+                for (d, s) in dest[..count].iter_mut().zip(data.iter().copied()) {
                     *d = (s.clamp(-1.0, 1.0) * i32::MAX as f32) as i32;
                 }
             }

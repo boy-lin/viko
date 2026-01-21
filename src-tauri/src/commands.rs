@@ -992,7 +992,7 @@ pub struct AudioConversionArgs {
     pub output_path: Option<String>, // 如果未提供，自动生成
     pub format: Option<String>,
     pub codec: Option<String>,
-    pub bitrate: Option<u32>,
+    pub bitrate: Option<f32>,
     pub sample_rate: Option<u32>,
     pub channels: Option<u32>,
     pub bit_depth: Option<u32>,

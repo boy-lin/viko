@@ -8,16 +8,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { SelectOption } from "@/types/options";
 
 interface VideoFrameRateSelectProps {
   value: string;
   onValueChange: (value: string) => void;
+  options?: SelectOption[];
 }
 
 export const VideoFrameRateSelect: React.FC<VideoFrameRateSelectProps> = ({
   value,
   onValueChange,
+  options,
 }) => {
+  const frameRateOptions = options ?? [
+    { value: "auto", label: "auto" },
+    { value: "60", label: "60 FPS" },
+    { value: "30", label: "30 FPS" },
+    { value: "24", label: "24 FPS" },
+    { value: "auto", label: "Smart Fit" },
+  ];
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -29,11 +40,11 @@ export const VideoFrameRateSelect: React.FC<VideoFrameRateSelectProps> = ({
           <SelectValue placeholder="Select frame rate" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="original">Original</SelectItem>
-          <SelectItem value="60">60 FPS</SelectItem>
-          <SelectItem value="30">30 FPS</SelectItem>
-          <SelectItem value="24">24 FPS</SelectItem>
-          <SelectItem value="auto">Smart Fit</SelectItem>
+          {frameRateOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>

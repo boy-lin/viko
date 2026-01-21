@@ -117,7 +117,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "AIFF",
     extension: FormatEnum.AIFF,
     quality: "lossless",
-    tags: ["mac", "uncompressed"],
   },
 
   // Group: FLAC
@@ -128,7 +127,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "FLAC",
     extension: FormatEnum.FLAC,
     quality: "lossless",
-    tags: ["archive"],
   },
 
   // Group: OGG
@@ -226,7 +224,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "AMR",
     extension: FormatEnum.AMR,
     quality: "12.2k",
-    tags: ["speech"],
   },
   {
     id: "amr-795",
@@ -235,7 +232,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "AMR",
     extension: FormatEnum.AMR,
     quality: "7.95k",
-    tags: ["speech"],
   },
   {
     id: "amr-67",
@@ -244,7 +240,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "AMR",
     extension: FormatEnum.AMR,
     quality: "6.7k",
-    tags: ["speech"],
   },
 
   // Group: MP2
@@ -332,12 +327,11 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: MP4
   {
     id: "mp4-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "MP4",
     extension: FormatEnum.MP4,
-    quality: "original",
-    tags: ["universal"],
+    quality: "auto",
   },
   {
     id: "mp4-8k",
@@ -346,7 +340,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "MP4",
     extension: FormatEnum.MP4,
     quality: "7680x4320",
-    tags: ["ultra-hd"],
   },
   {
     id: "mp4-4k",
@@ -355,7 +348,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "MP4",
     extension: FormatEnum.MP4,
     quality: "3840x2160",
-    tags: ["ultra-hd"],
   },
   {
     id: "mp4-1080",
@@ -364,7 +356,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "MP4",
     extension: FormatEnum.MP4,
     quality: "1920x1080",
-    tags: ["hd"],
   },
   {
     id: "mp4-720",
@@ -373,7 +364,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "MP4",
     extension: FormatEnum.MP4,
     quality: "1280x720",
-    tags: ["hd"],
   },
   {
     id: "mp4-640",
@@ -382,7 +372,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "MP4",
     extension: FormatEnum.MP4,
     quality: "960x640",
-    tags: ["sd"],
   },
   {
     id: "mp4-576",
@@ -391,18 +380,16 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "MP4",
     extension: FormatEnum.MP4,
     quality: "720x576",
-    tags: ["sd"],
   },
 
   // Group: HEVC MP4
   {
     id: "hevc-mp4-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "HEVC MP4",
     extension: FormatEnum.MP4,
-    quality: "original",
-    tags: ["hevc", "modern"],
+    quality: "auto",
   },
   {
     id: "hevc-mp4-8k",
@@ -411,7 +398,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "HEVC MP4",
     extension: FormatEnum.MP4,
     quality: "7680x4320",
-    tags: ["hevc", "ultra-hd"],
   },
   {
     id: "hevc-mp4-4k",
@@ -420,7 +406,6 @@ export const FORMAT_DATA: FormatOption[] = [
     group: "HEVC MP4",
     extension: FormatEnum.MP4,
     quality: "3840x2160",
-    tags: ["hevc", "ultra-hd"],
   },
   {
     id: "hevc-mp4-1080",
@@ -444,11 +429,11 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: MOV
   {
     id: "mov-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "MOV",
     extension: FormatEnum.MOV,
-    quality: "original",
+    quality: "auto",
     tags: ["mac"],
   },
   {
@@ -482,11 +467,11 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: MKV
   {
     id: "mkv-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "MKV",
     extension: FormatEnum.MKV,
-    quality: "original",
+    quality: "auto",
     tags: ["universal"],
   },
   {
@@ -520,11 +505,11 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: HEVC MKV
   {
     id: "hevc-mkv-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "HEVC MKV",
     extension: FormatEnum.MKV,
-    quality: "original",
+    quality: "auto",
     tags: ["hevc"],
   },
   {
@@ -549,11 +534,11 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: AVI
   {
     id: "avi-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "AVI",
     extension: FormatEnum.AVI,
-    quality: "original",
+    quality: "auto",
     tags: ["legacy"],
   },
   {
@@ -587,11 +572,11 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: WMV
   {
     id: "wmv-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "WMV",
     extension: FormatEnum.WMV,
-    quality: "original",
+    quality: "auto",
     tags: ["windows"],
   },
   {
@@ -616,11 +601,11 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: WebM
   {
     id: "webm-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "WebM",
     extension: FormatEnum.WEBM,
-    quality: "original",
+    quality: "auto",
     tags: ["web"],
   },
   {
@@ -645,11 +630,11 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: FLV
   {
     id: "flv-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "FLV",
     extension: FormatEnum.FLV,
-    quality: "original",
+    quality: "auto",
     tags: ["flash"],
   },
   {
@@ -694,11 +679,11 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: MPEG-1
   {
     id: "mpeg1-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "MPEG-1",
     extension: FormatEnum.MPG,
-    quality: "original",
+    quality: "auto",
     tags: ["vcd"],
   },
   {
@@ -714,11 +699,11 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: MPEG-2
   {
     id: "mpeg2-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "MPEG-2",
     extension: FormatEnum.MPG,
-    quality: "original",
+    quality: "auto",
     tags: ["dvd"],
   },
   {
@@ -747,18 +732,18 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "VOB",
     extension: FormatEnum.VOB,
-    quality: "original",
+    quality: "auto",
     tags: ["dvd"],
   },
 
   // Group: OGV
   {
     id: "ogv-orig",
-    label: "Same as source (Original)",
+    label: "Same as source",
     category: "video_generic",
     group: "OGV",
     extension: FormatEnum.OGV,
-    quality: "original",
+    quality: "auto",
     tags: ["open"],
   },
   {
@@ -964,7 +949,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Final Cut Pro X",
     extension: FormatEnum.MP4,
-    quality: "original",
+    quality: "auto",
     tags: ["apple"],
   },
   {
@@ -973,7 +958,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Final Cut Pro X",
     extension: FormatEnum.MP4,
-    quality: "original",
+    quality: "auto",
     tags: ["apple"],
   },
   {
@@ -982,7 +967,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Final Cut Pro X",
     extension: FormatEnum.MP4,
-    quality: "original",
+    quality: "auto",
     tags: ["apple"],
   },
   {
@@ -991,7 +976,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Final Cut Pro X",
     extension: FormatEnum.MP4,
-    quality: "original",
+    quality: "auto",
     tags: ["apple"],
   },
   {
@@ -1000,7 +985,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Final Cut Pro X",
     extension: FormatEnum.MP4,
-    quality: "original",
+    quality: "auto",
     tags: ["apple"],
   },
 
@@ -1022,7 +1007,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Avid",
     extension: FormatEnum.MP4,
-    quality: "original",
+    quality: "auto",
     tags: [],
   },
 
@@ -1092,38 +1077,38 @@ export const FORMAT_DATA: FormatOption[] = [
   // ================= IMAGES =================
   {
     id: "jpeg-orig",
-    label: "Original",
+    label: "auto",
     category: "image",
     group: "JPEG",
     extension: FormatEnum.JPG,
-    quality: "original",
+    quality: "auto",
     tags: [],
   },
   {
     id: "png-orig",
-    label: "Original",
+    label: "auto",
     category: "image",
     group: "PNG",
     extension: FormatEnum.PNG,
-    quality: "original",
+    quality: "auto",
     tags: [],
   },
   {
     id: "webp-orig",
-    label: "Original",
+    label: "auto",
     category: "image",
     group: "WEBP",
     extension: FormatEnum.WEBP,
-    quality: "original",
+    quality: "auto",
     tags: [],
   },
   {
     id: "heic-orig",
-    label: "Original",
+    label: "auto",
     category: "image",
     group: "HEIC",
     extension: FormatEnum.HEIC,
-    quality: "original",
+    quality: "auto",
     tags: [],
   },
   {
@@ -1132,29 +1117,29 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "image",
     group: "GIF",
     extension: FormatEnum.GIF,
-    quality: "original",
+    quality: "auto",
     tags: [],
   },
   {
     id: "tiff-orig",
-    label: "Original",
+    label: "auto",
     category: "image",
     group: "TIFF",
     extension: FormatEnum.TIFF,
-    quality: "original",
+    quality: "auto",
     tags: [],
   },
 ];
 
 export const AUDIO_FORMATS = [
   FormatEnum.MP3,
+  FormatEnum.AAC,
   FormatEnum.M4A,
   FormatEnum.WAV,
   FormatEnum.M4R,
   FormatEnum.AIFF,
   FormatEnum.FLAC,
   FormatEnum.OGG,
-  FormatEnum.AAC,
   FormatEnum.AC3,
   FormatEnum.AMR,
   FormatEnum.MP2,

@@ -579,16 +579,18 @@ class MediaTaskQueue {
           const args: any = {
             task_id: task.id,
             input_path: task.path,
-            output_path: finalOutputPath,
             format: outputFormat,
-            bitrate: audioTrack?.bitrate ? parseInt(audioTrack.bitrate) : 192,
+            output_path: finalOutputPath,
+            codec: audioTrack?.encoder,
             use_hardware_acceleration: useHardwareAcceleration,
             use_ultra_fast_speed: useUltraFastSpeed,
-            audio_encoder: audioTrack?.encoder,
           };
+          if (audioTrack?.bitrate && audioTrack.bitrate !== "auto") {
+            args.bitrate = Number(audioTrack.bitrate.replace("k", ""));
+          }
           const sampleRate = audioTrack?.sampleRate;
 
-          if (sampleRate === "original") {
+          if (sampleRate === "auto") {
             args.sample_rate = undefined
           } else if (sampleRate) {
             args.sample_rate = parseInt(sampleRate);
@@ -618,7 +620,7 @@ class MediaTaskQueue {
           let height: number | null = null;
           if (
             imageConfig?.resolution &&
-            imageConfig.resolution !== "original"
+            imageConfig.resolution !== "auto"
           ) {
             const [w, h] = imageConfig.resolution.split("x").map(Number);
             if (!isNaN(w)) width = w;
