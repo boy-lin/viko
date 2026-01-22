@@ -1,217 +1,165 @@
 use ffmpeg_next as ffmpeg;
-use ffmpeg::format::sample::Type as SampleType;
-use ffmpeg::util::channel_layout::ChannelLayout;
-use ffmpeg::util::format::Sample;
+use ffmpeg::{format, Rational};
+use std::sync::Once;
 
-pub mod fifo;
 pub mod codec;
+pub mod fifo;
 pub mod resolution;
 
-pub use fifo::AudioFifo;
+// Re-export codec functions directly
 pub use codec::*;
+pub use fifo::AudioFifo;
 pub use resolution::*;
 
-use image::RgbImage;
+static FFMPEG_INIT: Once = Once::new();
+
+pub fn init_ffmpeg() -> Result<(), String> {
+    FFMPEG_INIT.call_once(|| {
+        ffmpeg::init().unwrap();
+    });
+    Ok(())
+}
 
 pub fn ensure_ffmpeg_init() -> Result<(), String> {
-    ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {}", e))
+    init_ffmpeg()
 }
 
-pub fn get_audio_duration(input_path: &str) -> Result<f64, String> {
-    ensure_ffmpeg_init()?;
+pub fn open_input(path: &str) -> Result<format::context::Input, String> {
+    format::input(&path).map_err(|e| format!("无法打开输入文件: {}", e))
+}
 
-    let ictx = ffmpeg::format::input(input_path)
-        .map_err(|e| format!("Failed to open file: {}", e))?;
+pub fn gcd(a: u32, b: u32) -> u32 {
+    let mut max = a;
+    let mut min = b;
+    if min > max {
+        let val = max;
+        max = min;
+        min = val;
+    }
 
-    let duration = if let Some(audio_stream) = ictx.streams().best(ffmpeg::media::Type::Audio) {
-        let time_base = audio_stream.time_base();
-        let duration_ts = audio_stream.duration();
-        if duration_ts > 0 {
-            duration_ts as f64 * time_base.numerator() as f64 / time_base.denominator() as f64
-        } else {
-            let dur_raw = ictx.duration();
-            if dur_raw > 0 && dur_raw != ffmpeg::ffi::AV_NOPTS_VALUE as i64 {
-                dur_raw as f64 / ffmpeg::ffi::AV_TIME_BASE as f64
+    loop {
+        let res = max % min;
+        if res == 0 {
+            return min;
+        }
+
+        max = min;
+        min = res;
+    }
+}
+
+pub fn calculate_scaled_dimensions(
+    src_width: u32,
+    src_height: u32,
+    max_width: Option<u32>,
+    max_height: Option<u32>,
+) -> (u32, u32) {
+    let src_ratio = src_width as f64 / src_height as f64;
+
+    match (max_width, max_height) {
+        (Some(mw), Some(mh)) => {
+            let max_ratio = mw as f64 / mh as f64;
+            if src_ratio > max_ratio {
+                // Width constrained
+                let target_width = mw;
+                let target_height = (target_width as f64 / src_ratio).round() as u32;
+                (target_width, target_height.max(1))
             } else {
-                0.0
+                // Height constrained
+                let target_height = mh;
+                let target_width = (target_height as f64 * src_ratio).round() as u32;
+                (target_width.max(1), target_height)
             }
         }
-    } else {
-        let dur_raw = ictx.duration();
-        if dur_raw > 0 && dur_raw != ffmpeg::ffi::AV_NOPTS_VALUE as i64 {
-            dur_raw as f64 / ffmpeg::ffi::AV_TIME_BASE as f64
-        } else {
-            0.0
+        (Some(mw), None) => {
+            let target_width = mw;
+            let target_height = (target_width as f64 / src_ratio).round() as u32;
+            (target_width, target_height.max(1))
         }
-    };
-
-    Ok(duration)
-}
-
-/// Media duration helper for future audio/video callers.
-pub fn get_media_duration(input_path: &str) -> Result<f64, String> {
-    get_audio_duration(input_path)
-}
-
-/// Initialize FFmpeg once.
-pub fn init_ffmpeg() -> Result<(), String> {
-    ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {}", e))
-}
-
-/// Open input context with common error handling.
-pub fn open_input(path: &str) -> Result<ffmpeg::format::context::Input, String> {
-    ffmpeg::format::input(path).map_err(|e| format!("Failed to open input: {}", e))
-}
-
-/// Greatest common divisor.
-pub fn gcd(a: u32, b: u32) -> u32 {
-    let (mut x, mut y) = (a, b);
-    while y != 0 {
-        let tmp = y;
-        y = x % y;
-        x = tmp;
-    }
-    x
-}
-
-/// Calculate scaled dimensions preserving aspect ratio if one side missing.
-pub fn calculate_scaled_dimensions(
-    src_w: u32,
-    src_h: u32,
-    target_w: Option<u32>,
-    target_h: Option<u32>,
-) -> (u32, u32) {
-    match (target_w, target_h) {
-        (Some(w), Some(h)) => (w.max(1), h.max(1)),
-        (Some(w), None) => {
-            let h = ((w as f64 * src_h as f64 / src_w as f64).round() as u32).max(1);
-            (w.max(1), h)
+        (None, Some(mh)) => {
+            let target_height = mh;
+            let target_width = (target_height as f64 * src_ratio).round() as u32;
+            (target_width.max(1), target_height)
         }
-        (None, Some(h)) => {
-            let w = ((h as f64 * src_w as f64 / src_h as f64).round() as u32).max(1);
-            (w, h.max(1))
-        }
-        _ => (src_w, src_h),
+        (None, None) => (src_width, src_height),
     }
 }
 
-/// Convert an FFmpeg video frame (RGB24) to image::RgbImage, respecting stride.
-pub fn frame_to_rgb_image(frame: &ffmpeg::frame::Video) -> Result<RgbImage, String> {
-    let width = frame.width();
-    let height = frame.height();
-    let data = frame.data(0);
-    let stride = frame.stride(0);
-    let row_bytes = (width as usize) * 3;
-
-    let mut buffer = Vec::with_capacity(row_bytes * height as usize);
-    if stride == row_bytes {
-        buffer.extend_from_slice(&data[..row_bytes * height as usize]);
-    } else {
-        for y in 0..height {
-            let offset = y as usize * stride;
-            buffer.extend_from_slice(&data[offset..offset + row_bytes]);
-        }
+pub fn channel_layout_from_count(channels: u32) -> Option<ffmpeg::ChannelLayout> {
+    match channels {
+        1 => Some(ffmpeg::ChannelLayout::MONO),
+        2 => Some(ffmpeg::ChannelLayout::STEREO),
+        _ => Some(ffmpeg::ChannelLayout::default(channels as i32)),
     }
-
-    RgbImage::from_raw(width, height, buffer).ok_or_else(|| "Failed to create RgbImage".to_string())
 }
 
 pub fn preferred_sample_from_bit_depth(
     bit_depth: Option<u32>,
-    format_hint: Option<&str>,
-) -> Sample {
+    default: Option<format::Sample>,
+) -> format::Sample {
     match bit_depth {
-        Some(16) => Sample::I16(SampleType::Packed),
-        Some(24) => Sample::I32(SampleType::Packed),
-        Some(32) => Sample::F32(SampleType::Packed),
-        _ => match format_hint {
-            Some("wav") | Some("flac") => Sample::I16(SampleType::Packed),
-            _ => Sample::F32(SampleType::Planar),
-        },
+        Some(16) => format::Sample::I16(format::sample::Type::Packed),
+        Some(24) => format::Sample::I32(format::sample::Type::Packed), // FFmpeg typically uses S32 for 24-bit container
+        Some(32) => format::Sample::I32(format::sample::Type::Packed),
+        _ => default.unwrap_or(format::Sample::I16(format::sample::Type::Packed)),
     }
 }
 
-pub fn pick_sample_format(encoder_codec: &ffmpeg::Codec, preferred: Sample) -> Sample {
-    if let Ok(audio) = encoder_codec.audio() {
-        if let Some(formats) = audio.formats() {
-            let supported: Vec<Sample> = formats.collect();
-            for candidate in [
-                preferred,
-                preferred.planar(),
-                preferred.packed(),
-                Sample::F32(SampleType::Planar),
-                Sample::F32(SampleType::Packed),
-            ] {
-                if supported.iter().any(|f| *f == candidate) {
-                    return candidate;
-                }
-            }
-            if let Some(first) = supported.first() {
-                return *first;
-            }
-        }
-    }
-    preferred
+/// Helper to get audio duration (re-implemented as it was missing)
+pub fn get_audio_duration(path: &str) -> Result<f64, String> {
+    let ictx = open_input(path)?;
+    Ok(ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64)
 }
 
-pub fn pick_channel_layout(
-    encoder_codec: &ffmpeg::Codec,
-    desired: Option<ChannelLayout>,
-    input_layout: ChannelLayout,
-) -> ChannelLayout {
-    let wanted = desired.unwrap_or_else(|| {
-        if input_layout.is_empty() {
-            ChannelLayout::STEREO
-        } else {
-            input_layout
-        }
-    });
-    if let Ok(audio) = encoder_codec.audio() {
-        if let Some(layouts) = audio.channel_layouts() {
-            let mut collected = Vec::new();
-            for l in layouts {
-                if l == wanted {
-                    return wanted;
-                }
-                collected.push(l);
-            }
-            if let Some(best) = collected.iter().find(|l| l.channels() == wanted.channels()) {
-                return *best;
-            }
-            if let Some(first) = collected.first() {
-                return *first;
+pub fn frame_to_rgb_image(frame: &ffmpeg::frame::Video) -> Result<image::RgbImage, String> {
+    let width = frame.width();
+    let height = frame.height();
+    let data = frame.data(0);
+    let stride = frame.stride(0);
+    
+    // Safety check
+    if data.len() < (stride * height as usize) {
+        return Err("Frame buffer size mismatch".to_string());
+    }
+
+    let mut img = image::RgbImage::new(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let idx = y as usize * stride + x as usize * 3;
+            if idx + 2 < data.len() {
+                let r = data[idx];
+                let g = data[idx + 1];
+                let b = data[idx + 2];
+                img.put_pixel(x, y, image::Rgb([r, g, b]));
             }
         }
     }
-    wanted
+    Ok(img)
 }
 
-pub fn pick_sample_rate(encoder_codec: &ffmpeg::Codec, requested: u32, fallback: u32) -> u32 {
-    if let Ok(audio) = encoder_codec.audio() {
-        if let Some(rates) = audio.rates() {
-            let supported: Vec<i32> = rates.collect();
-            if supported.is_empty() {
-                return requested.max(1);
-            }
-            if supported.iter().any(|r| *r == requested as i32) {
-                return requested;
-            }
-            if let Some(best) = supported.iter().min_by_key(|r| (requested as i32 - **r).abs()) {
-                return *best as u32;
-            }
-        }
+/// Rescale a 64-bit integer timestamp from one time base to another.
+/// 
+/// Corresponds to `av_rescale_q` logic: `a * bq / cq`.
+/// Calculation: `val * src.num * dst.den / (src.den * dst.num)`
+pub fn rescale_ts(val: i64, src: Rational, dst: Rational) -> i64 {
+    if val == 0 {
+        return 0;
     }
-    if requested > 0 {
-        requested
-    } else {
-        fallback
+    if src.0 == 0 || src.1 == 0 || dst.0 == 0 || dst.1 == 0 {
+        return 0; // Invalid timebase
     }
-}
 
-pub fn channel_layout_from_count(ch: u32) -> Option<ChannelLayout> {
-    match ch {
-        1 => Some(ChannelLayout::MONO),
-        2 => Some(ChannelLayout::STEREO),
-        _ => None,
+    // Use u128 to prevent overflow during multiplication
+    let a = val as i128;
+    let b = (src.0 as i128) * (dst.1 as i128); // numerator part
+    let c = (src.1 as i128) * (dst.0 as i128); // denominator part
+
+    if c == 0 {
+        return 0;
     }
+
+    // integer division (floor)
+    let result = a * b / c;
+    
+    result as i64
 }

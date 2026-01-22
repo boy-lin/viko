@@ -23,30 +23,30 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: MP3
   {
     id: "mp3-320",
-    label: "High Quality (320 kbps)",
+    label: "High Quality",
     category: "audio",
     group: "MP3",
     extension: FormatEnum.MP3,
     quality: "320k",
-    tags: ["lossy", "music"],
+    tags: [],
   },
   {
     id: "mp3-256",
-    label: "Medium Quality (256 kbps)",
+    label: "Medium Quality",
     category: "audio",
     group: "MP3",
     extension: FormatEnum.MP3,
     quality: "256k",
-    tags: ["lossy", "music"],
+    tags: [],
   },
   {
     id: "mp3-128",
-    label: "Low Quality (128 kbps)",
+    label: "Low Quality",
     category: "audio",
     group: "MP3",
     extension: FormatEnum.MP3,
     quality: "128k",
-    tags: ["lossy", "speech"],
+    tags: [],
   },
 
   // Group: M4A

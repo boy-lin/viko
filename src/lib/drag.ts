@@ -108,13 +108,6 @@ class DragDropManager {
     this.listeningPromise = (async () => {
       try {
         const webview = getCurrentWebview();
-
-        if (this.debug) {
-          console.log(
-            "[DragDropManager] Starting to listen for drag events..."
-          );
-        }
-
         // 先清理可能存在的旧监听器
         if (this.unlisten) {
           if (this.debug) {

@@ -46,7 +46,6 @@ export default function FinishedTask({
   const resetUnreadFinishedCount = useConverterStore(
     (store) => store.resetUnreadFinishedCount
   );
-
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
@@ -65,7 +64,7 @@ export default function FinishedTask({
           return (
             <div className="flex items-center gap-3">
               <MediaThumbnail
-                path={task.path}
+                path={task.outputPath}
                 title={task.title}
                 fileType={task.fileType}
                 className="shrink-0 w-10 h-10 rounded"
@@ -229,7 +228,7 @@ export default function FinishedTask({
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: onGlobalFilterChange || (() => {}),
+    onGlobalFilterChange: onGlobalFilterChange || (() => { }),
     globalFilterFn: (row, _, filterValue) => {
       if (!filterValue || filterValue.trim() === "") {
         return true;
@@ -281,9 +280,9 @@ export default function FinishedTask({
                 {header.isPlaceholder
                   ? null
                   : flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
+                    header.column.columnDef.header,
+                    header.getContext()
+                  )}
               </TableHead>
             ))}
           </TableRow>

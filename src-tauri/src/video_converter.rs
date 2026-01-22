@@ -189,12 +189,17 @@ struct Transcoder {
     decoder: decoder::Video,
     input_time_base: Rational,
     encoder: encoder::Video,
+    encoder_time_base: Rational,
     scaler: ffmpeg::software::scaling::Context,
     frame_count: usize,
-    start_time: Instant,
+    // Rename start_time field in video_converter.rs Struct if necessary, but here just fix the value
+    // In struct definition:
+    start_time_instant: Instant,
     duration: f64,
     window: WebviewWindow,
     taskId: String,
+    last_pts: i64,
+    start_time: i64,
 }
 
 impl Transcoder {
@@ -204,6 +209,7 @@ impl Transcoder {
         ost_index: usize,
         params: &ResolvedVideoParams,
         duration: f64,
+        start_time: i64,
         window: WebviewWindow,
         taskId: String,
     ) -> Result<Self, String> {
@@ -246,18 +252,25 @@ impl Transcoder {
             params.use_hardware_acceleration,
         ));
 
-        encoder.set_time_base(ist.time_base());
-
         // 帧率
-        if let Some(fps_str) = &params.frame_rate {
+        let target_frame_rate = if let Some(fps_str) = &params.frame_rate {
             if fps_str != "original" {
-                if let Ok(fps) = fps_str.parse::<i32>() {
-                    encoder.set_frame_rate(Some((fps, 1)));
-                }
+                fps_str.parse::<i32>().ok().map(|fps| Rational(fps, 1))
             } else {
-                encoder.set_frame_rate(decoder.frame_rate());
+                decoder.frame_rate()
             }
+        } else {
+            decoder.frame_rate()
         }
+        .unwrap_or(Rational(30, 1));
+        encoder.set_frame_rate(Some((target_frame_rate.numerator(), target_frame_rate.denominator())));
+
+        let encoder_time_base = if target_frame_rate.numerator() > 0 && target_frame_rate.denominator() > 0 {
+            Rational(target_frame_rate.denominator(), target_frame_rate.numerator())
+        } else {
+            Rational(1, 30)
+        };
+        encoder.set_time_base(encoder_time_base);
 
         // 码率
         if let Some(bitrate) = params.video_bitrate {
@@ -288,6 +301,14 @@ impl Transcoder {
             .map_err(|e| format!("无法打开编码器: {}", e))?;
 
         ost.set_parameters(&encoder);
+        let encoder_time_base = if encoder.time_base().numerator() > 0 {
+            let tb = encoder.time_base();
+            ost.set_time_base(tb);
+            tb
+        } else {
+            ost.set_time_base(encoder_time_base);
+            encoder_time_base
+        };
 
         // 4. 设置 Scaler (用于分辨率转换和像素格式转换)
         let scaler = ffmpeg::software::scaling::context::Context::get(
@@ -302,16 +323,19 @@ impl Transcoder {
         .map_err(|e| format!("无法创建Scaler: {}", e))?;
 
         Ok(Self {
-            ost_index,
+            ost_index: ost.index(),
             decoder,
             input_time_base: ist.time_base(),
             encoder,
+            encoder_time_base,
             scaler,
             frame_count: 0,
-            start_time: Instant::now(),
+            start_time_instant: Instant::now(),
             duration,
+            start_time,
             window,
             taskId,
+            last_pts: -1,
         })
     }
 
@@ -330,15 +354,14 @@ impl Transcoder {
     ) -> Result<(), String> {
         let mut decoded = frame::Video::empty();
         while self.decoder.receive_frame(&mut decoded).is_ok() {
-            let timestamp = decoded.timestamp();
-
             // 进度报告
-            if let Some(pts) = timestamp {
-                let current_time = pts as f64 * f64::from(self.input_time_base);
+            if let Some(pts) = decoded.pts() {
+                let current_time = pts as f64
+                    * self.decoder.time_base().0 as f64
+                    / self.decoder.time_base().1 as f64;
+                let elapsed = self.start_time_instant.elapsed().as_secs_f64();
                 if self.duration > 0.0 {
                     let progress = (current_time / self.duration * 100.0).min(100.0);
-                    // 简单去抖动，每秒或每1%发送一次即可，这里由于是一帧帧处理，可以稍作限制
-                    // 为简化，直接发送，前端可能有去抖或频繁更新
                     crate::events::emit_media_task_event(
                         &self.window,
                         &self.taskId,
@@ -358,7 +381,21 @@ impl Transcoder {
                 .run(&decoded, &mut scaled_frame)
                 .map_err(|e| format!("Scaling failed: {}", e))?;
 
-            scaled_frame.set_pts(timestamp);
+            let mut pts = decoded.pts().unwrap_or(0);
+            if pts >= self.start_time {
+                pts -= self.start_time;
+            }
+            
+            // Rescale PTS from Decoder TB to Encoder TB
+            let rescaled_pts = media_common::rescale_ts(
+                pts,
+                self.input_time_base,
+                self.encoder_time_base,
+            );
+
+            self.frame_count += 1;
+            self.last_pts = rescaled_pts;
+            scaled_frame.set_pts(Some(rescaled_pts));
             scaled_frame.set_kind(picture::Type::None);
 
             self.send_frame_to_encoder(&scaled_frame)?;
@@ -384,7 +421,7 @@ impl Transcoder {
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             encoded.set_stream(self.ost_index);
-            encoded.rescale_ts(self.input_time_base, ost_time_base);
+            encoded.rescale_ts(self.encoder_time_base, ost_time_base);
             encoded.write_interleaved(octx).map_err(|e| e.to_string())?;
         }
         Ok(())
@@ -413,12 +450,24 @@ pub fn convert_video(
     let mut octx =
         format::output(&resolved.output_path).map_err(|e| format!("无法打开输出文件: {}", e))?;
 
+    // 获取时长和起始时间
+    let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
+    // 由于 ictx.start_time() 可能不可用，遍历流获取最早的其实时间
+    let start_time = ictx
+        .streams()
+        .map(|s| s.start_time())
+        .filter(|&t| t != ffmpeg::ffi::AV_NOPTS_VALUE)
+        .min()
+        .unwrap_or(0);
+    let global_start_time = start_time;
+
     // 为音轨创建处理器（多轨转码）
+    eprintln!("Info: Input stream count: {}", ictx.nb_streams());
     let mut audio_processors: Vec<AudioTrackProcessor> = Vec::new();
     let mut audio_map: HashMap<usize, Vec<usize>> = HashMap::new();
     for track in &resolved.audio_tracks {
         if let Some(ist) = ictx.stream(track.source_stream_index) {
-            let proc = AudioTrackProcessor::new(&ist, &mut octx, &track.encoding)?;
+            let proc = AudioTrackProcessor::new(&ist, &mut octx, &track.encoding, global_start_time)?;
             let idx = audio_processors.len();
             audio_map
                 .entry(track.source_stream_index)
@@ -427,9 +476,6 @@ pub fn convert_video(
             audio_processors.push(proc);
         }
     }
-
-    // 获取时长
-    let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
 
     // 检测是否有视频流
     let has_video = ictx.streams().best(media::Type::Video).is_some();
@@ -449,7 +495,7 @@ pub fn convert_video(
     let mut ist_time_bases = vec![Rational(0, 1); ictx.nb_streams() as usize];
     let mut ost_time_bases: Vec<Rational> = Vec::new();
     let mut transcoders = HashMap::new();
-    let mut ost_index = 0;
+    let mut ost_index = octx.nb_streams() as usize;
 
     // 如果没有视频流，需要创建黑屏视频流
     let mut black_video_encoder: Option<(encoder::Video, usize, Rational, u32, u32, Rational)> =
@@ -472,13 +518,16 @@ pub fn convert_video(
                         ost_index,
                         &resolved,
                         duration,
+                        global_start_time,
                         window.clone(),
                         task_id.clone(),
                     )?;
                     transcoders.insert(ist_index, transcoder);
                     ost_index += 1;
+                    eprintln!("Info: Mapped Video Input {} to Output {}", ist_index, ost_index - 1);
                 } else {
                     stream_mapping[ist_index] = -1; // Ignore
+                    eprintln!("Info: Ignored Video Input {} (Not best)", ist_index);
                 }
             }
         } else if ist_medium == media::Type::Audio {
@@ -519,26 +568,37 @@ pub fn convert_video(
         if ist_index >= stream_mapping.len() {
             continue;
         }
-        let ost_idx = stream_mapping[ist_index] as isize;
-        if ost_idx < 0 {
+        let mapping = stream_mapping[ist_index] as isize;
+        // eprintln!("Debug: Packet from stream {} (mapping {})", ist_index, mapping);
+        if mapping == -2 {
+            if let Some(indices) = audio_map.get(&ist_index) {
+                for (n, &proc_idx) in indices.iter().enumerate() {
+                    let pkt_clone = if n == 0 { None } else { Some(packet.clone()) };
+                    let pkt_ref = pkt_clone.as_ref().unwrap_or(&packet);
+                    let proc = audio_processors
+                        .get_mut(proc_idx)
+                        .ok_or("音频处理器索引无效")?;
+                     // Get the correct output stream time base for this processor
+                     let ost_index = proc.ost_index;
+                     if ost_index >= ost_time_bases.len() {
+                         return Err(format!("Invalid audio output stream index: {}", ost_index));
+                     }
+                     let ost_time_base = ost_time_bases[ost_index];
+                    proc.process_packet(pkt_ref, ist_time_bases[ist_index], ost_time_base, &mut octx)?;
+                }
+            }
+            continue;
+        }
+        if mapping < 0 {
             continue;
         }
 
-        let ost_idx = ost_idx as usize;
+        let ost_idx = mapping as usize;
         let ost_time_base = ost_time_bases[ost_idx];
 
         if let Some(transcoder) = transcoders.get_mut(&ist_index) {
-            transcoder.send_packet_to_decoder(&packet)?;
-            transcoder.receive_and_process_decoded_frames(&mut octx, ost_time_base)?;
-        } else if let Some(indices) = audio_map.get(&ist_index) {
-            for (n, &proc_idx) in indices.iter().enumerate() {
-                let pkt_clone = if n == 0 { None } else { Some(packet.clone()) };
-                let pkt_ref = pkt_clone.as_ref().unwrap_or(&packet);
-                let proc = audio_processors
-                    .get_mut(proc_idx)
-                    .ok_or("音频处理器索引无效")?;
-                proc.process_packet(pkt_ref, ist_time_bases[ist_index], &mut octx)?;
-            }
+            transcoder.send_packet_to_decoder(&packet).map_err(|e| format!("Video decode send failed: {}", e))?;
+            transcoder.receive_and_process_decoded_frames(&mut octx, ost_time_bases[mapping as usize]).map_err(|e| format!("Video process failed: {}", e))?;
         } else {
             // Stream copy
             packet.rescale_ts(ist_time_bases[ist_index], ost_time_base);
@@ -562,7 +622,11 @@ pub fn convert_video(
     }
 
     for proc in audio_processors.iter_mut() {
-        proc.finish(&mut octx)?;
+        let ost_index = proc.ost_index;
+        if ost_index < ost_time_bases.len() {
+             let ost_time_base = ost_time_bases[ost_index];
+             proc.finish(ost_time_base, &mut octx)?;
+        }
     }
 
     // 如果没有视频流，生成黑屏视频帧
@@ -876,4 +940,3 @@ fn generate_black_video_frames(
 
     Ok(())
 }
-
