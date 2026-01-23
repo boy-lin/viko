@@ -63,11 +63,7 @@ const AUDIO_ENCODER_OPTIONS: Record<string, AudioEncoderOptions> = {
   [EncoderEnum.ALAC]: LOSSLESS_AUDIO_OPTIONS,
   [EncoderEnum.PCM_S16LE]: LOSSLESS_AUDIO_OPTIONS,
   [EncoderEnum.PCM_S24LE]: LOSSLESS_AUDIO_OPTIONS,
-  [EncoderEnum.MP2]: {
-    sampleRates: AUDIO_SAMPLE_RATES,
-    channels: AUDIO_CHANNELS,
-    bitrates: AUDIO_BITRATES,
-  },
+  [EncoderEnum.MP2]: DEFAULT_AUDIO_OPTIONS,
   [EncoderEnum.AMR_NB]: {
     sampleRates: AUDIO_AMR_NB_SAMPLE_RATES,
     channels: AUDIO_AMR_NB_CHANNELS,

@@ -12,12 +12,39 @@ import {
 interface VideoEncoderSelectProps {
   value: string;
   onValueChange: (value: string) => void;
+  allowedEncoders?: string[];
 }
 
 export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
   value,
   onValueChange,
+  allowedEncoders,
 }) => {
+  // 定义所有支持的编码器
+  const allEncoders = [
+    { value: "h264", label: "H.264" },
+    { value: "hevc", label: "HEVC (H.265)" },
+    { value: "vp9", label: "VP9" },
+    { value: "av1", label: "AV1" },
+    { value: "mpeg4", label: "MPEG-4" },
+    { value: "mpeg2video", label: "MPEG-2" },
+    { value: "wmv2", label: "WMV2" },
+    { value: "vpc", label: "VP8" },
+    { value: "theora", label: "Theora" },
+    { value: "flv1", label: "FLV1" },
+    { value: "h263", label: "H.263" },
+    { value: "prores", label: "ProRes" },
+    { value: "dnxhd", label: "DNxHD" },
+    { value: "mpeg1video", label: "MPEG-1" },
+    { value: "auto", label: "Auto" },
+  ];
+
+  const filteredEncoders = allowedEncoders
+    ? allEncoders.filter(
+      (e) => allowedEncoders.includes(e.value) || e.value === "auto"
+    )
+    : allEncoders.filter((e) => ["h264", "hevc", "vp9", "auto"].includes(e.value)); // default simplified list
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -29,10 +56,11 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
           <SelectValue placeholder="Select encoder" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="h264">H.264</SelectItem>
-          <SelectItem value="hevc">HEVC (H.265)</SelectItem>
-          <SelectItem value="vp9">VP9</SelectItem>
-          <SelectItem value="auto">Auto</SelectItem>
+          {filteredEncoders.map((encoder) => (
+            <SelectItem key={encoder.value} value={encoder.value}>
+              {encoder.label}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>

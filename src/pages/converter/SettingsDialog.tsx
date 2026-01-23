@@ -22,6 +22,10 @@ import { AudioSettingsSection } from "./components/AudioSettingsSection";
 import { ImageSettingsSection } from "./components/ImageSettingsSection";
 // import { SettingsDialogTitle } from "./components/SettingsDialogTitle";
 import { defaultVideoConfig } from "@/stores/converterStore";
+import {
+  FORMAT_CAPABILITIES,
+  DEFAULT_CAPABILITY,
+} from "@/data/format_capabilities";
 interface ConversionSettingsDialogProps {
   taskConfig: ConversionConfig;
   onTaskConfigChange: (config: ConversionConfig) => void;
@@ -101,6 +105,21 @@ export const ConversionSettingsDialog: React.FC<
               <VideoSettingsSection
                 video={config.video}
                 onVideoChange={handleVideoChange}
+                {...(() => {
+                  const currentGroup = config?.group;
+                  const capabilities =
+                    (currentGroup && FORMAT_CAPABILITIES[currentGroup]) ||
+                    DEFAULT_CAPABILITY;
+
+                  console.log("capabilities", config, capabilities);
+
+                  return {
+                    allowedEncoders: capabilities.encoders,
+                    allowedResolutions: capabilities.resolutions,
+                    maxResolution: capabilities.maxResolution,
+                    maxFrameRate: capabilities.maxFrameRate,
+                  };
+                })()}
               />
               {config.audioTracks && config.audioTracks.length > 0 && (
                 <AudioSettingsSection

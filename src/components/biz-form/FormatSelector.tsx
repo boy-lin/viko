@@ -21,8 +21,9 @@ import { FormatOption } from "@/types/options";
 import { useConverterStore } from "@/stores/converterStore";
 import { AUDIO_ENCODERS } from "@/data/encoders";
 import { getAudioEncoderOptions } from "@/data/encoder_options";
-
+import { FORMAT_CAPABILITIES } from "@/data/format_capabilities";
 export interface FormatSelectorValue {
+  group?: string;
   outputFormat: string;
   // Video fields
   videoEncoder?: string;
@@ -122,7 +123,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       if (
         formatType === "video" &&
         videoParams?.resolution &&
-        f.quality === videoParams.resolution
+        f.videoResolution === videoParams.resolution
       ) {
         return true;
       }
@@ -131,16 +132,14 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       if (
         formatType === "audio" &&
         audioParams?.audioBitrate &&
-        f.quality === `${audioParams.audioBitrate}k`
+        f.audioBitrate === `${audioParams.audioBitrate}k`
       ) {
         return true;
       }
 
       // Image: check quality or resolution match
       if (formatType === "image") {
-        if (imageParams?.quality && f.quality === imageParams.quality)
-          return true;
-        if (imageParams?.resolution && f.quality === imageParams.resolution)
+        if (imageParams?.resolution && f.imageResolution === imageParams.resolution)
           return true;
       }
 
@@ -164,9 +163,10 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
 
   const value = selectedFormat?.id || "";
 
-  // Reset group when category changes
+  // Reset group when category changes (but don't auto-select first group)
   useEffect(() => {
-    setActiveGroup(null);
+    // 可以选择是否自动选择第一个 group
+    // setActiveGroup(null);
   }, [activeCategory]);
 
   // Derived Data
@@ -191,14 +191,11 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       return FORMAT_DATA.filter(
         (item) =>
           item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.group?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.tags?.some((tag) =>
-            tag.toLowerCase().includes(searchQuery.toLowerCase())
-          )
+          item.group?.toLowerCase().includes(searchQuery.toLowerCase())
       );
-    }
+      }
 
-    // 2. Special Categories (Flat List)
+    // 2. Special Categories (Flat List - no groups)
     if (activeCategory === "favorites") {
       return FORMAT_DATA.filter((item) => formatFavorites.includes(item.id));
     }
@@ -208,7 +205,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
         .filter(Boolean) as FormatOption[];
     }
 
-    // 3. Category Mode
+    // 3. Category Mode with Group
     // If a group is selected, show items in that group
     if (activeGroup) {
       return FORMAT_DATA.filter(
@@ -216,9 +213,10 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       );
     }
 
-    // If no group selected (and not special category), we might not show items directly
-    // unless we want to show "All" or similar. But the UI will switch to Group View.
-    return [];
+    // If no group selected, show all items in the category
+    return FORMAT_DATA.filter(
+      (item) => item.category === activeCategory
+    );
   }, [
     searchQuery,
     activeCategory,
@@ -238,23 +236,32 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
 
     const updates: FormatSelectorValue = {
       outputFormat: preset.extension,
+      group: preset.group,
     };
 
     // 根据 formatType 设置对应的字段
     if (formatType === "video") {
+      const capabilities = FORMAT_CAPABILITIES[preset.group]
+
       // Video Resolution
       if (
         preset.category.includes("video") &&
-        preset.quality &&
-        preset.quality !== "auto"
+        preset.videoResolution &&
+        preset.videoResolution !== "auto"
       ) {
-        updates.resolution = preset.quality;
+        updates.resolution = preset.videoResolution;
+      }
+      if (capabilities.defaultEncoder) {
+        updates.videoEncoder = capabilities.defaultEncoder;
+      }
+      if (capabilities.defaultAudioEncoder) {
+        updates.audioEncoder = capabilities.defaultAudioEncoder;
       }
       // Video Encoder 可以从 preset 推断，但通常由用户在其他地方设置
       // 这里不设置 videoEncoder，保持现有值
     } else if (formatType === "audio") {
-      if (preset.quality) {
-        updates.audioBitrate = preset.quality;
+      if (preset.audioBitrate) {
+        updates.audioBitrate = preset.audioBitrate;
       } else {
         updates.audioBitrate = "auto";
       }
@@ -279,12 +286,12 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       }
     } else if (formatType === "image") {
       // Image Quality
-      if (preset.quality) {
-        updates.quality = preset.quality;
+      if (preset.imageResolution) {
+        updates.quality = preset.imageResolution;
       }
       // Image Resolution (如果有)
-      if (preset.quality && preset.quality.includes("x")) {
-        updates.resolution = preset.quality;
+      if (preset.imageResolution && preset.imageResolution.includes("x")) {
+        updates.resolution = preset.imageResolution;
       }
     }
 
@@ -297,10 +304,8 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
     return FORMAT_CATEGORIES.find((c) => c.id === activeCategory)?.label;
   }, [activeCategory]);
 
-  const showGroupsView =
-    !searchQuery &&
-    !activeGroup &&
-    !["favorites", "recents"].includes(activeCategory);
+  // 判断是否显示中间列（Groups）
+  const showGroupsColumn = !searchQuery && !["favorites", "recents"].includes(activeCategory);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -327,10 +332,10 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[600px] p-0" align="start">
-        <div className="flex bg-popover h-[350px] overflow-hidden rounded-md border text-popover-foreground">
-          {/* Left Sidebar: Categories (Level 1) */}
-          <div className="w-[180px] border-r bg-muted/20 flex flex-col">
+      <PopoverContent className="w-[680px] p-0" align="start">
+        <div className="flex bg-popover h-[400px] overflow-hidden rounded-md border text-popover-foreground">
+          {/* Left Column: Categories (Level 1) */}
+          <div className="w-[140px] border-r bg-muted/20 flex flex-col">
             <div className="p-2 border-b">
               <div className="flex items-center px-2 py-2 text-sm font-medium text-muted-foreground">
                 <Search className="w-4 h-4 mr-2" />
@@ -354,6 +359,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                   onClick={() => {
                     setActiveCategory("favorites");
                     setSearchQuery("");
+                    setActiveGroup(null);
                   }}
                 />
                 <CategoryItem
@@ -364,6 +370,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                   onClick={() => {
                     setActiveCategory("recents");
                     setSearchQuery("");
+                    setActiveGroup(null);
                   }}
                 />
 
@@ -380,6 +387,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                     onClick={() => {
                       setActiveCategory(cat.id);
                       setSearchQuery("");
+                      setActiveGroup(null);
                     }}
                   />
                 ))}
@@ -387,142 +395,144 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
             </div>
           </div>
 
-          {/* Right Side: Groups (Level 2) or Options (Level 3) */}
+          {/* Middle Column: Groups (Level 2) - Only show for standard categories */}
+          {showGroupsColumn && (
+            <div className="w-[120px] border-r bg-muted/10 flex flex-col">
+              <div className="p-3 border-b bg-muted/10 font-medium text-sm h-[50px] flex items-center">
+                <span>{currentCategoryLabel}</span>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {formatGroups.length}
+                </span>
+              </div>
+              <div className="flex-1 overflow-hidden p-2">
+                <ScrollArea className="h-full">
+                  {formatGroups.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                      <p className="text-xs">No groups</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {formatGroups.map((group) => (
+                        <button
+                          key={group}
+                          onClick={() => setActiveGroup(group)}
+                          className={cn(
+                            "w-full flex items-center justify-between p-2 rounded-md text-left transition-colors",
+                            activeGroup === group
+                              ? "bg-accent text-accent-foreground"
+                              : "hover:bg-accent/50"
+                          )}
+                        >
+                          <span className="text-sm font-medium">{group}</span>
+                          {activeGroup === group && (
+                            <Check className="w-4 h-4 text-primary" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
+            </div>
+          )}
+
+          {/* Right Column: Options (Level 3) */}
           <div className="flex-1 flex flex-col">
             {/* Header */}
             <div className="p-3 border-b bg-muted/10 font-medium text-sm flex justify-between items-center h-[50px]">
               {searchQuery ? (
                 <span>Search Results</span>
+              ) : showGroupsColumn && activeGroup ? (
+                <span>{activeGroup}</span>
               ) : (
-                <div className="flex items-center gap-1">
-                  <span
-                    className={cn(
-                      activeGroup
-                        ? "text-muted-foreground cursor-pointer hover:underline"
-                        : ""
-                    )}
-                    onClick={() => activeGroup && setActiveGroup(null)}
-                  >
-                    {currentCategoryLabel}
-                  </span>
-                  {activeGroup && (
-                    <>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                      <span>{activeGroup}</span>
-                    </>
-                  )}
-                </div>
+                <span>{currentCategoryLabel}</span>
               )}
               <span className="text-xs text-muted-foreground">
-                {showGroupsView
-                  ? `${formatGroups.length} groups`
-                  : `${filteredItems.length} options`}
+                {filteredItems.length} {filteredItems.length === 1 ? "option" : "options"}
               </span>
             </div>
 
             <div className="flex-1 overflow-hidden p-2">
               <ScrollArea className="h-full">
-                {/* View 1: Groups List (Level 2) */}
-                {showGroupsView && (
-                  <div className="grid grid-cols-2 gap-2 p-1">
-                    {formatGroups.map((group) => (
-                      <button
-                        key={group}
-                        onClick={() => setActiveGroup(group)}
-                        className="flex items-center justify-between p-3 rounded-md border bg-card hover:bg-accent hover:text-accent-foreground transition-all text-left"
+                {filteredItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <p className="text-sm">No formats found.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-1">
+                    {filteredItems.map((item) => (
+                      <div
+                        key={item.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleSelect(item.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleSelect(item.id);
+                          }
+                        }}
+                        className={cn(
+                          "flex items-center justify-between p-2 rounded-md hover:bg-accent hover:text-accent-foreground text-left transition-colors group cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                          value === item.id && "bg-accent/50"
+                        )}
                       >
-                        <span className="font-medium text-sm">{group}</span>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
-                      </button>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">
+                            {item.label}
+                          </span>
+                          <div className="flex items-end gap-2 max-w-[300px] text-xs text-muted-foreground">
+                            <span className=" whitespace-nowrap">
+                              {item.extension?.toUpperCase()}
+                            </span>
+                            {item.description && (
+                              <span
+                                className="truncate"
+                                title={item.description}
+                              >
+                                ({item.description})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div
+                          className={cn(
+                            "flex items-center gap-2 transition-opacity",
+                            formatFavorites.includes(item.id)
+                              ? "opacity-100"
+                              : "opacity-0 group-hover:opacity-100"
+                          )}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-6 w-6",
+                              formatFavorites.includes(item.id)
+                                ? "text-yellow-400"
+                                : "text-muted-foreground"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(item.id);
+                            }}
+                          >
+                            <Star
+                              className={cn(
+                                "w-3 h-3",
+                                formatFavorites.includes(item.id) &&
+                                "fill-current"
+                              )}
+                            />
+                          </Button>
+                          {value === item.id && (
+                            <Check className="w-4 h-4 text-primary" />
+                          )}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                )}
-
-                {/* View 2: Options List (Level 3 or Flat List) */}
-                {!showGroupsView && (
-                  <>
-                    {filteredItems.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                        <p className="text-sm">No formats found.</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-1">
-                        {filteredItems.map((item) => (
-                          <div
-                            key={item.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => handleSelect(item.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                handleSelect(item.id);
-                              }
-                            }}
-                            className={cn(
-                              "flex items-center justify-between p-2 rounded-md hover:bg-accent hover:text-accent-foreground text-left transition-colors group cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                              value === item.id && "bg-accent/50"
-                            )}
-                          >
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium">
-                                {item.label}
-                              </span>
-                              <div className="flex items-end gap-2 max-w-[300px] text-xs text-muted-foreground">
-                                <span className=" whitespace-nowrap">
-                                  {item.quality} •{" "}
-                                  {item.extension?.toUpperCase()}
-                                </span>
-                                {item.description && (
-                                  <span
-                                    className="truncate"
-                                    title={item.description}
-                                  >
-                                    ({item.description})
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div
-                              className={cn(
-                                "flex items-center gap-2 transition-opacity",
-                                formatFavorites.includes(item.id)
-                                  ? "opacity-100"
-                                  : "opacity-0 group-hover:opacity-100"
-                              )}
-                            >
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className={cn(
-                                  "h-6 w-6",
-                                  formatFavorites.includes(item.id)
-                                    ? "text-yellow-400"
-                                    : "text-muted-foreground"
-                                )}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleFavorite(item.id);
-                                }}
-                              >
-                                <Star
-                                  className={cn(
-                                    "w-3 h-3",
-                                    formatFavorites.includes(item.id) &&
-                                    "fill-current"
-                                  )}
-                                />
-                              </Button>
-                              {value === item.id && (
-                                <Check className="w-4 h-4 text-primary" />
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
                 )}
               </ScrollArea>
             </div>

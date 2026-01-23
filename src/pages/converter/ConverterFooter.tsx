@@ -19,6 +19,7 @@ import {
   isImageConfig,
   type ConversionConfig,
 } from "@/types/converter";
+import { FORMAT_CAPABILITIES } from "@/data/format_capabilities";
 
 export const ConverterFooter: React.FC = () => {
   const globalConfig = useConverterStore((state) => state.globalConfig);
@@ -59,6 +60,7 @@ export const ConverterFooter: React.FC = () => {
         type: "video",
         outputFormat: updates.outputFormat || globalConfig.outputFormat,
         outputTitle: globalConfig.outputTitle,
+        group: updates.group,
         video: {
           ...existingVideo,
           resolution: updates.resolution || existingVideo.resolution,
