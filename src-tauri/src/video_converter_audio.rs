@@ -5,7 +5,6 @@ use ffmpeg::{
 use crate::audio_converter::AudioEncodingParams;
 use crate::media_common::{self, AudioFifo};
 
-/// 音频轨道处理器：按需重采样/转码并写入输出流
 pub struct AudioTrackProcessor {
     pub source_stream_index: usize,
     decoder: decoder::Audio,
@@ -16,10 +15,11 @@ pub struct AudioTrackProcessor {
     target_layout: ffmpeg::ChannelLayout,
     target_format: format::Sample,
     target_rate: u32,
-    ost_index: usize,
-    ost_time_base: Rational,
+    pub ost_index: usize,
     encoder_time_base: Rational,
     next_pts: i64,
+    start_time: i64,
+    first_pts_set: bool,
 }
 
 impl AudioTrackProcessor {
@@ -27,6 +27,7 @@ impl AudioTrackProcessor {
         ist: &format::stream::Stream,
         octx: &mut format::context::Output,
         params: &AudioEncodingParams,
+        start_time: i64,
     ) -> Result<Self, String> {
         let source_stream_index = ist.index();
         let decoder_ctx = codec::context::Context::from_parameters(ist.parameters())
@@ -118,7 +119,6 @@ impl AudioTrackProcessor {
 
         ost.set_parameters(&encoder);
         let encoder_time_base = encoder.time_base();
-        let ost_time_base = encoder_time_base;
         ost.set_time_base(encoder_time_base);
         let ost_index = ost.index();
 
@@ -155,6 +155,12 @@ impl AudioTrackProcessor {
             None
         };
 
+        let start_time = media_common::rescale_ts(
+            start_time,
+            ffmpeg::Rational(1, ffmpeg::ffi::AV_TIME_BASE),
+            ist.time_base(),
+        );
+
         Ok(Self {
             source_stream_index,
             decoder,
@@ -166,9 +172,10 @@ impl AudioTrackProcessor {
             target_format,
             target_rate,
             ost_index,
-            ost_time_base,
             encoder_time_base,
             next_pts: 0,
+            start_time,
+            first_pts_set: false,
         })
     }
 
@@ -176,6 +183,7 @@ impl AudioTrackProcessor {
         &mut self,
         pkt: &packet::Packet,
         input_time_base: Rational,
+        ost_time_base: Rational,
         octx: &mut format::context::Output,
     ) -> Result<(), String> {
         let mut p = pkt.clone();
@@ -194,6 +202,21 @@ impl AudioTrackProcessor {
             self.resampler
                 .run(&decoded, &mut resampled)
                 .map_err(|e| format!("重采样失败: {}", e))?;
+
+            if !self.first_pts_set {
+                if let Some(pts) = decoded.pts() {
+                    let mut p = pts;
+                    if p >= self.start_time {
+                        p -= self.start_time;
+                    }
+                    self.next_pts = media_common::rescale_ts(
+                        p,
+                        self.decoder.time_base(),
+                        self.encoder_time_base,
+                    );
+                    self.first_pts_set = true;
+                }
+            }
 
             if self.fifo.is_some() {
                 {
@@ -221,18 +244,22 @@ impl AudioTrackProcessor {
                     }
                     output_frame.set_pts(Some(self.next_pts));
                     self.next_pts += self.frame_size as i64;
-                    self.encode_and_write(&output_frame, octx)?;
+                    self.encode_and_write(&output_frame, ost_time_base, octx)?;
                 }
             } else {
                 resampled.set_pts(Some(self.next_pts));
                 self.next_pts += resampled.samples() as i64;
-                self.encode_and_write(&resampled, octx)?;
+                self.encode_and_write(&resampled, ost_time_base, octx)?;
             }
         }
         Ok(())
     }
 
-    pub fn finish(&mut self, octx: &mut format::context::Output) -> Result<(), String> {
+    pub fn finish(
+        &mut self,
+        ost_time_base: Rational,
+        octx: &mut format::context::Output,
+    ) -> Result<(), String> {
         if let Some(fifo) = self.fifo.as_mut() {
             let remaining_samples = fifo.available_samples();
             if remaining_samples > 0 {
@@ -243,7 +270,7 @@ impl AudioTrackProcessor {
                 fifo.fill_frame(&mut output_frame, &data, remaining_samples);
                 output_frame.set_pts(Some(self.next_pts));
                 self.next_pts += remaining_samples as i64;
-                self.encode_and_write(&output_frame, octx)?;
+                self.encode_and_write(&output_frame, ost_time_base, octx)?;
             }
         }
 
@@ -253,7 +280,7 @@ impl AudioTrackProcessor {
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             encoded.set_stream(self.ost_index);
-            encoded.rescale_ts(self.encoder_time_base, self.ost_time_base);
+            encoded.rescale_ts(self.encoder_time_base, ost_time_base);
             encoded
                 .write_interleaved(octx)
                 .map_err(|e| format!("写入尾部音频包失败: {}", e))?;
@@ -264,6 +291,7 @@ impl AudioTrackProcessor {
     fn encode_and_write(
         &mut self,
         frame: &frame::Audio,
+        ost_time_base: Rational,
         octx: &mut format::context::Output,
     ) -> Result<(), String> {
         self.encoder
@@ -272,7 +300,7 @@ impl AudioTrackProcessor {
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             encoded.set_stream(self.ost_index);
-            encoded.rescale_ts(self.encoder_time_base, self.ost_time_base);
+            encoded.rescale_ts(self.encoder_time_base, ost_time_base);
             encoded
                 .write_interleaved(octx)
                 .map_err(|e| format!("写入音频数据包失败: {}", e))?;

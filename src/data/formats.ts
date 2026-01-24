@@ -30,41 +30,37 @@ export const FORMAT_DATA: FormatOption[] = [
   // Group: MP3
   {
     id: "mp3-320",
-    label: "High Quality (320 kbps)",
+    label: "High Quality",
     category: "audio",
     group: "MP3",
     extension: FormatEnum.MP3,
-    quality: "320k",
-    tags: ["lossy", "music"],
+    audioBitrate: "320k",
   },
   {
     id: "mp3-256",
-    label: "Medium Quality (256 kbps)",
+    label: "Medium Quality",
     category: "audio",
     group: "MP3",
     extension: FormatEnum.MP3,
-    quality: "256k",
-    tags: ["lossy", "music"],
+    audioBitrate: "256k",
   },
   {
     id: "mp3-128",
-    label: "Low Quality (128 kbps)",
+    label: "Low Quality",
     category: "audio",
     group: "MP3",
     extension: FormatEnum.MP3,
-    quality: "128k",
-    tags: ["lossy", "speech"],
+    audioBitrate: "128k",
   },
 
   // Group: M4A
   {
     id: "m4a-aac-320",
-    label: "High Quality (320 kbps)",
+    label: "High Quality",
     category: "audio",
     group: "M4A",
     extension: FormatEnum.M4A,
-    quality: "320k",
-    tags: ["apple", "music", "aac"],
+    audioBitrate: "320k",
   },
   {
     id: "m4a-aac-256",
@@ -72,8 +68,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "M4A",
     extension: FormatEnum.M4A,
-    quality: "256k",
-    tags: ["apple", "music", "aac"],
+    audioBitrate: "256k",
   },
   {
     id: "m4a-aac-128",
@@ -81,8 +76,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "M4A",
     extension: FormatEnum.M4A,
-    quality: "128k",
-    tags: ["apple", "speech", "aac"],
+    audioBitrate: "128k",
   },
 
   // Group: WAV
@@ -92,8 +86,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "WAV",
     extension: FormatEnum.WAV,
-    quality: "lossless",
-    tags: ["pc", "uncompressed"],
+    audioBitrate: "lossless",
   },
 
   // Group: M4R (Ringtone)
@@ -103,8 +96,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "M4R",
     extension: FormatEnum.M4R,
-    quality: "256k",
-    tags: ["apple", "ringtone"],
+    audioBitrate: "256k",
   },
   {
     id: "m4r-aac-128",
@@ -112,8 +104,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "M4R",
     extension: FormatEnum.M4R,
-    quality: "128k",
-    tags: ["apple", "ringtone"],
+    audioBitrate: "128k",
   },
 
   // Group: AIFF
@@ -123,7 +114,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "AIFF",
     extension: FormatEnum.AIFF,
-    quality: "lossless",
+    audioBitrate: "lossless",
   },
 
   // Group: FLAC
@@ -133,7 +124,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "FLAC",
     extension: FormatEnum.FLAC,
-    quality: "lossless",
+    audioBitrate: "lossless",
   },
 
   // Group: OGG
@@ -143,8 +134,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "OGG",
     extension: FormatEnum.OGG,
-    quality: "320k",
-    tags: ["open", "web"],
+    audioBitrate: "320k",
   },
   {
     id: "ogg-256",
@@ -152,8 +142,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "OGG",
     extension: FormatEnum.OGG,
-    quality: "256k",
-    tags: ["open", "web"],
+    audioBitrate: "256k",
   },
   {
     id: "ogg-128",
@@ -161,8 +150,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "OGG",
     extension: FormatEnum.OGG,
-    quality: "128k",
-    tags: ["open", "web"],
+    audioBitrate: "128k",
   },
 
   // Group: AAC
@@ -172,8 +160,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "AAC",
     extension: FormatEnum.AAC,
-    quality: "320k",
-    tags: ["raw"],
+    audioBitrate: "320k",
   },
   {
     id: "aac-256",
@@ -181,8 +168,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "AAC",
     extension: FormatEnum.AAC,
-    quality: "256k",
-    tags: ["raw"],
+    audioBitrate: "256k",
   },
   {
     id: "aac-128",
@@ -190,8 +176,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "AAC",
     extension: FormatEnum.AAC,
-    quality: "128k",
-    tags: ["raw"],
+    audioBitrate: "128k",
   },
 
   // Group: AC3
@@ -201,8 +186,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "AC3",
     extension: FormatEnum.AC3,
-    quality: "640k",
-    tags: ["surround"],
+    audioBitrate: "640k",
   },
   {
     id: "ac3-448",
@@ -210,8 +194,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "AC3",
     extension: FormatEnum.AC3,
-    quality: "448k",
-    tags: ["surround"],
+    audioBitrate: "448k",
   },
   {
     id: "ac3-192",
@@ -219,8 +202,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "AC3",
     extension: FormatEnum.AC3,
-    quality: "192k",
-    tags: ["stereo"],
+    audioBitrate: "192k",
   },
 
   // Group: AMR
@@ -230,7 +212,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "AMR",
     extension: FormatEnum.AMR,
-    quality: "12.2k",
+    audioBitrate: "12.2k",
   },
   {
     id: "amr-795",
@@ -238,7 +220,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "AMR",
     extension: FormatEnum.AMR,
-    quality: "7.95k",
+    audioBitrate: "7.95k",
   },
   {
     id: "amr-67",
@@ -246,7 +228,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "AMR",
     extension: FormatEnum.AMR,
-    quality: "6.7k",
+    audioBitrate: "6.7k",
   },
 
   // Group: MP2
@@ -256,8 +238,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "MP2",
     extension: FormatEnum.MP2,
-    quality: "256k",
-    tags: ["broadcast"],
+    audioBitrate: "256k",
   },
   {
     id: "mp2-128",
@@ -265,8 +246,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "MP2",
     extension: FormatEnum.MP2,
-    quality: "128k",
-    tags: ["broadcast"],
+    audioBitrate: "128k",
   },
   {
     id: "mp2-96",
@@ -274,8 +254,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "MP2",
     extension: FormatEnum.MP2,
-    quality: "96k",
-    tags: ["broadcast"],
+    audioBitrate: "96k",
   },
 
   // Group: M4B
@@ -285,8 +264,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "M4B",
     extension: FormatEnum.M4B,
-    quality: "256k",
-    tags: ["book", "aac"],
+    audioBitrate: "256k",
   },
   {
     id: "m4b-128",
@@ -294,8 +272,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "M4B",
     extension: FormatEnum.M4B,
-    quality: "128k",
-    tags: ["book", "aac"],
+    audioBitrate: "128k",
   },
   {
     id: "m4b-96",
@@ -303,8 +280,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "M4B",
     extension: FormatEnum.M4B,
-    quality: "96k",
-    tags: ["book", "aac"],
+    audioBitrate: "96k",
   },
 
   // Group: APE
@@ -314,8 +290,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "APE",
     extension: FormatEnum.APE,
-    quality: "lossless",
-    tags: ["archive"],
+    audioBitrate: "lossless",
   },
 
   // Group: CAF
@@ -325,8 +300,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "audio",
     group: "CAF",
     extension: FormatEnum.CAF,
-    quality: "lossless",
-    tags: ["apple"],
+    audioBitrate: "lossless",
   },
 
   // ================= VIDEO (GENERIC) =================
@@ -338,55 +312,55 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MP4",
     extension: FormatEnum.MP4,
-    quality: "auto",
+    videoResolution: "auto",
   },
   {
     id: "mp4-8k",
-    label: "8K Video (7680x4320)",
+    label: "8K Video",
     category: "video_generic",
     group: "MP4",
     extension: FormatEnum.MP4,
-    quality: "7680x4320",
+    videoResolution: "7680x4320",
   },
   {
     id: "mp4-4k",
-    label: "4K Video (3840x2160)",
+    label: "4K Video",
     category: "video_generic",
     group: "MP4",
     extension: FormatEnum.MP4,
-    quality: "3840x2160",
+    videoResolution: "3840x2160",
   },
   {
     id: "mp4-1080",
-    label: "HD 1080P (1920x1080)",
+    label: "HD 1080P",
     category: "video_generic",
     group: "MP4",
     extension: FormatEnum.MP4,
-    quality: "1920x1080",
+    videoResolution: "1920x1080",
   },
   {
     id: "mp4-720",
-    label: "HD 720P (1280x720)",
+    label: "HD 720P",
     category: "video_generic",
     group: "MP4",
     extension: FormatEnum.MP4,
-    quality: "1280x720",
+    videoResolution: "1280x720",
   },
   {
     id: "mp4-640",
-    label: "SD 640P (960x640)",
+    label: "SD 640P",
     category: "video_generic",
     group: "MP4",
     extension: FormatEnum.MP4,
-    quality: "960x640",
+    videoResolution: "960x640",
   },
   {
     id: "mp4-576",
-    label: "SD 576P (720x576)",
+    label: "SD 576P",
     category: "video_generic",
     group: "MP4",
     extension: FormatEnum.MP4,
-    quality: "720x576",
+    videoResolution: "720x576",
   },
 
   // Group: HEVC MP4
@@ -396,7 +370,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "HEVC MP4",
     extension: FormatEnum.MP4,
-    quality: "auto",
+    videoResolution: "auto",
   },
   {
     id: "hevc-mp4-8k",
@@ -404,7 +378,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "HEVC MP4",
     extension: FormatEnum.MP4,
-    quality: "7680x4320",
+    videoResolution: "7680x4320",
   },
   {
     id: "hevc-mp4-4k",
@@ -412,7 +386,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "HEVC MP4",
     extension: FormatEnum.MP4,
-    quality: "3840x2160",
+    videoResolution: "3840x2160",
   },
   {
     id: "hevc-mp4-1080",
@@ -420,8 +394,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "HEVC MP4",
     extension: FormatEnum.MP4,
-    quality: "1920x1080",
-    tags: ["hevc", "hd"],
+    videoResolution: "1920x1080",
   },
   {
     id: "hevc-mp4-720",
@@ -429,8 +402,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "HEVC MP4",
     extension: FormatEnum.MP4,
-    quality: "1280x720",
-    tags: ["hevc", "hd"],
+    videoResolution: "1280x720",
   },
 
   // Group: MOV
@@ -440,8 +412,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MOV",
     extension: FormatEnum.MOV,
-    quality: "auto",
-    tags: ["mac"],
+    videoResolution: "auto",
   },
   {
     id: "mov-4k",
@@ -449,8 +420,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MOV",
     extension: FormatEnum.MOV,
-    quality: "3840x2160",
-    tags: ["mac", "ultra-hd"],
+    videoResolution: "3840x2160",
   },
   {
     id: "mov-1080",
@@ -458,8 +428,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MOV",
     extension: FormatEnum.MOV,
-    quality: "1920x1080",
-    tags: ["mac", "hd"],
+    videoResolution: "1920x1080",
   },
   {
     id: "mov-720",
@@ -467,8 +436,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MOV",
     extension: FormatEnum.MOV,
-    quality: "1280x720",
-    tags: ["mac", "hd"],
+    videoResolution: "1280x720",
   },
 
   // Group: MKV
@@ -478,8 +446,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MKV",
     extension: FormatEnum.MKV,
-    quality: "auto",
-    tags: ["universal"],
+    videoResolution: "auto",
   },
   {
     id: "mkv-4k",
@@ -487,8 +454,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MKV",
     extension: FormatEnum.MKV,
-    quality: "3840x2160",
-    tags: ["ultra-hd"],
+    videoResolution: "3840x2160",
   },
   {
     id: "mkv-1080",
@@ -496,8 +462,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MKV",
     extension: FormatEnum.MKV,
-    quality: "1920x1080",
-    tags: ["hd"],
+    videoResolution: "1920x1080",
   },
   {
     id: "mkv-720",
@@ -505,8 +470,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MKV",
     extension: FormatEnum.MKV,
-    quality: "1280x720",
-    tags: ["hd"],
+    videoResolution: "1280x720",
   },
 
   // Group: HEVC MKV
@@ -516,8 +480,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "HEVC MKV",
     extension: FormatEnum.MKV,
-    quality: "auto",
-    tags: ["hevc"],
+    videoResolution: "auto",
   },
   {
     id: "hevc-mkv-4k",
@@ -525,8 +488,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "HEVC MKV",
     extension: FormatEnum.MKV,
-    quality: "3840x2160",
-    tags: ["hevc", "ultra-hd"],
+    videoResolution: "3840x2160",
   },
   {
     id: "hevc-mkv-1080",
@@ -534,8 +496,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "HEVC MKV",
     extension: FormatEnum.MKV,
-    quality: "1920x1080",
-    tags: ["hevc", "hd"],
+    videoResolution: "1920x1080",
   },
 
   // Group: AVI
@@ -545,8 +506,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "AVI",
     extension: FormatEnum.AVI,
-    quality: "auto",
-    tags: ["legacy"],
+    videoResolution: "auto",
   },
   {
     id: "avi-1080",
@@ -554,8 +514,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "AVI",
     extension: FormatEnum.AVI,
-    quality: "1920x1080",
-    tags: ["legacy"],
+    videoResolution: "1920x1080",
   },
   {
     id: "avi-720",
@@ -563,8 +522,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "AVI",
     extension: FormatEnum.AVI,
-    quality: "1280x720",
-    tags: ["legacy"],
+    videoResolution: "1280x720",
   },
   {
     id: "avi-576",
@@ -572,8 +530,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "AVI",
     extension: FormatEnum.AVI,
-    quality: "720x576",
-    tags: ["legacy", "sd"],
+    videoResolution: "720x576",
   },
 
   // Group: WMV
@@ -583,8 +540,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "WMV",
     extension: FormatEnum.WMV,
-    quality: "auto",
-    tags: ["windows"],
+    videoResolution: "auto",
   },
   {
     id: "wmv-1080",
@@ -592,8 +548,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "WMV",
     extension: FormatEnum.WMV,
-    quality: "1920x1080",
-    tags: ["windows"],
+    videoResolution: "1920x1080",
   },
   {
     id: "wmv-720",
@@ -601,8 +556,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "WMV",
     extension: FormatEnum.WMV,
-    quality: "1280x720",
-    tags: ["windows"],
+    videoResolution: "1280x720",
   },
 
   // Group: WebM
@@ -612,8 +566,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "WebM",
     extension: FormatEnum.WEBM,
-    quality: "auto",
-    tags: ["web"],
+    videoResolution: "auto",
   },
   {
     id: "webm-1080",
@@ -621,8 +574,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "WebM",
     extension: FormatEnum.WEBM,
-    quality: "1920x1080",
-    tags: ["web"],
+    videoResolution: "1920x1080",
   },
   {
     id: "webm-720",
@@ -630,8 +582,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "WebM",
     extension: FormatEnum.WEBM,
-    quality: "1280x720",
-    tags: ["web"],
+    videoResolution: "1280x720",
   },
 
   // Group: FLV
@@ -641,8 +592,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "FLV",
     extension: FormatEnum.FLV,
-    quality: "auto",
-    tags: ["flash"],
+    videoResolution: "auto",
   },
   {
     id: "flv-1080",
@@ -650,8 +600,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "FLV",
     extension: FormatEnum.FLV,
-    quality: "1920x1080",
-    tags: ["flash"],
+    videoResolution: "1920x1080",
   },
   {
     id: "flv-720",
@@ -659,8 +608,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "FLV",
     extension: FormatEnum.FLV,
-    quality: "1280x720",
-    tags: ["flash"],
+    videoResolution: "1280x720",
   },
 
   // Group: 3GP
@@ -670,8 +618,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "3GP",
     extension: FormatEnum.GP3,
-    quality: "352x288",
-    tags: ["mobile"],
+    videoResolution: "352x288",
   },
   {
     id: "3gp-176",
@@ -679,8 +626,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "3GP",
     extension: FormatEnum.GP3,
-    quality: "176x144",
-    tags: ["mobile"],
+    videoResolution: "176x144",
   },
 
   // Group: MPEG-1
@@ -690,8 +636,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MPEG-1",
     extension: FormatEnum.MPG,
-    quality: "auto",
-    tags: ["vcd"],
+    videoResolution: "auto",
   },
   {
     id: "mpeg1-cif",
@@ -699,8 +644,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MPEG-1",
     extension: FormatEnum.MPG,
-    quality: "352x288",
-    tags: ["vcd"],
+    videoResolution: "352x288",
   },
 
   // Group: MPEG-2
@@ -710,8 +654,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MPEG-2",
     extension: FormatEnum.MPG,
-    quality: "auto",
-    tags: ["dvd"],
+    videoResolution: "auto",
   },
   {
     id: "mpeg2-1080",
@@ -719,8 +662,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MPEG-2",
     extension: FormatEnum.MPG,
-    quality: "1920x1080",
-    tags: ["hd"],
+    videoResolution: "1920x1080",
   },
   {
     id: "mpeg2-576",
@@ -728,8 +670,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "MPEG-2",
     extension: FormatEnum.MPG,
-    quality: "720x576",
-    tags: ["dvd"],
+    videoResolution: "720x576",
   },
 
   // Group: VOB
@@ -739,8 +680,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "VOB",
     extension: FormatEnum.VOB,
-    quality: "auto",
-    tags: ["dvd"],
+    videoResolution: "auto",
   },
 
   // Group: OGV
@@ -750,8 +690,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "OGV",
     extension: FormatEnum.OGV,
-    quality: "auto",
-    tags: ["open"],
+    videoResolution: "auto",
   },
   {
     id: "ogv-720",
@@ -759,8 +698,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_generic",
     group: "OGV",
     extension: FormatEnum.OGV,
-    quality: "1280x720",
-    tags: ["open"],
+    videoResolution: "1280x720",
   },
 
   // ================= DEVICES =================
@@ -771,9 +709,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Apple",
     extension: FormatEnum.MP4,
-    quality: "3840x2160",
+    videoResolution: "3840x2160",
     description: "iPhone 16/15/14/13/12/11 Pro Max, Apple TV 4K, iPad Pro",
-    tags: ["latest", "apple"],
   },
   {
     id: "apple-ipad-pro",
@@ -781,9 +718,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Apple",
     extension: FormatEnum.MP4,
-    quality: "2732x2048",
+    videoResolution: "2732x2048",
     description: 'iPad Pro 12.9"',
-    tags: ["apple", "tablet"],
   },
   {
     id: "apple-1284",
@@ -791,9 +727,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Apple",
     extension: FormatEnum.MP4,
-    quality: "2778x1284",
+    videoResolution: "2778x1284",
     description: "iPhone 13/12 Pro Max",
-    tags: ["apple"],
   },
   {
     id: "apple-1080",
@@ -801,9 +736,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Apple",
     extension: FormatEnum.MP4,
-    quality: "1920x1080",
+    videoResolution: "1920x1080",
     description: "All iPhone/iPad/Apple TV models",
-    tags: ["apple"],
   },
 
   // Group: Samsung
@@ -813,9 +747,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Samsung",
     extension: FormatEnum.MP4,
-    quality: "3120x1440",
+    videoResolution: "3120x1440",
     description: "Galaxy S24/S23 Ultra",
-    tags: ["samsung"],
   },
   {
     id: "samsung-1080",
@@ -823,9 +756,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Samsung",
     extension: FormatEnum.MP4,
-    quality: "2340x1080",
+    videoResolution: "2340x1080",
     description: "All Galaxy S Series",
-    tags: ["samsung"],
   },
 
   // Group: Huawei
@@ -835,9 +767,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Huawei",
     extension: FormatEnum.MP4,
-    quality: "2720x1260",
+    videoResolution: "2720x1260",
     description: "Mate 60 Pro, P60 Pro",
-    tags: ["huawei"],
   },
   {
     id: "huawei-1080",
@@ -845,9 +776,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Huawei",
     extension: FormatEnum.MP4,
-    quality: "2400x1080",
+    videoResolution: "2400x1080",
     description: "All Huawei Models",
-    tags: ["huawei"],
   },
 
   // Group: Xiaomi
@@ -857,9 +787,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Xiaomi",
     extension: FormatEnum.MP4,
-    quality: "3200x1440",
+    videoResolution: "3200x1440",
     description: "Xiaomi 14 Ultra, 13 Pro",
-    tags: ["xiaomi"],
   },
   {
     id: "xiaomi-1080",
@@ -867,9 +796,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Xiaomi",
     extension: FormatEnum.MP4,
-    quality: "2400x1080",
+    videoResolution: "2400x1080",
     description: "All Xiaomi Models",
-    tags: ["xiaomi"],
   },
 
   // Group: Google
@@ -879,9 +807,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Google",
     extension: FormatEnum.MP4,
-    quality: "2992x1344",
+    videoResolution: "2992x1344",
     description: "Pixel 8 Pro, 7 Pro",
-    tags: ["google"],
   },
   {
     id: "pixel-1080",
@@ -889,9 +816,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Google",
     extension: FormatEnum.MP4,
-    quality: "2400x1080",
+    videoResolution: "2400x1080",
     description: "All Pixel Models",
-    tags: ["google"],
   },
 
   // Group: Sony
@@ -901,9 +827,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Sony",
     extension: FormatEnum.MP4,
-    quality: "3840x1644",
+    videoResolution: "3840x1644",
     description: "Xperia 1 V / 1 IV (21:9)",
-    tags: ["sony"],
   },
   {
     id: "sony-1080",
@@ -911,9 +836,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Sony",
     extension: FormatEnum.MP4,
-    quality: "2520x1080",
+    videoResolution: "2520x1080",
     description: "Xperia 5 Series",
-    tags: ["sony"],
   },
 
   // Group: Games
@@ -923,9 +847,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Games",
     extension: FormatEnum.MP4,
-    quality: "3840x2160",
+    videoResolution: "3840x2160",
     description: "PS5, Xbox Series X",
-    tags: ["game"],
   },
   {
     id: "console-1080",
@@ -933,9 +856,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Games",
     extension: FormatEnum.MP4,
-    quality: "1920x1080",
+    videoResolution: "1920x1080",
     description: "PS4, Switch Docked",
-    tags: ["game"],
   },
   {
     id: "console-720",
@@ -943,9 +865,8 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_device",
     group: "Games",
     extension: FormatEnum.MP4,
-    quality: "1280x720",
+    videoResolution: "1280x720",
     description: "Nintendo Switch Handheld",
-    tags: ["game"],
   },
 
   // ================= EDITORS =================
@@ -956,8 +877,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Final Cut Pro X",
     extension: FormatEnum.MP4,
-    quality: "auto",
-    tags: ["apple"],
+    videoResolution: "auto",
   },
   {
     id: "fcp-prores-hq",
@@ -965,8 +885,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Final Cut Pro X",
     extension: FormatEnum.MP4,
-    quality: "auto",
-    tags: ["apple"],
+    videoResolution: "auto",
   },
   {
     id: "fcp-prores-lt",
@@ -974,8 +893,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Final Cut Pro X",
     extension: FormatEnum.MP4,
-    quality: "auto",
-    tags: ["apple"],
+    videoResolution: "auto",
   },
   {
     id: "fcp-prores-proxy",
@@ -983,8 +901,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Final Cut Pro X",
     extension: FormatEnum.MP4,
-    quality: "auto",
-    tags: ["apple"],
+    videoResolution: "auto",
   },
   {
     id: "fcp-prores-4444",
@@ -992,8 +909,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Final Cut Pro X",
     extension: FormatEnum.MP4,
-    quality: "auto",
-    tags: ["apple"],
+    videoResolution: "auto",
   },
 
   // Group: iMovie
@@ -1003,8 +919,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "iMovie",
     extension: FormatEnum.MP4,
-    quality: "1920x1080",
-    tags: [],
+    videoResolution: "1920x1080",
   },
 
   // Group: Avid
@@ -1014,8 +929,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_editor",
     group: "Avid",
     extension: FormatEnum.MP4,
-    quality: "auto",
-    tags: [],
+    videoResolution: "auto",
   },
 
   // ================= WEB / SOCIAL =================
@@ -1026,8 +940,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_social",
     group: "YouTube",
     extension: FormatEnum.MP4,
-    quality: "3840x2160",
-    tags: [],
+    videoResolution: "3840x2160",
   },
   {
     id: "yt-1080",
@@ -1035,8 +948,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_social",
     group: "YouTube",
     extension: FormatEnum.MP4,
-    quality: "1920x1080",
-    tags: [],
+    videoResolution: "1920x1080",
   },
 
   // Group: Facebook
@@ -1046,8 +958,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_social",
     group: "Facebook",
     extension: FormatEnum.MP4,
-    quality: "1280x720",
-    tags: [],
+    videoResolution: "1280x720",
   },
 
   // Group: Instagram
@@ -1057,8 +968,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_social",
     group: "Instagram",
     extension: FormatEnum.MP4,
-    quality: "1080x1920",
-    tags: ["vertical"],
+    videoResolution: "1080x1920",
   },
   {
     id: "ig-post",
@@ -1066,8 +976,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_social",
     group: "Instagram",
     extension: FormatEnum.MP4,
-    quality: "1080x1080",
-    tags: ["square"],
+    videoResolution: "1080x1080",
   },
 
   // Group: Vimeo
@@ -1077,8 +986,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "video_social",
     group: "Vimeo",
     extension: FormatEnum.MP4,
-    quality: "1920x1080",
-    tags: [],
+    videoResolution: "1920x1080",
   },
 
   // ================= IMAGES =================
@@ -1088,8 +996,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "image",
     group: "JPEG",
     extension: FormatEnum.JPG,
-    quality: "auto",
-    tags: [],
+    imageResolution: "auto",
   },
   {
     id: "png-orig",
@@ -1097,8 +1004,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "image",
     group: "PNG",
     extension: FormatEnum.PNG,
-    quality: "auto",
-    tags: [],
+    imageResolution: "auto",
   },
   {
     id: "webp-orig",
@@ -1106,8 +1012,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "image",
     group: "WEBP",
     extension: FormatEnum.WEBP,
-    quality: "auto",
-    tags: [],
+    imageResolution: "auto",
   },
   {
     id: "heic-orig",
@@ -1115,8 +1020,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "image",
     group: "HEIC",
     extension: FormatEnum.HEIC,
-    quality: "auto",
-    tags: [],
+    imageResolution: "auto",
   },
   {
     id: "gif-anim",
@@ -1124,8 +1028,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "image",
     group: "GIF",
     extension: FormatEnum.GIF,
-    quality: "auto",
-    tags: [],
+    imageResolution: "auto",
   },
   {
     id: "tiff-orig",
@@ -1133,8 +1036,7 @@ export const FORMAT_DATA: FormatOption[] = [
     category: "image",
     group: "TIFF",
     extension: FormatEnum.TIFF,
-    quality: "auto",
-    tags: [],
+    imageResolution: "auto",
   },
 ];
 

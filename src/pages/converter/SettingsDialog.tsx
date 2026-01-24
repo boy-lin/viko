@@ -22,6 +22,10 @@ import { AudioSettingsSection } from "./components/AudioSettingsSection";
 import { ImageSettingsSection } from "./components/ImageSettingsSection";
 // import { SettingsDialogTitle } from "./components/SettingsDialogTitle";
 import { defaultVideoConfig } from "@/stores/converterStore";
+import {
+  getValidVideoEncoders,
+  getAvailableResolutions,
+} from "@/data/capabilities";
 interface ConversionSettingsDialogProps {
   taskConfig: ConversionConfig;
   onTaskConfigChange: (config: ConversionConfig) => void;
@@ -101,6 +105,18 @@ export const ConversionSettingsDialog: React.FC<
               <VideoSettingsSection
                 video={config.video}
                 onVideoChange={handleVideoChange}
+                {...(() => {
+                  const currentGroup = config?.group || "";
+                  const validEncoders = getValidVideoEncoders(currentGroup);
+                  // Dynamic resolutions based on selected encoder
+                  const validResolutions = getAvailableResolutions(currentGroup, config.video.encoder);
+
+                  return {
+                    allowedEncoders: validEncoders,
+                    availableResolutions: validResolutions,
+                    // maxFrameRate is now handled inside capabilities logic implicitly or we can add helper
+                  };
+                })()}
               />
               {config.audioTracks && config.audioTracks.length > 0 && (
                 <AudioSettingsSection

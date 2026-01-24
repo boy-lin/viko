@@ -498,7 +498,7 @@ class MediaTaskQueue {
         unlistenEvent = await listen<MediaTaskEvent>(
           "media-task-event",
           (event) => {
-            console.log("media-task-event", event);
+            // console.log("media-task-event", event);
             const eventData = event.payload;
             // 只处理当前任务的事件
             if (eventData.task_id !== task.id) return;

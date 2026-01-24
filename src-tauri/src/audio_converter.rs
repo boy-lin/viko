@@ -223,7 +223,7 @@ pub fn convert_audio<E: TaskEmitter>(
         media_common::pick_channel_layout(&encoder_codec, desired_layout, input_layout);
 
     let preferred_sample =
-        media_common::preferred_sample_from_bit_depth(params.bit_depth, Some(&format));
+        media_common::preferred_sample_from_bit_depth(params.bit_depth, None);
     let target_sample_format = media_common::pick_sample_format(&encoder_codec, preferred_sample);
 
     let mut encoder_ctx = codec::context::Context::new_with_codec(encoder_codec);

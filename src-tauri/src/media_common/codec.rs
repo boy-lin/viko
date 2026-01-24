@@ -1,5 +1,5 @@
 use ffmpeg_next as ffmpeg;
-use ffmpeg::codec;
+use ffmpeg::{codec, format};
 
 /// 选择视频编码器，支持软编码/简单硬件映射。
 /// 返回 ffmpeg 编码器句柄，若未找到则返回 None。
@@ -33,4 +33,72 @@ pub fn select_video_encoder(name: Option<&str>, use_hw: bool) -> Option<ffmpeg::
 
     ffmpeg::encoder::find_by_name(mapped)
         .or_else(|| ffmpeg::encoder::find(codec::Id::H264))
+}
+
+pub fn pick_sample_rate(codec: &ffmpeg::Codec, desired: u32, input: u32) -> u32 {
+    if let Ok(audio) = codec.audio() {
+        if let Some(rates) = audio.rates() {
+            // Find exact match or closest
+            // Simply check if desired is supported
+            for rate in rates {
+                if rate as u32 == desired {
+                    return desired;
+                }
+            }
+            // If desired not found, verify input
+            for rate in audio.rates().unwrap() {
+                if rate as u32 == input {
+                    return input;
+                }
+            }
+            // Fallback to first supported
+            return audio.rates().unwrap().next().unwrap() as u32;
+        }
+    }
+    // If no restrictions, use desired
+    desired
+}
+
+pub fn pick_channel_layout(
+    codec: &ffmpeg::Codec,
+    desired: Option<ffmpeg::ChannelLayout>,
+    input: ffmpeg::ChannelLayout,
+) -> ffmpeg::ChannelLayout {
+    if let Ok(audio) = codec.audio() {
+        if let Some(layouts) = audio.channel_layouts() {
+            if let Some(des) = desired {
+                for layout in layouts {
+                    if layout == des {
+                        return des;
+                    }
+                }
+            }
+            for layout in audio.channel_layouts().unwrap() {
+                if layout == input {
+                    return input;
+                }
+            }
+            return audio.channel_layouts().unwrap().next().unwrap();
+        }
+    }
+    desired.unwrap_or(input)
+}
+
+pub fn pick_sample_format(
+    codec: &ffmpeg::Codec,
+    preferred: format::Sample,
+) -> format::Sample {
+    if let Ok(audio) = codec.audio() {
+        if let Some(formats) = audio.formats() {
+            for fmt in formats {
+                if fmt == preferred {
+                    return preferred;
+                }
+            }
+            // Fallback to commonly supported or first
+            // Prefer explicit fallback logic if needed, but taking first is safe-ish
+            return audio.formats().unwrap().next().unwrap();
+        }
+    }
+    preferred
 }

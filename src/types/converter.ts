@@ -49,6 +49,7 @@ interface BaseConversionConfig {
 // Video 配置
 export interface VideoConversionConfig extends BaseConversionConfig {
   type: "video";
+  group?: string;
   video: VideoTrackConfig;
   audioTracks?: AudioTrackConfig[]; // 视频可能包含音频轨道
   image?: never; // 明确禁止

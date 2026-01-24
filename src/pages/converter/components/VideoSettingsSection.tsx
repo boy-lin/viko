@@ -8,19 +8,68 @@ import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
 import { getVideoEncoderOptions } from "@/data/encoder_options";
+import { SelectOption } from "@/types/options";
 
 interface VideoSettingsSectionProps {
   video: VideoTrackConfig;
   onVideoChange: (video: VideoTrackConfig) => void;
   onReset?: () => void;
+  allowedEncoders?: string[];
+  allowedResolutions?: string[];
+  maxResolution?: string;
+  maxFrameRate?: string;
 }
+
+const parseResolution = (res: string) => {
+  const match = res.match(/(\d+)x(\d+)/);
+  if (!match) return null;
+  return { w: parseInt(match[1]), h: parseInt(match[2]) };
+};
 
 export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
   video,
   onVideoChange,
   onReset,
+  allowedEncoders,
+  allowedResolutions,
+  maxResolution,
+  maxFrameRate,
 }) => {
   const encoderOptions = getVideoEncoderOptions(video.encoder);
+
+  // Filter Resolutions
+  const filteredResolutions = encoderOptions.resolutions.filter((opt) => {
+    if (opt.value === "auto") return true;
+
+    // 1. Allowed List Check
+    if (allowedResolutions && allowedResolutions.length > 0) {
+      return allowedResolutions.includes(opt.value);
+    }
+
+    // 2. Max Resolution Check
+    if (maxResolution) {
+      const max = parseResolution(maxResolution);
+      const current = parseResolution(opt.value);
+      if (max && current) {
+        return current.w * current.h <= max.w * max.h;
+      }
+    }
+    return true;
+  });
+
+  // Filter Frame Rates
+  const filteredFrameRates = encoderOptions.frameRates.filter((opt) => {
+    if (opt.value === "auto") return true;
+    if (maxFrameRate) {
+      const max = parseFloat(maxFrameRate);
+      const current = parseFloat(opt.value);
+      if (!isNaN(max) && !isNaN(current)) {
+        return current <= max;
+      }
+    }
+    return true;
+  });
+
 
   return (
     <div className="space-y-4">
@@ -37,18 +86,19 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
         <VideoEncoderSelect
           value={video.encoder}
           onValueChange={(v) => onVideoChange({ ...video, encoder: v })}
+          allowedEncoders={allowedEncoders}
         />
 
         <VideoResolutionSelect
           value={video.resolution}
           onValueChange={(v) => onVideoChange({ ...video, resolution: v })}
-          options={encoderOptions.resolutions}
+          options={filteredResolutions}
         />
 
         <VideoFrameRateSelect
           value={video.frameRate}
           onValueChange={(v) => onVideoChange({ ...video, frameRate: v })}
-          options={encoderOptions.frameRates}
+          options={filteredFrameRates}
         />
 
         <VideoBitrateSelect
@@ -60,7 +110,7 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
 
       <ColorSpaceSelect
         value="auto"
-        onValueChange={() => {}}
+        onValueChange={() => { }}
         options={encoderOptions.colorSpaces}
       />
 
