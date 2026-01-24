@@ -23,9 +23,9 @@ import { ImageSettingsSection } from "./components/ImageSettingsSection";
 // import { SettingsDialogTitle } from "./components/SettingsDialogTitle";
 import { defaultVideoConfig } from "@/stores/converterStore";
 import {
-  FORMAT_CAPABILITIES,
-  DEFAULT_CAPABILITY,
-} from "@/data/format_capabilities";
+  getValidVideoEncoders,
+  getAvailableResolutions,
+} from "@/data/capabilities";
 interface ConversionSettingsDialogProps {
   taskConfig: ConversionConfig;
   onTaskConfigChange: (config: ConversionConfig) => void;
@@ -106,18 +106,15 @@ export const ConversionSettingsDialog: React.FC<
                 video={config.video}
                 onVideoChange={handleVideoChange}
                 {...(() => {
-                  const currentGroup = config?.group;
-                  const capabilities =
-                    (currentGroup && FORMAT_CAPABILITIES[currentGroup]) ||
-                    DEFAULT_CAPABILITY;
-
-                  console.log("capabilities", config, capabilities);
+                  const currentGroup = config?.group || "";
+                  const validEncoders = getValidVideoEncoders(currentGroup);
+                  // Dynamic resolutions based on selected encoder
+                  const validResolutions = getAvailableResolutions(currentGroup, config.video.encoder);
 
                   return {
-                    allowedEncoders: capabilities.encoders,
-                    allowedResolutions: capabilities.resolutions,
-                    maxResolution: capabilities.maxResolution,
-                    maxFrameRate: capabilities.maxFrameRate,
+                    allowedEncoders: validEncoders,
+                    availableResolutions: validResolutions,
+                    // maxFrameRate is now handled inside capabilities logic implicitly or we can add helper
                   };
                 })()}
               />
