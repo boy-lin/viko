@@ -1,6 +1,5 @@
 ﻿use std::collections::HashMap;
 use std::time::Instant;
-use tauri::WebviewWindow;
 
 use ffmpeg::{
     codec, decoder, encoder, format, frame, media, packet, picture, Dictionary, Rational,
@@ -11,6 +10,7 @@ use serde::Deserialize;
 use crate::media_common;
 use crate::audio_converter::AudioEncodingParams;
 use crate::video_converter_audio::AudioTrackProcessor;
+use crate::events::TaskEmitter;
 
 /// 视频转换参数（全部可选，使用默认值兜底）
 #[derive(Debug, Clone)]
@@ -184,7 +184,7 @@ fn resolve_video_params(params: VideoConversionParams, input_audio_indices: &[us
     }
 }
 
-struct Transcoder {
+struct Transcoder<E: TaskEmitter> {
     ost_index: usize,
     decoder: decoder::Video,
     input_time_base: Rational,
@@ -193,19 +193,17 @@ struct Transcoder {
     frame_count: usize,
     start_time: Instant,
     duration: f64,
-    window: WebviewWindow,
-    taskId: String,
+    emitter: E,
 }
 
-impl Transcoder {
+impl<E: TaskEmitter> Transcoder<E> {
     fn new(
         ist: &format::stream::Stream,
         octx: &mut format::context::Output,
         ost_index: usize,
         params: &ResolvedVideoParams,
         duration: f64,
-        window: WebviewWindow,
-        taskId: String,
+        emitter: E,
     ) -> Result<Self, String> {
         let global_header = octx.format().flags().contains(format::Flags::GLOBAL_HEADER);
 
@@ -310,8 +308,7 @@ impl Transcoder {
             frame_count: 0,
             start_time: Instant::now(),
             duration,
-            window,
-            taskId,
+            emitter,
         })
     }
 
@@ -339,16 +336,7 @@ impl Transcoder {
                     let progress = (current_time / self.duration * 100.0).min(100.0);
                     // 简单去抖动，每秒或每1%发送一次即可，这里由于是一帧帧处理，可以稍作限制
                     // 为简化，直接发送，前端可能有去抖或频繁更新
-                    crate::events::emit_media_task_event(
-                        &self.window,
-                        &self.taskId,
-                        "convert",
-                        "video",
-                        "progress",
-                        Some(progress),
-                        None,
-                        None,
-                    );
+                    self.emitter.emit("progress", Some(progress), None, None);
                 }
             }
 
@@ -391,10 +379,9 @@ impl Transcoder {
     }
 }
 
-pub fn convert_video(
-    window: &WebviewWindow,
+pub fn convert_video<E: TaskEmitter + Clone>(
+    emitter: E,
     params: VideoConversionParams,
-    task_id: String,
 ) -> Result<(), String> {
     ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {}", e))?;
 
@@ -472,8 +459,7 @@ pub fn convert_video(
                         ost_index,
                         &resolved,
                         duration,
-                        window.clone(),
-                        task_id.clone(),
+                        emitter.clone(),
                     )?;
                     transcoders.insert(ist_index, transcoder);
                     ost_index += 1;
@@ -580,8 +566,7 @@ pub fn convert_video(
             height,
             frame_rate,
             duration,
-            window,
-            &task_id,
+            emitter,
         )?;
     }
 
@@ -726,8 +711,7 @@ fn generate_black_video_frames(
     height: u32,
     frame_rate: Rational,
     duration: f64,
-    window: &WebviewWindow,
-    task_id: &str,
+    emitter: impl TaskEmitter,
 ) -> Result<(), String> {
     let fps = frame_rate.numerator() as f64 / frame_rate.denominator() as f64;
     let total_frames = (duration * fps).ceil() as i64;
@@ -845,16 +829,7 @@ fn generate_black_video_frames(
             };
 
             if (progress - last_progress_emitted).abs() >= 1.0 {
-                crate::events::emit_media_task_event(
-                    window,
-                    task_id,
-                    "convert",
-                    "video",
-                    "progress",
-                    Some(progress),
-                    None,
-                    None,
-                );
+                emitter.emit("progress", Some(progress), None, None);
                 last_progress_emitted = progress;
             }
         }

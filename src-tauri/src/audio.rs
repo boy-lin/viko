@@ -12,8 +12,9 @@ use video_rs::ffmpeg::{
     format::sample::Type as SampleType,
     util::{channel_layout::ChannelLayout, format::Sample},
 };
-use tauri::{Emitter, WebviewWindow};
+use tauri::Emitter;
 
+use crate::events::EventEmitter;
 use crate::video_player::PlayerCommand;
 
 #[derive(Clone)]
@@ -29,21 +30,21 @@ struct SharedState {
     buffer_size: usize,
 }
 
-pub struct AudioPlayer {
+pub struct AudioPlayer<E: EventEmitter> {
     command_tx: mpsc::Sender<PlayerCommand>,
     handle: Option<thread::JoinHandle<()>>,
     volume: Arc<AtomicU32>,
     duration: f64,
     current_position: Arc<Mutex<f64>>,
     emit_state_events: bool,
-    window: Option<WebviewWindow>,
+    emitter: Option<E>,
 }
 
-impl AudioPlayer {
+impl<E: EventEmitter> AudioPlayer<E> {
     pub fn new(
         path: String,
         emit_state_events: bool,
-        window: Option<WebviewWindow>,
+        emitter: Option<E>,
     ) -> Result<Self, String> {
         let duration = Self::probe_duration(&path)?;
         let (command_tx, command_rx) = mpsc::channel();
@@ -56,7 +57,7 @@ impl AudioPlayer {
             volume.clone(),
             current_position.clone(),
             emit_state_events,
-            window.clone(),
+            emitter.clone(),
             duration,
         ));
 
@@ -67,7 +68,7 @@ impl AudioPlayer {
             duration,
             current_position,
             emit_state_events,
-            window,
+            emitter,
         })
     }
 
@@ -137,7 +138,7 @@ impl AudioPlayer {
         volume: Arc<AtomicU32>,
         current_position: Arc<Mutex<f64>>,
         emit_state_events: bool,
-        window: Option<WebviewWindow>,
+        emitter: Option<E>,
         _duration_hint: f64,
     ) -> thread::JoinHandle<()> {
         thread::spawn(move || {
@@ -291,14 +292,14 @@ impl AudioPlayer {
                     thread::sleep(Duration::from_millis(10));
                     if emit_state_events && last_state_emit.elapsed() >= Duration::from_millis(150)
                     {
-                        if let Some(win) = &window {
+                        if let Some(em) = &emitter {
                             let state_payload = json!({
                                 "position": *current_position.lock().unwrap(),
                                 "duration": duration,
                                 "state": if playing { "playing" } else { "paused" },
                                 "volume": f32::from_bits(volume.load(Ordering::Relaxed)),
                             });
-                            let _ = win.emit("player-state-update", state_payload);
+                            em.emit("player-state-update", state_payload);
                         }
                         last_state_emit = Instant::now();
                     }
@@ -450,14 +451,14 @@ impl AudioPlayer {
                 }
 
                 if emit_state_events && last_state_emit.elapsed() >= Duration::from_millis(120) {
-                    if let Some(win) = &window {
+                    if let Some(em) = &emitter {
                         let state_payload = json!({
                             "position": *current_position.lock().unwrap(),
                             "duration": duration,
                             "state": "playing",
                             "volume": f32::from_bits(volume.load(Ordering::Relaxed)),
                         });
-                        let _ = win.emit("player-state-update", state_payload);
+                        em.emit("player-state-update", state_payload);
                     }
                     last_state_emit = Instant::now();
                 }
@@ -757,7 +758,7 @@ impl AudioPlayer {
     }
 }
 
-impl Drop for AudioPlayer {
+impl<E: EventEmitter> Drop for AudioPlayer<E> {
     fn drop(&mut self) {
         let _ = self.command(PlayerCommand::Stop);
         if let Some(handle) = self.handle.take() {

@@ -1,5 +1,5 @@
 ﻿use image::{GenericImageView, ImageFormat, ImageEncoder};
-use tauri::WebviewWindow;
+use crate::events::TaskEmitter;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufWriter;
@@ -26,19 +26,18 @@ pub struct ImageCompressionParams {
 
 // 仍待优化：strip_metadata、dpi 参数未实际生效，WebP 质量粒度受当前编码器限制。 
 /// 使用图片库压缩图片文件
-pub fn compress_image_file(
-    window: &WebviewWindow,
+pub fn compress_image_file<E: TaskEmitter>(
+    emitter: E,
     params: ImageCompressionParams,
-    task_id: String,
 ) -> Result<(), String> {
     // 发送初始进度
-    crate::events::emit_media_task_event(window, &task_id, "compress", "image", "progress", Some(10.0), None, None);
+    emitter.emit("progress", Some(10.0), None, None);
 
     // 1. 读取图片
     let mut img = image::open(&params.input_path)
         .map_err(|e| format!("无法打开图片文件: {}", e))?;
 
-    crate::events::emit_media_task_event(window, &task_id, "compress", "image", "progress", Some(20.0), None, None);
+    emitter.emit("progress", Some(20.0), None, None);
 
     // 2. 自动裁剪 (Crop Whitespace)
     if params.crop_whitespace.unwrap_or(false) {
@@ -74,7 +73,7 @@ pub fn compress_image_file(
         }
     }
 
-    crate::events::emit_media_task_event(window, &task_id, "compress", "image", "progress", Some(40.0), None, None);
+    emitter.emit("progress", Some(40.0), None, None);
 
     // 3. 调整大小 (Resize)
     // 如果指定了宽高
@@ -95,7 +94,7 @@ pub fn compress_image_file(
         img = img.resize(target_width, target_height, FilterType::Lanczos3);
     }
 
-    crate::events::emit_media_task_event(window, &task_id, "compress", "image", "progress", Some(60.0), None, None);
+    emitter.emit("progress", Some(60.0), None, None);
 
     // 4. 颜色模式与透明度处理
     let keep_transparency = params.keep_transparency.unwrap_or(true);
@@ -147,7 +146,7 @@ pub fn compress_image_file(
         .map_err(|e| format!("无法创建输出文件: {}", e))?;
     let mut writer = BufWriter::new(file);
 
-    crate::events::emit_media_task_event(window, &task_id, "compress", "image", "progress", Some(80.0), None, None);
+    emitter.emit("progress", Some(80.0), None, None);
 
     // 根据格式使用特定的Encoder
     match save_format {
@@ -207,7 +206,7 @@ pub fn compress_image_file(
         }
     }
 
-    crate::events::emit_media_task_event(window, &task_id, "compress", "image", "complete", Some(100.0), Some(params.output_path), None);
+    emitter.emit("complete", Some(100.0), Some(params.output_path), None);
 
     Ok(())
 }

@@ -2,7 +2,7 @@
 use ffmpeg_next as ffmpeg;
 use serde::Deserialize;
 use std::time::Instant;
-use tauri::WebviewWindow;
+use crate::events::TaskEmitter;
 use crate::media_common;
 
 /// GIF 转换参数（全部可选）
@@ -60,10 +60,9 @@ fn dither_from_quality(quality: u32) -> (&'static str, &'static str) {
 }
 
 /// 使用 FFmpeg 将视频转换为 GIF 动图（带可选参数）
-pub fn convert_video_to_gif(
-    window: &WebviewWindow,
+pub fn convert_video_to_gif<E: TaskEmitter>(
+    emitter: E,
     params: GifConversionParams,
-    task_id: String,
 ) -> Result<(), String> {
     media_common::init_ffmpeg()?;
 
@@ -256,16 +255,7 @@ pub fn convert_video_to_gif(
                     };
 
                     if (progress - last_progress_emitted).abs() >= 1.0 {
-                        crate::events::emit_media_task_event(
-                            window,
-                            &task_id,
-                            "convert",
-                            "image",
-                            "progress",
-                            Some(progress),
-                            None,
-                            None,
-                        );
+                        emitter.emit("progress", Some(progress), None, None);
                         last_progress_emitted = progress;
                     }
                 }
@@ -289,16 +279,7 @@ pub fn convert_video_to_gif(
     octx.write_trailer()
         .map_err(|e| format!("写入文件尾失败: {}", e))?;
 
-    crate::events::emit_media_task_event(
-        window,
-        &task_id,
-        "convert",
-        "image",
-        "complete",
-        Some(100.0),
-        Some(params.output_path),
-        None,
-    );
+    emitter.emit("complete", Some(100.0), Some(params.output_path), None);
 
     Ok(())
 }

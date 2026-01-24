@@ -153,10 +153,10 @@ pub fn run() {
 
             // 初始化视频播放器状态
             app.manage(std::sync::Mutex::new(
-                None::<crate::video_player::VideoPlayer>,
+                None::<crate::video_player::VideoPlayer<crate::events::WindowEmitter>>,
             ));
             // 初始化音频播放器状态
-            app.manage(std::sync::Mutex::new(None::<crate::audio::AudioPlayer>));
+            app.manage(std::sync::Mutex::new(None::<crate::audio::AudioPlayer<crate::events::WindowEmitter>>));
 
             log::info!("Tauri application setup completed");
             Ok(())

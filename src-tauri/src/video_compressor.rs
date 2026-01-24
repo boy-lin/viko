@@ -1,6 +1,5 @@
 ﻿use std::sync::Arc;
 use std::time::Instant;
-use tauri::WebviewWindow;
 use ffmpeg::{
     codec, encoder, format, frame, media, packet, software, Rational,
 };
@@ -8,6 +7,7 @@ use ffmpeg_next as ffmpeg;
 use serde::Deserialize;
 use ringbuf::{HeapRb, Producer, Consumer};
 use crate::media_common;
+use crate::events::TaskEmitter;
 
 /// 视频压缩参数（全部可选，使用默认值兜底）
 #[derive(Deserialize, Clone)]
@@ -53,7 +53,7 @@ fn calc_audio_bitrate(decoder_bitrate: i64, params: &VideoCompressionParams) -> 
     base.max(32_000) as usize
 }
 
-struct VideoProcessor {
+struct VideoProcessor<E: TaskEmitter> {
     encoder: encoder::Video,
     decoder: codec::decoder::Video,
     scaler: software::scaling::Context,
@@ -64,14 +64,16 @@ struct VideoProcessor {
     last_progress_emitted: f64,
     duration: f64,
     start_time: Instant,
+    emitter: E,
 }
 
-impl VideoProcessor {
+impl<E: TaskEmitter> VideoProcessor<E> {
     fn new(
         video_stream: &format::stream::Stream,
         octx: &mut format::context::Output,
         params: &VideoCompressionParams,
         duration: f64,
+        emitter: E,
     ) -> Result<Self, String> {
         let decoder_ctx = codec::context::Context::from_parameters(video_stream.parameters())
             .map_err(|e| format!("无法创建视频解码器上下文: {}", e))?;
@@ -174,6 +176,7 @@ impl VideoProcessor {
             last_progress_emitted: 0.0,
             duration,
             start_time: Instant::now(),
+            emitter,
         })
     }
 
@@ -181,8 +184,6 @@ impl VideoProcessor {
         &mut self,
         packet: &packet::Packet,
         octx: &mut format::context::Output,
-        window: &WebviewWindow,
-        task_id: &str,
     ) -> Result<(), String> {
         self.decoder
             .send_packet(packet)
@@ -204,12 +205,12 @@ impl VideoProcessor {
             self.receive_and_write_packets(octx)?;
 
             self.frame_count += 1;
-            self.emit_progress(window, task_id, decoded.pts());
+            self.emit_progress(decoded.pts());
         }
         Ok(())
     }
 
-    fn emit_progress(&mut self, window: &WebviewWindow, task_id: &str, pts: Option<i64>) {
+    fn emit_progress(&mut self, pts: Option<i64>) {
         if self.frame_count % 30 == 0 || self.start_time.elapsed().as_secs_f64() >= 1.0 {
             let progress = if self.duration > 0.0 {
                 let current_time = pts.unwrap_or(0) as f64
@@ -221,16 +222,7 @@ impl VideoProcessor {
             };
 
             if (progress - self.last_progress_emitted).abs() >= 1.0 {
-                crate::events::emit_media_task_event(
-                    window,
-                    &task_id,
-                    "compress",
-                    "video",
-                    "progress",
-                    Some(progress),
-                    None,
-                    None,
-                );
+                self.emitter.emit("progress", Some(progress), None, None);
                 self.last_progress_emitted = progress;
             }
         }
@@ -553,10 +545,9 @@ impl AudioProcessor {
 }
 
 /// Main entry point
-pub fn compress_video_file(
-    window: &WebviewWindow,
+pub fn compress_video_file<E: TaskEmitter + Clone>(
+    emitter: E,
     params: VideoCompressionParams,
-    task_id: String,
 ) -> Result<(), String> {
     ffmpeg::init().map_err(|e| format!("FFmpeg init: {}", e))?;
 
@@ -569,7 +560,7 @@ pub fn compress_video_file(
         .streams()
         .best(media::Type::Video)
         .ok_or("No Video Stream")?;
-    let mut video_proc = VideoProcessor::new(&video_stream, &mut octx, &params, duration)?;
+    let mut video_proc = VideoProcessor::new(&video_stream, &mut octx, &params, duration, emitter.clone())?;
     let video_idx = video_stream.index();
 
     let mut audio_proc = None;
@@ -585,7 +576,7 @@ pub fn compress_video_file(
 
     for (stream, packet) in ictx.packets() {
         if stream.index() == video_idx {
-            video_proc.process_packet(&packet, &mut octx, window, &task_id)?;
+            video_proc.process_packet(&packet, &mut octx)?;
         } else if let Some(audio) = audio_proc.as_mut() {
             if stream.index() == audio.stream_index {
                 audio.process_packet(&packet, &mut octx)?;
@@ -601,17 +592,6 @@ pub fn compress_video_file(
     octx
         .write_trailer()
         .map_err(|e| format!("Trailer Error: {}", e))?;
-    crate::events::emit_media_task_event(
-        window,
-        &task_id,
-        "compress",
-        "video",
-        "complete",
-        Some(100.0),
-        Some(params.output_path),
-        None,
-    );
-
+    emitter.emit("complete", Some(100.0), Some(params.output_path), None);
     Ok(())
 }
-

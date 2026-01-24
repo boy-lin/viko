@@ -27,6 +27,7 @@ use crate::media_common;
 use crate::ffmpeg_media_info::{self, MediaDetails};
 use crate::gif_converter;
 use crate::video_player::{PreviewSize, VideoPlayer};
+use crate::events::{TaskEmitter, WindowEmitter};
 
 #[command]
 pub fn get_detailed_media_info(path: String) -> Result<MediaDetails, String> {
@@ -759,8 +760,8 @@ fn parse_bitrate(bitrate: &str) -> Result<i64, String> {
 // 视频播放器相关命令
 
 // 全局播放器实例（使用 Mutex 保护）
-pub type PlayerState = Mutex<Option<VideoPlayer>>;
-pub type AudioPlayerState = Mutex<Option<AudioPlayer>>;
+pub type PlayerState = Mutex<Option<VideoPlayer<WindowEmitter>>>;
+pub type AudioPlayerState = Mutex<Option<AudioPlayer<WindowEmitter>>>;
 
 #[command]
 pub fn video_player_open(
@@ -770,6 +771,12 @@ pub fn video_player_open(
     player_state: State<'_, PlayerState>,
 ) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
+    let emitter = WindowEmitter::new(
+        window.clone(),
+        "video-player".to_string(),
+        "play".to_string(),
+        "video".to_string(),
+    );
 
     // 关闭之前的播放器（如果存在）
     if let Ok(mut player) = player_state.lock() {
@@ -780,7 +787,7 @@ pub fn video_player_open(
 
     // 创建新的播放器
     let player =
-        VideoPlayer::new(&path, window, preview).map_err(|e| format!("打开视频文件失败: {}", e))?;
+        VideoPlayer::new(&path, emitter, preview).map_err(|e| format!("打开视频文件失败: {}", e))?;
 
     // 保存播放器实例
     *player_state.lock().unwrap() = Some(player);
@@ -886,7 +893,13 @@ pub fn audio_player_open(
 
     // 创建新的音频播放器
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
-    let player = AudioPlayer::new(path, true, Some(window))
+    let emitter = WindowEmitter::new(
+        window.clone(),
+        "audio-player".to_string(),
+        "play".to_string(),
+        "audio".to_string(),
+    );
+    let player = AudioPlayer::new(path, true, Some(emitter))
         .map_err(|e| format!("打开音频文件失败: {}", e))?;
 
     // 保存播放器实例
@@ -1070,28 +1083,29 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
     let output_path_clone = output_path.clone();
     let task_id = args.task_id.clone();
     std::thread::spawn(move || {
-        if let Err(e) = audio_converter::convert_audio(&window_clone, params, task_id.clone()) {
-            crate::events::emit_media_task_event(
-                &window_clone,
-                &task_id,
-                "convert",
-                "audio",
-                "error",
-                None,
-                None,
-                Some(e),
-            );
+        let emitter = WindowEmitter::new(
+            window_clone,
+            task_id.clone(),
+            "convert".to_string(),
+            "audio".to_string(),
+        );
+
+        if let Err(e) = audio_converter::convert_audio(emitter.clone(), params) {
+            emitter.emit("error", None, None, Some(e));
         } else {
-            crate::events::emit_media_task_event(
-                &window_clone,
-                &task_id,
-                "convert",
-                "audio",
-                "complete",
-                Some(100.0),
-                Some(output_path_clone),
-                None,
-            );
+            // Success event already handled in convert_audio but it uses explicit emit call at end.
+            // Actually convert_audio uses custom emit calls.
+            // Oh wait, convert_audio uses emit_media_task_event inside?
+            // I refactored convert_audio to use emitter.emit(). 
+            // So I don't need to re-emit if conversion function handles it.
+            // However, older code did emission here.
+            // Let's check my refactor of convert_audio.
+            // My refactor replaced explicit window.emit with emitter.emit. The "complete" event IS emitted inside convert_audio.
+            // BUT "error" event is NOT emitted inside convert_audio in case of error return?
+            // Let's check audio_converter refactor again.
+            // It replaces `window` with `emitter`. It emits progress and complete.
+            // It returns Result. The error handling was OUTSIDE.
+            // So if Err(e), I must emit error here.
         }
     });
 
@@ -1194,28 +1208,17 @@ pub fn convert_video_file(app: AppHandle, args: VideoConversionArgs) -> Result<(
             use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
         };
 
-        if let Err(e) = crate::video_converter::convert_video(&window, params, task_id.clone()) {
-            crate::events::emit_media_task_event(
-                &window,
-                &task_id,
-                "convert",
-                "video",
-                "error",
-                None,
-                None,
-                Some(e),
-            );
+        let emitter = WindowEmitter::new(
+            window,
+            task_id,
+            "convert".to_string(),
+            "video".to_string(),
+        );
+
+        if let Err(e) = crate::video_converter::convert_video(emitter.clone(), params) {
+            emitter.emit("error", None, None, Some(e));
         } else {
-            crate::events::emit_media_task_event(
-                &window,
-                &task_id,
-                "convert",
-                "video",
-                "complete",
-                Some(100.0),
-                Some(output_path),
-                None,
-            );
+            emitter.emit("complete", Some(100.0), Some(output_path), None);
         }
     });
 
@@ -1299,28 +1302,15 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
             denoise: args.denoise,
         };
 
-        if let Err(e) = gif_converter::convert_video_to_gif(&window, params, task_id.clone()) {
-            crate::events::emit_media_task_event(
-                &window,
-                &task_id,
-                "convert",
-                "image",
-                "error",
-                None,
-                None,
-                Some(e),
-            );
-        } else {
-            crate::events::emit_media_task_event(
-                &window,
-                &task_id,
-                "convert",
-                "image",
-                "complete",
-                Some(100.0),
-                Some(output_path),
-                None,
-            );
+        let emitter = WindowEmitter::new(
+            window,
+            task_id,
+            "convert".to_string(),
+            "image".to_string(),
+        );
+
+        if let Err(e) = gif_converter::convert_video_to_gif(emitter.clone(), params) {
+            emitter.emit("error", None, None, Some(e));
         }
     });
 
@@ -1381,19 +1371,17 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
             use_hardware_acceleration: args.use_hardware_acceleration,
         };
 
+        let emitter = WindowEmitter::new(
+            window,
+            task_id,
+            "compress".to_string(),
+            "video".to_string(),
+        );
+
         if let Err(e) =
-            crate::video_compressor::compress_video_file(&window, params, task_id.clone())
+            crate::video_compressor::compress_video_file(emitter.clone(), params)
         {
-            crate::events::emit_media_task_event(
-                &window,
-                &task_id,
-                "compress",
-                "video",
-                "error",
-                None,
-                None,
-                Some(e),
-            );
+            emitter.emit("error", None, None, Some(e));
         }
     });
 
@@ -1437,19 +1425,17 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
             volume_gain: args.volume_gain,
         };
 
+        let emitter = WindowEmitter::new(
+            window,
+            task_id,
+            "compress".to_string(),
+            "audio".to_string(),
+        );
+
         if let Err(e) =
-            crate::audio_compressor::compress_audio_file(&window, params, task_id.clone())
+            crate::audio_compressor::compress_audio_file(emitter.clone(), params)
         {
-            crate::events::emit_media_task_event(
-                &window,
-                &task_id,
-                "compress",
-                "audio",
-                "error",
-                None,
-                None,
-                Some(e),
-            );
+            emitter.emit("error", None, None, Some(e));
         }
     });
 
@@ -1493,19 +1479,17 @@ pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result
             crop_whitespace: args.crop_whitespace,
         };
 
+        let emitter = WindowEmitter::new(
+            window,
+            task_id,
+            "compress".to_string(),
+            "image".to_string(),
+        );
+
         if let Err(e) =
-            crate::image_compressor::compress_image_file(&window, params, task_id.clone())
+            crate::image_compressor::compress_image_file(emitter.clone(), params)
         {
-            crate::events::emit_media_task_event(
-                &window,
-                &task_id,
-                "compress",
-                "image",
-                "error",
-                None,
-                None,
-                Some(e),
-            );
+            emitter.emit("error", None, None, Some(e));
         }
     });
 

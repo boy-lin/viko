@@ -1,5 +1,4 @@
 ﻿use std::path::Path;
-use tauri::WebviewWindow;
 
 use ffmpeg::{codec, format, frame, packet, software};
 use ffmpeg::util::channel_layout::ChannelLayout;
@@ -7,6 +6,7 @@ use ffmpeg_next as ffmpeg;
 use serde::Deserialize;
 
 use crate::media_common::{self, AudioFifo};
+use crate::events::TaskEmitter;
 
 /// 音频编码参数（可复用于视频多轨配置）
 #[derive(Debug, Clone, Deserialize)]
@@ -158,10 +158,9 @@ fn send_frame_and_drain(
 }
 
 /// 执行音频转换（使用 ffmpeg-next 库 API）
-pub fn convert_audio(
-    window: &WebviewWindow,
+pub fn convert_audio<E: TaskEmitter>(
+    emitter: E,
     params: AudioConversionParams,
-    task_id: String,
 ) -> Result<(), String> {
     media_common::ensure_ffmpeg_init()?;
 
@@ -170,18 +169,7 @@ pub fn convert_audio(
     let codec_name = map_codec_name(&format, params.codec.as_deref(), use_hw);
     let is_amr = format == "amr" || codec_name.contains("amr");
 
-    crate::events::emit_media_task_event(
-        window,
-        &task_id,
-        "convert",
-        "audio",
-        "progress",
-        Some(0.0),
-        None,
-        None,
-    );
-
-    let duration = media_common::get_audio_duration(&params.input_path)?;
+    emitter.emit("progress", Some(0.0), None, None);let duration = media_common::get_audio_duration(&params.input_path)?;
 
     let mut ictx = format::input(&params.input_path).map_err(|e| format!("打开输入文件失败: {}", e))?;
     let mut octx = open_output_context(&params.output_path, &format)?;
@@ -408,16 +396,7 @@ pub fn convert_audio(
                     if frames_processed % 50 == 0 && duration > 0.0 {
                         let progress =
                             (pts_counter as f64 / target_rate as f64) / duration * 100.0;
-                        crate::events::emit_media_task_event(
-                            window,
-                            &task_id,
-                            "convert",
-                            "audio",
-                            "progress",
-                            Some(progress.min(99.0)),
-                            None,
-                            None,
-                        );
+                        emitter.emit("progress", Some(progress.min(99.0)), None, None);
                     }
                 }
             } else {
@@ -435,16 +414,7 @@ pub fn convert_audio(
                 frames_processed += 1;
                 if frames_processed % 50 == 0 && duration > 0.0 {
                     let progress = (pts_counter as f64 / target_rate as f64) / duration * 100.0;
-                    crate::events::emit_media_task_event(
-                        window,
-                        &task_id,
-                        "convert",
-                        "audio",
-                        "progress",
-                        Some(progress.min(99.0)),
-                        None,
-                        None,
-                    );
+                    emitter.emit("progress", Some(progress.min(99.0)), None, None);
                 }
             }
         }
@@ -605,16 +575,7 @@ pub fn convert_audio(
 
     octx.write_trailer().map_err(|e| format!("写入文件尾失败: {}", e))?;
 
-    crate::events::emit_media_task_event(
-        window,
-        &task_id,
-        "convert",
-        "audio",
-        "complete",
-        Some(100.0),
-        Some(params.output_path.clone()),
-        None,
-    );
+    emitter.emit("complete", Some(100.0), Some(params.output_path.clone()), None);
 
     if !Path::new(&params.output_path).exists() {
         return Err(format!("转换完成但输出文件不存在: {}", params.output_path));

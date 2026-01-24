@@ -5,9 +5,9 @@ use serde::Deserialize;
 use std::f32;
 use std::time::Instant;
 use ffmpeg::util::channel_layout::ChannelLayout;
-use tauri::WebviewWindow;
 
 use crate::media_common::{self, AudioFifo};
+use crate::events::TaskEmitter;
 
 /// 音频压缩参数（全部可选）
 #[derive(Deserialize)]
@@ -77,10 +77,9 @@ fn apply_volume_and_silence(
 }
 
 /// 使用 FFmpeg 压缩音频文件
-pub fn compress_audio_file(
-    window: &WebviewWindow,
+pub fn compress_audio_file<E: TaskEmitter>(
+    emitter: E,
     params: AudioCompressionParams,
-    task_id: String,
 ) -> Result<(), String> {
     media_common::ensure_ffmpeg_init()?;
 
@@ -175,8 +174,8 @@ pub fn compress_audio_file(
         target_format,
         target_layout,
         target_rate as u32,
-    )
-    .map_err(|e| format!("创建重采样器失败: {}", e))?;
+        )
+        .map_err(|e| format!("创建重采样器失败: {}", e))?;
 
     ost.set_parameters(&encoder);
     let ost_index = ost.index();
@@ -265,16 +264,7 @@ pub fn compress_audio_file(
                 let progress = (pts_counter as f64 / target_rate as f64) / duration * 100.0;
                 if (progress - last_progress).abs() >= 1.0 {
                     last_progress = progress;
-                    crate::events::emit_media_task_event(
-                        window,
-                        &task_id,
-                        "compress",
-                        "audio",
-                        "progress",
-                        Some(progress.min(99.0)),
-                        None,
-                        None,
-                    );
+                    emitter.emit("progress", Some(progress.min(99.0)), None, None);
                 }
             }
         }
@@ -317,18 +307,8 @@ pub fn compress_audio_file(
     octx.write_trailer()
         .map_err(|e| format!("写入尾部失败: {}", e))?;
 
-    crate::events::emit_media_task_event(
-        window,
-        &task_id,
-        "compress",
-        "audio",
-        "complete",
-        Some(100.0),
-        Some(params.output_path),
-        None,
-    );
+    emitter.emit("complete", Some(100.0), Some(params.output_path), None);
 
     let _elapsed = start_time.elapsed();
     Ok(())
 }
-

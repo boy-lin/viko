@@ -6,6 +6,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tauri::Emitter;
 
+use crate::events::EventEmitter;
+
 use serde_json::json;
 use video_rs::ffmpeg::Rational;
 use video_rs::frame::RawFrame;
@@ -38,7 +40,7 @@ struct FramePayload {
     data: Vec<u8>,
 }
 
-pub struct VideoPlayer {
+pub struct VideoPlayer<E: EventEmitter> {
     command_tx: mpsc::Sender<PlayerCommand>,
     state: Arc<Mutex<PlaybackState>>,
     current_position: Arc<Mutex<f64>>,
@@ -46,7 +48,7 @@ pub struct VideoPlayer {
     width: u32,
     height: u32,
     playback_thread: Option<thread::JoinHandle<()>>,
-    audio_player: Option<Arc<AudioPlayer>>,
+    audio_player: Option<Arc<AudioPlayer<E>>>,
     has_started: Arc<AtomicBool>,
     source_path: String,
 }
@@ -57,10 +59,10 @@ pub struct PreviewSize {
     pub height: u32,
 }
 
-impl VideoPlayer {
+impl<E: EventEmitter> VideoPlayer<E> {
     pub fn new(
         path: &str,
-        window: tauri::WebviewWindow,
+        emitter: E,
         preview: Option<PreviewSize>,
     ) -> Result<Self, String> {
         video_rs::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))?;
@@ -95,7 +97,7 @@ impl VideoPlayer {
 
         let playback_thread = Some(Self::spawn_playback(
             decoder,
-            window,
+            emitter,
             command_rx,
             state.clone(),
             current_position.clone(),
@@ -200,11 +202,11 @@ impl VideoPlayer {
 
     fn spawn_playback(
         mut decoder: Decoder,
-        window: tauri::WebviewWindow,
+        emitter: E,
         command_rx: mpsc::Receiver<PlayerCommand>,
         state: Arc<Mutex<PlaybackState>>,
         current_position: Arc<Mutex<f64>>,
-        audio_player: Option<Arc<AudioPlayer>>,
+        audio_player: Option<Arc<AudioPlayer<E>>>,
         duration: f64,
         source_path: String,
         target_size: Option<PreviewSize>,
@@ -239,7 +241,7 @@ impl VideoPlayer {
                 while let Ok(cmd) = command_rx.try_recv() {
                     match cmd {
                         PlayerCommand::AudioError(err) => {
-                            let _ = window.emit("video-error", format!("音频初始化失败: {err}"));
+                            emitter.emit("video-error", format!("音频初始化失败: {err}"));
                         }
                         PlayerCommand::Play => {
                             // 重置平滑音频时钟，避免上次结束时的尾值影响重新播放
@@ -307,7 +309,7 @@ impl VideoPlayer {
                                     let _ = ap.command(PlayerCommand::Pause);
                                     let _ = ap.command(PlayerCommand::Seek(duration));
                                 }
-                                let _ = window.emit("video-complete", "播放完成");
+                                emitter.emit("video-complete", "播放完成");
                                 completed = true;
                                 final_state_sent = false;
                                 playing = false;
@@ -352,7 +354,7 @@ impl VideoPlayer {
                         "state": state_str,
                         "volume": volume,
                     });
-                    let _ = window.emit("player-state-update", payload);
+                    emitter.emit("player-state-update", payload);
                     last_state_emit = Instant::now();
                     if completed {
                         final_state_sent = true;
@@ -431,11 +433,8 @@ impl VideoPlayer {
                         };
 
                         if last_emit.elapsed() >= frame_emit_interval {
-                            if let Err(err) = window.emit("video-frame", payload) {
-                                log::error!("发送视频帧事件失败: {err}");
-                            } else {
-                                last_emit = Instant::now();
-                            }
+                            emitter.emit("video-frame", payload);
+                            last_emit = Instant::now();
                         }
                     }
                     Err(VideoError::DecodeExhausted) | Err(VideoError::ReadExhausted) => {
@@ -447,7 +446,7 @@ impl VideoPlayer {
                             );
                             *state.lock().unwrap() = PlaybackState::Stopped;
                             *current_position.lock().unwrap() = duration;
-                            let _ = window.emit("video-complete", "播放完成");
+                            emitter.emit("video-complete", "播放完成");
                             completed = true;
                             final_state_sent = false;
                             // 将平滑时钟钉在视频总时长，避免结束后 diff 继续为负导致额外丢帧/等待
@@ -466,7 +465,7 @@ impl VideoPlayer {
                     }
                     Err(err) => {
                         *state.lock().unwrap() = PlaybackState::Stopped;
-                        let _ = window.emit("video-error", format!("视频解码失败: {err}"));
+                        emitter.emit("video-error", format!("视频解码失败: {err}"));
                         log::error!("视频解码失败: {err}");
                         return;
                     }
@@ -476,7 +475,7 @@ impl VideoPlayer {
     }
 }
 
-impl Drop for VideoPlayer {
+impl<E: EventEmitter> Drop for VideoPlayer<E> {
     fn drop(&mut self) {
         self.stop();
     }

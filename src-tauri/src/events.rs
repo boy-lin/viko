@@ -33,3 +33,68 @@ pub fn emit_media_task_event(
     };
     let _ = window.emit("media-task-event", event);
 }
+
+pub trait TaskEmitter: Send + Sync {
+    fn emit(
+        &self,
+        event_type: &str,
+        progress: Option<f64>,
+        output_path: Option<String>,
+        error_message: Option<String>,
+    );
+}
+
+#[derive(Clone)]
+pub struct WindowEmitter {
+    pub window: tauri::WebviewWindow,
+    pub task_id: String,
+    pub task_type: String, // "convert" | "compress"
+    pub media_type: String, // "video" | "audio" | "image"
+}
+
+impl WindowEmitter {
+    pub fn new(
+        window: tauri::WebviewWindow,
+        task_id: String,
+        task_type: String,
+        media_type: String,
+    ) -> Self {
+        Self {
+            window,
+            task_id,
+            task_type,
+            media_type,
+        }
+    }
+}
+
+impl TaskEmitter for WindowEmitter {
+    fn emit(
+        &self,
+        event_type: &str,
+        progress: Option<f64>,
+        output_path: Option<String>,
+        error_message: Option<String>,
+    ) {
+        emit_media_task_event(
+            &self.window,
+            &self.task_id,
+            &self.task_type,
+            &self.media_type,
+            event_type,
+            progress,
+            output_path,
+            error_message,
+        );
+    }
+}
+
+pub trait EventEmitter: Send + Sync + Clone + 'static {
+    fn emit<S: Serialize + Clone + Send>(&self, event_type: &str, payload: S);
+}
+
+impl EventEmitter for WindowEmitter {
+    fn emit<S: Serialize + Clone + Send>(&self, event_type: &str, payload: S) {
+        let _ = self.window.emit(event_type, payload);
+    }
+}
