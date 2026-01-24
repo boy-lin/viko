@@ -7,7 +7,7 @@ import {
   FileVideo,
 } from "lucide-react";
 import { FormatEnum } from "@/types/options";
-import { FormatOption, FormatCategory } from "@/types/options";
+import { FormatOption, FormatCategory, FormatGroup } from "@/types/options";
 
 export const FORMAT_CATEGORIES: FormatCategory[] = [
   { id: "audio", label: "Audio", icon: Music },
@@ -16,6 +16,13 @@ export const FORMAT_CATEGORIES: FormatCategory[] = [
   { id: "video_device", label: "Devices", icon: Smartphone },
   { id: "video_social", label: "Web/Social", icon: Globe },
   { id: "video_editor", label: "Editors", icon: Layers },
+];
+
+export const FORMAT_GROUPS: FormatGroup[] = [
+  { id: "mp3", label: "MP3", },
+  { id: "m4a", label: "M4A" },
+  { id: "wav", label: "WAV" },
+  { id: "flac", label: "FLAC" },
 ];
 
 export const FORMAT_DATA: FormatOption[] = [

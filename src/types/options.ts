@@ -48,6 +48,15 @@ export interface FormatOption {
 }
 
 /**
+ * 格式组接口
+ */
+export interface FormatGroup {
+  id: string;
+  label: string;
+  icon?: any;
+}
+
+/**
  * 支持的容器格式枚举
  */
 export enum FormatEnum {

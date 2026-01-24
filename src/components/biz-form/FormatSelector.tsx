@@ -112,6 +112,11 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       }
       : null;
 
+  const handleActiveGroupt = (id: string | null) => {
+    setActiveGroup(id)
+
+  }
+
   // Find the selected format based on props
   const selectedFormat = React.useMemo(() => {
     // 1. Try to find precise match including resolution/rate/quality
@@ -166,7 +171,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
 
   // Reset group when category changes
   useEffect(() => {
-    setActiveGroup(null);
+    handleActiveGroupt(null);
   }, [activeCategory]);
 
   // Derived Data
@@ -401,7 +406,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                         ? "text-muted-foreground cursor-pointer hover:underline"
                         : ""
                     )}
-                    onClick={() => activeGroup && setActiveGroup(null)}
+                    onClick={() => activeGroup && handleActiveGroupt(null)}
                   >
                     {currentCategoryLabel}
                   </span>
@@ -428,7 +433,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                     {formatGroups.map((group) => (
                       <button
                         key={group}
-                        onClick={() => setActiveGroup(group)}
+                        onClick={() => handleActiveGroupt(group)}
                         className="flex items-center justify-between p-3 rounded-md border bg-card hover:bg-accent hover:text-accent-foreground transition-all text-left"
                       >
                         <span className="font-medium text-sm">{group}</span>
