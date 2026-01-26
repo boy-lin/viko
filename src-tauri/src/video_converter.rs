@@ -244,23 +244,33 @@ impl<E: TaskEmitter> Transcoder<E> {
         encoder.set_width(width);
         encoder.set_height(height);
         
-        let chosen_format = media_common::pick_pixel_format(
+        let chosen_format = media_common::pick_pixel_format_for_codec(
             params.bit_depth,
             params.use_hardware_acceleration,
+            codec,
         );
         encoder.set_format(chosen_format);
 
         // 帧率
-        let target_frame_rate = if let Some(fps_str) = &params.frame_rate {
+        let decoder_frame_rate = decoder.frame_rate();
+        let mut target_frame_rate = if let Some(fps_str) = &params.frame_rate {
             if fps_str != "original" {
                 fps_str.parse::<i32>().ok().map(|fps| Rational(fps, 1))
             } else {
-                decoder.frame_rate()
+                decoder_frame_rate
             }
         } else {
-            decoder.frame_rate()
+            decoder_frame_rate
         }
         .unwrap_or(Rational(30, 1));
+
+        // Guard against bogus fps (e.g. 90000/1 from stream timebase)
+        let fps_num = target_frame_rate.numerator() as i64;
+        let fps_den = target_frame_rate.denominator() as i64;
+        let fps_value = if fps_den > 0 { fps_num as f64 / fps_den as f64 } else { 0.0 };
+        if fps_value <= 0.0 || fps_value > 240.0 {
+            target_frame_rate = Rational(30, 1);
+        }
         encoder.set_frame_rate(Some((target_frame_rate.numerator(), target_frame_rate.denominator())));
 
         let encoder_time_base = if target_frame_rate.numerator() > 0 && target_frame_rate.denominator() > 0 {
@@ -297,6 +307,30 @@ impl<E: TaskEmitter> Transcoder<E> {
         } else {
             // h264_mf often requires explicit rate control setting to accept the media type
             // opts.set("rate_control", "pc_vbr");
+        }
+
+        let is_mpeg2 = codec.name() == "mpeg2video";
+        let is_mpeg_ps = matches!(
+            params.format.as_str(),
+            "vob" | "mpeg" | "mpg" | "svcd" | "dvd"
+        );
+        if is_mpeg2 && is_mpeg_ps {
+            let gop_size = params
+                .gop_size
+                .unwrap_or(if fps_value <= 25.0 { 15 } else { 18 });
+            let gop_size_str = gop_size.to_string();
+            opts.set("g", gop_size_str.as_str());
+
+            let maxrate_k = params.max_bitrate.unwrap_or(9000);
+            let maxrate_str = format!("{}k", maxrate_k);
+            opts.set("maxrate", maxrate_str.as_str());
+
+            let minrate_k = params.min_bitrate.unwrap_or(0);
+            let minrate_str = format!("{}k", minrate_k);
+            opts.set("minrate", minrate_str.as_str());
+
+            let bufsize_str = "1835k";
+            opts.set("bufsize", bufsize_str);
         }
 
         eprintln!(
@@ -397,11 +431,14 @@ impl<E: TaskEmitter> Transcoder<E> {
             }
             
             // Rescale PTS from Decoder TB to Encoder TB
-            let rescaled_pts = media_common::rescale_ts(
+            let mut rescaled_pts = media_common::rescale_ts(
                 pts,
                 self.input_time_base,
                 self.encoder_time_base,
             );
+            if rescaled_pts <= self.last_pts {
+                rescaled_pts = self.last_pts + 1;
+            }
 
             self.frame_count += 1;
             self.last_pts = rescaled_pts;
@@ -687,9 +724,10 @@ fn create_black_video_encoder(
 
     encoder.set_width(width);
     encoder.set_height(height);
-    encoder.set_format(media_common::pick_pixel_format(
+    encoder.set_format(media_common::pick_pixel_format_for_codec(
         params.bit_depth,
         params.use_hardware_acceleration,
+        codec,
     ));
 
     // 帧率（默认 30fps）

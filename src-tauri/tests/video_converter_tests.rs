@@ -30,8 +30,8 @@ mod tests {
     fn get_test_video_file() -> Option<PathBuf> {
         // Try multiple common locations for test assets
         let paths = vec![
-            //  PathBuf::from("/Users/haolin/Downloads/Funvideo/[twitter] NoContextHumans—2023.09.20—1704860883099193465—6DF4Gs7d1zwial2Y.mp4"),
-             PathBuf::from("D:\\temp\\test_video\\4.mp4"),
+             PathBuf::from("/Users/haolin/Downloads/Funvideo/[twitter] NoContextHumans—2023.09.20—1704860883099193465—6DF4Gs7d1zwial2Y.mp4"),
+            //  PathBuf::from("D:\\temp\\test_video\\4.mp4"),
             //  PathBuf::from("../test_assets/sample.mp4"),
             //  PathBuf::from("src-tauri/test_assets/sample.mp4"),
         ];
@@ -148,7 +148,7 @@ mod tests {
             // TestConfig { name: "MKV H264", format: "mkv", video_encoder: Some("h264"), audio_encoder: Some("aac"), resolution: Some("1920x1080"), bitrate: None, audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
             
             // WEBM (VP9) - Note: libvpx-vp9 might be slow or missing, treating as optional in logic
-            TestConfig { name: "WEBM VP9", format: "webm", video_encoder: Some("libvpx-vp9"), audio_encoder: Some("libopus"), resolution: Some("1280x720"), bitrate: None, audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
+            // TestConfig { name: "WEBM VP9", format: "webm", video_encoder: Some("libvpx-vp9"), audio_encoder: Some("libopus"), resolution: Some("1280x720"), bitrate: None, audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
             
             // AVI
             // TestConfig { name: "AVI Mpeg4", format: "avi", video_encoder: Some("mpeg4"), audio_encoder: Some("ac3"), resolution: Some("640x480"), bitrate: Some("800k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
@@ -157,7 +157,7 @@ mod tests {
             // TestConfig { name: "WMV 2", format: "wmv", video_encoder: Some("msmpeg4v2"), audio_encoder: Some("wmav2"), resolution: Some("640x480"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
 
             // FLV
-            // TestConfig { name: "FLV", format: "flv", video_encoder: Some("flv1"), audio_encoder: Some("mp3"), resolution: Some("640x480"), bitrate: Some("800k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
+            // TestConfig { name: "FLV", format: "flv", video_encoder: Some("flv1"), audio_encoder: Some("libmp3lame"), resolution: Some("640x480"), bitrate: Some("800k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
 
             // MPG (MPEG-1)
             // TestConfig { name: "MPEG-1", format: "mpeg", video_encoder: Some("mpeg1video"), audio_encoder: Some("mp2"), resolution: Some("352x288"), bitrate: Some("1150k"), audio_bitrate: Some("128k"), sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
@@ -169,7 +169,7 @@ mod tests {
             // TestConfig { name: "3GP", format: "3gp", video_encoder: Some("h263"), audio_encoder: Some("aac"), resolution: Some("176x144"), bitrate: Some("128k"), audio_bitrate: Some("64k"), sample_rate: Some("8000"), frame_rate: None, use_hardware_acceleration: false },
 
             // VOB
-            // TestConfig { name: "VOB", format: "vob", video_encoder: Some("mpeg2video"), audio_encoder: Some("pcm_s16be"), resolution: Some("720x576"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: Some("30"), use_hardware_acceleration: true },
+            // TestConfig { name: "VOB", format: "vob", video_encoder: Some("mpeg2video"), audio_encoder: Some("pcm_s16be"), resolution: Some("720x576"), bitrate: Some("2000k"), audio_bitrate: None, sample_rate: None, frame_rate: Some("25"), use_hardware_acceleration: false },
 
             // OGV
             // TestConfig { name: "OGV", format: "ogg", video_encoder: Some("libtheora"), audio_encoder: Some("libvorbis"), resolution: Some("640x480"), bitrate: Some("800k"), audio_bitrate: Some("96k"), sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
@@ -198,7 +198,7 @@ mod tests {
         }
     }
     
-    #[test]
+    // #[test]
     fn list_all_encoders() {
         audio_video_kit_lib::media_common::init_ffmpeg().unwrap();
         println!("--- Video Encoders ---");
@@ -218,5 +218,29 @@ mod tests {
 			}
 		}
     }
+
+    // #[test]
+    fn list_all_audio_encoders() {
+        audio_video_kit_lib::media_common::init_ffmpeg().unwrap();
+        println!("--- Audio Encoders ---");
+        unsafe {
+            let mut opaque: *mut std::ffi::c_void = std::ptr::null_mut();
+            loop {
+                let codec = ffmpeg::ffi::av_codec_iterate(&mut opaque);
+                if codec.is_null() {
+                    break;
+                }
+                if (*codec).type_ == ffmpeg::ffi::AVMediaType::AVMEDIA_TYPE_AUDIO
+                    && ffmpeg::ffi::av_codec_is_encoder(codec) != 0
+                {
+                    let name = std::ffi::CStr::from_ptr((*codec).name).to_string_lossy();
+                    let desc = std::ffi::CStr::from_ptr((*codec).long_name).to_string_lossy();
+                    println!("Name: {}, Description: {}", name, desc);
+                }
+            }
+        }
+    }
+
+    
     
 }

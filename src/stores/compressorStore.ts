@@ -38,10 +38,16 @@ interface CompressorState {
   compressingTasks: ConverterTask[];
   finishedTasks: ConverterTask[];
   isLoading: boolean;
-  activeTab: "video" | "audio" | "image" | "finished";
+  activeTab: "idle" | "finished";
   unreadFinishedCount: number;
-  globalConfig: CompressionConfig;
-  setActiveTab: (tab: "video" | "audio" | "image" | "finished") => void;
+  compressionScope: "general" | "video" | "audio" | "image";
+  videoConfig: VideoCompressionConfig;
+  audioConfig: AudioCompressionConfig;
+  imageConfig: ImageCompressionConfig;
+  setActiveTab: (tab: "idle" | "finished") => void;
+  setCompressionScope: (
+    scope: "general" | "video" | "audio" | "image"
+  ) => void;
   incrementUnreadFinishedCount: () => void;
   resetUnreadFinishedCount: () => void;
   init: () => Promise<void>;
@@ -69,9 +75,12 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
   compressingTasks: [],
   finishedTasks: [],
   isLoading: true,
-  activeTab: "video",
+  activeTab: "idle",
   unreadFinishedCount: 0,
-  globalConfig: defaultVideoCompressionConfig,
+  compressionScope: "general",
+  videoConfig: defaultVideoCompressionConfig,
+  audioConfig: defaultAudioCompressionConfig,
+  imageConfig: defaultImageCompressionConfig,
   init: async () => {
     try {
       // 从数据库加载压缩任务（使用相同的数据库，但通过 taskType 区分）
@@ -91,12 +100,39 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
         }
       });
 
-      const globalConfig = await converterDB.getSetting("compressionConfig");
+      const legacyConfig = await converterDB.getSetting("compressionConfig");
+      const storedVideoConfig =
+        (await converterDB.getSetting("compressionConfigVideo")) || null;
+      const storedAudioConfig =
+        (await converterDB.getSetting("compressionConfigAudio")) || null;
+      const storedImageConfig =
+        (await converterDB.getSetting("compressionConfigImage")) || null;
+      const storedScope =
+        (await converterDB.getSetting("compressionScope")) || "general";
+
+      const videoConfig =
+        storedVideoConfig ||
+        (legacyConfig && legacyConfig.type === "video"
+          ? legacyConfig
+          : defaultVideoCompressionConfig);
+      const audioConfig =
+        storedAudioConfig ||
+        (legacyConfig && legacyConfig.type === "audio"
+          ? legacyConfig
+          : defaultAudioCompressionConfig);
+      const imageConfig =
+        storedImageConfig ||
+        (legacyConfig && legacyConfig.type === "image"
+          ? legacyConfig
+          : defaultImageCompressionConfig);
 
       set({
         compressingTasks,
         finishedTasks,
-        globalConfig: globalConfig || defaultVideoCompressionConfig,
+        compressionScope: storedScope,
+        videoConfig,
+        audioConfig,
+        imageConfig,
         isLoading: false,
       });
     } catch (error) {
@@ -168,13 +204,13 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
           let compressionConfig: CompressionConfig;
 
           if (isVideoFormat(details.extension) && hasVideo) {
-            compressionConfig = defaultVideoCompressionConfig;
+            compressionConfig = get().videoConfig;
             fileType = "video";
           } else if (isAudioFormat(details.extension) && hasAudio) {
-            compressionConfig = defaultAudioCompressionConfig;
+            compressionConfig = get().audioConfig;
             fileType = "audio";
           } else if (isImageFormat(details.extension) && hasImage) {
-            compressionConfig = defaultImageCompressionConfig;
+            compressionConfig = get().imageConfig;
             fileType = "image";
           } else {
             console.log(
@@ -257,7 +293,13 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     const { compressingTasks } = get();
     const task = compressingTasks.find((t) => t.id === id);
     if (task) {
-      const taskConfig = task.compressionConfig || get().globalConfig;
+      const getConfigByType = (type: FileType) => {
+        if (type === "video") return get().videoConfig;
+        if (type === "audio") return get().audioConfig;
+        return get().imageConfig;
+      };
+      const taskConfig =
+        task.compressionConfig || getConfigByType(task.fileType);
       const updatedTask = {
         ...task,
         compressionConfig: { ...taskConfig, ...config },
@@ -320,10 +362,36 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     }
   },
   updateGlobalConfig: async (config: Partial<CompressionConfig>) => {
-    const currentConfig = get().globalConfig;
-    const newConfig = { ...currentConfig, ...config } as CompressionConfig;
-    set({ globalConfig: newConfig });
-    await converterDB.saveSetting("compressionConfig", newConfig);
+    const scope = config.type || get().compressionScope;
+    if (scope === "video") {
+      const next = {
+        ...get().videoConfig,
+        ...config,
+        type: "video",
+      } as VideoCompressionConfig;
+      set({ videoConfig: next });
+      await converterDB.saveSetting("compressionConfigVideo", next);
+    } else if (scope === "audio") {
+      const next = {
+        ...get().audioConfig,
+        ...config,
+        type: "audio",
+      } as AudioCompressionConfig;
+      set({ audioConfig: next });
+      await converterDB.saveSetting("compressionConfigAudio", next);
+    } else if (scope === "image") {
+      const next = {
+        ...get().imageConfig,
+        ...config,
+        type: "image",
+      } as ImageCompressionConfig;
+      set({ imageConfig: next });
+      await converterDB.saveSetting("compressionConfigImage", next);
+    }
+  },
+  setCompressionScope: (scope) => {
+    set({ compressionScope: scope });
+    converterDB.saveSetting("compressionScope", scope);
   },
   setActiveTab: (tab) => set({ activeTab: tab }),
   incrementUnreadFinishedCount: () =>

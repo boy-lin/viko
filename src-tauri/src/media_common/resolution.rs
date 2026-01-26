@@ -1,4 +1,5 @@
 use ffmpeg_next as ffmpeg;
+use ffmpeg::Codec;
 use ffmpeg::format;
 use ffmpeg::Rational;
 
@@ -68,4 +69,58 @@ pub fn pick_pixel_format(bit_depth: Option<u32>, use_hw: bool) -> format::Pixel 
         (_, true) => format::Pixel::NV12,
         _ => format::Pixel::YUV420P,
     }
+}
+
+fn codec_supported_pixel_formats(codec: Codec) -> Vec<format::Pixel> {
+    unsafe {
+        let mut formats = Vec::new();
+        let codec_ptr = codec.as_ptr();
+        if codec_ptr.is_null() {
+            return formats;
+        }
+        let pix_fmts = (*codec_ptr).pix_fmts;
+        if pix_fmts.is_null() {
+            return formats;
+        }
+        let mut idx = 0usize;
+        loop {
+            let pix = *pix_fmts.add(idx);
+            if pix == ffmpeg::ffi::AVPixelFormat::AV_PIX_FMT_NONE {
+                break;
+            }
+            formats.push(format::Pixel::from(pix));
+            idx += 1;
+        }
+        formats
+    }
+}
+
+/// Choose a pixel format based on bit depth/hw, but fall back to codec-supported formats.
+pub fn pick_pixel_format_for_codec(
+    bit_depth: Option<u32>,
+    use_hw: bool,
+    codec: Codec,
+) -> format::Pixel {
+    let preferred = pick_pixel_format(bit_depth, use_hw);
+    let supported = codec_supported_pixel_formats(codec);
+    if supported.is_empty() {
+        return preferred;
+    }
+    if supported.iter().any(|fmt| *fmt == preferred) {
+        return preferred;
+    }
+
+    let fallbacks = [
+        format::Pixel::YUV420P,
+        format::Pixel::NV12,
+        format::Pixel::YUV422P,
+        format::Pixel::YUV444P,
+    ];
+    for candidate in fallbacks {
+        if supported.iter().any(|fmt| *fmt == candidate) {
+            return candidate;
+        }
+    }
+
+    supported[0]
 }

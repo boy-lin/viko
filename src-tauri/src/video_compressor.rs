@@ -106,7 +106,8 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             params.height,
         );
 
-        let target_pixel_format = media_common::pick_pixel_format(params.color_depth, use_hw);
+        let target_pixel_format =
+            media_common::pick_pixel_format_for_codec(params.color_depth, use_hw, codec);
         let aspect_ratio = media_common::parse_aspect_ratio(params.aspect_ratio.as_deref())
             .unwrap_or_else(|| decoder.aspect_ratio());
 

@@ -83,16 +83,45 @@ export type ConversionConfig =
 export interface VideoCompressionConfig {
   type: "video";
   compressionRatio: number; // 0-100，表示压缩到原文件的百分比
+  format?: string;
+  width?: number;
+  height?: number;
+  bitrate?: number; // kbps
+  frameRate?: number;
+  codec?: string;
+  keyframeInterval?: number;
+  colorDepth?: number;
+  removeAudio?: boolean;
+  audioBitrate?: number; // kbps
+  preset?: string;
+  useHardwareAcceleration?: boolean;
 }
 
 export interface AudioCompressionConfig {
   type: "audio";
   compressionRatio: number; // 0-100
+  format?: string;
+  sampleRate?: number;
+  bitrate?: number; // kbps
+  codec?: string;
+  channels?: number;
+  bitDepth?: number;
+  removeSilence?: boolean;
+  silenceThreshold?: number;
+  volumeGain?: number;
 }
 
 export interface ImageCompressionConfig {
   type: "image";
   quality: number; // 0-100，质量百分比
+  format?: string;
+  width?: number;
+  height?: number;
+  colorMode?: string;
+  stripMetadata?: boolean;
+  keepTransparency?: boolean;
+  dpi?: number;
+  cropWhitespace?: boolean;
 }
 
 export type CompressionConfig =
@@ -144,6 +173,7 @@ export interface ConverterTask extends MediaDetails {
   progress: number;
   fileType: FileType;
   outputPath?: string;
+  outputSize?: number;
   config?: ConversionConfig;
   compressionConfig?: CompressionConfig; // 压缩配置
   taskType?: "convert" | "compress"; // 任务类型：转码或压缩

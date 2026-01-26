@@ -17,16 +17,8 @@ import FinishedTask from "./FinishedTask";
 
 const TABS = [
   {
-    label: "视频",
-    value: "video",
-  },
-  {
-    label: "音频",
-    value: "audio",
-  },
-  {
-    label: "图片",
-    value: "image",
+    label: "待处理",
+    value: "idle",
   },
   {
     label: "完成列表",
@@ -43,13 +35,10 @@ export default function ConverterPage() {
   useEffect(() => {
     init();
     initSettings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // 只在组件挂载时执行一次
+  }, []);
 
-  // 当切换到已完成 tab 时，重置未读数
-  // 使用 useCallback 避免每次渲染都创建新函数
   const handleTabChange = useCallback(
-    (tab: "video" | "audio" | "image" | "finished") => {
+    (tab: "idle" | "finished") => {
       setActiveTab(tab);
     },
     [setActiveTab]

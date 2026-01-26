@@ -96,9 +96,12 @@ export enum FormatEnum {
   JPG = "jpg",
   PNG = "png",
   WEBP = "webp",
-  HEIC = "heic",
+  AVIF = "avif",
   GIF = "gif",
-  TIFF = "tiff"
+  HEIC = "heic",
+  TIFF = "tiff",
+  BMP = "bmp",
+  ICO = "ico"
 }
 
 /**

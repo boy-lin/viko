@@ -37,7 +37,7 @@ import { CompressionSettingsDialog } from "./CompressionSettingsDialog";
 interface ConvertingTaskProps {
   globalFilter?: string;
   onGlobalFilterChange?: (value: string) => void;
-  activeTab: "video" | "audio" | "image";
+  activeTab: "idle" | "finished";
 }
 
 export default function ConvertingTask({
@@ -56,18 +56,10 @@ export default function ConvertingTask({
   // 根据 activeTab 过滤任务类型 - 使用 useMemo 优化性能
   const filteredTasks = useMemo(() => {
     return compressingTasks.filter((task) => {
-      if (activeTab === "video") {
-        return task.streams?.some((s) => s.codec_type === "video");
-      } else if (activeTab === "audio") {
-        return (
-          task.streams?.some((s) => s.codec_type === "audio") &&
-          !task.streams?.some((s) => s.codec_type === "video")
-        );
-      } else if (activeTab === "image") {
-        return (
-          task.streams?.some((s) => s.codec_type === "image") ||
-          isImageFormat(getFormatByPath(task.path))
-        );
+      if (activeTab === "idle") {
+        return task.status === "idle" || task.status === "converting";
+      } else if (activeTab === "finished") {
+        return task.status === "finished";
       }
       return true;
     });
@@ -324,9 +316,9 @@ export default function ConvertingTask({
                   {header.isPlaceholder
                     ? null
                     : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
                 </TableHead>
               ))}
             </TableRow>
@@ -335,21 +327,21 @@ export default function ConvertingTask({
         <TableBody>
           {table.getRowModel().rows?.length
             ? table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className="border-b border-border h-auto"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="p-2">
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              <TableRow
+                key={row.id}
+                data-state={row.getIsSelected() && "selected"}
+                className="border-b border-border h-auto"
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id} className="p-2">
+                    {flexRender(
+                      cell.column.columnDef.cell,
+                      cell.getContext()
+                    )}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
             : null}
           {
             <TableRow

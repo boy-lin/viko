@@ -106,6 +106,7 @@ export default function FinishedTask({
         cell: ({ row }) => {
           const task = row.original;
           const originalSize = task.size;
+          const outputSize = task.outputSize;
           return (
             <div className="flex flex-col">
               <span className="text-sm font-normal text-foreground">
@@ -113,7 +114,10 @@ export default function FinishedTask({
               </span>
               {task.outputPath && (
                 <span className="text-xs text-muted-foreground">
-                  压缩后: 计算中...
+                  压缩后:{" "}
+                  {outputSize !== undefined
+                    ? formatFileSize(outputSize)
+                    : "计算中..."}
                 </span>
               )}
             </div>

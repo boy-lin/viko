@@ -30,6 +30,7 @@ export type MediaTaskEvent = {
   event_type: "progress" | "complete" | "error";
   progress?: number;
   output_path?: string;
+  output_size?: number;
   error_message?: string;
 };
 
@@ -287,10 +288,21 @@ class MediaTaskQueue {
   }
 
   private async runCompressionTask(task: ConverterTask) {
-    const { updateTaskById, incrementUnreadFinishedCount, globalConfig } =
-      useCompressorStore.getState();
+    const {
+      updateTaskById,
+      incrementUnreadFinishedCount,
+      videoConfig,
+      audioConfig,
+      imageConfig,
+    } = useCompressorStore.getState();
     const { outputPath } = useSettingsStore.getState();
-    const compressionConfig = task.compressionConfig || globalConfig;
+    const compressionConfig =
+      task.compressionConfig ||
+      (task.fileType === "video"
+        ? videoConfig
+        : task.fileType === "audio"
+          ? audioConfig
+          : imageConfig);
 
     // Initial Status Update
     updateTaskById(task.id, { status: "converting", progress: 0 });
@@ -366,6 +378,7 @@ class MediaTaskQueue {
                 status: "finished",
                 progress: 100,
                 outputPath: eventData.output_path,
+                outputSize: eventData.output_size,
               });
               const { activeTab } = useCompressorStore.getState();
               if (activeTab !== "finished") {
@@ -377,6 +390,7 @@ class MediaTaskQueue {
                 status: "finished",
                 progress: 100,
                 outputPath: eventData.output_path,
+                outputSize: eventData.output_size,
               };
               converterDB
                 .addToMyFiles({
@@ -411,6 +425,17 @@ class MediaTaskQueue {
             input_path: task.path,
             output_path: finalOutputPath,
             compression_ratio: compressionConfig.compressionRatio,
+            width: compressionConfig.width,
+            height: compressionConfig.height,
+            bitrate: compressionConfig.bitrate,
+            frame_rate: compressionConfig.frameRate,
+            codec: compressionConfig.codec,
+            keyframe_interval: compressionConfig.keyframeInterval,
+            color_depth: compressionConfig.colorDepth,
+            remove_audio: compressionConfig.removeAudio,
+            audio_bitrate: compressionConfig.audioBitrate,
+            preset: compressionConfig.preset,
+            use_hardware_acceleration: compressionConfig.useHardwareAcceleration,
           };
           console.log("Queue invoking compress_video_file:", args);
           await invoke("compress_video_file", { args });
@@ -423,6 +448,14 @@ class MediaTaskQueue {
             input_path: task.path,
             output_path: finalOutputPath,
             compression_ratio: compressionConfig.compressionRatio,
+            sample_rate: compressionConfig.sampleRate,
+            bitrate: compressionConfig.bitrate,
+            codec: compressionConfig.codec,
+            channels: compressionConfig.channels,
+            bit_depth: compressionConfig.bitDepth,
+            remove_silence: compressionConfig.removeSilence,
+            silence_threshold: compressionConfig.silenceThreshold,
+            volume_gain: compressionConfig.volumeGain,
           };
           console.log("Queue invoking compress_audio_file:", args);
           await invoke("compress_audio_file", { args });
@@ -435,6 +468,14 @@ class MediaTaskQueue {
             input_path: task.path,
             output_path: finalOutputPath,
             quality: compressionConfig.quality,
+            format: compressionConfig.format,
+            width: compressionConfig.width,
+            height: compressionConfig.height,
+            color_mode: compressionConfig.colorMode,
+            strip_metadata: compressionConfig.stripMetadata,
+            keep_transparency: compressionConfig.keepTransparency,
+            dpi: compressionConfig.dpi,
+            crop_whitespace: compressionConfig.cropWhitespace,
           };
           console.log("Queue invoking compress_image_file:", args);
           await invoke("compress_image_file", { args });
@@ -521,6 +562,7 @@ class MediaTaskQueue {
                 status: "finished",
                 progress: 100,
                 outputPath: eventData.output_path,
+                outputSize: eventData.output_size,
               });
               const { activeTab } = useConverterStore.getState();
               if (activeTab !== "finished") {
@@ -532,6 +574,7 @@ class MediaTaskQueue {
                 status: "finished",
                 progress: 100,
                 outputPath: eventData.output_path,
+                outputSize: eventData.output_size,
               };
               converterDB
                 .addToMyFiles({

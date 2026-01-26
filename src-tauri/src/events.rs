@@ -1,37 +1,47 @@
 use serde::Serialize;
+use std::fs;
 use tauri::Emitter;
 
 #[derive(Serialize, Clone)]
 pub struct MediaTaskEvent {
-    pub task_id: String,
-    pub task_type: String, // "convert" | "compress"
-    pub media_type: String, // "video" | "audio" | "image"
-    pub event_type: String, // "progress" | "complete" | "error"
-    pub progress: Option<f64>,
-    pub output_path: Option<String>,
-    pub error_message: Option<String>,
+  pub task_id: String,
+  pub task_type: String, // "convert" | "compress"
+  pub media_type: String, // "video" | "audio" | "image"
+  pub event_type: String, // "progress" | "complete" | "error"
+  pub progress: Option<f64>,
+  pub output_path: Option<String>,
+  pub output_size: Option<u64>,
+  pub error_message: Option<String>,
 }
 
 pub fn emit_media_task_event(
-    window: &tauri::WebviewWindow,
-    task_id: &str,
-    task_type: &str,
-    media_type: &str,
-    event_type: &str,
-    progress: Option<f64>,
-    output_path: Option<String>,
-    error_message: Option<String>,
+  window: &tauri::WebviewWindow,
+  task_id: &str,
+  task_type: &str,
+  media_type: &str,
+  event_type: &str,
+  progress: Option<f64>,
+  output_path: Option<String>,
+  error_message: Option<String>,
 ) {
-    let event = MediaTaskEvent {
-        task_id: task_id.to_string(),
-        task_type: task_type.to_string(),
-        media_type: media_type.to_string(),
-        event_type: event_type.to_string(),
-        progress,
-        output_path,
-        error_message,
-    };
-    let _ = window.emit("media-task-event", event);
+  let output_size = if event_type == "complete" {
+    output_path
+      .as_ref()
+      .and_then(|path| fs::metadata(path).ok().map(|m| m.len()))
+  } else {
+    None
+  };
+  let event = MediaTaskEvent {
+    task_id: task_id.to_string(),
+    task_type: task_type.to_string(),
+    media_type: media_type.to_string(),
+    event_type: event_type.to_string(),
+    progress,
+    output_path,
+    output_size,
+    error_message,
+  };
+  let _ = window.emit("media-task-event", event);
 }
 
 pub trait TaskEmitter: Send + Sync {
@@ -129,4 +139,3 @@ impl TaskEmitter for MockEmitter {
         ));
     }
 }
-
