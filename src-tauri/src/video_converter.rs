@@ -194,10 +194,8 @@ struct Transcoder<E: TaskEmitter> {
     frame_count: usize,
     // Rename start_time field in video_converter.rs Struct if necessary, but here just fix the value
     // In struct definition:
-    start_time_instant: Instant,
     duration: f64,
     emitter: E,
-    taskId: String,
     last_pts: i64,
     start_time: i64,
 }
@@ -211,7 +209,6 @@ impl<E: TaskEmitter> Transcoder<E> {
         duration: f64,
         emitter: E,
         start_time: i64,
-        taskId: String,
     ) -> Result<Self, String> {
         let global_header = octx.format().flags().contains(format::Flags::GLOBAL_HEADER);
 
@@ -330,11 +327,9 @@ impl<E: TaskEmitter> Transcoder<E> {
             encoder_time_base,
             scaler,
             frame_count: 0,
-            start_time_instant: Instant::now(),
             duration,
             emitter,
             start_time,
-            taskId,
             last_pts: -1,
         })
     }
@@ -359,14 +354,10 @@ impl<E: TaskEmitter> Transcoder<E> {
                 let current_time = pts as f64
                     * self.decoder.time_base().0 as f64
                     / self.decoder.time_base().1 as f64;
-                let elapsed = self.start_time_instant.elapsed().as_secs_f64();
+                // let _elapsed = self.start_time_instant.elapsed().as_secs_f64();
                 if self.duration > 0.0 {
                     let progress = (current_time / self.duration * 100.0).min(100.0);
-                    crate::events::emit_media_task_event(
-                        &self.window,
-                        &self.taskId,
-                        "convert",
-                        "video",
+                    self.emitter.emit(
                         "progress",
                         Some(progress),
                         None,
@@ -519,7 +510,6 @@ pub fn convert_video<E: TaskEmitter + Clone>(
                         duration,
                         emitter.clone(),
                         global_start_time,
-                        task_id.clone(),
                     )?;
                     transcoders.insert(ist_index, transcoder);
                     ost_index += 1;
@@ -643,12 +633,14 @@ pub fn convert_video<E: TaskEmitter + Clone>(
             height,
             frame_rate,
             duration,
-            emitter,
+            emitter.clone(),
         )?;
     }
 
     octx.write_trailer()
         .map_err(|e| format!("Write trailer failed: {}", e))?;
+
+    emitter.emit("complete", Some(100.0), Some(resolved.output_path), None);
 
     Ok(())
 }
@@ -925,6 +917,8 @@ fn generate_black_video_frames(
             .write_interleaved(octx)
             .map_err(|e| format!("写入最终黑屏数据包失败: {}", e))?;
     }
+
+
 
     Ok(())
 }

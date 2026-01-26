@@ -16,14 +16,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FORMAT_DATA, FORMAT_CATEGORIES } from "@/data/formats";
+import { FORMAT_DATA, FORMAT_CATEGORIES, FORMAT_GROUPS } from "@/data/formats";
 import { FormatOption } from "@/types/options";
 import { useConverterStore } from "@/stores/converterStore";
 import { AUDIO_ENCODERS } from "@/data/encoders";
-import { getAudioEncoderOptions } from "@/data/encoder_options";
-import { FORMAT_CAPABILITIES } from "@/data/format_capabilities";
+
+import { CONTAINER_DEFINITIONS, getAudioEncoderOptions } from "@/data/capabilities";
 export interface FormatSelectorValue {
-  group?: string;
+  group: string;
   outputFormat: string;
   // Video fields
   videoEncoder?: string;
@@ -113,11 +113,6 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       }
       : null;
 
-  const handleActiveGroupt = (id: string | null) => {
-    setActiveGroup(id)
-
-  }
-
   // Find the selected format based on props
   const selectedFormat = React.useMemo(() => {
     // 1. Try to find precise match including resolution/rate/quality
@@ -168,24 +163,14 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
 
   const value = selectedFormat?.id || "";
 
-  // Reset group when category changes (but don't auto-select first group)
-  useEffect(() => {
-    handleActiveGroupt(null);
-  }, [activeCategory]);
 
   // Derived Data
   const formatGroups = React.useMemo(() => {
     if (["favorites", "recents"].includes(activeCategory)) return [];
-
     // Get all items in current category
-    const categoryItems = FORMAT_DATA.filter(
+    const groups = FORMAT_GROUPS.filter(
       (item) => item.category === activeCategory
     );
-
-    // Extract unique groups
-    const groups = Array.from(
-      new Set(categoryItems.map((item) => item.group))
-    ).filter(Boolean);
     return groups;
   }, [activeCategory]);
 
@@ -195,7 +180,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       return FORMAT_DATA.filter(
         (item) =>
           item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.group?.toLowerCase().includes(searchQuery.toLowerCase())
+          item.groupId?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -209,11 +194,10 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
         .filter(Boolean) as FormatOption[];
     }
 
-    // 3. Category Mode with Group
-    // If a group is selected, show items in that group
+
     if (activeGroup) {
       return FORMAT_DATA.filter(
-        (item) => item.category === activeCategory && item.group === activeGroup
+        (item) => item.groupId === activeGroup
       );
     }
 
@@ -229,43 +213,48 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
     formatRecents,
   ]);
 
-  const handleSelect = (formatId: string) => {
-    addToRecents(formatId);
-    setOpen(false);
-    setSearchQuery("");
 
-    // Calculate updates
-    const preset = FORMAT_DATA.find((f) => f.id === formatId);
-    if (!preset || !preset.extension) return;
+  useEffect(() => {
+    const firstGroup = FORMAT_GROUPS.find((g) => g.category === activeCategory)
+    if (firstGroup?.id) {
+      setActiveGroup(firstGroup?.id);
+    }
+  }, [activeCategory]);
+
+  useEffect(() => {
+    if (activeGroup) {
+      const item = FORMAT_DATA.find((item) => item.groupId === activeGroup)
+      if (item?.id) {
+        applySelection(item, { close: false, addRecent: true })
+      }
+    }
+  }, [activeGroup]);
+
+  const applySelection = (
+    format: FormatOption,
+    options: { close?: boolean; addRecent?: boolean; resetSearch?: boolean } = {}
+  ) => {
+    const { close = true, addRecent = true, resetSearch = true } = options;
+    if (addRecent) addToRecents(format.id);
+    if (close) setOpen(false);
+    if (resetSearch) setSearchQuery("");
+
+    if (!format.extension) return;
 
     const updates: FormatSelectorValue = {
-      outputFormat: preset.extension,
-      group: preset.group,
+      outputFormat: format.extension,
+      group: format.groupId,
     };
 
     // 根据 formatType 设置对应的字段
     if (formatType === "video") {
-      const capabilities = FORMAT_CAPABILITIES[preset.group]
-
-      // Video Resolution
-      if (
-        preset.category.includes("video") &&
-        preset.videoResolution &&
-        preset.videoResolution !== "auto"
-      ) {
-        updates.resolution = preset.videoResolution;
-      }
-      if (capabilities.defaultEncoder) {
-        updates.videoEncoder = capabilities.defaultEncoder;
-      }
-      if (capabilities.defaultAudioEncoder) {
-        updates.audioEncoder = capabilities.defaultAudioEncoder;
-      }
-      // Video Encoder 可以从 preset 推断，但通常由用户在其他地方设置
-      // 这里不设置 videoEncoder，保持现有值
+      const caps = CONTAINER_DEFINITIONS[format.groupId];
+      updates.resolution = caps.video?.defaultResolution;
+      updates.videoEncoder = caps.video?.defaultEncoder;
+      updates.audioEncoder = caps.audio?.defaultEncoder;
     } else if (formatType === "audio") {
-      if (preset.audioBitrate) {
-        updates.audioBitrate = preset.audioBitrate;
+      if (format.audioBitrate) {
+        updates.audioBitrate = format.audioBitrate;
       } else {
         updates.audioBitrate = "auto";
       }
@@ -290,16 +279,20 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       }
     } else if (formatType === "image") {
       // Image Quality
-      if (preset.imageResolution) {
-        updates.quality = preset.imageResolution;
+      if (format.imageResolution) {
+        updates.quality = format.imageResolution;
       }
       // Image Resolution (如果有)
-      if (preset.imageResolution && preset.imageResolution.includes("x")) {
-        updates.resolution = preset.imageResolution;
+      if (format.imageResolution && format.imageResolution.includes("x")) {
+        updates.resolution = format.imageResolution;
       }
     }
 
     onValueChange(formatType, updates);
+  };
+
+  const handleSelect = (format: FormatOption) => {
+    applySelection(format);
   };
 
   const currentCategoryLabel = React.useMemo(() => {
@@ -418,17 +411,20 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                     <div className="space-y-1">
                       {formatGroups.map((group) => (
                         <button
-                          key={group}
-                          onClick={() => setActiveGroup(group)}
+                          key={group.id}
+                          onClick={() => {
+                            setActiveGroup(group.id);
+
+                          }}
                           className={cn(
                             "w-full flex items-center justify-between p-2 rounded-md text-left transition-colors",
-                            activeGroup === group
+                            activeGroup === group.id
                               ? "bg-accent text-accent-foreground"
                               : "hover:bg-accent/50"
                           )}
                         >
-                          <span className="text-sm font-medium">{group}</span>
-                          {activeGroup === group && (
+                          <span className="text-sm font-medium">{group.label}</span>
+                          {activeGroup === group.id && (
                             <Check className="w-4 h-4 text-primary" />
                           )}
                         </button>
@@ -469,11 +465,11 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                         key={item.id}
                         role="button"
                         tabIndex={0}
-                        onClick={() => handleSelect(item.id)}
+                        onClick={() => handleSelect(item)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            handleSelect(item.id);
+                            handleSelect(item);
                           }
                         }}
                         className={cn(

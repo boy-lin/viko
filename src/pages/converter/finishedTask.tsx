@@ -64,7 +64,7 @@ export default function FinishedTask({
           return (
             <div className="flex items-center gap-3">
               <MediaThumbnail
-                path={task.outputPath}
+                path={task.outputPath || ""}
                 title={task.title}
                 fileType={task.fileType}
                 className="shrink-0 w-10 h-10 rounded"

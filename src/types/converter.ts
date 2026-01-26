@@ -31,8 +31,10 @@ export interface AudioTrackConfig {
 export interface VideoTrackConfig {
   encoder: string;
   resolution: string;
-  frameRate: string;
-  bitrate: string;
+  frameRate?: string;
+  bitrate?: string;
+  sampleRate?: string;
+  channels?: string;
 }
 
 export interface ImageConfig {

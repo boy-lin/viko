@@ -98,3 +98,35 @@ impl EventEmitter for WindowEmitter {
         let _ = self.window.emit(event_type, payload);
     }
 }
+
+#[derive(Clone)]
+pub struct MockEmitter {
+    pub events: std::sync::Arc<std::sync::Mutex<Vec<(String, Option<f64>, Option<String>, Option<String>)>>>,
+}
+
+impl MockEmitter {
+    pub fn new() -> Self {
+        Self {
+            events: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+        }
+    }
+}
+
+impl TaskEmitter for MockEmitter {
+    fn emit(
+        &self,
+        event_type: &str,
+        progress: Option<f64>,
+        output_path: Option<String>,
+        error_message: Option<String>,
+    ) {
+        let mut events = self.events.lock().unwrap();
+        events.push((
+            event_type.to_string(),
+            progress,
+            output_path,
+            error_message,
+        ));
+    }
+}
+

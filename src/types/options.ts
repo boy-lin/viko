@@ -40,7 +40,7 @@ export interface FormatOption {
   id: string;
   label: string;
   category: string;
-  group: string;
+  groupId: string;
   description?: string;
   extension?: string;
   videoResolution?: string;
@@ -55,6 +55,7 @@ export interface FormatGroup {
   id: string;
   label: string;
   icon?: any;
+  category: string;
 }
 
 /**
@@ -116,12 +117,12 @@ export enum AudioEncoderEnum {
   WMAV2 = "wmav2",                // Windows Media Audio 2
   AMR_NB = "libopencore_amrnb",   // AMR Narrowband
   AMR_WB = "libopencore_amrwb",   // AMR Wideband
-  
+
   // Lossless codecs
   FLAC = "flac",                  // Free Lossless Audio Codec
   ALAC = "alac",                  // Apple Lossless Audio Codec
   APE = "ape",                    // Monkey's Audio
-  
+
   // PCM formats
   PCM_S16LE = "pcm_s16le",        // PCM signed 16-bit little-endian
   PCM_S24LE = "pcm_s24le",        // PCM signed 24-bit little-endian
@@ -146,31 +147,31 @@ export enum VideoEncoderEnum {
   H264_HARDWARE = "h264_videotoolbox", // H.264 (macOS hardware acceleration)
   H264_NVENC = "h264_nvenc",           // H.264 (NVIDIA hardware acceleration)
   H264_QSV = "h264_qsv",               // H.264 (Intel Quick Sync Video)
-  
+
   // H.265 / HEVC
   H265 = "libx265",                    // H.265/HEVC (x265 software encoder)
   HEVC_HARDWARE = "hevc_videotoolbox", // HEVC (macOS hardware acceleration)
   HEVC_NVENC = "hevc_nvenc",           // HEVC (NVIDIA hardware acceleration)
   HEVC_QSV = "hevc_qsv",               // HEVC (Intel Quick Sync Video)
-  
+
   // VP8/VP9
   VP8 = "libvpx",                      // VP8 video codec
   VP9 = "libvpx-vp9",                  // VP9 video codec
-  
+
   // AV1
   AV1 = "libaom-av1",                  // AV1 (libaom encoder)
   AV1_SVTAV1 = "libsvtav1",            // AV1 (SVT-AV1 encoder)
   AV1_RAV1E = "librav1e",              // AV1 (rav1e encoder)
-  
+
   // Apple ProRes
   PRORES = "prores_ks",                // Apple ProRes (software)
   PRORES_HARDWARE = "prores_videotoolbox", // Apple ProRes (macOS hardware)
-  
+
   // MPEG
   MPEG4 = "mpeg4",                     // MPEG-4 Part 2
   MPEG2VIDEO = "mpeg2video",           // MPEG-2 video
   MJPEG = "mjpeg",                     // Motion JPEG
-  
+
   // Other
   THEORA = "libtheora",                // Theora video codec
   XVID = "libxvid",                    // Xvid MPEG-4 Part 2

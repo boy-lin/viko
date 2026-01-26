@@ -22,6 +22,7 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
 }) => {
   // 定义所有支持的编码器
   const allEncoders = [
+    { value: "auto", label: "Auto" },
     { value: "h264", label: "H.264" },
     { value: "hevc", label: "HEVC (H.265)" },
     { value: "vp9", label: "VP9" },
@@ -36,7 +37,8 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
     { value: "prores", label: "ProRes" },
     { value: "dnxhd", label: "DNxHD" },
     { value: "mpeg1video", label: "MPEG-1" },
-    { value: "auto", label: "Auto" },
+    { value: "mpeg2video", label: "MPEG-2" },
+
   ];
 
   const filteredEncoders = allowedEncoders

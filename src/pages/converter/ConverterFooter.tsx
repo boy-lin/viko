@@ -19,7 +19,6 @@ import {
   isImageConfig,
   type ConversionConfig,
 } from "@/types/converter";
-import { FORMAT_CAPABILITIES } from "@/data/format_capabilities";
 
 export const ConverterFooter: React.FC = () => {
   const globalConfig = useConverterStore((state) => state.globalConfig);
@@ -41,38 +40,40 @@ export const ConverterFooter: React.FC = () => {
     formatType: string,
     updates: FormatSelectorValue
   ) => {
+    console.log("updates", updates);
+
     if (!globalConfig) return;
     // 根据当前配置类型和新格式类型创建新配置
     let newConfig: ConversionConfig;
-
     if (formatType === "video") {
-      // 创建或更新 Video 配置
-      const existingVideo = isVideoConfig(globalConfig)
+      const prevVideo = isVideoConfig(globalConfig)
         ? globalConfig.video
-        : {
-          encoder: "h264",
-          resolution: "1920x1080",
-          frameRate: "30",
-          bitrate: "1000",
-        };
+        : defaultVideoConfig.video;
 
+      const prevAudioTracks =
+        isVideoConfig(globalConfig) || isAudioConfig(globalConfig)
+          ? globalConfig.audioTracks
+          : undefined;
+      // 创建或更新 Video 配置
       newConfig = {
         type: "video",
-        outputFormat: updates.outputFormat || globalConfig.outputFormat,
         outputTitle: globalConfig.outputTitle,
+        outputFormat: updates.outputFormat,
         group: updates.group,
         video: {
-          ...existingVideo,
-          resolution: updates.resolution || existingVideo.resolution,
-          encoder: updates.videoEncoder || existingVideo.encoder,
+          ...prevVideo,
+          encoder: updates.videoEncoder || prevVideo.encoder,
+          resolution: updates.resolution || prevVideo.resolution,
         },
-        // 保留现有的 audioTracks（如果有）
-        audioTracks:
-          isVideoConfig(globalConfig) &&
-            globalConfig.audioTracks &&
-            globalConfig.audioTracks.length > 0
-            ? globalConfig.audioTracks
-            : defaultVideoConfig.audioTracks,
+        audioTracks: prevAudioTracks?.map((it) => {
+          return {
+            ...it,
+            encoder: updates.audioEncoder || it.encoder,
+            bitrate: updates.audioBitrate || it.bitrate,
+            sampleRate: updates.audioSampleRate || it.sampleRate,
+            channels: updates.audioChannels || it.channels,
+          };
+        }),
       };
     } else if (formatType === "audio") {
       // 创建或更新 Audio 配置
@@ -84,6 +85,7 @@ export const ConverterFooter: React.FC = () => {
             encoder: "aac",
             channels: "auto",
             sampleRate: "auto",
+            bitrate: "auto",
           },
         ];
       newConfig = {

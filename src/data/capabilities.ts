@@ -2,8 +2,22 @@ import { EncoderEnum, FormatEnum, AudioEncoderEnum, VideoEncoderEnum, ImageEncod
 import { SelectOption } from "@/types/options";
 import { AUDIO_BITRATES, AUDIO_CHANNELS, AUDIO_SAMPLE_RATES } from "@/data/audio_options";
 import { COLOR_SPACES } from "@/data/video_options";
+import { ColorSpaceOption } from "@/types/options";
 
 // ================= TYPES =================
+
+export interface AudioEncoderOptions {
+  sampleRates: SelectOption[];
+  channels: SelectOption[];
+  bitrates: SelectOption[];
+}
+
+export interface VideoEncoderOptions {
+  resolutions: SelectOption[];
+  frameRates: SelectOption[];
+  bitrates: SelectOption[];
+  colorSpaces: ColorSpaceOption[];
+}
 
 export interface EncoderDefinition {
   id: EncoderEnum;
@@ -23,16 +37,21 @@ export interface ContainerDefinition {
   id: string; // "MP4", "MKV", "Apple", etc. (Corresponds to Format Group)
   format: FormatEnum; // The actual file extension/container type
   label: string;
-
   video?: {
     allowedEncoders: EncoderEnum[];
     defaultEncoder: EncoderEnum;
-    maxResolution?: string; // Container constraint
+    maxResolution: string; // Container constraint
+    defaultResolution: string;
+    maxFrameRate: number;
+    defaultFrameRate: number;
+    maxBitrate: number;
+    defaultBitrate: number;
+    colorSpaces: ColorSpaceOption[];
   };
   audio?: {
     allowedEncoders: EncoderEnum[];
     defaultEncoder: EncoderEnum;
-    maxChannels?: number;
+    maxChannels: number;
   };
 }
 
@@ -135,7 +154,7 @@ export const ENCODER_DEFINITIONS: Record<string, EncoderDefinition> = {
 
 export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
   // "MP4" Group
-  "MP4": {
+  "mp4": {
     id: "MP4",
     format: FormatEnum.MP4,
     label: "MP4",
@@ -146,28 +165,44 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
         EncoderEnum.AV1, EncoderEnum.VP9, EncoderEnum.MPEG4
       ],
       defaultEncoder: EncoderEnum.H264,
+      maxResolution: "4096x2304", // 4K+
+      defaultResolution: "1920x1080", // 1080p
+      maxFrameRate: 60,
+      defaultFrameRate: 30,
+      maxBitrate: 10000000, // 10 Mbps
+      defaultBitrate: 5000000, // 5 Mbps
+      colorSpaces: COLOR_SPACES,
     },
     audio: {
       allowedEncoders: [EncoderEnum.AAC, EncoderEnum.MP3, EncoderEnum.AC3, EncoderEnum.OPUS],
       defaultEncoder: EncoderEnum.AAC,
+      maxChannels: 2,
     }
   },
 
-  "HEVC MP4": {
+  "hevc_mp4": {
     id: "HEVC MP4",
     format: FormatEnum.MP4,
     label: "HEVC MP4",
     video: {
       allowedEncoders: [EncoderEnum.H265, EncoderEnum.HEVC_HARDWARE],
       defaultEncoder: EncoderEnum.H265,
+      maxResolution: "8192x4320", // 8K
+      defaultResolution: "1920x1080", // 1080p
+      maxFrameRate: 60,
+      defaultFrameRate: 30,
+      maxBitrate: 10000000, // 10 Mbps
+      defaultBitrate: 5000000, // 5 Mbps
+      colorSpaces: COLOR_SPACES,
     },
     audio: {
       allowedEncoders: [EncoderEnum.AAC, EncoderEnum.AC3],
       defaultEncoder: EncoderEnum.AAC,
+      maxChannels: 2,
     }
   },
 
-  "MKV": {
+  "mkv": {
     id: "MKV",
     format: FormatEnum.MKV,
     label: "MKV",
@@ -177,28 +212,66 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
         EncoderEnum.VP9, EncoderEnum.MPEG4, EncoderEnum.MPEG2VIDEO
       ],
       defaultEncoder: EncoderEnum.H264,
+      maxResolution: "4096x2304", // 4K+
+      defaultResolution: "1920x1080", // 1080p
+      maxFrameRate: 60,
+      defaultFrameRate: 30,
+      maxBitrate: 10000000, // 10 Mbps
+      defaultBitrate: 5000000, // 5 Mbps
+      colorSpaces: COLOR_SPACES,
     },
     audio: {
       allowedEncoders: [EncoderEnum.AAC, EncoderEnum.MP3, EncoderEnum.AC3, EncoderEnum.FLAC, EncoderEnum.VORBIS, EncoderEnum.OPUS],
       defaultEncoder: EncoderEnum.AAC,
+      maxChannels: 2,
     }
   },
 
-  "AVI": {
+  "hevc_mkv": {
+    id: "HEVC MKV",
+    format: FormatEnum.MKV,
+    label: "HEVC MKV",
+    video: {
+      allowedEncoders: [EncoderEnum.H265, EncoderEnum.HEVC_HARDWARE],
+      defaultEncoder: EncoderEnum.H265,
+      maxResolution: "8192x4320", // 8K
+      defaultResolution: "1920x1080", // 1080p
+      maxFrameRate: 60,
+      defaultFrameRate: 30,
+      maxBitrate: 10000000, // 10 Mbps
+      defaultBitrate: 5000000, // 5 Mbps
+      colorSpaces: COLOR_SPACES,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.AAC, EncoderEnum.AC3, EncoderEnum.FLAC, EncoderEnum.OPUS],
+      defaultEncoder: EncoderEnum.AAC,
+      maxChannels: 2,
+    }
+  },
+
+  "avi": {
     id: "AVI",
     format: FormatEnum.AVI,
     label: "AVI",
     video: {
       allowedEncoders: [EncoderEnum.MPEG4, EncoderEnum.MJPEG, EncoderEnum.H264], // H264 in AVI is non-standard but possible
       defaultEncoder: EncoderEnum.MPEG4,
+      maxResolution: "4096x2304", // 4K+
+      defaultResolution: "1920x1080", // 1080p
+      maxFrameRate: 60,
+      defaultFrameRate: 30,
+      maxBitrate: 10000000, // 10 Mbps
+      defaultBitrate: 5000000, // 5 Mbps
+      colorSpaces: COLOR_SPACES,
     },
     audio: {
       allowedEncoders: [EncoderEnum.MP3, EncoderEnum.PCM_S16LE, EncoderEnum.AC3],
       defaultEncoder: EncoderEnum.MP3,
+      maxChannels: 2,
     }
   },
 
-  "VOB": {
+  "vob": {
     id: "VOB",
     format: FormatEnum.VOB,
     label: "VOB (DVD)",
@@ -206,10 +279,17 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
       allowedEncoders: [EncoderEnum.MPEG2VIDEO],
       defaultEncoder: EncoderEnum.MPEG2VIDEO,
       maxResolution: "720x576", // PAL DVD max
+      defaultResolution: "720x576", // PAL DVD max
+      maxFrameRate: 60,
+      defaultFrameRate: 30,
+      maxBitrate: 10000000, // 10 Mbps
+      defaultBitrate: 5000000, // 5 Mbps
+      colorSpaces: COLOR_SPACES,
     },
     audio: {
       allowedEncoders: [EncoderEnum.PCM_S16BE, EncoderEnum.AC3, EncoderEnum.MP2],
       defaultEncoder: EncoderEnum.PCM_S16BE, // or AC3
+      maxChannels: 2,
     }
   },
 
@@ -307,4 +387,83 @@ export function getDefaultVideoEncoder(group: string): EncoderEnum {
 
 export function getDefaultAudioEncoder(group: string): EncoderEnum {
   return CONTAINER_DEFINITIONS[group]?.audio?.defaultEncoder ?? EncoderEnum.AAC;
+}
+
+// ================= OPTION HELPERS =================
+
+const VIDEO_BITRATES: SelectOption[] = [
+  { value: "auto", label: "Smart Fit" },
+  { value: "5000", label: "5000 kbps" },
+  { value: "2000", label: "2000 kbps" },
+  { value: "1000", label: "1000 kbps" },
+];
+
+export function getAudioEncoderOptions(encoderId?: string): AudioEncoderOptions {
+  const defaults: AudioEncoderOptions = {
+    sampleRates: AUDIO_SAMPLE_RATES,
+    channels: AUDIO_CHANNELS,
+    bitrates: AUDIO_BITRATES,
+  };
+
+  if (!encoderId) return defaults;
+
+  const def = ENCODER_DEFINITIONS[encoderId];
+  if (!def) return defaults;
+
+  // Filter based on intrinsic capabilities
+  let sampleRates = AUDIO_SAMPLE_RATES;
+  if (def.supportedSampleRates) {
+    sampleRates = AUDIO_SAMPLE_RATES.filter(opt =>
+      opt.value === 'auto' || def.supportedSampleRates?.includes(opt.value)
+    );
+  }
+
+  let channels = AUDIO_CHANNELS;
+  if (def.supportedChannels) {
+    channels = AUDIO_CHANNELS.filter(opt =>
+      opt.value === 'auto' || def.supportedChannels?.includes(opt.value)
+    );
+  }
+
+  // Custom logic for specific encoders if needed (porting from old file)
+  if (encoderId === EncoderEnum.AMR_NB) {
+    return {
+      sampleRates: [{ value: "8000", label: "8000 Hz" }],
+      channels: [{ value: "1", label: "Mono" }],
+      bitrates: [
+        { value: "12.2k", label: "12.2 kbps" },
+        { value: "10.2k", label: "10.2 kbps" },
+        { value: "7.95k", label: "7.95 kbps" },
+        { value: "6.7k", label: "6.7 kbps" },
+      ],
+    };
+  }
+
+  return {
+    sampleRates,
+    channels,
+    bitrates: AUDIO_BITRATES, // Default bitrates for now
+  };
+}
+
+export function getVideoEncoderOptions(encoderId?: string): VideoEncoderOptions {
+  const defaults: VideoEncoderOptions = {
+    resolutions: VIDEO_RESOLUTIONS,
+    frameRates: VIDEO_FRAME_RATES,
+    bitrates: VIDEO_BITRATES,
+    colorSpaces: COLOR_SPACES,
+  };
+
+  if (!encoderId) return defaults;
+
+  // Filter color spaces
+  const colorSpaces = COLOR_SPACES.filter((option) => {
+    if (!option.supportedEncoders) return true;
+    return option.supportedEncoders.includes(encoderId);
+  });
+
+  return {
+    ...defaults,
+    colorSpaces,
+  };
 }

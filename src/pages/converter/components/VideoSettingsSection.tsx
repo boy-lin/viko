@@ -7,7 +7,7 @@ import { VideoResolutionSelect } from "@/components/biz-form/VideoResolutionSele
 import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect";
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
-import { getVideoEncoderOptions } from "@/data/encoder_options";
+import { getVideoEncoderOptions } from "@/data/capabilities";
 import { SelectOption } from "@/types/options";
 
 interface VideoSettingsSectionProps {

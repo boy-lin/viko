@@ -8,7 +8,7 @@ import { AudioEncoderSelect } from "@/components/biz-form/AudioEncoderSelect";
 import { AudioChannelSelect } from "@/components/biz-form/AudioChannelSelect";
 import { AudioSampleRateSelect } from "@/components/biz-form/AudioSampleRateSelect";
 import { AudioBitrateSelect } from "@/components/biz-form/AudioBitrateSelect";
-import { getAudioEncoderOptions } from "@/data/encoder_options";
+import { getAudioEncoderOptions } from "@/data/capabilities";
 
 interface AudioSettingsSectionProps {
   audioTracks: AudioTrackConfig[];

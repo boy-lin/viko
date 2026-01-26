@@ -125,7 +125,13 @@ export const AUDIO_ENCODERS: EncoderOption[] = [
     label: "MP2",
     description: "MP2 Audio",
     formats: [FormatEnum.MP2],
-  }
+  },
+  {
+    value: EncoderEnum.PCM_S16BE,
+    label: "PCM 16-bit Big Endian",
+    description: "Uncompressed PCM 16-bit Big Endian",
+    formats: [FormatEnum.VOB],
+  },
 ];
 
 export const VIDEO_ENCODERS: EncoderOption[] = [
