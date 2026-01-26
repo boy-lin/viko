@@ -137,7 +137,6 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
     encoder.set_time_base(time_base);
 
     let quality = params.quality.unwrap_or(75).min(100);
-    let color_count = params.colors.unwrap_or(256).clamp(2, 256);
     let (_dither, _bayer_scale) = dither_from_quality(quality);
 
     // 设置 loop

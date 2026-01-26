@@ -106,6 +106,7 @@ git clone https://github.com/Microsoft/vcpkg.git
 
 # 安装 FFmpeg
 .\vcpkg\vcpkg install ffmpeg:x64-windows
+#  C:\Users\admin\vcpkg\vcpkg.exe install ffmpeg[x264]:x64-windows
 
 # 设置环境变量
 $env:PKG_CONFIG_PATH = "<vcpkg安装路径>\installed\x64-windows\lib\pkgconfig"

@@ -143,13 +143,13 @@ export enum AudioEncoderEnum {
  */
 export enum VideoEncoderEnum {
   // H.264 / AVC
-  H264 = "libx264",                    // H.264 (x264 software encoder)
+  H264 = "h264",                       // H.264 (generic)
   H264_HARDWARE = "h264_videotoolbox", // H.264 (macOS hardware acceleration)
   H264_NVENC = "h264_nvenc",           // H.264 (NVIDIA hardware acceleration)
   H264_QSV = "h264_qsv",               // H.264 (Intel Quick Sync Video)
 
   // H.265 / HEVC
-  H265 = "libx265",                    // H.265/HEVC (x265 software encoder)
+  H265 = "hevc",                       // H.265/HEVC (generic)
   HEVC_HARDWARE = "hevc_videotoolbox", // HEVC (macOS hardware acceleration)
   HEVC_NVENC = "hevc_nvenc",           // HEVC (NVIDIA hardware acceleration)
   HEVC_QSV = "hevc_qsv",               // HEVC (Intel Quick Sync Video)

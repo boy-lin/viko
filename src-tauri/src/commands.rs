@@ -1080,7 +1080,6 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
 
     // 在新线程中执行转换
     let window_clone = window.clone();
-    let output_path_clone = output_path.clone();
     let task_id = args.task_id.clone();
     std::thread::spawn(move || {
         let emitter = WindowEmitter::new(

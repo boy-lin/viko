@@ -8,31 +8,46 @@ pub fn select_video_encoder(name: Option<&str>, use_hw: bool) -> Option<ffmpeg::
     let requested = name.unwrap_or(fallback).to_lowercase();
 
     // 映射常见编码器名称到 ffmpeg codec 名称
-    let mapped = match (requested.as_str(), use_hw) {
+    // 如果请求的是通用名称 "h264" 或 "hevc" 且启用了硬件加速，尝试优先查找硬件编码器
+    // 如果找不到硬件编码器，再回退到软件编码器
+    let candidates = match (requested.as_str(), use_hw) {
         ("h264", true) | ("avc", true) => {
             if cfg!(target_os = "macos") {
-                "h264_videotoolbox"
+                vec!["h264_videotoolbox", "libx264"]
+            } else if cfg!(target_os = "windows") {
+                vec!["h264_nvenc", "h264_qsv", "h264_amf", "h264_mf", "libx264"]
             } else {
-                "libx264"
+                vec!["h264_nvenc", "h264_qsv", "h264_vaapi", "libx264"]
             }
         }
-        ("h264", false) | ("avc", false) => "libx264",
+        ("h264", false) | ("avc", false) => vec!["libx264"],
+        
         ("h265", true) | ("hevc", true) => {
             if cfg!(target_os = "macos") {
-                "hevc_videotoolbox"
+                vec!["hevc_videotoolbox", "libx265"]
+            } else if cfg!(target_os = "windows") {
+                vec!["hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_mf", "libx265"]
             } else {
-                "libx265"
+                vec!["hevc_nvenc", "hevc_qsv", "hevc_vaapi", "libx265"]
             }
         }
-        ("h265", false) | ("hevc", false) => "libx265",
-        ("vp9", _) => "libvpx-vp9",
-        ("av1", _) => "libaom-av1",
-        // 直接传 ffmpeg codec 名称
-        (other, _) => other,
+        ("h265", false) | ("hevc", false) => vec!["libx265"],
+
+        ("vp9", _) => vec!["libvpx-vp9"],
+        ("av1", _) => vec!["libaom-av1", "libsvtav1", "av1_nvenc", "av1_qsv"],
+        
+        // 直接传 ffmpeg codec 名称 (e.g. "mpeg4", "libx264")
+        (other, _) => vec![other],
     };
 
-    ffmpeg::encoder::find_by_name(mapped)
-        .or_else(|| ffmpeg::encoder::find(codec::Id::H264))
+    for candidate in candidates {
+        if let Some(codec) = ffmpeg::encoder::find_by_name(candidate) {
+            return Some(codec);
+        }
+    }
+
+    // 最后的通用回退
+    ffmpeg::encoder::find(codec::Id::H264)
 }
 
 pub fn pick_sample_rate(codec: &ffmpeg::Codec, desired: u32, input: u32) -> u32 {

@@ -12,7 +12,6 @@ use video_rs::ffmpeg::{
     format::sample::Type as SampleType,
     util::{channel_layout::ChannelLayout, format::Sample},
 };
-use tauri::Emitter;
 
 use crate::events::EventEmitter;
 use crate::video_player::PlayerCommand;
@@ -320,17 +319,6 @@ impl<E: EventEmitter> AudioPlayer<E> {
                     if stream.index() != audio_index {
                         continue;
                     }
-
-                    // 记录数据包信息，特别是接近结束时的数据包
-                    let packet_pts_seconds = if let Some(pts) = packet.pts() {
-                        let time_base = stream.time_base();
-                        Some(
-                            pts as f64 * time_base.numerator() as f64
-                                / time_base.denominator() as f64,
-                        )
-                    } else {
-                        None
-                    };
 
                     if let Err(e) = decoder.send_packet(&packet) {
                         log::warn!("发送音频包失败: {e}");

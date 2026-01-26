@@ -1,5 +1,4 @@
 ﻿use std::collections::HashMap;
-use std::time::Instant;
 
 use ffmpeg::{
     codec, decoder, encoder, format, frame, media, packet, picture, Dictionary, Rational,
@@ -244,10 +243,12 @@ impl<E: TaskEmitter> Transcoder<E> {
 
         encoder.set_width(width);
         encoder.set_height(height);
-        encoder.set_format(media_common::pick_pixel_format(
+        
+        let chosen_format = media_common::pick_pixel_format(
             params.bit_depth,
             params.use_hardware_acceleration,
-        ));
+        );
+        encoder.set_format(chosen_format);
 
         // 帧率
         let target_frame_rate = if let Some(fps_str) = &params.frame_rate {
@@ -274,24 +275,42 @@ impl<E: TaskEmitter> Transcoder<E> {
             encoder.set_bit_rate((bitrate * 1000) as usize);
         }
 
-        if global_header {
+        if global_header && codec.name() != "h264_mf" {
             encoder.set_flags(codec::Flags::GLOBAL_HEADER);
         }
 
         // 极速模式设置
         let mut opts = Dictionary::new();
-        if !params.use_hardware_acceleration {
-            if params.use_ultra_fast_speed {
-                opts.set("preset", "ultrafast");
-            } else {
-                opts.set("preset", "medium");
+        if codec.name() != "h264_mf" {
+            if !params.use_hardware_acceleration {
+                if params.use_ultra_fast_speed {
+                    opts.set("preset", "ultrafast");
+                } else {
+                    opts.set("preset", "medium");
+                }
+            } else if cfg!(target_os = "macos") {
+                // Videotoolbox specific options if needed
+                if params.use_ultra_fast_speed {
+                    opts.set("realtime", "true");
+                }
             }
-        } else if cfg!(target_os = "macos") {
-            // Videotoolbox specific options if needed
-            if params.use_ultra_fast_speed {
-                opts.set("realtime", "true");
-            }
+        } else {
+            // h264_mf often requires explicit rate control setting to accept the media type
+            // opts.set("rate_control", "pc_vbr");
         }
+
+        eprintln!(
+            "DEBUG: Encoder params: codec={}, width={}, height={}, pix_fmt={:?}, frame_rate={:?}, time_base={}/{} bitrate_kbps={:?}, hw_accel={}",
+            codec.name(),
+            width,
+            height,
+            chosen_format,
+            target_frame_rate,
+            encoder_time_base.numerator(),
+            encoder_time_base.denominator(),
+            params.video_bitrate,
+            params.use_hardware_acceleration
+        );
 
         let encoder = encoder
             .open_with(opts)
@@ -475,12 +494,6 @@ pub fn convert_video<E: TaskEmitter + Clone>(
         None
     };
 
-    let selected_audio: Vec<usize> = if resolved.audio_tracks.is_empty() {
-        input_audio_indices.clone()
-    } else {
-        resolved.audio_tracks.iter().map(|t| t.source_stream_index).collect()
-    };
-
     let mut stream_mapping: Vec<isize> = vec![0; ictx.nb_streams() as usize];
     let mut ist_time_bases = vec![Rational(0, 1); ictx.nb_streams() as usize];
     let mut ost_time_bases: Vec<Rational> = Vec::new();
@@ -490,7 +503,6 @@ pub fn convert_video<E: TaskEmitter + Clone>(
     // 如果没有视频流，需要创建黑屏视频流
     let mut black_video_encoder: Option<(encoder::Video, usize, Rational, u32, u32, Rational)> =
         None;
-    let mut black_video_ost_index = 0;
 
     for (ist_index, ist) in ictx.streams().enumerate() {
         let ist_medium = ist.parameters().medium();
@@ -536,7 +548,6 @@ pub fn convert_video<E: TaskEmitter + Clone>(
 
     // 如果没有视频流，创建黑屏视频编码器
     if !has_video {
-        black_video_ost_index = ost_index;
         let (encoder, ost_idx, time_base, width, height, frame_rate) =
             create_black_video_encoder(&mut octx, &resolved, duration)?;
         black_video_encoder = Some((encoder, ost_idx, time_base, width, height, frame_rate));
@@ -653,34 +664,6 @@ fn create_black_video_encoder(
 ) -> Result<(encoder::Video, usize, Rational, u32, u32, Rational), String> {
     // 先检查 global_header（在创建 stream 之前）
     let global_header = octx.format().flags().contains(format::Flags::GLOBAL_HEADER);
-
-    // 选择编码器
-    let codec_name = if params.use_hardware_acceleration {
-        match params.video_encoder.as_str() {
-            "h264" => {
-                if cfg!(target_os = "macos") {
-                    "h264_videotoolbox"
-                } else {
-                    "libx264"
-                }
-            }
-            "hevc" | "h265" => {
-                if cfg!(target_os = "macos") {
-                    "hevc_videotoolbox"
-                } else {
-                    "libx265"
-                }
-            }
-            _ => "libx264",
-        }
-    } else {
-        match params.video_encoder.as_str() {
-            "h264" => "libx264",
-            "hevc" | "h265" => "libx265",
-            "vp9" => "libvpx-vp9",
-            _ => "libx264",
-        }
-    };
 
     let codec = media_common::select_video_encoder(
         Some(params.video_encoder.as_str()),
