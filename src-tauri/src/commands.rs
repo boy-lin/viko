@@ -141,6 +141,11 @@ pub fn run_self_check() -> Result<SelfCheckResult, String> {
 }
 
 #[command]
+pub fn get_device_id() -> Result<String, String> {
+    machine_uid::get().map_err(|e| e.to_string())
+}
+
+#[command]
 pub fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
     // Check for macOS VideoToolbox encoders using ffmpeg-next library
     // This avoids dependency on external ffmpeg CLI and PATH issues

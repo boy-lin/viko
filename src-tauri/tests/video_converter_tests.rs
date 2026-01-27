@@ -30,10 +30,8 @@ mod tests {
     fn get_test_video_file() -> Option<PathBuf> {
         // Try multiple common locations for test assets
         let paths = vec![
-             PathBuf::from("/Users/haolin/Downloads/Funvideo/[twitter] NoContextHumans—2023.09.20—1704860883099193465—6DF4Gs7d1zwial2Y.mp4"),
-            //  PathBuf::from("D:\\temp\\test_video\\4.mp4"),
-            //  PathBuf::from("../test_assets/sample.mp4"),
-            //  PathBuf::from("src-tauri/test_assets/sample.mp4"),
+            //  PathBuf::from("/Users/haolin/Downloads/Funvideo/[twitter] NoContextHumans—2023.09.20—1704860883099193465—6DF4Gs7d1zwial2Y.mp4"),
+             PathBuf::from("D:\\temp\\test_video\\4.mp4"),
         ];
         println!("Paths: {:#?}", paths);
         for path in paths {
@@ -125,7 +123,7 @@ mod tests {
         }
     }
 
-    // #[test]
+    #[test]
     fn test_all_format_conversions() {
         let input_opt = get_test_video_file();
         if input_opt.is_none() {
@@ -141,6 +139,11 @@ mod tests {
             // TestConfig { name: "MP4 h264 720p", format: "mp4", video_encoder: Some("h264"), audio_encoder: Some("aac"), resolution: Some("1280x720"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: true },
             // TestConfig { name: "MP4 libx264 1080p", format: "mp4", video_encoder: Some("libx264"), audio_encoder: Some("aac"), resolution: Some("1920x1080"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: true },
             
+            // Mp4 H265
+            TestConfig { name: "MP4 libx265 720p", format: "mp4", video_encoder: Some("h265"), audio_encoder: Some("aac"), resolution: Some("1280x720"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
+            // TestConfig { name: "MP4 h265 720p", format: "mp4", video_encoder: Some("h265"), audio_encoder: Some("aac"), resolution: Some("1280x720"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: true },
+            // TestConfig { name: "MP4 libx265 1080p", format: "mp4", video_encoder: Some("libx265"), audio_encoder: Some("aac"), resolution: Some("1920x1080"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: true },
+
             // MOV
             // TestConfig { name: "MOV H264", format: "mov", video_encoder: Some("h264"), audio_encoder: Some("aac"), resolution: Some("1920x1080"), bitrate: None, audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
             

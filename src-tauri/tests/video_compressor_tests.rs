@@ -28,8 +28,8 @@ mod tests {
 
     fn get_test_source_file() -> Option<PathBuf> {
         let paths = vec![
-            PathBuf::from("/Users/haolin/Downloads/Funvideo/[twitter] NoContextHumans—2023.09.20—1704860883099193465—6DF4Gs7d1zwial2Y.mp4"),
-            PathBuf::from("src-tauri/test_assets/sample.mp4"),
+            // PathBuf::from("/Users/haolin/Downloads/Funvideo/[twitter] NoContextHumans—2023.09.20—1704860883099193465—6DF4Gs7d1zwial2Y.mp4"),
+            PathBuf::from("D:\\temp\\test_video\\4.mp4"),
         ];
         for path in paths {
             if path.exists() {

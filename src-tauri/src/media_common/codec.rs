@@ -46,6 +46,8 @@ pub fn select_video_encoder(name: Option<&str>, use_hw: bool) -> Option<ffmpeg::
         }
     }
 
+    println!("Failed to find encoder for {}", requested);
+
     // 最后的通用回退
     ffmpeg::encoder::find(codec::Id::H264)
 }

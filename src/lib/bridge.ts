@@ -121,8 +121,13 @@ class Bridge {
 
     return {
       ...details,
+      ...details,
       format,
     };
+  }
+
+  async getDeviceId(): Promise<string> {
+    return this.invoke<string>("get_device_id");
   }
 
   clear() {

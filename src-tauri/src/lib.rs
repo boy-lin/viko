@@ -128,7 +128,9 @@ pub fn run() {
             crate::image_converter::convert_image_file,
             crate::commands::compress_video_file,
             crate::commands::compress_audio_file,
+            crate::commands::compress_audio_file,
             crate::commands::compress_image_file,
+            crate::commands::get_device_id,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main");

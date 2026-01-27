@@ -8,6 +8,7 @@ import { ConverterLayer } from "@/components/icons/ConverterLayer";
 import { DownloaderLayer } from "@/components/icons/DownloaderLayer";
 import { CompressorLayer } from "@/components/icons/CompressorLayer";
 import { useConverterStore } from "@/stores/converterStore";
+import { useAnalytics } from "@/lib/analytics";
 
 type HeroCardAction = {
   label: string;
@@ -105,7 +106,10 @@ export function HeroCard() {
   const navigate = useNavigate();
   const isDark = theme === "dark";
 
+  const { track } = useAnalytics();
+
   const handleAction = async (title: string) => {
+    track('click_hero_card', { title });
     if (title === "Converter") {
       await addFiles();
       navigate("/converter");
