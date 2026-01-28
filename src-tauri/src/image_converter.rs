@@ -11,6 +11,7 @@ pub struct ImageConversionParams {
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub format: String, // jpg, png, webp, etc.
+    pub watermark: Option<crate::watermark::WatermarkConfig>,
 }
 
 #[command]
@@ -86,8 +87,16 @@ fn convert_image_file_impl(args: ImageConversionParams) -> Result<String, String
                     _ => ImageFormat::Jpeg, // Default
                 };
 
-                img_buffer.save_with_format(&args.output_path, save_format)
-                    .map_err(|e| format!("Save image failed: {}", e))?;
+                if let Some(wm) = &args.watermark {
+                    let mut rgba_img = image::DynamicImage::ImageRgb8(img_buffer).to_rgba8();
+                    wm.apply_watermark(&mut rgba_img)
+                        .map_err(|e| format!("Watermark failed: {}", e))?;
+                    rgba_img.save_with_format(&args.output_path, save_format)
+                        .map_err(|e| format!("Save image failed: {}", e))?;
+                } else {
+                    img_buffer.save_with_format(&args.output_path, save_format)
+                        .map_err(|e| format!("Save image failed: {}", e))?;
+                }
 
                 return Ok(args.output_path);
             }

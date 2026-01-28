@@ -1,12 +1,8 @@
-﻿// src-tauri/src/lib/commands.rs
-// Tauri 后端命令定义 - 使用 ffmpeg-next
-//
+﻿// Tauri 后端命令定义 - 使用 ffmpeg-next
 // 注意：ffmpeg-next 需要在编译时链接 FFmpeg 库
 // 如果需要在运行时使用动态加载的 FFmpeg，需要：
 // 1. 设置环境变量指向 FFmpeg 库路径
 // 2. 或者使用系统安装的 FFmpeg
-//
-// 模块下载功能保留，但实际使用需要系统 FFmpeg 支持
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::OpenOptions;
@@ -147,14 +143,36 @@ pub fn get_device_id() -> Result<String, String> {
 
 #[command]
 pub fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
-    // Check for macOS VideoToolbox encoders using ffmpeg-next library
-    // This avoids dependency on external ffmpeg CLI and PATH issues
-    let h264_hardware = ffmpeg::encoder::find_by_name("h264_videotoolbox").is_some();
-    let hevc_hardware = ffmpeg::encoder::find_by_name("hevc_videotoolbox").is_some();
-    let prores_hardware = ffmpeg::encoder::find_by_name("prores_videotoolbox").is_some();
+    // Check for hardware encoders on various platforms
+    
+    // H.264 Encoders
+    let h264_encoders = vec![
+        "h264_videotoolbox", // macOS
+        "h264_nvenc",        // NVIDIA
+        "h264_qsv",          // Intel QuickSync
+        "h264_amf",          // AMD AMF
+        "h264_mf",           // Windows Media Foundation
+    ];
+    let h264_hardware = h264_encoders.iter().any(|name| ffmpeg::encoder::find_by_name(name).is_some());
+
+    // HEVC Encoders
+    let hevc_encoders = vec![
+        "hevc_videotoolbox", // macOS
+        "hevc_nvenc",        // NVIDIA
+        "hevc_qsv",          // Intel QuickSync
+        "hevc_amf",          // AMD AMF
+        "hevc_mf",           // Windows Media Foundation
+    ];
+    let hevc_hardware = hevc_encoders.iter().any(|name| ffmpeg::encoder::find_by_name(name).is_some());
+
+    // ProRes Encoders (Mainly macOS)
+    let prores_encoders = vec![
+        "prores_videotoolbox",
+    ];
+    let prores_hardware = prores_encoders.iter().any(|name| ffmpeg::encoder::find_by_name(name).is_some());
 
     log::info!(
-        "Hardware Acceleration Check (Library): H.264={}, HEVC={}, ProRes={}",
+        "Hardware Acceleration Check: H.264={}, HEVC={}, ProRes={}",
         h264_hardware,
         hevc_hardware,
         prores_hardware
@@ -167,10 +185,8 @@ pub fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
     })
 }
 
-// 注意：使用 ffmpeg-next 8.0.0 后，不再需要下载和管理 FFmpeg 二进制文件
-// 所有 FFmpeg 功能都通过编译时链接的系统库提供
-// 以下函数保留简化版本，仅用于兼容前端代码
-
+// 注意：本项目使用 ffmpeg-next 7.1.0 并链接系统 FFmpeg 库
+// 不需要手动下载和管理 FFmpeg 二进制文件（除了 ffmpeg_exec 使用的 CLI）
 #[command]
 pub fn get_media_info(path: String) -> Result<FileInfo, String> {
     // 初始化 FFmpeg
@@ -184,10 +200,10 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
 
     // 获取格式信息
     let format_name = ictx.format().name().to_string();
-    // ffmpeg-next 8.0.0 中 long_name() 方法可能已移除
+    // ffmpeg-next 7.1.0: 使用 name() 获取格式名称
     let format_long_name = Some(format_name.clone());
     let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
-    // ffmpeg-next 8.0.0: bit_rate() 返回 i64 而不是 Option
+    // bit_rate() 返回 i64
     let format_bitrate = {
         let bitrate = ictx.bit_rate();
         if bitrate > 0 {
@@ -227,7 +243,7 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
                 if video_stream_info.is_none() {
                     // 先获取 codec 信息，因为 codec_params 会被移动
                     let codec = codec_params.id().name().to_string();
-                    // ffmpeg-next 8.0.0 中 codec_params.id() 可能不提供 long_name
+                    // codec_params.id() 返回 codec ID，可能不直接提供 long_name
                     // 使用 codec name 作为 fallback
                     let codec_long_name = Some(codec.clone());
 
@@ -242,7 +258,7 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
                     let height = video.height() as u64;
 
                     // 计算帧率
-                    // ffmpeg-next 8.0.0 API 变化：Rational 使用 numerator() 和 denominator()
+                    // Rational 使用 numerator() 和 denominator()
                     let avg_frame_rate_rational = stream.avg_frame_rate();
                     let fps = if avg_frame_rate_rational.numerator() > 0
                         && avg_frame_rate_rational.denominator() > 0
@@ -264,7 +280,7 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
                         None
                     };
 
-                    // ffmpeg-next 8.0.0: frames() 返回 i64 而不是 Option
+                    // frames() 返回 i64
                     let nb_frames = {
                         let frames = stream.frames();
                         if frames > 0 {
@@ -274,7 +290,7 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
                         }
                     };
 
-                    // ffmpeg-next 8.0.0: format() 返回 Pixel 枚举，使用 Debug 格式化
+                    // format() 返回 Pixel 枚举，使用 Debug 格式化
                     let pix_fmt = Some(format!("{:?}", video.format()));
 
                     video_stream_info = Some((
@@ -305,7 +321,7 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
                         .map_err(|e| format!("获取音频解码器失败: {}", e))?;
 
                     let channels = audio.channels() as u32;
-                    // ffmpeg-next 8.0.0 中 channel_layout 可能没有 description() 方法
+                    // channel_layout 可能没有 description() 方法
                     // 使用 channels 数量作为替代
                     let channel_layout = format!("{} channels", channels);
                     let sample_rate = audio.rate() as u32;
@@ -1150,6 +1166,7 @@ pub struct VideoConversionArgs {
     pub default_audio_params: Option<crate::audio_converter::AudioEncodingParams>,
     pub use_hardware_acceleration: Option<bool>,
     pub use_ultra_fast_speed: Option<bool>,
+    pub watermark: Option<crate::watermark::WatermarkConfig>,
 }
 
 #[command]
@@ -1210,6 +1227,7 @@ pub fn convert_video_file(app: AppHandle, args: VideoConversionArgs) -> Result<(
             audio_encoder: args.audio_encoder,
             use_hardware_acceleration: args.use_hardware_acceleration.unwrap_or(false),
             use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
+            watermark: args.watermark,
         };
 
         let emitter = WindowEmitter::new(
@@ -1498,4 +1516,18 @@ pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result
     });
 
     Ok(())
+}
+
+// ==================== Metadata Editor Commands ====================
+
+#[derive(Deserialize)]
+pub struct WriteMetadataArgs {
+    pub input_path: String,
+    pub output_path: String,
+    pub metadata: std::collections::HashMap<String, String>,
+}
+
+#[command]
+pub fn write_media_metadata(args: WriteMetadataArgs) -> Result<(), String> {
+    crate::metadata::write_metadata(&args.input_path, &args.output_path, args.metadata)
 }

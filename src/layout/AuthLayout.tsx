@@ -23,10 +23,10 @@ export default function AuthLayout() {
         );
     }
 
-    if (!session) {
-        const callbackUrl = encodeURIComponent(location.pathname + location.search);
-        return <Navigate to={`/sign-in?callbackUrl=${callbackUrl}`} replace />;
-    }
+    // if (!session) {
+    //     const callbackUrl = encodeURIComponent(location.pathname + location.search);
+    //     return <Navigate to={`/sign-in?callbackUrl=${callbackUrl}`} replace />;
+    // }
 
     return <Outlet />;
 }

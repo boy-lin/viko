@@ -2,7 +2,7 @@ import { openDB, DBSchema, IDBPDatabase } from "idb";
 import { ConverterTask } from "../types/converter";
 
 const DB_NAME = "FigureXDB";
-const DB_VERSION = 5; // 升级版本：添加 my-files 表
+const DB_VERSION = 6; // 升级版本：添加索引
 const CONVERTING_STORE = "converting_tasks";
 const SETTINGS_STORE = "settings";
 const MY_FILES_STORE = "my-files";
@@ -18,11 +18,12 @@ interface FigureXDB extends DBSchema {
   };
   "my-files": {
     key: string;
-    value: ConverterTask & { 
-      createdAt: number; 
+    value: ConverterTask & {
+      createdAt: number;
       taskType: "convert" | "compress";
       isFavorite?: boolean;
     };
+    indexes: { "createdAt": number };
   };
 }
 
@@ -31,31 +32,39 @@ class ConverterDB {
 
   constructor() {
     this.dbPromise = openDB<FigureXDB>(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion) {
+      upgrade(db, oldVersion, newVersion, transaction) {
         // 删除旧表（如果存在）
         const oldStoreName = "converter_tasks" as any;
         if (db.objectStoreNames.contains(oldStoreName)) {
           db.deleteObjectStore(oldStoreName);
         }
 
-        // 如果是从版本 3 升级，删除 finished_tasks 表
-        // 注意：在 upgrade 事务中不能创建新事务来迁移数据
-        // 如果 finished_tasks 中有重要数据，需要在升级前手动迁移
         const finishedStoreName = "finished_tasks" as any;
         if (oldVersion < 4 && db.objectStoreNames.contains(finishedStoreName)) {
           db.deleteObjectStore(finishedStoreName);
         }
 
-        // 创建新表
+        // 创建 converting_tasks 表
         if (!db.objectStoreNames.contains(CONVERTING_STORE)) {
           db.createObjectStore(CONVERTING_STORE, { keyPath: "id" });
         }
+
+        // 创建 settings 表
         if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
           db.createObjectStore(SETTINGS_STORE);
         }
-        // 创建 my-files 表
+
+        // 创建/更新 my-files 表
+        let myFilesStore;
         if (!db.objectStoreNames.contains(MY_FILES_STORE)) {
-          db.createObjectStore(MY_FILES_STORE, { keyPath: "id" });
+          myFilesStore = db.createObjectStore(MY_FILES_STORE, { keyPath: "id" });
+        } else {
+          myFilesStore = transaction.objectStore(MY_FILES_STORE);
+        }
+
+        // 确保 createdAt 索引存在
+        if (!myFilesStore.indexNames.contains("createdAt")) {
+          myFilesStore.createIndex("createdAt", "createdAt");
         }
       },
     });
@@ -118,6 +127,44 @@ class ConverterDB {
   async getAllMyFiles() {
     const db = await this.dbPromise;
     return db.getAll(MY_FILES_STORE);
+  }
+
+  /**
+   * 分页获取 My Files 数据
+   * @param page 页码 (1-based)
+   * @param pageSize 每页数量
+   * @param sortDesc 是否按创建时间倒序
+   */
+  async getMyFilesPaged(page: number = 1, pageSize: number = 20, sortDesc: boolean = true) {
+    const db = await this.dbPromise;
+    const tx = db.transaction(MY_FILES_STORE, 'readonly');
+    const store = tx.objectStore(MY_FILES_STORE);
+    const index = store.index('createdAt');
+
+    // 游标方向：倒序(prev) 或 正序(next)
+    const direction = sortDesc ? 'prev' : 'next';
+
+    let cursor = await index.openCursor(null, direction);
+
+    const skip = (page - 1) * pageSize;
+    if (skip > 0 && cursor) {
+      await cursor.advance(skip);
+    }
+
+    const items = [];
+    while (cursor && items.length < pageSize) {
+      items.push(cursor.value);
+      cursor = await cursor.continue();
+    }
+
+    // 获取总数
+    const total = await store.count();
+
+    return {
+      items,
+      total,
+      hasMore: items.length === pageSize && (skip + pageSize < total)
+    };
   }
 
   async removeFromMyFiles(id: string) {

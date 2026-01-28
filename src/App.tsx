@@ -14,6 +14,7 @@ import MyFilesPage from "./pages/myfiles";
 import SignInPage from "./pages/auth/sign-in";
 import SignUpPage from "./pages/auth/sign-up";
 import AuthLayout from "./layout/AuthLayout";
+import MetadataEditorPage from "./pages/metadata";
 // import ErrorPage from '@/components/error/ErrorPage';
 
 const router = createBrowserRouter([
@@ -44,9 +45,11 @@ const router = createBrowserRouter([
             ],
           },
           {
-            path: "ui",
-            children: [{ path: "video-player", element: <VideoPlayerPage /> }],
+            children: [
+              { path: "video-player", element: <VideoPlayerPage /> },
+            ],
           },
+          { path: "metadata", element: <MetadataEditorPage /> },
         ],
       },
     ],

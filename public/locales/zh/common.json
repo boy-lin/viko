@@ -1,0 +1,25 @@
+{
+    "app": {
+        "title": "FigureX",
+        "description": "强大的媒体工具箱"
+    },
+    "nav": {
+        "home": "首页",
+        "tasks": "任务",
+        "files": "我的文件",
+        "batch": "批量处理",
+        "converter": "转换器",
+        "compressor": "压缩器",
+        "metadata": "元数据"
+    },
+    "common": {
+        "loading": "加载中...",
+        "save": "保存",
+        "cancel": "取消",
+        "confirm": "确认",
+        "delete": "删除",
+        "edit": "编辑",
+        "add": "添加",
+        "select_file": "选择文件"
+    }
+}

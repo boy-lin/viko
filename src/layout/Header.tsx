@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Gift, MessageSquare, Headphones } from "lucide-react";
 import { Theme } from "@/components/ui/theme";
 import { HighSpeedConversionBadge } from "@/layout/HighSpeedConversionBadge";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export default function Header() {
   return (
     <header className="bg-background px-4 py-2 flex items-center justify-end gap-3">
+      <LanguageSwitcher />
       <Theme
         size="md"
         variant="dropdown"

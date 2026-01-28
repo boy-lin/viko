@@ -1,0 +1,19 @@
+{
+    "mcpServers": {
+        "Pixso MCP": {
+            "url": "http://localhost:3667/mcp",
+            "headers": {}
+        },
+        "Framelink MCP for Figma": {
+            "command": "cmd",
+            "args": [
+                "/c",
+                "npx",
+                "-y",
+                "figma-developer-mcp",
+                "--figma-api-key=figd_AIomTCqFhCElMwKzApC_lCZOx8MRTUjBVn8gwLvR",
+                "--stdio"
+            ]
+        }
+    }
+}

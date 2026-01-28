@@ -1,0 +1,25 @@
+{
+    "app": {
+        "title": "FigureX",
+        "description": "Powerful Media Toolkit"
+    },
+    "nav": {
+        "home": "Home",
+        "tasks": "Tasks",
+        "files": "My Files",
+        "batch": "Batch",
+        "converter": "Converter",
+        "compressor": "Compressor",
+        "metadata": "Metadata"
+    },
+    "common": {
+        "loading": "Loading...",
+        "save": "Save",
+        "cancel": "Cancel",
+        "confirm": "Confirm",
+        "delete": "Delete",
+        "edit": "Edit",
+        "add": "Add",
+        "select_file": "Select File"
+    }
+}

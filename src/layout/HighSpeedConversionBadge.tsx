@@ -134,8 +134,8 @@ export const HighSpeedConversionBadge: React.FC<
                   {loading
                     ? "Checking hardware support..."
                     : hasHardwareSupport
-                    ? "Uses hardware encoders (e.g., VideoToolbox) when available."
-                    : "No supported hardware encoder detected."}
+                      ? "Uses hardware encoders (e.g., NVENC, QSV, VideoToolbox) when available."
+                      : "No supported hardware encoder detected."}
                 </p>
               </div>
             </div>

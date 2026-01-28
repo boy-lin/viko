@@ -74,21 +74,57 @@ export default function MyFilesPage() {
     y: number;
   } | null>(null);
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   // 加载数据
-  useEffect(() => {
-    const loadMyFiles = async () => {
-      try {
-        setIsLoading(true);
-        const files = await converterDB.getAllMyFiles();
-        setMyFiles(files as MyFileRecord[]);
-      } catch (error) {
-        console.error("Failed to load my files:", error);
-      } finally {
-        setIsLoading(false);
+  const loadFiles = async (pageNum: number, isReset: boolean = false) => {
+    try {
+      if (pageNum === 1) setIsLoading(true);
+      else setIsLoadingMore(true);
+
+      // Only use DB pagination if sorting by Date
+      if (sortBy === "date") {
+        const result = await converterDB.getMyFilesPaged(pageNum, 20, sortOrder === "desc");
+        const newFiles = result.items as MyFileRecord[];
+
+        if (isReset) {
+          setMyFiles(newFiles);
+        } else {
+          setMyFiles(prev => [...prev, ...newFiles]);
+        }
+
+        setHasMore(result.hasMore);
+      } else {
+        // Fallback or "Load All" for other sort types (simplification)
+        // Ideally we'd have indexes for all, but for now we load all if non-date sort
+        if (isReset) {
+          const all = await converterDB.getAllMyFiles();
+          setMyFiles(all as MyFileRecord[]);
+          setHasMore(false);
+        }
       }
-    };
-    loadMyFiles();
-  }, []);
+    } catch (error) {
+      console.error("Failed to load my files:", error);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Initial load or Sort/Order change triggers reset
+  useEffect(() => {
+    setPage(1);
+    loadFiles(1, true);
+  }, [sortBy, sortOrder]);
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadFiles(nextPage, false);
+  };
 
   // 过滤文件
   const filteredFiles = useMemo(() => {
@@ -123,12 +159,15 @@ export default function MyFilesPage() {
       );
     }
 
-    // 排序
+    // Client-side Sort (only needed if NOT date sort, or to refine filtered result)
+    // If sortBy is date, the list is already roughly sorted by chunks, but filtering might mess gaps.
+    // However, keeping client sort ensures consistency on the loaded set.
     const sorted = [...filtered].sort((a, b) => {
       let comparison = 0;
 
       switch (sortBy) {
         case "date":
+          // If we are paginating, DB already sorted blocks, but let's ensure local sort too
           comparison = a.createdAt - b.createdAt;
           break;
         case "name":
@@ -539,6 +578,19 @@ export default function MyFilesPage() {
             ))}
           </div>
         )}
+
+        {hasMore && sortBy === "date" && (
+          <div className="flex justify-center mt-6 mb-8">
+            <Button
+              variant="outline"
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="min-w-[120px]"
+            >
+              {isLoadingMore ? "加载中..." : "加载更多"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* 底部操作栏 */}
@@ -680,10 +732,10 @@ export default function MyFilesPage() {
                     {infoFile.fileType === "video"
                       ? "视频"
                       : infoFile.fileType === "audio"
-                      ? "音频"
-                      : infoFile.fileType === "image"
-                      ? "图片"
-                      : "其他"}
+                        ? "音频"
+                        : infoFile.fileType === "image"
+                          ? "图片"
+                          : "其他"}
                   </div>
                 </div>
                 <div>

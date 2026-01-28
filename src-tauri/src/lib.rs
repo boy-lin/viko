@@ -16,6 +16,8 @@ pub mod video_compressor;
 pub mod video_converter_audio;
 pub mod video_converter;
 pub mod video_player;
+pub mod watermark;
+pub mod metadata;
 
 // 音频模块需要的共享类型
 #[derive(Clone, Copy)]
@@ -128,8 +130,8 @@ pub fn run() {
             crate::image_converter::convert_image_file,
             crate::commands::compress_video_file,
             crate::commands::compress_audio_file,
-            crate::commands::compress_audio_file,
             crate::commands::compress_image_file,
+            crate::commands::write_media_metadata,
             crate::commands::get_device_id,
         ])
         .setup(|app| {

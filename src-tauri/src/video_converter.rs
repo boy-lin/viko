@@ -4,6 +4,8 @@ use ffmpeg::{
     codec, decoder, encoder, format, frame, media, packet, picture, Dictionary, Rational,
 };
 use ffmpeg_next as ffmpeg;
+use ffmpeg::filter::context::Source as _;
+use ffmpeg::filter::context::Sink as _;
 use serde::Deserialize;
 
 use crate::media_common;
@@ -40,6 +42,7 @@ pub struct VideoConversionParams {
     pub audio_encoder: Option<String>,
     pub use_hardware_acceleration: bool,
     pub use_ultra_fast_speed: bool,
+    pub watermark: Option<crate::watermark::WatermarkConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -79,6 +82,7 @@ struct ResolvedVideoParams {
     pub audio_tracks: Vec<ResolvedAudioTrack>,
     pub use_hardware_acceleration: bool,
     pub use_ultra_fast_speed: bool,
+    pub watermark: Option<crate::watermark::WatermarkConfig>,
 }
 
 fn resolve_audio_tracks(
@@ -180,6 +184,7 @@ fn resolve_video_params(params: VideoConversionParams, input_audio_indices: &[us
         audio_tracks,
         use_hardware_acceleration: params.use_hardware_acceleration,
         use_ultra_fast_speed: params.use_ultra_fast_speed,
+        watermark: params.watermark.clone(),
     }
 }
 
@@ -191,8 +196,6 @@ struct Transcoder<E: TaskEmitter> {
     encoder_time_base: Rational,
     scaler: ffmpeg::software::scaling::Context,
     frame_count: usize,
-    // Rename start_time field in video_converter.rs Struct if necessary, but here just fix the value
-    // In struct definition:
     duration: f64,
     emitter: E,
     last_pts: i64,
@@ -361,6 +364,7 @@ impl<E: TaskEmitter> Transcoder<E> {
         };
 
         // 4. 设置 Scaler (用于分辨率转换和像素格式转换)
+        // Fallback: Use scaler for now as Filter Graph API is unstable
         let scaler = ffmpeg::software::scaling::context::Context::get(
             decoder.format(),
             decoder.width(),
@@ -371,6 +375,10 @@ impl<E: TaskEmitter> Transcoder<E> {
             ffmpeg::software::scaling::flag::Flags::BILINEAR,
         )
         .map_err(|e| format!("无法创建Scaler: {}", e))?;
+
+        if params.watermark.is_some() {
+            eprintln!("Warning: Video watermark is not yet supported in this version. Watermark will be ignored.");
+        }
 
         Ok(Self {
             ost_index: ost.index(),
@@ -407,7 +415,6 @@ impl<E: TaskEmitter> Transcoder<E> {
                 let current_time = pts as f64
                     * self.decoder.time_base().0 as f64
                     / self.decoder.time_base().1 as f64;
-                // let _elapsed = self.start_time_instant.elapsed().as_secs_f64();
                 if self.duration > 0.0 {
                     let progress = (current_time / self.duration * 100.0).min(100.0);
                     self.emitter.emit(

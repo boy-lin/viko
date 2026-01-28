@@ -65,6 +65,19 @@ const heroCards: HeroCardItem[] = [
     hoverRotate: "-0.5deg",
     iconLayer: <CompressorLayer />,
   },
+  {
+    title: "Metadata Editor",
+    description:
+      "Edit metadata tags for audio and video files without re-encoding.",
+    action: {
+      label: "Edit Tags",
+      icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-1"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" /></svg>,
+    },
+    lightBg: "bg-gradient-to-br from-green-100 to-emerald-100",
+    darkBg: "bg-[#2a2a2a]",
+    hoverRotate: "0.5deg",
+    iconLayer: <svg xmlns="http://www.w3.org/2000/svg" className="absolute -right-8 -bottom-8 w-32 h-32 text-green-500/10 rotate-12" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" /></svg>,
+  },
 ];
 
 const HeroCardItemView = ({
@@ -113,6 +126,8 @@ export function HeroCard() {
     if (title === "Converter") {
       await addFiles();
       navigate("/converter");
+    } else if (title === "Metadata Editor") {
+      navigate("/metadata");
     }
   };
 

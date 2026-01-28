@@ -42,6 +42,29 @@ export interface ImageConfig {
   resolution?: string;
 }
 
+export interface WatermarkConfig {
+  text?: TextWatermark;
+  image?: ImageWatermark;
+}
+
+export interface TextWatermark {
+  content: string;
+  font_path: string;
+  font_size: number;
+  color: string;
+  opacity: number;
+  x: string;
+  y: string;
+}
+
+export interface ImageWatermark {
+  path: string;
+  scale: number;
+  opacity: number;
+  x: string;
+  y: string;
+}
+
 // 基础配置（所有类型共享）
 interface BaseConversionConfig {
   outputFormat: string;
@@ -54,6 +77,7 @@ export interface VideoConversionConfig extends BaseConversionConfig {
   group?: string;
   video: VideoTrackConfig;
   audioTracks?: AudioTrackConfig[]; // 视频可能包含音频轨道
+  watermark?: WatermarkConfig;
   image?: never; // 明确禁止
 }
 
@@ -69,6 +93,7 @@ export interface AudioConversionConfig extends BaseConversionConfig {
 export interface ImageConversionConfig extends BaseConversionConfig {
   type: "image";
   image: ImageConfig;
+  watermark?: WatermarkConfig;
   video?: never; // 明确禁止
   audioTracks?: never;
 }
