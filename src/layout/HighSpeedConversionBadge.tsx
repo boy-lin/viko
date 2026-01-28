@@ -9,6 +9,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useTranslation } from "react-i18next";
 
 interface HardwareSupport {
   h264_hardware: boolean;
@@ -66,6 +67,7 @@ export const HighSpeedConversionBadge: React.FC<
   }, []);
 
   const hasHardwareSupport = support.h264_hardware || support.hevc_hardware;
+  const { t } = useTranslation();
 
   return (
     <Popover>
@@ -77,7 +79,7 @@ export const HighSpeedConversionBadge: React.FC<
           )}
         >
           <Zap className="w-4 h-4" fill="currentColor" />
-          High
+          {t("acceleration.badge_high")}
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-4" align="end">
@@ -85,10 +87,10 @@ export const HighSpeedConversionBadge: React.FC<
           <div className="space-y-2">
             <h4 className="font-medium leading-none flex items-center gap-2">
               <Zap className="w-4 h-4 text-orange-500" fill="currentColor" />
-              Acceleration Settings
+              {t("acceleration.title")}
             </h4>
             <p className="text-sm text-muted-foreground">
-              Configure hardware acceleration options.
+              {t("acceleration.description")}
             </p>
           </div>
 
@@ -105,10 +107,10 @@ export const HighSpeedConversionBadge: React.FC<
                   htmlFor="ultra-fast"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  Enable Ultra-fast Speed
+                  {t("acceleration.ultra_fast_label")}
                 </label>
                 <p className="text-xs text-muted-foreground">
-                  Optimizes conversion settings for maximum speed.
+                  {t("acceleration.ultra_fast_desc")}
                 </p>
               </div>
             </div>
@@ -128,14 +130,14 @@ export const HighSpeedConversionBadge: React.FC<
                   htmlFor="gpu-accel"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  Enable GPU Acceleration
+                  {t("acceleration.gpu_label")}
                 </label>
                 <p className="text-xs text-muted-foreground">
                   {loading
-                    ? "Checking hardware support..."
+                    ? t("acceleration.checking")
                     : hasHardwareSupport
-                      ? "Uses hardware encoders (e.g., NVENC, QSV, VideoToolbox) when available."
-                      : "No supported hardware encoder detected."}
+                      ? t("acceleration.gpu_desc_available")
+                      : t("acceleration.gpu_desc_unavailable")}
                 </p>
               </div>
             </div>

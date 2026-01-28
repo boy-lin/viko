@@ -13,6 +13,7 @@ import {
   Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 type NavItem = {
   label: string;
@@ -44,51 +45,6 @@ const useSidebar = () => {
   }
   return context;
 };
-
-const sidebarNavItems: NavItem[] = [
-  { label: "Home", icon: Home, href: "/" },
-  { label: "AI Tools", icon: Wrench, href: "/tools" },
-  { label: "My Files", icon: FileText, href: "/my/files" },
-];
-
-const quickAccessItems: QuickAccessItem[] = [
-  {
-    label: "Converter",
-    icon: Download,
-    color: "text-purple-600",
-    href: "/converter",
-  },
-  {
-    label: "Downloader",
-    icon: Download,
-    color: "text-orange-600",
-    href: "/downloader",
-  },
-  {
-    label: "Compressor",
-    icon: Download,
-    color: "text-green-600",
-    href: "/compressor",
-  },
-  {
-    label: "Audio Test",
-    icon: AudioLines,
-    color: "text-purple-600",
-    href: "/demo/audio-test",
-  },
-  {
-    label: "Home V1",
-    icon: Home,
-    color: "text-purple-600",
-    href: "/demo/v1",
-  },
-  {
-    label: "Video Player",
-    icon: Video,
-    color: "text-purple-600",
-    href: "/ui/video-player",
-  },
-];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -174,8 +130,8 @@ const SidebarLogo = () => {
   return (
     <motion.div variants={itemVariants} className="p-4">
       <div className="flex items-center gap-2 h-9">
-        <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center grow-0 shrink-0">
-          <div className="w-4 h-4 bg-white rounded-sm"></div>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center grow-0 shrink-0">
+          <img src="/logo.png" alt="" />
         </div>
         <motion.div
           animate={{
@@ -183,8 +139,8 @@ const SidebarLogo = () => {
             opacity: animate ? (open ? 1 : 0) : 1,
           }}
         >
-          <div className="text-xs text-muted-foreground">Figurex</div>
-          <div className="text-sm font-bold">UniConverter</div>
+          <div className="text-xs text-muted-foreground">Viko</div>
+          <div className="text-sm font-bold">AudioVideoKit</div>
         </motion.div>
       </div>
     </motion.div>
@@ -242,32 +198,84 @@ const SidebarQuickAccessItem = ({ item }: { item: QuickAccessItem }) => {
   );
 };
 
-const SidebarQuickAccess = () => (
-  <motion.div variants={itemVariants} className="">
-    <div className="flex items-center justify-between px-3 py-2">
-      <SidebarLabel useVisible className="text-xs text-gray-500 font-medium">
-        Quick Access
-      </SidebarLabel>
-      <SidebarLabel className="inline-flex text-gray-400">
-        <Plus className="w-4 h-4" />
-      </SidebarLabel>
-    </div>
-    <motion.div variants={listVariants} className="space-y-1 mt-1">
-      {quickAccessItems.map((item) => (
-        <SidebarQuickAccessItem key={item.label} item={item} />
-      ))}
+const SidebarQuickAccess = ({ items }: { items: QuickAccessItem[] }) => {
+  const { t } = useTranslation();
+  return (
+    <motion.div variants={itemVariants} className="">
+      <div className="flex items-center justify-between px-3 py-2">
+        <SidebarLabel useVisible className="text-xs text-gray-500 font-medium">
+          {t("sidebar.quick_access")}
+        </SidebarLabel>
+        <SidebarLabel className="inline-flex text-gray-400">
+          <Plus className="w-4 h-4" />
+        </SidebarLabel>
+      </div>
+      <motion.div variants={listVariants} className="space-y-1 mt-1">
+        {items.map((item) => (
+          <SidebarQuickAccessItem key={item.href} item={item} />
+        ))}
+      </motion.div>
     </motion.div>
-  </motion.div>
-);
+  );
+};
 
-const SidebarNav = () => (
-  <motion.nav variants={listVariants} className="flex-1 p-3 space-y-1">
-    {sidebarNavItems.map((item) => (
-      <SidebarNavItem key={item.label} item={item} />
-    ))}
-    <SidebarQuickAccess />
-  </motion.nav>
-);
+const SidebarNav = () => {
+  const { t } = useTranslation();
+
+  const sidebarNavItems: NavItem[] = [
+    { label: t("nav.home"), icon: Home, href: "/" },
+    { label: t("nav.ai_tools"), icon: Wrench, href: "/tools" },
+    { label: t("nav.files"), icon: FileText, href: "/my/files" },
+  ];
+
+  const quickAccessItems: QuickAccessItem[] = [
+    {
+      label: t("nav.converter"),
+      icon: Download,
+      color: "text-purple-600",
+      href: "/converter",
+    },
+    {
+      label: t("nav.downloader"),
+      icon: Download,
+      color: "text-orange-600",
+      href: "/downloader",
+    },
+    {
+      label: t("nav.compressor"),
+      icon: Download,
+      color: "text-green-600",
+      href: "/compressor",
+    },
+    {
+      label: t("nav.audio_test"),
+      icon: AudioLines,
+      color: "text-purple-600",
+      href: "/demo/audio-test",
+    },
+    {
+      label: t("nav.home_v1"),
+      icon: Home,
+      color: "text-purple-600",
+      href: "/demo/v1",
+    },
+    {
+      label: t("nav.video_player"),
+      icon: Video,
+      color: "text-purple-600",
+      href: "/ui/video-player",
+    },
+  ];
+
+  return (
+    <motion.nav variants={listVariants} className="flex-1 p-3 space-y-1">
+      {sidebarNavItems.map((item) => (
+        <SidebarNavItem key={item.href} item={item} />
+      ))}
+      <SidebarQuickAccess items={quickAccessItems} />
+    </motion.nav>
+  );
+};
 
 const SidebarContent = () => (
   <>
@@ -311,10 +319,10 @@ const DesktopSidebar = ({ className }: { className?: string }) => {
       animate={
         animate
           ? {
-              opacity: 1,
-              x: 0,
-              width,
-            }
+            opacity: 1,
+            x: 0,
+            width,
+          }
           : undefined
       }
       transition={{ duration: 0.25, ease: "easeOut" }}
