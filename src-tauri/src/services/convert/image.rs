@@ -1,4 +1,4 @@
-use image::ImageFormat;
+﻿use image::ImageFormat;
 use tauri::command;
 use ffmpeg_next as ffmpeg;
 use serde::Deserialize;
@@ -6,17 +6,38 @@ use crate::media_common;
 
 #[derive(Deserialize)]
 pub struct ImageConversionParams {
+    #[serde(default)]
+    pub task_id: String,
     pub input_path: String,
+    #[serde(default)]
     pub output_path: String,
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub format: String, // jpg, png, webp, etc.
-    pub watermark: Option<crate::watermark::WatermarkConfig>,
+    pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 #[command]
 pub async fn convert_image_file(args: ImageConversionParams) -> Result<String, String> {
-     // Run in a blocking task to avoid blocking the async runtime with heavy CPU operations
+    let mut args = args;
+    if args.output_path.is_empty() {
+        let format = if args.format.is_empty() {
+            "jpg".to_string()
+        } else {
+            args.format.clone()
+        };
+        if args.format.is_empty() {
+            args.format = format.clone();
+        }
+        let path = std::path::Path::new(&args.input_path);
+        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
+        let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
+        args.output_path = parent
+            .join(format!("{}.{}", stem, format))
+            .to_string_lossy()
+            .to_string();
+    }
+    // Run in a blocking task to avoid blocking the async runtime with heavy CPU operations
     tauri::async_runtime::spawn_blocking(move || {
         convert_image_file_impl(args)
     }).await.map_err(|e| format!("Task join error: {}", e))?
@@ -105,3 +126,4 @@ fn convert_image_file_impl(args: ImageConversionParams) -> Result<String, String
 
     Err("Could not decode any frames".to_string())
 }
+

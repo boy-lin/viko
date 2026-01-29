@@ -132,17 +132,17 @@ export const ConverterFooter: React.FC = () => {
         await updateUnfinishedTaskConfig(task.id, { ...globalConfig });
       }
       const tasks = useConverterStore.getState().convertingTasks;
-      converterQueue.add(tasks);
+      await converterQueue.add(tasks);
     }
   };
 
   const handleDelete = async () => {
-    const hasRunningTasks = converterQueue.hasRunningTasks();
+    const hasRunningTasks = await converterQueue.hasRunningTasks();
 
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
       await clearConvertingTasks();
-      converterQueue.clearQueue();
+      await converterQueue.clearQueue();
     } else {
       // 有运行中的任务，打开确认弹窗
       setIsDeletePopoverOpen(true);
@@ -151,7 +151,7 @@ export const ConverterFooter: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     // 清空队列
-    converterQueue.clearQueue();
+    await converterQueue.clearQueue();
     // 清空转换中的任务
     await clearConvertingTasks();
     // 关闭弹窗

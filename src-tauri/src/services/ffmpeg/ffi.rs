@@ -1,13 +1,13 @@
-// FFmpeg FFI 绑定
-// 定义 FFmpeg C API 的结构体和函数签名
+﻿// FFmpeg FFI 缁戝畾
+// 瀹氫箟 FFmpeg C API 鐨勭粨鏋勪綋鍜屽嚱鏁扮鍚?
 
 use libloading::{Library, Symbol};
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_void};
 
-use crate::ffmpeg_loader::{get_loaded_ffmpeg_path, is_ffmpeg_loaded, FFmpegLoadError};
+use crate::services::ffmpeg::loader::{get_loaded_ffmpeg_path, is_ffmpeg_loaded, FFmpegLoadError};
 
-// FFmpeg 结构体定义（简化版）
+// FFmpeg 缁撴瀯浣撳畾涔夛紙绠€鍖栫増锛?
 #[repr(C)]
 pub struct AVFormatContext {
     _private: [u8; 0],
@@ -33,7 +33,7 @@ pub struct AVDictionary {
     _private: [u8; 0],
 }
 
-// FFmpeg 函数指针类型
+// FFmpeg 鍑芥暟鎸囬拡绫诲瀷
 type AvFormatOpenInputFn = unsafe extern "C" fn(
     ps: *mut *mut AVFormatContext,
     url: *const c_char,
@@ -95,7 +95,7 @@ type AvDictFreeFn = unsafe extern "C" fn(m: *mut *mut AVDictionary);
 
 type AvVersionInfoFn = unsafe extern "C" fn() -> *const c_char;
 
-// 更多 FFmpeg API 函数类型
+// 鏇村 FFmpeg API 鍑芥暟绫诲瀷
 type AvStrerrorFn =
     unsafe extern "C" fn(errnum: c_int, errbuf: *mut c_char, errbuf_size: usize) -> usize;
 
@@ -125,8 +125,8 @@ type AvCodecParametersCopyFn = unsafe extern "C" fn(dst: *mut c_void, src: *cons
 type AvCodecParametersFromContextFn =
     unsafe extern "C" fn(par: *mut c_void, codec: *const AVCodecContext) -> c_int;
 
-// FFmpeg 函数加载器
-// 使用全局静态变量存储 Library，然后按需获取 Symbol
+// FFmpeg 鍑芥暟鍔犺浇鍣?
+// 浣跨敤鍏ㄥ眬闈欐€佸彉閲忓瓨鍌?Library锛岀劧鍚庢寜闇€鑾峰彇 Symbol
 use std::sync::Mutex;
 
 lazy_static::lazy_static! {
@@ -136,7 +136,7 @@ lazy_static::lazy_static! {
 pub struct FFmpegFFI;
 
 impl FFmpegFFI {
-    /// 初始化 FFmpeg FFI（加载库并验证）
+    /// 鍒濆鍖?FFmpeg FFI锛堝姞杞藉簱骞堕獙璇侊級
     pub unsafe fn init() -> Result<(), FFmpegLoadError> {
         if !is_ffmpeg_loaded() {
             return Err(FFmpegLoadError::InitError(
@@ -158,7 +158,7 @@ impl FFmpegFFI {
         let library = Library::new(lib_path.join(lib_name))
             .map_err(|e| FFmpegLoadError::LoadError(format!("Failed to load library: {}", e)))?;
 
-        // 验证库是否可用
+        // 楠岃瘉搴撴槸鍚﹀彲鐢?
         let _: Symbol<AvVersionInfoFn> = library
             .get(b"av_version_info\0")
             .map_err(|e| FFmpegLoadError::SymbolNotFound(format!("av_version_info: {}", e)))?;
@@ -168,7 +168,7 @@ impl FFmpegFFI {
         Ok(())
     }
 
-    /// 获取版本信息
+    /// 鑾峰彇鐗堟湰淇℃伅
     pub unsafe fn get_version() -> Result<String, FFmpegLoadError> {
         with_ffmpeg_lib(|lib| {
             let version_fn: Symbol<AvVersionInfoFn> = lib
@@ -188,8 +188,8 @@ impl FFmpegFFI {
     }
 }
 
-/// 执行需要 FFmpeg 符号的操作
-/// 这个函数确保 Library 在使用期间保持有效
+/// 鎵ц闇€瑕?FFmpeg 绗﹀彿鐨勬搷浣?
+/// 杩欎釜鍑芥暟纭繚 Library 鍦ㄤ娇鐢ㄦ湡闂翠繚鎸佹湁鏁?
 pub unsafe fn with_ffmpeg_lib<F, R>(f: F) -> Result<R, FFmpegLoadError>
 where
     F: FnOnce(&Library) -> Result<R, FFmpegLoadError>,
@@ -201,9 +201,10 @@ where
     f(lib)
 }
 
-// 注意：实际的 FFmpeg API 调用需要更复杂的实现
-// 这里只是定义了基本的 FFI 结构
-// 完整的实现需要处理内存管理、错误处理等
+// 娉ㄦ剰锛氬疄闄呯殑 FFmpeg API 璋冪敤闇€瑕佹洿澶嶆潅鐨勫疄鐜?
+// 杩欓噷鍙槸瀹氫箟浜嗗熀鏈殑 FFI 缁撴瀯
+// 瀹屾暣鐨勫疄鐜伴渶瑕佸鐞嗗唴瀛樼鐞嗐€侀敊璇鐞嗙瓑
 
-// 注意：获取 FFmpeg 函数符号需要在 with_ffmpeg_lib 回调内部进行
-// 因为 Library 的生命周期需要被正确管理
+// 娉ㄦ剰锛氳幏鍙?FFmpeg 鍑芥暟绗﹀彿闇€瑕佸湪 with_ffmpeg_lib 鍥炶皟鍐呴儴杩涜
+// 鍥犱负 Library 鐨勭敓鍛藉懆鏈熼渶瑕佽姝ｇ‘绠＄悊
+

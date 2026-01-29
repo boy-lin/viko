@@ -94,17 +94,17 @@ export const CompressionFooter: React.FC = () => {
           if (compressionScope === "general") return true;
           return task.compressionConfig?.type === compressionScope;
         });
-      compressorQueue.add(tasks);
+      await compressorQueue.add(tasks);
     }
   };
 
   const handleDelete = async () => {
-    const hasRunningTasks = compressorQueue.hasRunningTasks();
+    const hasRunningTasks = await compressorQueue.hasRunningTasks();
 
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
       await clearCompressingTasks();
-      compressorQueue.clearQueue();
+      await compressorQueue.clearQueue();
     } else {
       // 有运行中的任务，打开确认弹窗
       setIsDeletePopoverOpen(true);
@@ -113,7 +113,7 @@ export const CompressionFooter: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     // 清空队列
-    compressorQueue.clearQueue();
+    await compressorQueue.clearQueue();
     // 清空压缩中的任务
     await clearCompressingTasks();
     // 关闭弹窗

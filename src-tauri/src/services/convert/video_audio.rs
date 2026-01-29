@@ -1,8 +1,8 @@
-use ffmpeg_next as ffmpeg;
+﻿use ffmpeg_next as ffmpeg;
 use ffmpeg::{
     codec, decoder, encoder, format, frame, packet, software, Rational,
 };
-use crate::audio_converter::AudioEncodingParams;
+use crate::services::convert::audio::AudioEncodingParams;
 use crate::media_common::{self, AudioFifo};
 
 pub struct AudioTrackProcessor {
@@ -31,11 +31,11 @@ impl AudioTrackProcessor {
     ) -> Result<Self, String> {
         let source_stream_index = ist.index();
         let decoder_ctx = codec::context::Context::from_parameters(ist.parameters())
-            .map_err(|e| format!("无法创建音频解码器上下文: {}", e))?;
+            .map_err(|e| format!("Operation failed: {}", e))?;
         let decoder = decoder_ctx
             .decoder()
             .audio()
-            .map_err(|e| format!("无法创建音频解码器: {}", e))?;
+            .map_err(|e| format!("Operation failed: {}", e))?;
 
         let input_sample_rate = decoder.rate() as u32;
         let mut input_layout = decoder.channel_layout();
@@ -48,12 +48,12 @@ impl AudioTrackProcessor {
         } else {
             ffmpeg::encoder::find(ist.parameters().id())
         }
-        .ok_or_else(|| "未找到合适的音频编码器".to_string())?;
+        .ok_or_else(|| "No suitable audio encoder found".to_string())?;
 
         let global_header = octx.format().flags().contains(format::flag::Flags::GLOBAL_HEADER);
         let mut ost = octx
             .add_stream(codec)
-            .map_err(|e| format!("无法添加音频输出流: {}", e))?;
+            .map_err(|e| format!("Operation failed: {}", e))?;
 
         let desired_sample_rate = params.sample_rate.unwrap_or(input_sample_rate);
         let is_amr = params
@@ -88,7 +88,7 @@ impl AudioTrackProcessor {
         let mut enc = enc_ctx
             .encoder()
             .audio()
-            .map_err(|e| format!("创建音频编码器失败: {}", e))?;
+            .map_err(|e| format!("Operation failed: {}", e))?;
 
         if let Some(br) = params.bitrate {
             let kbps = br.max(1.0);
@@ -111,7 +111,7 @@ impl AudioTrackProcessor {
 
         let encoder = enc
             .open_with(opts)
-            .map_err(|e| format!("打开音频编码器失败: {}", e))?;
+            .map_err(|e| format!("Operation failed: {}", e))?;
 
         let encoder_format = encoder.format();
         let encoder_layout = encoder.channel_layout();
@@ -146,7 +146,7 @@ impl AudioTrackProcessor {
             target_layout,
             target_rate,
         )
-        .map_err(|e| format!("无法创建重采样器: {}", e))?;
+        .map_err(|e| format!("Operation failed: {}", e))?;
 
         let frame_size = encoder.frame_size() as usize;
         let fifo = if frame_size > 0 {
@@ -190,7 +190,7 @@ impl AudioTrackProcessor {
         p.rescale_ts(input_time_base, self.decoder.time_base());
         self.decoder
             .send_packet(&p)
-            .map_err(|e| format!("发送音频包失败: {}", e))?;
+            .map_err(|e| format!("Operation failed: {}", e))?;
 
         let mut decoded = frame::Audio::empty();
         while self.decoder.receive_frame(&mut decoded).is_ok() {
@@ -201,7 +201,7 @@ impl AudioTrackProcessor {
 
             self.resampler
                 .run(&decoded, &mut resampled)
-                .map_err(|e| format!("重采样失败: {}", e))?;
+                .map_err(|e| format!("Operation failed: {}", e))?;
 
             if !self.first_pts_set {
                 if let Some(pts) = decoded.pts() {
@@ -220,7 +220,7 @@ impl AudioTrackProcessor {
 
             if self.fifo.is_some() {
                 {
-                    // 先推入 FIFO，避免后续 pop 时出现空数据
+                    // Push into FIFO first to avoid empty pops later.
                     let fifo = self.fifo.as_mut().unwrap();
                     fifo.push_frame(&resampled);
                 }
@@ -276,14 +276,14 @@ impl AudioTrackProcessor {
 
         self.encoder
             .send_eof()
-            .map_err(|e| format!("发送音频 EOF 失败: {}", e))?;
+            .map_err(|e| format!("Operation failed: {}", e))?;
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             encoded.set_stream(self.ost_index);
             encoded.rescale_ts(self.encoder_time_base, ost_time_base);
             encoded
                 .write_interleaved(octx)
-                .map_err(|e| format!("写入尾部音频包失败: {}", e))?;
+                .map_err(|e| format!("Operation failed: {}", e))?;
         }
         Ok(())
     }
@@ -296,15 +296,16 @@ impl AudioTrackProcessor {
     ) -> Result<(), String> {
         self.encoder
             .send_frame(frame)
-            .map_err(|e| format!("发送音频帧失败: {}", e))?;
+            .map_err(|e| format!("Operation failed: {}", e))?;
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             encoded.set_stream(self.ost_index);
             encoded.rescale_ts(self.encoder_time_base, ost_time_base);
             encoded
                 .write_interleaved(octx)
-                .map_err(|e| format!("写入音频数据包失败: {}", e))?;
+                .map_err(|e| format!("Operation failed: {}", e))?;
         }
         Ok(())
     }
 }
+

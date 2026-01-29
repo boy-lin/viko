@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+﻿use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
@@ -14,7 +14,7 @@ use video_rs::ffmpeg::{
 };
 
 use crate::events::EventEmitter;
-use crate::video_player::PlayerCommand;
+use crate::services::player::video::PlayerCommand;
 
 #[derive(Clone)]
 struct SharedState {
@@ -74,7 +74,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
     pub fn command(&self, cmd: PlayerCommand) -> Result<(), String> {
         self.command_tx
             .send(cmd)
-            .map_err(|e| format!("发送音频指令失败: {e}"))
+            .map_err(|e| format!("Operation failed: {e}"))
     }
 
     pub fn get_duration(&self) -> f64 {
@@ -99,8 +99,9 @@ impl<E: EventEmitter> AudioPlayer<E> {
     }
 
     fn probe_duration(path: &str) -> Result<f64, String> {
-        ffmpeg::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))?;
-        let ictx = ffmpeg::format::input(path).map_err(|e| format!("打开音频文件失败: {}", e))?;
+        ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {e}"))?;
+        let ictx = ffmpeg::format::input(path)
+            .map_err(|e| format!("Failed to open audio file: {e}"))?;
 
         let mut stream_duration = None;
         let mut format_duration = None;
@@ -122,7 +123,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
         let final_duration = stream_duration.or(format_duration).unwrap_or(0.0);
 
         log::info!(
-            "📊 文件时长信息: 流duration={:.3}s, 格式duration={:.3}s, 最终使用={:.3}s",
+            "Duration info: stream={:.3}s, format={:.3}s, final={:.3}s",
             stream_duration.unwrap_or(0.0),
             format_duration.unwrap_or(0.0),
             final_duration
@@ -229,12 +230,12 @@ impl<E: EventEmitter> AudioPlayer<E> {
                             state.playing_flag.store(true, Ordering::Relaxed);
                             if stream_started {
                                 if let Err(e) = output_stream.play() {
-                                    log::error!("恢复音频输出失败: {e}");
+                                    log::error!("Failed to resume audio output: {e}");
                                     playing = false;
                                     state.playing_flag.store(false, Ordering::Relaxed);
                                 }
                             } else if let Err(e) = output_stream.play() {
-                                log::error!("启动音频输出失败: {e}");
+                                log::error!("Failed to start audio output: {e}");
                                 playing = false;
                                 state.playing_flag.store(false, Ordering::Relaxed);
                             } else {
@@ -265,10 +266,10 @@ impl<E: EventEmitter> AudioPlayer<E> {
                             if ictx.seek(ts, audio_index as i64..).is_err() {
                                 let _ = ictx.seek(ts, ..);
                             }
-                            // 只有在跳转前处于播放状态时才恢复播放
+                            // Resume playback only if it was playing before seek.
                             if was_playing {
                                 if let Err(e) = output_stream.play() {
-                                    log::error!("跳转后启动音频流失败: {e}");
+                                    log::error!("Failed to resume audio output after seek: {e}");
                                 } else {
                                     stream_started = true;
                                     playing = true;
@@ -282,7 +283,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
                             return;
                         }
                         PlayerCommand::AudioError(err) => {
-                            log::error!("音频错误: {err}");
+                            log::error!("Audio output error: {err}");
                         }
                     }
                 }
@@ -321,7 +322,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
                     }
 
                     if let Err(e) = decoder.send_packet(&packet) {
-                        log::warn!("发送音频包失败: {e}");
+                        log::warn!("Failed to send audio packet: {e}");
                         continue;
                     }
 
@@ -338,7 +339,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
                                 }
 
                                 if let Err(err) = resampler.run(&decoded, &mut resampled) {
-                                    log::warn!("重采样失败: {err}");
+                                    log::warn!("Resample failed: {err}");
                                     continue;
                                 }
 
@@ -356,7 +357,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
                             }
                             Err(ffmpeg::Error::Eof) => break,
                             Err(err) => {
-                                log::warn!("接收音频帧失败: {err}");
+                                log::warn!("Failed to receive audio frame: {err}");
                                 break;
                             }
                         }
@@ -368,7 +369,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
                     loop {
                         match decoder.receive_frame(&mut decoded) {
                             Ok(_) => {
-                                // 记录 flush 后读取到的帧的 PTS
+                                // Record PTS from frames read after flush.
                                 if let Some(pts) = decoded.pts() {
                                     let pts_secs = pts as f64 * time_base.numerator() as f64
                                         / time_base.denominator() as f64;
@@ -376,7 +377,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
                                 }
 
                                 if let Err(err) = resampler.run(&decoded, &mut resampled) {
-                                    log::warn!("重采样失败: {err}");
+                                    log::warn!("Resample failed during flush: {err}");
                                     continue;
                                 }
                                 let written =
@@ -396,7 +397,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
                         }
                     }
 
-                    // 解码器帧读完后，flush 重采样器可能还会输出尾部数据
+                    // After decoder EOF, flush resampler into buffer.
                     Self::flush_resampler_into_buffer(
                         &mut resampler,
                         &mut resampled,
@@ -415,8 +416,8 @@ impl<E: EventEmitter> AudioPlayer<E> {
                         playing = false;
                         state.playing_flag.store(false, Ordering::Relaxed);
                         let _ = output_stream.pause();
-                        stream_started = false; // 下次播放需要重新启动输出流
-                        packet_iter = None; // 重置迭代器以便下次播放从头读取
+                        stream_started = false; // Restart output stream on next play.
+                        packet_iter = None; // Reset iterator to read from the beginning.
                     }
                 }
 
@@ -455,8 +456,9 @@ impl<E: EventEmitter> AudioPlayer<E> {
     }
 
     fn open_input(path: &str) -> Result<(ffmpeg::format::context::Input, f64), String> {
-        ffmpeg::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))?;
-        let ictx = ffmpeg::format::input(path).map_err(|e| format!("打开音频文件失败: {}", e))?;
+        ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {e}"))?;
+        let ictx = ffmpeg::format::input(path)
+            .map_err(|e| format!("Failed to open audio file: {e}"))?;
         let duration = Self::probe_duration(path)?;
         Ok((ictx, duration))
     }
@@ -475,7 +477,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
             .streams()
             .best(ffmpeg::media::Type::Audio)
             .map(|s| s.index())
-            .ok_or_else(|| "未找到音频流".to_string())?;
+            .ok_or_else(|| "Audio stream not found".to_string())?;
         let stream = ictx.stream(index).unwrap();
         let time_base = stream.time_base();
         Ok((index, stream, time_base))
@@ -486,7 +488,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
     ) -> Result<ffmpeg::decoder::Audio, String> {
         ffmpeg::codec::context::Context::from_parameters(stream.parameters())
             .and_then(|ctx| ctx.decoder().audio())
-            .map_err(|e| format!("创建音频解码器失败: {e}"))
+            .map_err(|e| format!("Operation failed: {e}"))
     }
 
     fn audio_device() -> Result<
@@ -502,10 +504,10 @@ impl<E: EventEmitter> AudioPlayer<E> {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
-            .ok_or_else(|| "未找到默认音频输出设备".to_string())?;
+            .ok_or_else(|| "Default audio output device not found".to_string())?;
         let supported = device
             .default_output_config()
-            .map_err(|e| format!("获取默认音频配置失败: {e}"))?;
+            .map_err(|e| format!("Failed to get output device config: {e}"))?;
         let config = supported.config();
         let sample_rate = config.sample_rate.0;
         let channels = config.channels as usize;
@@ -536,7 +538,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
             output_layout,
             output_sample_rate,
         )
-        .map_err(|e| format!("创建重采样器失败: {e}"))
+        .map_err(|e| format!("Operation failed: {e}"))
     }
 
     fn build_state(
@@ -571,7 +573,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
         let played_samples = state.played_samples_total.clone();
         let channels = state.output_channels;
 
-        let err_fn = |err| log::error!("音频输出流错误: {err}");
+        let err_fn = |err| log::error!("Audio output stream error: {err}");
 
         match sample_format {
             cpal::SampleFormat::F32 => device
@@ -605,7 +607,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
                     err_fn,
                     None,
                 )
-                .map_err(|e| format!("创建音频输出流失败: {e}")),
+                .map_err(|e| format!("Operation failed: {e}")),
             cpal::SampleFormat::I16 => device
                 .build_output_stream(
                     config,
@@ -637,7 +639,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
                     err_fn,
                     None,
                 )
-                .map_err(|e| format!("创建音频输出流失败: {e}")),
+                .map_err(|e| format!("Operation failed: {e}")),
             cpal::SampleFormat::U16 => device
                 .build_output_stream(
                     config,
@@ -670,8 +672,8 @@ impl<E: EventEmitter> AudioPlayer<E> {
                     err_fn,
                     None,
                 )
-                .map_err(|e| format!("创建音频输出流失败: {e}")),
-            f => Err(format!("不支持的音频采样格式: {f:?}")),
+                .map_err(|e| format!("Operation failed: {e}")),
+        f => Err(format!("Unsupported audio sample format: {f:?}")),
         }
     }
 
@@ -720,7 +722,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
         samples_processed: &mut u64,
     ) {
         if let Err(err) = resampler.flush(resampled) {
-            log::warn!("重采样 flush 失败: {err}");
+            log::warn!("Resampler flush failed: {err}");
             return;
         }
         if resampled.samples() == 0 {
@@ -754,3 +756,4 @@ impl<E: EventEmitter> Drop for AudioPlayer<E> {
         }
     }
 }
+

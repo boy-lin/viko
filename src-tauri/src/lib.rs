@@ -1,32 +1,18 @@
-// 声明模块 Cursor Write It
-pub mod audio;
-pub mod audio_compressor;
-pub mod audio_converter;
+﻿// 澹版槑妯″潡 Cursor Write It
 pub mod commands;
 pub mod events;
-pub mod ffmpeg_ffi;
-pub mod ffmpeg_loader;
-pub mod ffmpeg_media_info;
-pub mod gif_converter;
-pub mod image_compressor;
-pub mod image_converter;
 pub mod media_common;
-pub mod thumbnail;
-pub mod video_compressor;
-pub mod video_converter_audio;
-pub mod video_converter;
-pub mod video_player;
-pub mod watermark;
-pub mod metadata;
+pub mod services;
+pub mod task;
 
-// 音频模块需要的共享类型
+// 闊抽妯″潡闇€瑕佺殑鍏变韩绫诲瀷
 #[derive(Clone, Copy)]
 pub enum ControlCommand {
     Play,
     Pause,
 }
 
-// 共享时钟用于音视频同步
+// 鍏变韩鏃堕挓鐢ㄤ簬闊宠棰戝悓姝?
 #[derive(Clone)]
 pub struct SharedClock {
     start_time: std::sync::Arc<std::sync::Mutex<Option<std::time::Instant>>>,
@@ -92,7 +78,7 @@ impl SharedClock {
 
 use tauri::Manager;
 
-// Tauri 应用入口文件，注册所有后端命令 Cursor Write It
+// Tauri 搴旂敤鍏ュ彛鏂囦欢锛屾敞鍐屾墍鏈夊悗绔懡浠?Cursor Write It
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -103,6 +89,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             crate::commands::get_media_info,
             crate::commands::ffmpeg_exec,
+            crate::commands::media_task_submit,
+            crate::commands::media_task_has_running,
+            crate::commands::media_task_clear,
             crate::commands::run_self_check,
             crate::commands::video_player_open,
             crate::commands::video_player_play,
@@ -127,7 +116,7 @@ pub fn run() {
             crate::commands::convert_video_file,
             crate::commands::convert_gif_file,
             crate::commands::generate_media_thumbnail,
-            crate::image_converter::convert_image_file,
+            crate::services::convert::image::convert_image_file,
             crate::commands::compress_video_file,
             crate::commands::compress_audio_file,
             crate::commands::compress_image_file,
@@ -137,7 +126,7 @@ pub fn run() {
         .setup(|app| {
             let window = app.get_webview_window("main");
             if let Some(window) = window {
-                // 检查是否设置了远程 URL 环境变量
+                // 妫€鏌ユ槸鍚﹁缃簡杩滅▼ URL 鐜鍙橀噺
                 if let Ok(remote_url) = std::env::var("TAURI_REMOTE_URL") {
                     if !remote_url.is_empty() {
                         log::info!("Loading remote URL: {}", remote_url);
@@ -150,17 +139,17 @@ pub fn run() {
                         }
                     }
                 } else {
-                    // 开发环境或未设置远程 URL，使用默认行为（本地文件或 devUrl）
+                    // 寮€鍙戠幆澧冩垨鏈缃繙绋?URL锛屼娇鐢ㄩ粯璁よ涓猴紙鏈湴鏂囦欢鎴?devUrl锛?
                     log::info!("Using local frontend (devUrl or bundled files)");
                 }
             }
 
-            // 初始化视频播放器状态
+            // 鍒濆鍖栬棰戞挱鏀惧櫒鐘舵€?
             app.manage(std::sync::Mutex::new(
-                None::<crate::video_player::VideoPlayer<crate::events::WindowEmitter>>,
+                None::<crate::services::player::video::VideoPlayer<crate::events::WindowEmitter>>,
             ));
-            // 初始化音频播放器状态
-            app.manage(std::sync::Mutex::new(None::<crate::audio::AudioPlayer<crate::events::WindowEmitter>>));
+            // 鍒濆鍖栭煶棰戞挱鏀惧櫒鐘舵€?
+            app.manage(std::sync::Mutex::new(None::<crate::services::player::audio::AudioPlayer<crate::events::WindowEmitter>>));
 
             log::info!("Tauri application setup completed");
             Ok(())
@@ -168,3 +157,4 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+

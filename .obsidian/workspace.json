@@ -1,0 +1,206 @@
+{
+  "main": {
+    "id": "4c88dcc4d5aba3e0",
+    "type": "split",
+    "children": [
+      {
+        "id": "c88638d79ca7c953",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "945aabc281db3bf9",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "docs/figurex-arch.canvas",
+                "viewState": {
+                  "x": 140,
+                  "y": 510,
+                  "zoom": -0.537819517322013
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "figurex-arch"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "e5d7b98b988cc02a",
+    "type": "split",
+    "children": [
+      {
+        "id": "9fb78db0ac881142",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "89919cd40cef4974",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          },
+          {
+            "id": "f85ebba59b5f6fbe",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "42f12fda4b23784d",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "书签"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "30d73c97c30f70fc",
+    "type": "split",
+    "children": [
+      {
+        "id": "d5e8ad9d3f8f8d1f",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "176402c12698d796",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "docs/figurex-arch.canvas",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "figurex-arch 的反向链接列表"
+            }
+          },
+          {
+            "id": "6e20a504e8a09d0a",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "docs/figurex-arch.canvas",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "figurex-arch 的出链列表"
+            }
+          },
+          {
+            "id": "252ed0e0487b8795",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "602817073d411c63",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          },
+          {
+            "id": "bd59d63b617590f1",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "docs/figurex-arch.canvas",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "figurex-arch 的大纲"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "bases:新建数据库": false
+    }
+  },
+  "active": "945aabc281db3bf9",
+  "lastOpenFiles": [
+    "src-tauri/target/debug/deps/audio_video_kit.pdb",
+    "src-tauri/target/debug/deps/audio_video_kit.exe",
+    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/3rypnlmexfl0fdqv15wki6ht5.o",
+    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/work-products.bin",
+    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/query-cache.bin",
+    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/eidqfkvd5q00274ifabswe2tm.o",
+    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/dep-graph.bin",
+    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/78kjypl0bopkc52emrxorbn7i.o",
+    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/6fuvh3v5dt70jtmzsafoear36.o",
+    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/6e6rlqountacuwdpdm2j20wad.o",
+    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7",
+    "docs/figurex-rust-ffmpeg-queue-arch.canvas",
+    "docs/figurex-arch.canvas",
+    "docs/bilitools-src-tauri-arch.canvas"
+  ]
+}

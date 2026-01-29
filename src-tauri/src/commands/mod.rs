@@ -17,17 +17,38 @@ use tauri::State;
 
 use ffmpeg_next as ffmpeg;
 
-use crate::audio::AudioPlayer;
-use crate::audio_converter::{self, AudioConversionParams};
+use crate::services::player::audio::AudioPlayer;
+use crate::services::convert::audio::{self, AudioConversionParams};
 use crate::media_common;
-use crate::ffmpeg_media_info::{self, MediaDetails};
-use crate::gif_converter;
-use crate::video_player::{PreviewSize, VideoPlayer};
+use crate::services::ffmpeg::media_info::{self, MediaDetails};
+use crate::services::convert::gif;
+use crate::services::player::video::{PreviewSize, VideoPlayer};
 use crate::events::{TaskEmitter, WindowEmitter};
+use crate::task::queue;
+use crate::task::queue::MediaTaskRequest;
 
 #[command]
 pub fn get_detailed_media_info(path: String) -> Result<MediaDetails, String> {
-    ffmpeg_media_info::get_media_details(&path)
+    media_info::get_media_details(&path)
+}
+
+#[command]
+pub fn media_task_submit(
+    app: AppHandle,
+    tasks: Vec<MediaTaskRequest>,
+    _priority: Option<String>,
+) -> Result<usize, String> {
+    queue::submit_tasks(app, tasks)
+}
+
+#[command]
+pub fn media_task_has_running() -> Result<bool, String> {
+    Ok(queue::has_running())
+}
+
+#[command]
+pub fn media_task_clear() -> Result<usize, String> {
+    queue::clear_pending()
 }
 
 #[derive(Serialize)]
@@ -908,7 +929,7 @@ pub fn audio_player_open(
     // 关闭之前的播放器（如果存在）
     if let Ok(mut player) = audio_player_state.lock() {
         if let Some(p) = player.take() {
-            let _ = p.command(crate::video_player::PlayerCommand::Stop);
+            let _ = p.command(crate::services::player::video::PlayerCommand::Stop);
         }
     }
 
@@ -933,7 +954,7 @@ pub fn audio_player_open(
 pub fn audio_player_play(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
     let player = audio_player_state.lock().unwrap();
     if let Some(ref p) = *player {
-        p.command(crate::video_player::PlayerCommand::Play)
+        p.command(crate::services::player::video::PlayerCommand::Play)
             .map_err(|e| format!("播放失败: {}", e))
     } else {
         Err("音频播放器未初始化".to_string())
@@ -944,7 +965,7 @@ pub fn audio_player_play(audio_player_state: State<'_, AudioPlayerState>) -> Res
 pub fn audio_player_pause(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
     let player = audio_player_state.lock().unwrap();
     if let Some(ref p) = *player {
-        p.command(crate::video_player::PlayerCommand::Pause)
+        p.command(crate::services::player::video::PlayerCommand::Pause)
             .map_err(|e| format!("暂停失败: {}", e))
     } else {
         Err("音频播放器未初始化".to_string())
@@ -958,7 +979,7 @@ pub fn audio_player_seek(
 ) -> Result<(), String> {
     let player = audio_player_state.lock().unwrap();
     if let Some(ref p) = *player {
-        p.command(crate::video_player::PlayerCommand::Seek(position))
+        p.command(crate::services::player::video::PlayerCommand::Seek(position))
             .map_err(|e| format!("跳转失败: {}", e))
     } else {
         Err("音频播放器未初始化".to_string())
@@ -969,7 +990,7 @@ pub fn audio_player_seek(
 pub fn audio_player_stop(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
     let mut player = audio_player_state.lock().unwrap();
     if let Some(p) = player.take() {
-        let _ = p.command(crate::video_player::PlayerCommand::Stop);
+        let _ = p.command(crate::services::player::video::PlayerCommand::Stop);
         Ok(())
     } else {
         Err("音频播放器未初始化".to_string())
@@ -1081,7 +1102,7 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
     let output_path = if let Some(path) = args.output_path {
         path
     } else {
-        audio_converter::generate_output_path(&args.input_path, &resolved_format)?
+        audio::generate_output_path(&args.input_path, &resolved_format)?
     };
 
     // 构建转换参数
@@ -1110,7 +1131,7 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
             "audio".to_string(),
         );
 
-        if let Err(e) = audio_converter::convert_audio(emitter.clone(), params) {
+        if let Err(e) = audio::convert_audio(emitter.clone(), params) {
             emitter.emit("error", None, None, Some(e));
         } else {
             // Success event already handled in convert_audio but it uses explicit emit call at end.
@@ -1162,11 +1183,11 @@ pub struct VideoConversionArgs {
     pub audio_channels: Option<u32>,
     pub audio_bit_depth: Option<u32>,
     pub audio_quality: Option<u32>,
-    pub audio_tracks: Option<Vec<crate::video_converter::AudioTrackConfig>>,
-    pub default_audio_params: Option<crate::audio_converter::AudioEncodingParams>,
+    pub audio_tracks: Option<Vec<crate::services::convert::video::AudioTrackConfig>>,
+    pub default_audio_params: Option<crate::services::convert::audio::AudioEncodingParams>,
     pub use_hardware_acceleration: Option<bool>,
     pub use_ultra_fast_speed: Option<bool>,
-    pub watermark: Option<crate::watermark::WatermarkConfig>,
+    pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 #[command]
@@ -1202,7 +1223,7 @@ pub fn convert_video_file(app: AppHandle, args: VideoConversionArgs) -> Result<(
     let task_id = args.task_id.clone();
 
     std::thread::spawn(move || {
-        let params = crate::video_converter::VideoConversionParams {
+        let params = crate::services::convert::video::VideoConversionParams {
             input_path: args.input_path,
             output_path: output_path.clone(),
             format: args.format.or(Some(resolved_format)),
@@ -1237,7 +1258,7 @@ pub fn convert_video_file(app: AppHandle, args: VideoConversionArgs) -> Result<(
             "video".to_string(),
         );
 
-        if let Err(e) = crate::video_converter::convert_video(emitter.clone(), params) {
+        if let Err(e) = crate::services::convert::video::convert_video(emitter.clone(), params) {
             emitter.emit("error", None, None, Some(e));
         } else {
             emitter.emit("complete", Some(100.0), Some(output_path), None);
@@ -1306,7 +1327,7 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
     let task_id = args.task_id.clone();
 
     std::thread::spawn(move || {
-        let params = gif_converter::GifConversionParams {
+        let params = gif::GifConversionParams {
             input_path: args.input_path,
             output_path: output_path.clone(),
             width: args.width,
@@ -1331,7 +1352,7 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
             "image".to_string(),
         );
 
-        if let Err(e) = gif_converter::convert_video_to_gif(emitter.clone(), params) {
+        if let Err(e) = gif::convert_video_to_gif(emitter.clone(), params) {
             emitter.emit("error", None, None, Some(e));
         }
     });
@@ -1343,7 +1364,7 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
 
 #[command]
 pub fn generate_media_thumbnail(path: String) -> Result<Option<String>, String> {
-    crate::thumbnail::generate_thumbnail(&path)
+    crate::services::media_tools::thumbnail::generate_thumbnail(&path)
 }
 
 // ==================== 压缩相关命令 ====================
@@ -1375,7 +1396,7 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
     let task_id = args.task_id.clone();
 
     std::thread::spawn(move || {
-        let params = crate::video_compressor::VideoCompressionParams {
+        let params = crate::services::compress::video::VideoCompressionParams {
             input_path: args.input_path,
             output_path: args.output_path.clone(),
             compression_ratio: args.compression_ratio,
@@ -1401,7 +1422,7 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
         );
 
         if let Err(e) =
-            crate::video_compressor::compress_video_file(emitter.clone(), params)
+            crate::services::compress::video::compress_video_file(emitter.clone(), params)
         {
             emitter.emit("error", None, None, Some(e));
         }
@@ -1433,7 +1454,7 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
     let task_id = args.task_id.clone();
 
     std::thread::spawn(move || {
-        let params = crate::audio_compressor::AudioCompressionParams {
+        let params = crate::services::compress::audio::AudioCompressionParams {
             input_path: args.input_path,
             output_path: args.output_path.clone(),
             compression_ratio: Some(args.compression_ratio),
@@ -1455,7 +1476,7 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
         );
 
         if let Err(e) =
-            crate::audio_compressor::compress_audio_file(emitter.clone(), params)
+            crate::services::compress::audio::compress_audio_file(emitter.clone(), params)
         {
             emitter.emit("error", None, None, Some(e));
         }
@@ -1487,7 +1508,7 @@ pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result
     let task_id = args.task_id.clone();
 
     std::thread::spawn(move || {
-        let params = crate::image_compressor::ImageCompressionParams {
+        let params = crate::services::compress::image::ImageCompressionParams {
             input_path: args.input_path,
             output_path: args.output_path.clone(),
             quality: args.quality,
@@ -1509,7 +1530,7 @@ pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result
         );
 
         if let Err(e) =
-            crate::image_compressor::compress_image_file(emitter.clone(), params)
+            crate::services::compress::image::compress_image_file(emitter.clone(), params)
         {
             emitter.emit("error", None, None, Some(e));
         }
@@ -1529,5 +1550,6 @@ pub struct WriteMetadataArgs {
 
 #[command]
 pub fn write_media_metadata(args: WriteMetadataArgs) -> Result<(), String> {
-    crate::metadata::write_metadata(&args.input_path, &args.output_path, args.metadata)
+    crate::services::media_tools::metadata::write_metadata(&args.input_path, &args.output_path, args.metadata)
 }
+

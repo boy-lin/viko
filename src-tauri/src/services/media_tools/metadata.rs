@@ -1,5 +1,5 @@
-use crate::ffmpeg_media_info::get_media_details;
-use crate::ffmpeg_media_info::MediaDetails;
+﻿use crate::services::ffmpeg::media_info::get_media_details;
+use crate::services::ffmpeg::media_info::MediaDetails;
 use ffmpeg_next as ffmpeg;
 use std::collections::HashMap;
 use std::path::Path;
@@ -65,3 +65,4 @@ pub fn write_metadata(
 
     Ok(())
 }
+

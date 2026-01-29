@@ -9,8 +9,8 @@ use ffmpeg::filter::context::Sink as _;
 use serde::Deserialize;
 
 use crate::media_common;
-use crate::audio_converter::AudioEncodingParams;
-use crate::video_converter_audio::AudioTrackProcessor;
+use crate::services::convert::audio::AudioEncodingParams;
+use crate::services::convert::video_audio::AudioTrackProcessor;
 use crate::events::TaskEmitter;
 
 /// 视频转换参数（全部可选，使用默认值兜底）
@@ -42,7 +42,7 @@ pub struct VideoConversionParams {
     pub audio_encoder: Option<String>,
     pub use_hardware_acceleration: bool,
     pub use_ultra_fast_speed: bool,
-    pub watermark: Option<crate::watermark::WatermarkConfig>,
+    pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -82,7 +82,7 @@ struct ResolvedVideoParams {
     pub audio_tracks: Vec<ResolvedAudioTrack>,
     pub use_hardware_acceleration: bool,
     pub use_ultra_fast_speed: bool,
-    pub watermark: Option<crate::watermark::WatermarkConfig>,
+    pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 fn resolve_audio_tracks(
@@ -950,3 +950,4 @@ fn generate_black_video_frames(
 
     Ok(())
 }
+

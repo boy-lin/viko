@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::fs;
 use tauri::Emitter;
+use tauri::{AppHandle, Manager};
 
 #[derive(Serialize, Clone)]
 pub struct MediaTaskEvent {
@@ -60,6 +61,18 @@ pub struct WindowEmitter {
     pub task_id: String,
     pub task_type: String, // "convert" | "compress"
     pub media_type: String, // "video" | "audio" | "image"
+}
+
+pub fn window_emitter(
+    app: &AppHandle,
+    task_id: String,
+    task_type: String,
+    media_type: String,
+) -> Result<WindowEmitter, String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or("Main window not found")?;
+    Ok(WindowEmitter::new(window, task_id, task_type, media_type))
 }
 
 impl WindowEmitter {
