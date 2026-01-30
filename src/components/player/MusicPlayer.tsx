@@ -1,14 +1,7 @@
 // 现代化音乐播放器组件
-// 参考: https://www.figma.com/design/xjgaKGqGvpFTaBRhI977hL/Player-de-M%C3%BAsica-%E2%80%A2-Desafio-01--Community-?node-id=1-82
-
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
 import { bridge } from "@/lib/bridge";
 import { PlayIcon } from "@/components/icons/play";
 import { PauseIcon } from "@/components/icons/pause";

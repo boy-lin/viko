@@ -30,7 +30,7 @@ import { UploadPanel } from "./UploadPanel";
 import { useConverterStore } from "@/stores/converterStore";
 import { ConversionConfig, ConverterTask } from "@/types/converter";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
-import { formatFileSize, getFormatByPath } from "@/lib/file";
+import { formatFileSize } from "@/lib/file";
 import { formatDuration } from "@/lib/time";
 import { ConversionSettingsDialog } from "./SettingsDialog";
 

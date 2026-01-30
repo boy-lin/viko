@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";

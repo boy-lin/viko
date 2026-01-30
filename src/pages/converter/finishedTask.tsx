@@ -28,9 +28,8 @@ import {
 import { useConverterStore } from "@/stores/converterStore";
 import { ConverterTask } from "@/types/converter";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
-import { formatFileSize, getFormatByPath } from "@/lib/file";
+import { formatFileSize } from "@/lib/file";
 import { formatDuration } from "@/lib/time";
-import { isVideoFormat } from "@/data/formats";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
 interface FinishedTaskProps {

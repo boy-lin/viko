@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Zap, Info } from "lucide-react";
+import { Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,

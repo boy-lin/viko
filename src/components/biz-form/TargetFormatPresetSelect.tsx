@@ -3,7 +3,7 @@ import { FormatSelector, FormatSelectorValue } from "./FormatSelector";
 
 interface TargetFormatPresetSelectProps {
   value?: string;
-  onValueChange?: (value: string) => void;
+  onValueChange?: (formatType: string, updates: FormatSelectorValue) => void;
   className?: string;
 }
 
@@ -12,10 +12,10 @@ export const TargetFormatPresetSelect: React.FC<TargetFormatPresetSelectProps> =
   onValueChange,
   className,
 }) => {
-  const handleValueChange = (updates: FormatSelectorValue) => {
+  const handleValueChange = (formatType: string, updates: FormatSelectorValue) => {
     if (onValueChange) {
       // Extract the format value from updates
-      onValueChange(updates.outputFormat);
+      onValueChange(formatType, updates);
     }
   };
 

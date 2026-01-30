@@ -28,10 +28,9 @@ import {
 } from "@/components/ui/table";
 import { UploadPanel } from "./UploadPanel";
 import { useCompressorStore } from "@/stores/compressorStore";
-import { CompressionConfig, ConverterTask } from "@/types/converter";
+import { ConverterTask } from "@/types/converter";
 import { MediaThumbnail } from "../../components/MediaThumbnail";
-import { formatFileSize, getFormatByPath } from "@/lib/file";
-import { isVideoFormat, isAudioFormat, isImageFormat } from "@/data/formats";
+import { formatFileSize } from "@/lib/file";
 import { CompressionSettingsDialog } from "./CompressionSettingsDialog";
 
 interface ConvertingTaskProps {

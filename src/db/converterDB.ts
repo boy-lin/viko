@@ -32,7 +32,7 @@ class ConverterDB {
 
   constructor() {
     this.dbPromise = openDB<FigureXDB>(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion, newVersion, transaction) {
+      upgrade(db, oldVersion, _, transaction) {
         // 删除旧表（如果存在）
         const oldStoreName = "converter_tasks" as any;
         if (db.objectStoreNames.contains(oldStoreName)) {

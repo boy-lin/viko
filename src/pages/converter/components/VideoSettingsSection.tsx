@@ -8,7 +8,6 @@ import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
 import { getVideoEncoderOptions } from "@/data/capabilities";
-import { SelectOption } from "@/types/options";
 
 interface VideoSettingsSectionProps {
   video: VideoTrackConfig;
@@ -96,13 +95,13 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
         />
 
         <VideoFrameRateSelect
-          value={video.frameRate}
+          value={video.frameRate ?? "auto"}
           onValueChange={(v) => onVideoChange({ ...video, frameRate: v })}
           options={filteredFrameRates}
         />
 
         <VideoBitrateSelect
-          value={video.bitrate}
+          value={video.bitrate ?? "auto"}
           onValueChange={(v) => onVideoChange({ ...video, bitrate: v })}
           options={encoderOptions.bitrates}
         />

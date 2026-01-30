@@ -98,7 +98,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
               <Checkbox
                 id={`audio-check-${index}`}
                 checked={true}
-                onCheckedChange={(c) => {
+                onCheckedChange={() => {
                   // TODO: Logic to remove/disable track
                 }}
               />

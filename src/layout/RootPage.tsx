@@ -13,7 +13,6 @@ type SelfCheckResult = {
 };
 
 const Layout: React.FC = () => {
-  const [selfCheckVisible, setSelfCheckVisible] = useState(false);
   const [, setChecksPassed] = useState(false);
 
   useEffect(() => {
@@ -21,7 +20,6 @@ const Layout: React.FC = () => {
     if (!bridge.isTauriEvn()) {
       // 普通浏览器环境，跳过自检
       setChecksPassed(true);
-      setSelfCheckVisible(false);
       return;
     }
 
@@ -32,7 +30,6 @@ const Layout: React.FC = () => {
       } catch (err) {
         console.error("self check failed", err);
         setChecksPassed(false);
-        setSelfCheckVisible(true);
       }
     };
     check();

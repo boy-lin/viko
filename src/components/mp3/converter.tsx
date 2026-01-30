@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -58,10 +58,8 @@ export function Mp3Converter() {
     sampleRate: "44100",
   });
   const [isConverting, setIsConverting] = useState(false);
-  const [conversionComplete, setConversionComplete] = useState(false);
   const [conversionProgress, setConversionProgress] = useState(0);
   const [outputPath, setOutputPath] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 监听转换进度事件
   useEffect(() => {
@@ -79,7 +77,6 @@ export function Mp3Converter() {
       "audio-conversion-complete",
       (event) => {
         setIsConverting(false);
-        setConversionComplete(true);
         setCurrentStep(3);
         if (event.payload) {
           setOutputPath(event.payload);
@@ -180,7 +177,6 @@ export function Mp3Converter() {
 
     setIsConverting(true);
     setConversionProgress(0);
-    setConversionComplete(false);
     setOutputPath(null);
 
     try {
@@ -221,7 +217,7 @@ export function Mp3Converter() {
           className="absolute top-5 left-0 h-0.5 bg-primary transition-all duration-500 -z-10"
           style={{ width: `${((currentStep - 1) / 2) * 100}%` }}
         />
-        {steps.map((step, index) => {
+        {steps.map((step, _) => {
           const Icon = step.icon;
           const isActive = currentStep === step.number;
           const isCompleted = currentStep > step.number;
@@ -623,7 +619,6 @@ export function Mp3Converter() {
                     setCurrentStep(1);
                     setFile(null);
                     setFileInfo(null);
-                    setConversionComplete(false);
                     setOutputPath(null);
                   }}
                   className="font-semibold border-2"

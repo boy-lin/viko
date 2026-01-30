@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { useSession } from '@/lib/auth-client';
 import { useUserStore } from '@/stores/user';
 import { Loader2 } from 'lucide-react';
@@ -7,7 +7,6 @@ import { Loader2 } from 'lucide-react';
 export default function AuthLayout() {
     const { data: session, isPending } = useSession();
     const { userInfo, fetchUserInfo } = useUserStore();
-    const location = useLocation();
 
     useEffect(() => {
         if (session?.user && !userInfo) {

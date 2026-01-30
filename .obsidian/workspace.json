@@ -11,17 +11,10 @@
             "id": "945aabc281db3bf9",
             "type": "leaf",
             "state": {
-              "type": "canvas",
-              "state": {
-                "file": "docs/figurex-arch.canvas",
-                "viewState": {
-                  "x": 140,
-                  "y": 510,
-                  "zoom": -0.537819517322013
-                }
-              },
-              "icon": "lucide-layout-dashboard",
-              "title": "figurex-arch"
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "新标签页"
             }
           }
         ]
@@ -188,19 +181,44 @@
   },
   "active": "945aabc281db3bf9",
   "lastOpenFiles": [
-    "src-tauri/target/debug/deps/audio_video_kit.pdb",
-    "src-tauri/target/debug/deps/audio_video_kit.exe",
-    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/3rypnlmexfl0fdqv15wki6ht5.o",
-    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/work-products.bin",
-    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/query-cache.bin",
-    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/eidqfkvd5q00274ifabswe2tm.o",
-    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/dep-graph.bin",
-    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/78kjypl0bopkc52emrxorbn7i.o",
-    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/6fuvh3v5dt70jtmzsafoear36.o",
-    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7/6e6rlqountacuwdpdm2j20wad.o",
-    "src-tauri/target/debug/incremental/audio_video_kit-31al42jvty87b/s-hfauiwgeui-02k7gh7-d3dytwikuah562u1a196et6x7",
-    "docs/figurex-rust-ffmpeg-queue-arch.canvas",
+    "dist/index.html",
+    "dist/assets/browser-ponyfill-CYRezPyr.js",
+    "dist/assets/index-DQZ4PMHL.js",
+    "dist/assets/index-DfPT9b1f.css",
+    "dist/assets/av-downloader-DliIKWD6.jpg",
+    "dist/assets/av-compressor-BeZbAomD.jpg",
+    "dist/assets/av-converter-8Fa43erK.jpg",
+    "dist/assets",
+    "dist/vite.svg",
+    "dist/tauri.svg",
+    "dist/logo.png",
+    "dist/locales/zh/common.json",
+    "dist/locales/en/common.json",
+    "dist/locales/zh",
+    "dist/locales/en",
+    "dist/locales",
+    "dist/ios/AppIcon.appiconset/icon-83.5@2x.png",
+    "dist/ios/AppIcon.appiconset/icon-76@2x.png",
+    "dist/ios/AppIcon.appiconset/icon-68@2x.png",
+    "dist/ios/AppIcon.appiconset/icon-64@3x.png",
+    "dist/ios/AppIcon.appiconset/Contents.json",
+    "docs/TROUBLESHOOTING_TRANSCODE.md",
+    "docs/TAURI_DRAG_DROP.md",
+    "docs/SEEK_AUDIO_DEBUG.md",
+    "docs/SAMPLES_PROCESSED_VS_CURRENT_POS.md",
+    "docs/PTS_VS_CURRENT_POS_ANALYSIS.md",
+    "docs/FFPROBE_COMMANDS.md",
+    "docs/BUFFER_MANAGEMENT_DEBUG.md",
+    "docs/AV_SYNC_ANALYSIS.md",
+    "docs/AUDIO_PLAYER_LEARNING_GUIDE.md",
+    "docs/AUDIO_PLAYER_DEBUG.md",
+    "docs/AUDIO_PLAYBACK_FLOW.md",
+    "docs/AUDIO_INCOMPLETE_PLAYBACK_DEBUG.md",
+    "docs/AUDIO_EARLY_END_ANALYSIS.md",
+    "docs/ai/init.md",
+    "docs/ai/imp.md",
     "docs/figurex-arch.canvas",
+    "docs/figurex-rust-ffmpeg-queue-arch.canvas",
     "docs/bilitools-src-tauri-arch.canvas"
   ]
 }
