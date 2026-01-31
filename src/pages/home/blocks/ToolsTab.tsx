@@ -1,114 +1,71 @@
-import {
-  Search,
-  Flame,
-} from "lucide-react"
+import { Search, Flame, Check, Clock } from "lucide-react"
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
+import { NewFeatures } from './NewFeatures'
+import { RecentFilesList } from "./RecentFilesList"
+import { useTranslation } from "react-i18next"
+import { CommonFeatures } from "./CommonFeatures"
+import { EmptyState } from "@/components/ui/empty-state"
 
 const tabs = [
   {
     key: "new",
-    label: "新功能",
+    label: "tabs.new",
     icon: Flame,
-    active: true,
-  },
-  {
-    key: "video",
-    label: "Video",
   },
   {
     key: "common",
-    label: "常用功能",
+    label: "tabs.common",
+    icon: Check,
   },
   {
     key: "recent",
-    label: "最近文件",
+    label: "tabs.recent",
+    icon: Clock,
   },
 ]
-
-const tools = [
-  {
-    id: 1,
-    title: "Compressor",
-    description: "Batch compress video and audio files without quality loss.",
-    image: "/mountain-peak-sunset.jpg",
-    badge: "New",
-    icon: "200M → 20M",
-  },
-  {
-    id: 2,
-    title: "Screen Recorder",
-    description: "1:1 quality screen recorder with lots of options.",
-    image: "/purple-mountain-landscape.jpg",
-    badge: "New",
-    icon: "⏺",
-  },
-  {
-    id: 3,
-    title: "Video Enhancer",
-    description: "Automatically enhance videos for clearer quality with fluid motions.",
-    image: "/pink-mountain-sunset.jpg",
-    badge: "New",
-    ai: true,
-  },
-  {
-    id: 4,
-    title: "Video Editor",
-    description: "Batch trim, crop, speed and add watermarks to videos.",
-    image: "/mountain-landscape-blue-sky.jpg",
-    badge: "New",
-  },
-  {
-    id: 5,
-    title: "Subtitle Editor",
-    description: "Automatically generate, translate, and edit subtitles with ease.",
-    image: "/ocean-sunset-beach.png",
-    badge: "New",
-    ai: true,
-  },
-  {
-    id: 6,
-    title: "Merger",
-    description: "Merge multiple video or audio files into one.",
-    image: "/orange-mountain-landscape.jpg",
-    badge: null,
-  },
-  {
-    id: 7,
-    title: "Cutter",
-    description: "Precisely trim, split, and delete video and audio segments.",
-    image: "/pink-mountain-night.jpg",
-    badge: null,
-  },
-  {
-    id: 8,
-    title: "Speech-to-Text",
-    description: "Batch convert video or audio files to text.",
-    image: "/ocean-beach-sunset.png",
-    badge: "New",
-    ai: true,
-  },
-]
-
 
 export function ToolsTab() {
+  const [activeKey, setActiveKey] = useState(tabs[0].key)
+  const { t } = useTranslation("home")
+
+  const renderContainer = (key: string) => {
+    switch (key) {
+      case 'new':
+        return <NewFeatures />
+      case 'common':
+        return <CommonFeatures />
+      case 'recent':
+        return <RecentFilesList />
+      default:
+        return <div className="grid grid-cols-3 gap-4 lg:grid-cols-4">
+          <EmptyState />
+        </div>
+    }
+
+  }
   return (
-    <div>
+    <div className="space-y-6">
       {/* Tabs & Search */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-6">
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              className={`flex items-center gap-2 pb-2 font-medium ${
-                tab.active
-                  ? "border-b-2 border-purple-600 text-purple-600"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`relative cursor-pointer whitespace-nowrap flex items-center gap-2 pb-0 font-medium transition-colors ${activeKey === tab.key
+                ? "text-indigo-600"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
+              onClick={() => setActiveKey(tab.key)}
             >
               {tab.icon && <tab.icon className="w-5 h-5" />}
-              {tab.label}
+              {t(tab.label)}
+              <span
+                className={`absolute left-1/2 -bottom-1 h-0.5 w-full -translate-x-1/2 rounded-full transition-all ${activeKey === tab.key
+                  ? "opacity-100 bg-gradient-to-r from-[#8B5CF6] via-[#6366F1] to-[#3B82F6]"
+                  : "opacity-0"
+                  }`}
+              />
             </button>
           ))}
         </div>
@@ -117,46 +74,15 @@ export function ToolsTab() {
             className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground`}
           />
           <Input
-            placeholder="Search features by name or keyword"
-            className={`pl-10 bg-background border-border placeholder:text-muted-foreground`}
+            placeholder={t("searchPlaceholder")}
+            className={`pl-10 bg-white border-border placeholder:text-muted-foreground`}
           />
         </div>
       </div>
 
       {/* Tools Grid */}
-      <div className="grid grid-cols-4 gap-4">
-        {tools.map((tool) => (
-          <Card
-            key={tool.id}
-            className={`group hover:shadow-lg transition-shadow cursor-pointer overflow-hidden bg-background border-border`}
-          >
-            <div className="relative">
-              <img
-                src={tool.image || "/placeholder.svg"}
-                alt={tool.title}
-                className="w-full h-40 object-cover"
-              />
-              {tool.badge && (
-                <Badge className="absolute top-2 right-2 bg-orange-500 hover:bg-orange-600 text-white">
-                  {tool.badge}
-                </Badge>
-              )}
-              {tool.icon && (
-                <div className="absolute inset-0 flex items-center justify-center text-white text-2xl font-bold">
-                  {tool.icon}
-                </div>
-              )}
-            </div>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                  <h3 className={`font-semibold text-foreground`}>{tool.title}</h3>
-                {tool.ai && <Badge className="bg-purple-600 hover:bg-purple-700 text-white text-xs">AI</Badge>}
-              </div>
-              <p className={`text-sm text-muted-foreground`}>{tool.description}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+
+      {renderContainer(activeKey)}
     </div>
   );
 }

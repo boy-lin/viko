@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
 
 interface HardwareSupport {
   h264_hardware: boolean;
@@ -72,15 +73,15 @@ export const HighSpeedConversionBadge: React.FC<
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <div
+        <Button variant="secondary" size="icon"
           className={cn(
-            "bg-orange-50 text-orange-500 flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer hover:bg-orange-100 transition-colors",
+            "w-auto h-9 bg-orange-50 text-orange-500 flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer hover:bg-orange-100 transition-colors",
             className
           )}
         >
           <Zap className="w-4 h-4" fill="currentColor" />
           {t("acceleration.badge_high")}
-        </div>
+        </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-4" align="end">
         <div className="space-y-4">
@@ -89,15 +90,16 @@ export const HighSpeedConversionBadge: React.FC<
               <Zap className="w-4 h-4 text-orange-500" fill="currentColor" />
               {t("acceleration.title")}
             </h4>
-            <p className="text-sm text-muted-foreground">
+            {/* <p className="text-sm text-muted-foreground">
               {t("acceleration.description")}
-            </p>
+            </p> */}
           </div>
 
           <div className="space-y-4">
             {/* Ultra-fast Speed Option */}
             <div className="flex items-start space-x-2">
               <Checkbox
+                className="rounded-[4px] cursor-pointer"
                 id="ultra-fast"
                 checked={useUltraFastSpeed}
                 onCheckedChange={(checked) => toggleUltraFastSpeed(!!checked)}
@@ -119,6 +121,7 @@ export const HighSpeedConversionBadge: React.FC<
             <div className="flex items-start space-x-2">
               <Checkbox
                 id="gpu-accel"
+                className="rounded-[4px] cursor-pointer"
                 checked={useHardwareAcceleration}
                 onCheckedChange={(checked) =>
                   toggleHardwareAcceleration(!!checked)

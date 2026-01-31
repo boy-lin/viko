@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use audio_video_kit_lib::audio_compressor::{compress_audio_file, AudioCompressionParams};
+    use audio_video_kit_lib::services::compress::audio::{
+        compress_audio_file, AudioCompressionParams,
+    };
     use audio_video_kit_lib::events::MockEmitter;
     use std::fs;
     use std::path::PathBuf;

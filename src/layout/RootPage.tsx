@@ -59,7 +59,6 @@ const Layout: React.FC = () => {
           <Outlet />
         </div>
       </main>
-      <Toaster />
     </div>
   );
 };

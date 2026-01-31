@@ -31,6 +31,7 @@ import {
   defaultAudioCompressionConfig,
   defaultImageCompressionConfig,
 } from "@/stores/compressorStore";
+import { compressorQueue } from "@/lib/bridge";
 
 interface CompressionSettingsDialogProps {
   taskConfig?: CompressionConfig;
@@ -54,6 +55,12 @@ export const CompressionSettingsDialog: React.FC<
   const videoConfig = useCompressorStore((state) => state.videoConfig);
   const audioConfig = useCompressorStore((state) => state.audioConfig);
   const imageConfig = useCompressorStore((state) => state.imageConfig);
+  const compressingTasks = useCompressorStore(
+    (state) => state.compressingTasks
+  );
+  const updateUnfinishedTaskConfig = useCompressorStore(
+    (state) => state.updateUnfinishedTaskConfig
+  );
   const isGlobalMode = !taskConfig;
 
   const [taskDraft, setTaskDraft] = useState<CompressionConfig>(() => {
@@ -67,10 +74,44 @@ export const CompressionSettingsDialog: React.FC<
     }
   }, [taskConfig]);
 
-  const handleSave = () => {
-    if (!isGlobalMode && onTaskConfigChange) {
-      onTaskConfigChange(taskDraft);
+  const activeTab = isGlobalMode
+    ? (compressionScope === "general" ? "video" : compressionScope)
+    : taskDraft.type || "video";
+
+  const handleSave = async () => {
+    if (!isGlobalMode) {
+      if (onTaskConfigChange) {
+        onTaskConfigChange(taskDraft);
+      }
+      onOpenChange(false);
+      return;
     }
+
+    const targetType = activeTab as "video" | "audio" | "image";
+    const getConfigByType = (type: "video" | "audio" | "image") => {
+      if (type === "video") return videoConfig;
+      if (type === "audio") return audioConfig;
+      return imageConfig;
+    };
+    const pendingTasks = compressingTasks.filter(
+      (task) => task.compressionConfig?.type === targetType
+    );
+
+    if (pendingTasks.length > 0) {
+      for (const task of pendingTasks) {
+        await updateUnfinishedTaskConfig(task.id, {
+          ...getConfigByType(targetType),
+          type: targetType,
+        });
+      }
+      const tasks = useCompressorStore
+        .getState()
+        .compressingTasks.filter(
+          (task) => task.compressionConfig?.type === targetType
+        );
+      await compressorQueue.add(tasks);
+    }
+
     onOpenChange(false);
   };
 
@@ -199,24 +240,21 @@ export const CompressionSettingsDialog: React.FC<
     );
   };
 
-  const activeTab = isGlobalMode
-    ? compressionScope
-    : taskDraft.type || "video";
   const currentVideoConfig = isGlobalMode
     ? videoConfig
     : (taskDraft.type === "video"
-        ? taskDraft
-        : defaultVideoCompressionConfig);
+      ? taskDraft
+      : defaultVideoCompressionConfig);
   const currentAudioConfig = isGlobalMode
     ? audioConfig
     : (taskDraft.type === "audio"
-        ? taskDraft
-        : defaultAudioCompressionConfig);
+      ? taskDraft
+      : defaultAudioCompressionConfig);
   const currentImageConfig = isGlobalMode
     ? imageConfig
     : (taskDraft.type === "image"
-        ? taskDraft
-        : defaultImageCompressionConfig);
+      ? taskDraft
+      : defaultImageCompressionConfig);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -225,23 +263,18 @@ export const CompressionSettingsDialog: React.FC<
           <div className="space-y-1">
             <DialogTitle>压缩设置</DialogTitle>
             <DialogDescription>
-              {isGlobalMode ? "通用配置可应用到全部类型" : "仅修改当前任务的压缩参数"}
+              {isGlobalMode ? "配置压缩参数并立即开始压缩" : "仅修改当前任务的压缩参数"}
             </DialogDescription>
           </div>
           <Tabs
             value={activeTab}
             onValueChange={(v) => {
               if (isGlobalMode) {
-                setCompressionScope(v as "general" | "video" | "audio" | "image");
+                setCompressionScope(v as "video" | "audio" | "image");
               }
             }}
           >
             <TabsList className="h-7 p-0.5">
-              {isGlobalMode && (
-                <TabsTrigger value="general" className="px-2 py-0.5 text-xs">
-                  通用
-                </TabsTrigger>
-              )}
               <TabsTrigger
                 value="video"
                 className="px-2 py-0.5 text-xs"
@@ -268,31 +301,6 @@ export const CompressionSettingsDialog: React.FC<
         </DialogHeader>
 
         <div className="space-y-6 py-4 px-4">
-          {activeTab === "general" && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  通用压缩强度: {videoConfig.compressionRatio}%
-                </label>
-                <Slider
-                  value={[videoConfig.compressionRatio]}
-                  onValueChange={(value) => {
-                    handleVideoCompressionChange(value);
-                    handleAudioCompressionChange(value);
-                    handleImageQualityChange(value);
-                  }}
-                  min={10}
-                  max={100}
-                  step={5}
-                  className="w-full"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  视频/音频按压缩百分比，图片按质量百分比同步调整
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Video Section */}
           {activeTab === "video" && (
             <div className="space-y-4">
@@ -313,27 +321,6 @@ export const CompressionSettingsDialog: React.FC<
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2 col-span-2">
-                  <Label>缩放大小</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      type="number"
-                      placeholder="宽度"
-                      value={currentVideoConfig.width ?? ""}
-                      onChange={(e) =>
-                        updateVideoConfig({ width: parseOptionalInt(e.target.value) })
-                      }
-                    />
-                    <Input
-                      type="number"
-                      placeholder="高度"
-                      value={currentVideoConfig.height ?? ""}
-                      onChange={(e) =>
-                        updateVideoConfig({ height: parseOptionalInt(e.target.value) })
-                      }
-                    />
-                  </div>
-                </div>
                 {renderSelect(
                   "码率 (kbps)",
                   currentVideoConfig.bitrate,
@@ -562,12 +549,6 @@ export const CompressionSettingsDialog: React.FC<
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>输出格式</Label>
-                  <div className="text-xs text-muted-foreground">
-                    压缩不改变格式，如需修改格式请使用转码
-                  </div>
-                </div>
                 {renderSelect(
                   "颜色模式",
                   currentImageConfig.colorMode,
@@ -578,27 +559,6 @@ export const CompressionSettingsDialog: React.FC<
                       colorMode: typeof val === "string" ? val : undefined,
                     })
                 )}
-                <div className="space-y-2 col-span-2">
-                  <Label>缩放大小</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      type="number"
-                      placeholder="宽度"
-                      value={currentImageConfig.width ?? ""}
-                      onChange={(e) =>
-                        updateImageConfig({ width: parseOptionalInt(e.target.value) })
-                      }
-                    />
-                    <Input
-                      type="number"
-                      placeholder="高度"
-                      value={currentImageConfig.height ?? ""}
-                      onChange={(e) =>
-                        updateImageConfig({ height: parseOptionalInt(e.target.value) })
-                      }
-                    />
-                  </div>
-                </div>
                 {renderSelect(
                   "DPI",
                   currentImageConfig.dpi,
@@ -646,7 +606,11 @@ export const CompressionSettingsDialog: React.FC<
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
-          <Button onClick={handleSave}>保存</Button>
+          <Button onClick={handleSave}>
+            {isGlobalMode
+              ? `压缩全部${activeTab === "video" ? "视频" : activeTab === "audio" ? "音频" : "图片"}`
+              : "保存"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

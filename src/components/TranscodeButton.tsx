@@ -79,7 +79,6 @@ const TranscodeButton: React.FC<Props> = ({
         format: config.format,
       });
 
-      await bridge.invoke("ffmpeg_exec", { ffmpegArgs });
     } catch (err: any) {
       const msg = err?.message || "转码失败";
       console.error(msg);

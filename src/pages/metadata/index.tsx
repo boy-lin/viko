@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
@@ -7,11 +7,37 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { FileText, Save, Upload, AlertCircle, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { bridge } from "@/lib/bridge";
+import { MediaDetails } from "@/types/converter";
+import { AUDIO_FORMATS, VIDEO_FORMATS } from "@/data/formats";
+import { MediaThumbnail } from "@/components/MediaThumbnail";
+import { useTranslation } from "react-i18next";
 
-interface Metadata {
-    [key: string]: string;
+type MediaType = "audio" | "video" | "other";
+
+const COMMON_FIELDS_BY_TYPE: Record<MediaType, string[]> = {
+    audio: ["title", "artist", "album", "album_artist", "genre", "track", "date", "comment", "copyright"],
+    video: ["title", "artist", "album", "genre", "date", "comment", "encoder", "language"],
+    other: ["title", "artist", "album", "comment", "date"],
+};
+
+function detectMediaType(details: MediaDetails | null): MediaType {
+    if (!details) return "other";
+    const hasVideo = details.streams?.some((s) => s.codec_type === "video");
+    const hasAudio = details.streams?.some((s) => s.codec_type === "audio");
+    if (hasVideo) return "video";
+    if (hasAudio) return "audio";
+    return "other";
 }
+
+type Metadata = Record<string, string>;
+
+type MetadataEditorProps = {
+    mediaType: MediaType;
+    metadata: Metadata;
+    streamTags: Record<string, string>[];
+    onChange: (key: string, value: string) => void;
+};
 
 interface FileInfo {
     path: string;
@@ -19,17 +45,181 @@ interface FileInfo {
     size: number;
 }
 
+const CommonFieldsForm = ({
+    fields,
+    metadata,
+    onChange,
+    t,
+}: {
+    fields: string[];
+    metadata: Metadata;
+    onChange: MetadataEditorProps["onChange"];
+    t: ReturnType<typeof useTranslation>["t"];
+}) => (
+    <div className="space-y-4">
+        {fields.map((field) => {
+            const displayField = field.replace(/_/g, " ");
+            return (
+                <div key={field} className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor={field} className="text-right capitalize">
+                        {t(`field.${field}`, displayField)}
+                    </Label>
+                    <Input
+                        id={field}
+                        value={metadata[field] || ""}
+                        onChange={(e) => onChange(field, e.target.value)}
+                        className="col-span-3"
+                        placeholder={t("enterField", { field: displayField })}
+                    />
+                </div>
+            );
+        })}
+    </div>
+);
+
+const AdvancedFieldsForm = ({
+    metadata,
+    onChange,
+    t,
+}: {
+    metadata: Metadata;
+    onChange: MetadataEditorProps["onChange"];
+    t: ReturnType<typeof useTranslation>["t"];
+}) => (
+    <div className="grid gap-4">
+        {Object.entries(metadata).map(([key, value]) => (
+            <div key={key} className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor={`adv-${key}`} className="text-right font-mono text-xs truncate" title={key}>
+                    {key}
+                </Label>
+                <Input
+                    id={`adv-${key}`}
+                    value={value}
+                    onChange={(e) => onChange(key, e.target.value)}
+                    className="col-span-3"
+                />
+            </div>
+        ))}
+        <div className="border-t pt-4 mt-4">
+            <p className="text-sm text-muted-foreground text-center">
+                {t("advancedHint")}
+            </p>
+        </div>
+    </div>
+);
+
+const StreamTagsPanel = ({ streamTags, t }: { streamTags: Record<string, string>[]; t: ReturnType<typeof useTranslation>["t"]; }) => (
+    <div className="space-y-4">
+        {streamTags.length === 0 && (
+            <p className="text-sm text-muted-foreground">{t("noStreamTags")}</p>
+        )}
+        {streamTags.map((tags, idx) => (
+            <div key={`stream-${idx}`} className="rounded-lg border p-3 space-y-2">
+                <div className="text-sm font-medium text-foreground">{t("streamLabel", { index: idx + 1 })}</div>
+                {Object.keys(tags).length === 0 && (
+                    <p className="text-xs text-muted-foreground">{t("noTags")}</p>
+                )}
+                {Object.entries(tags).map(([k, v]) => (
+                    <div key={k} className="flex items-center gap-3">
+                        <span className="text-xs font-mono text-muted-foreground w-32 truncate" title={k}>{k}</span>
+                        <span className="text-sm text-foreground break-all">{v}</span>
+                    </div>
+                ))}
+            </div>
+        ))}
+    </div>
+);
+
+const AccordionSection = ({
+    title,
+    children,
+    defaultOpen = false,
+    expandLabel,
+    collapseLabel,
+}: {
+    title: string;
+    children: React.ReactNode;
+    defaultOpen?: boolean;
+    expandLabel: string;
+    collapseLabel: string;
+}) => {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+        <div className="border rounded-lg overflow-hidden">
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-muted/60 hover:bg-muted transition text-sm font-medium"
+            >
+                <span>{title}</span>
+                <span className="text-xs text-muted-foreground">{open ? collapseLabel : expandLabel}</span>
+            </button>
+            {open && <div className="p-4 space-y-3 bg-background">{children}</div>}
+        </div>
+    );
+};
+
+const MetadataEditorBase = ({
+    mediaType,
+    metadata,
+    streamTags,
+    onChange,
+    t,
+}: MetadataEditorProps & { t: ReturnType<typeof useTranslation>["t"] }) => {
+    const fields = COMMON_FIELDS_BY_TYPE[mediaType];
+    const showStreams = mediaType === "audio" || mediaType === "video";
+    const expandLabel = t("expand");
+    const collapseLabel = t("collapse");
+    return (
+        <div className="space-y-4">
+            <AccordionSection title={t("commonSection")} defaultOpen expandLabel={expandLabel} collapseLabel={collapseLabel}>
+                <CommonFieldsForm fields={fields} metadata={metadata} onChange={onChange} t={t} />
+            </AccordionSection>
+
+            <AccordionSection title={t("allSection")} expandLabel={expandLabel} collapseLabel={collapseLabel}>
+                <AdvancedFieldsForm metadata={metadata} onChange={onChange} t={t} />
+            </AccordionSection>
+
+            {showStreams && (
+                <AccordionSection title={t("streamSection")} expandLabel={expandLabel} collapseLabel={collapseLabel}>
+                    <StreamTagsPanel streamTags={streamTags} t={t} />
+                </AccordionSection>
+            )}
+        </div>
+    );
+};
+
+const AudioMetadataEditor = (props: Omit<MetadataEditorProps, "mediaType"> & { t: ReturnType<typeof useTranslation>["t"] }) => (
+    <MetadataEditorBase {...props} mediaType="audio" />
+);
+
+const VideoMetadataEditor = (props: Omit<MetadataEditorProps, "mediaType"> & { t: ReturnType<typeof useTranslation>["t"] }) => (
+    <MetadataEditorBase {...props} mediaType="video" />
+);
+
+const GenericMetadataEditor = ({ mediaType, ...rest }: MetadataEditorProps & { t: ReturnType<typeof useTranslation>["t"] }) => (
+    <MetadataEditorBase {...rest} mediaType={mediaType} />
+);
+
 export default function MetadataEditorPage() {
     const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
     const [metadata, setMetadata] = useState<Metadata>({});
+    const [streamTags, setStreamTags] = useState<Record<string, string>[]>([]);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [details, setDetails] = useState<MediaDetails | null>(null);
+    const [thumbnail, setThumbnail] = useState<string | null>(null);
+    const mediaType = useMemo(() => detectMediaType(details), [details]);
+    const { t } = useTranslation("metadata");
 
     const handleSelectFile = async () => {
         try {
             const selected = await open({
                 multiple: false,
-                filters: [{ name: "Media Files", extensions: ["mp4", "mkv", "mp3", "m4a", "mov", "avi", "flv"] }],
+                filters: [{
+                    name: "Media Files",
+                    extensions: Array.from([...AUDIO_FORMATS, ...VIDEO_FORMATS].map(format => format.toLowerCase()))
+                }],
             });
 
             if (selected && typeof selected === "string") {
@@ -37,18 +227,22 @@ export default function MetadataEditorPage() {
                 setMessage(null);
                 try {
                     // Get file info and initial metadata
-                    const details: any = await invoke("get_detailed_media_info", { path: selected });
+                    const details = await bridge.getMediaDetails(selected);
+                    setDetails(details);
                     setFileInfo({
                         path: selected,
-                        format: details.format?.format_name || "unknown",
-                        size: details.format?.size ? parseInt(details.format.size) : 0,
+                        format: details.format,
+                        size: details.size || 0,
                     });
 
-                    // Extract existing tags
-                    const tags = details.format?.tags || {};
+                    const tags = details.tags || {};
                     setMetadata(tags);
+                    setStreamTags(details.stream_tags || []);
+
+                    // MediaThumbnail handles its own thumbnail fetching, keep legacy state null
+                    setThumbnail(null);
                 } catch (e: any) {
-                    setMessage({ type: "error", text: `Failed to load file info: ${e}` });
+                    setMessage({ type: "error", text: t("loadError", { error: String(e) }) });
                 } finally {
                     setLoading(false);
                 }
@@ -82,54 +276,53 @@ export default function MetadataEditorPage() {
                 }
                 outputPath = saved;
             }
-
-            await invoke("write_media_metadata", {
-                inputPath: fileInfo.path,
-                outputPath: outputPath,
+            const data = {
+                input_path: fileInfo.path,
+                output_path: outputPath,
                 metadata: metadata,
-            });
+            };
+            console.log('data', data);
+            await invoke("write_media_metadata", data);
 
-            setMessage({ type: "success", text: `Metadata saved to ${outputPath}` });
+            setMessage({ type: "success", text: t("saveSuccess", { path: outputPath }) });
         } catch (e: any) {
-            setMessage({ type: "error", text: `Failed to save metadata: ${e}` });
+            console.error(e);
+            setMessage({ type: "error", text: t("saveError", { error: String(e) }) });
         } finally {
             setLoading(false);
         }
     };
-
-    const commonFields = ["title", "artist", "album", "comment", "date", "copyright"];
-
     return (
         <div className="container mx-auto p-6 max-w-5xl">
             <div className="mb-8">
                 <h1 className="text-3xl font-bold flex items-center gap-2">
                     <FileText className="w-8 h-8 text-primary" />
-                    Metadata Editor
+                    {t("title")}
                 </h1>
                 <p className="text-muted-foreground mt-2">
-                    View and edit metadata tags for your audio and video files without re-encoding.
+                    {t("subtitle")}
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Left Column: File Info & Actions */}
-                <div className="lg:col-span-1 space-y-6">
+                <div className="md:col-span-1 space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>File Source</CardTitle>
+                            <CardTitle>{t("fileSource")}</CardTitle>
                         </CardHeader>
                         <CardContent>
                             {fileInfo ? (
                                 <div className="space-y-4">
-                                    <div className="p-4 bg-muted rounded-lg break-all">
-                                        <p className="font-medium text-sm text-foreground">{fileInfo.path}</p>
+                                    <div className="p-4 bg-muted rounded-lg">
+                                        <p className="font-medium text-sm text-foreground line-clamp-2 break-all">{fileInfo.path}</p>
                                         <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
                                             <span>{(fileInfo.size / 1024 / 1024).toFixed(2)} MB</span>
                                             <span className="uppercase">{fileInfo.format}</span>
                                         </div>
                                     </div>
                                     <Button variant="outline" className="w-full" onClick={handleSelectFile}>
-                                        Change File
+                                        {t("changeFile")}
                                     </Button>
                                 </div>
                             ) : (
@@ -137,8 +330,8 @@ export default function MetadataEditorPage() {
                                     <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
                                         <Upload className="w-8 h-8 text-muted-foreground" />
                                     </div>
-                                    <p className="text-sm text-muted-foreground">No file selected</p>
-                                    <Button onClick={handleSelectFile}>Select Media File</Button>
+                                    <p className="text-sm text-muted-foreground">{t("noFile")}</p>
+                                    <Button onClick={handleSelectFile}>{t("selectFile")}</Button>
                                 </div>
                             )}
                         </CardContent>
@@ -147,7 +340,7 @@ export default function MetadataEditorPage() {
                     {fileInfo && (
                         <Card>
                             <CardHeader>
-                                <CardTitle>Actions</CardTitle>
+                                <CardTitle>{t("actions")}</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <Button
@@ -156,7 +349,7 @@ export default function MetadataEditorPage() {
                                     disabled={loading}
                                 >
                                     <Save className="w-4 h-4 mr-2" />
-                                    Save As Copy
+                                    {t("saveAsCopy")}
                                 </Button>
                                 <Button
                                     variant="secondary"
@@ -164,7 +357,7 @@ export default function MetadataEditorPage() {
                                     onClick={() => handleSave(true)}
                                     disabled={loading}
                                 >
-                                    Overwrite Original
+                                    {t("overwrite")}
                                 </Button>
                             </CardContent>
                         </Card>
@@ -173,75 +366,62 @@ export default function MetadataEditorPage() {
                     {message && (
                         <Alert variant={message.type === "error" ? "destructive" : "default"} className={message.type === "success" ? "border-green-500 text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400" : ""}>
                             {message.type === "error" ? <AlertCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
-                            <AlertTitle>{message.type === "error" ? "Error" : "Success"}</AlertTitle>
+                            <AlertTitle>{message.type === "error" ? t("error") : t("success")}</AlertTitle>
                             <AlertDescription>{message.text}</AlertDescription>
                         </Alert>
                     )}
                 </div>
 
                 {/* Right Column: Metadata Form */}
-                <div className="lg:col-span-2">
+                <div className="md:col-span-2">
                     {fileInfo ? (
                         <Card className="h-full">
                             <CardHeader>
                                 <CardTitle>Metadata Tags</CardTitle>
-                                <CardDescription>Edit standard tags. Leaving a field empty may remove the tag.</CardDescription>
+                                <CardDescription>{t("metadataDesc")}</CardDescription>
                             </CardHeader>
-                            <CardContent>
-                                <Tabs defaultValue="common">
-                                    <TabsList className="mb-4">
-                                        <TabsTrigger value="common">Common</TabsTrigger>
-                                        <TabsTrigger value="advanced">All Tags</TabsTrigger>
-                                    </TabsList>
-
-                                    <TabsContent value="common" className="space-y-4">
-                                        {commonFields.map((field) => (
-                                            <div key={field} className="grid grid-cols-4 items-center gap-4">
-                                                <Label htmlFor={field} className="text-right capitalize">
-                                                    {field}
-                                                </Label>
-                                                <Input
-                                                    id={field}
-                                                    value={metadata[field] || ""}
-                                                    onChange={(e) => handleMetadataChange(field, e.target.value)}
-                                                    className="col-span-3"
-                                                    placeholder={`Enter ${field}...`}
-                                                />
-                                            </div>
-                                        ))}
-                                    </TabsContent>
-
-                                    <TabsContent value="advanced" className="space-y-4">
-                                        <div className="grid gap-4">
-                                            {Object.entries(metadata).map(([key, value]) => (
-                                                <div key={key} className="grid grid-cols-4 items-center gap-4">
-                                                    <Label htmlFor={`adv-${key}`} className="text-right font-mono text-xs truncate" title={key}>
-                                                        {key}
-                                                    </Label>
-                                                    <Input
-                                                        id={`adv-${key}`}
-                                                        value={value}
-                                                        onChange={(e) => handleMetadataChange(key, e.target.value)}
-                                                        className="col-span-3"
-                                                    />
-                                                </div>
-                                            ))}
-                                            <div className="border-t pt-4 mt-4">
-                                                <p className="text-sm text-muted-foreground text-center">
-                                                    Add new custom tags by typing keys in "Common" tab or backend will need dynamic key support (current UI simplified).
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </TabsContent>
-                                </Tabs>
+                            <CardContent className="space-y-4">
+                                {mediaType === "video" && fileInfo?.path && (
+                                    <MediaThumbnail
+                                        path={fileInfo.path}
+                                        title={t("videoPreview")}
+                                        fileType="video"
+                                        className="w-full h-48"
+                                    />
+                                )}
+                                {mediaType === "audio" && (
+                                    <AudioMetadataEditor
+                                        metadata={metadata}
+                                        streamTags={streamTags}
+                                        onChange={handleMetadataChange}
+                                        t={t}
+                                    />
+                                )}
+                                {mediaType === "video" && (
+                                    <VideoMetadataEditor
+                                        metadata={metadata}
+                                        streamTags={streamTags}
+                                        onChange={handleMetadataChange}
+                                        t={t}
+                                    />
+                                )}
+                                {mediaType === "other" && (
+                                    <GenericMetadataEditor
+                                        mediaType={mediaType}
+                                        metadata={metadata}
+                                        streamTags={streamTags}
+                                        onChange={handleMetadataChange}
+                                        t={t}
+                                    />
+                                )}
                             </CardContent>
                         </Card>
                     ) : (
                         <div className="h-full flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/50 p-12">
                             <div className="text-center text-muted-foreground">
                                 <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                <h3 className="text-lg font-medium">No File Selected</h3>
-                                <p>Select a file to begin editing metadata.</p>
+                                <h3 className="text-lg font-medium">{t("fileNotSelectedTitle")}</h3>
+                                <p>{t("fileNotSelectedDesc")}</p>
                             </div>
                         </div>
                     )}

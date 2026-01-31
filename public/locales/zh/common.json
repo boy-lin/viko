@@ -6,7 +6,7 @@
     "nav": {
         "home": "首页",
         "tasks": "任务",
-        "files": "我的文件",
+        "my_files": "我的文件",
         "batch": "批量处理",
         "converter": "转换器",
         "compressor": "压缩器",

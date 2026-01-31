@@ -15,9 +15,12 @@ export interface MediaDetails {
   path: string;
   extension: string;
   format_names: string;
+  format_long_name?: string;
   duration: number;
   size: number;
   streams: StreamDetails[];
+  tags?: Record<string, string>;
+  stream_tags?: Record<string, string>[];
 }
 
 export interface AudioTrackConfig {

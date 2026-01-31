@@ -13,9 +13,6 @@ import { compressorQueue } from "@/lib/bridge";
 import { Slider } from "@/components/ui/slider";
 
 export const CompressionFooter: React.FC = () => {
-  const compressionScope = useCompressorStore(
-    (state) => state.compressionScope
-  );
   const videoConfig = useCompressorStore((state) => state.videoConfig);
   const audioConfig = useCompressorStore((state) => state.audioConfig);
   const imageConfig = useCompressorStore((state) => state.imageConfig);
@@ -35,27 +32,20 @@ export const CompressionFooter: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
-  const handleCompressionChange = (
-    value: number[],
-    type: "video" | "audio" | "image"
-  ) => {
+  const handleCompressionChange = (value: number[]) => {
     const newValue = value[0];
-    if (type === "video") {
-      updateGlobalConfig({
-        type: "video",
-        compressionRatio: newValue,
-      });
-    } else if (type === "audio") {
-      updateGlobalConfig({
-        type: "audio",
-        compressionRatio: newValue,
-      });
-    } else if (type === "image") {
-      updateGlobalConfig({
-        type: "image",
-        quality: newValue,
-      });
-    }
+    updateGlobalConfig({
+      type: "video",
+      compressionRatio: newValue,
+    });
+    updateGlobalConfig({
+      type: "audio",
+      compressionRatio: newValue,
+    });
+    updateGlobalConfig({
+      type: "image",
+      quality: newValue,
+    });
   };
 
   const handleCompressAll = async () => {
@@ -70,19 +60,16 @@ export const CompressionFooter: React.FC = () => {
       return imageConfig;
     };
 
-    const pendingTasks =
-      compressionScope === "general"
-        ? compressingTasks.filter((task) => task.compressionConfig?.type)
-        : compressingTasks.filter(
-            (task) => task.compressionConfig?.type === compressionScope
-          );
+    const pendingTasks = compressingTasks.filter(
+      (task) => task.compressionConfig?.type
+    );
 
     if (pendingTasks.length > 0) {
       for (const task of pendingTasks) {
-        const targetType =
-          compressionScope === "general"
-            ? (task.compressionConfig?.type as "video" | "audio" | "image")
-            : compressionScope;
+        const targetType = task.compressionConfig?.type as
+          | "video"
+          | "audio"
+          | "image";
         await updateUnfinishedTaskConfig(task.id, {
           ...getConfigByType(targetType),
           type: targetType,
@@ -90,10 +77,7 @@ export const CompressionFooter: React.FC = () => {
       }
       const tasks = useCompressorStore
         .getState()
-        .compressingTasks.filter((task) => {
-          if (compressionScope === "general") return true;
-          return task.compressionConfig?.type === compressionScope;
-        });
+        .compressingTasks.filter((task) => task.compressionConfig?.type);
       await compressorQueue.add(tasks);
     }
   };
@@ -126,92 +110,23 @@ export const CompressionFooter: React.FC = () => {
         {/* Compression Ratio Label and Slider */}
         <div className="flex flex-col gap-2 items-start">
           <span className="text-sm font-medium text-muted-foreground">
-            压缩百分比
+            压缩质量
           </span>
           <div className="flex items-center gap-2">
             <div className="w-[10em]">
-              {compressionScope === "general" && (
-                <div className="space-y-2">
-                  <div className="space-y-2">
-                    <span className="text-xs text-muted-foreground">视频</span>
-                    <Slider
-                      value={[videoConfig.compressionRatio]}
-                      onValueChange={(v) => handleCompressionChange(v, "video")}
-                      min={10}
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-xs text-muted-foreground">音频</span>
-                    <Slider
-                      value={[audioConfig.compressionRatio]}
-                      onValueChange={(v) => handleCompressionChange(v, "audio")}
-                      min={10}
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-xs text-muted-foreground">图片</span>
-                    <Slider
-                      value={[imageConfig.quality]}
-                      onValueChange={(v) => handleCompressionChange(v, "image")}
-                      min={10}
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-              )}
-              {compressionScope === "video" && (
-                <div className="space-y-2">
-                  <Slider
-                    value={[videoConfig.compressionRatio]}
-                    onValueChange={(v) => handleCompressionChange(v, "video")}
-                    min={10}
-                    max={100}
-                    step={5}
-                    className="w-full"
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {videoConfig.compressionRatio}%
-                  </span>
-                </div>
-              )}
-              {compressionScope === "audio" && (
-                <div className="space-y-2">
-                  <Slider
-                    value={[audioConfig.compressionRatio]}
-                    onValueChange={(v) => handleCompressionChange(v, "audio")}
-                    min={10}
-                    max={100}
-                    step={5}
-                    className="w-full"
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {audioConfig.compressionRatio}%
-                  </span>
-                </div>
-              )}
-              {compressionScope === "image" && (
-                <div className="space-y-2">
-                  <Slider
-                    value={[imageConfig.quality]}
-                    onValueChange={(v) => handleCompressionChange(v, "image")}
-                    min={10}
-                    max={100}
-                    step={5}
-                    className="w-full"
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    质量: {imageConfig.quality}%
-                  </span>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Slider
+                  value={[videoConfig.compressionRatio]}
+                  onValueChange={handleCompressionChange}
+                  min={10}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                />
+                <span className="text-xs text-muted-foreground">
+                  {videoConfig.compressionRatio}%
+                </span>
+              </div>
             </div>
             <Button
               variant="ghost"
@@ -284,13 +199,7 @@ export const CompressionFooter: React.FC = () => {
           className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20"
           onClick={handleCompressAll}
         >
-          {compressionScope === "general"
-            ? "压缩全部"
-            : `压缩${compressionScope === "video"
-              ? "视频"
-              : compressionScope === "audio"
-                ? "音频"
-                : "图片"}`}
+          压缩全部
         </Button>
       </div>
 

@@ -61,7 +61,9 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   }, [fileType]);
 
   const handleClick = useCallback(() => {
-    setIsDialogOpen(true);
+    React.startTransition(() => {
+      setIsDialogOpen(true);
+    });
   }, []);
 
   const renderPlayer = () => {
@@ -115,9 +117,9 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
             />
             {/* Hover 播放效果 */}
             {isHovering && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity duration-200">
-                <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                  <PlayIcon className="w-6 h-6 text-black" />
+              <div className="absolute inset-0 bg-foreground/50 flex items-center justify-center transition-opacity duration-200">
+                <div className="w-8 h-8 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
+                  <PlayIcon className="w-6 h-6 text-foreground" />
                 </div>
               </div>
             )}

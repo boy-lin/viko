@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "audio_video_kit",
+  "productName": "viko",
   "version": "0.1.0",
-  "identifier": "com.audio_video_kit",
+  "identifier": "com.viko_kits",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "audio_video_kit",
+        "title": "viko",
         "width": 980,
         "height": 600,
+        "minWidth": 980,
+        "minHeight": 600,
         "maximized": false,
         "resizable": true,
         "devtools": true,

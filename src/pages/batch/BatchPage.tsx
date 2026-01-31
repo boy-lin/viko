@@ -215,14 +215,14 @@ export default function BatchPage() {
             prev.map((f) =>
               f.id === currentFileId
                 ? {
-                    ...f,
-                    progress: 100,
-                    status: isError
-                      ? ("error" as TranscodingStatus)
-                      : ("success" as TranscodingStatus),
-                    error: errorMessage,
-                    outputPath: isError ? undefined : outputPath,
-                  }
+                  ...f,
+                  progress: 100,
+                  status: isError
+                    ? ("error" as TranscodingStatus)
+                    : ("success" as TranscodingStatus),
+                  error: errorMessage,
+                  outputPath: isError ? undefined : outputPath,
+                }
                 : f
             )
           );
@@ -261,42 +261,6 @@ export default function BatchPage() {
         }
         const ffmpegArgs = generateFFmpegArgs(params);
 
-        // 调用转码命令（异步，不等待完成）
-        bridge.invoke("ffmpeg_exec", { ffmpegArgs }).catch((error) => {
-          // 如果调用失败，直接标记为错误
-          if (!completed) {
-            completed = true;
-            const message =
-              error instanceof Error ? error.message : "转码调用失败";
-
-            setFiles((prev) =>
-              prev.map((f) =>
-                f.id === currentFileId
-                  ? {
-                      ...f,
-                      status: "error" as TranscodingStatus,
-                      error: message,
-                    }
-                  : f
-              )
-            );
-
-            if (taskId != null) {
-              updateTranscodeTask(taskId, {
-                status: "error" as TranscodeStatus,
-                errorMessage: message,
-              }).catch((e) => {
-                console.error("更新批量转码任务记录失败:", e);
-              });
-            }
-
-            unlistenProgress?.();
-            unlistenComplete?.();
-            if (resolveComplete) {
-              resolveComplete();
-            }
-          }
-        });
 
         // 等待完成事件（最多等待 30 分钟）
         await new Promise<void>((resolve) => {
@@ -309,10 +273,10 @@ export default function BatchPage() {
                 prev.map((f) =>
                   f.id === currentFileId
                     ? {
-                        ...f,
-                        status: "error" as TranscodingStatus,
-                        error: "转码超时（超过30分钟）",
-                      }
+                      ...f,
+                      status: "error" as TranscodingStatus,
+                      error: "转码超时（超过30分钟）",
+                    }
                     : f
                 )
               );
@@ -339,10 +303,10 @@ export default function BatchPage() {
           prev.map((f) =>
             f.id === currentFileId
               ? {
-                  ...f,
-                  status: "error" as TranscodingStatus,
-                  error: message,
-                }
+                ...f,
+                status: "error" as TranscodingStatus,
+                error: message,
+              }
               : f
           )
         );
@@ -533,21 +497,21 @@ export default function BatchPage() {
                       {/* Progress Bar */}
                       {(videoFile.status === "transcoding" ||
                         videoFile.status === "success") && (
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              转码进度
-                            </span>
-                            <span className="font-medium">
-                              {videoFile.progress}%
-                            </span>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">
+                                转码进度
+                              </span>
+                              <span className="font-medium">
+                                {videoFile.progress}%
+                              </span>
+                            </div>
+                            <Progress
+                              value={videoFile.progress}
+                              className="h-1.5"
+                            />
                           </div>
-                          <Progress
-                            value={videoFile.progress}
-                            className="h-1.5"
-                          />
-                        </div>
-                      )}
+                        )}
 
                       {/* Output Path (Success Only) */}
                       {videoFile.status === "success" &&

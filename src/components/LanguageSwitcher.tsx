@@ -23,17 +23,17 @@ export function LanguageSwitcher() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="w-9 h-9">
+                <Button variant="secondary" size="icon" className="cursor-pointer w-9 h-9">
                     <Globe className="h-4 w-4" />
                     <span className="sr-only">Switch Language</span>
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className='space-y-1'>
                 {Object.entries(languages).map(([key, label]) => (
                     <DropdownMenuItem
                         key={key}
                         onClick={() => changeLanguage(key)}
-                        className={i18n.language.startsWith(key) ? "font-bold bg-accent" : ""}
+                        className={i18n.language.startsWith(key) ? "font-bold bg-accent" : "cursor-pointer"}
                     >
                         {label}
                     </DropdownMenuItem>

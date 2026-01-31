@@ -1,0 +1,50 @@
+{
+  "hero": {
+    "converter": {
+      "title": "转换器",
+      "desc": "批量转换音视频/图片，支持 1000+ 格式。",
+      "action": "添加文件"
+    },
+    "downloader": {
+      "title": "下载器",
+      "desc": "批量下载 1 万+ 站点的视频与音频。",
+      "action": "立即开始"
+    },
+    "compressor": {
+      "title": "压缩器",
+      "desc": "自动压缩音视频，减小体积。",
+      "action": "添加文件"
+    }
+  },
+  "comingSoon": "即将推出",
+  "newFeatures": {
+    "videoMeta": { "title": "视频元数据编辑器", "desc": "编辑视频元数据，支持批量。" },
+    "audioMeta": { "title": "音频元数据编辑器", "desc": "编辑音频元数据，支持批量。" },
+    "imageMeta": { "title": "图片元数据编辑器", "desc": "编辑图片元数据，支持批量。" },
+    "merge": { "title": "视频合并器", "desc": "合并视频，支持批量。" },
+    "split": { "title": "视频分割器", "desc": "分割视频，支持批量。" },
+    "crop": { "title": "视频裁剪器", "desc": "裁剪视频，支持批量。" },
+    "rotate": { "title": "视频旋转器", "desc": "旋转视频，支持批量。" }
+  },
+  "tabs": {
+    "new": "新功能",
+    "common": "常用功能",
+    "recent": "最近文件"
+  },
+  "searchPlaceholder": "按名称或关键词搜索",
+  "common": {
+    "converter": { "title": "视频转码", "desc": "支持主流格式一键转码" },
+    "audio": { "title": "音频处理", "desc": "音频转码、格式优化" },
+    "image": { "title": "图片转换", "desc": "常用图片格式快速转换" },
+    "compressor": { "title": "高效压缩", "desc": "压缩体积同时保持质量" },
+    "batch": { "title": "批量处理", "desc": "批量转码/压缩更高效" },
+    "metadata": { "title": "元数据编辑", "desc": "快速编辑媒体信息" },
+    "tasks": { "title": "任务列表", "desc": "查看进行中/完成任务" },
+    "myfiles": { "title": "我的文件", "desc": "管理导出的媒体文件" }
+  },
+  "recent": {
+    "loading": "正在加载最近文件...",
+    "empty": "暂无最近文件",
+    "viewAll": "查看我的文件"
+  }
+}

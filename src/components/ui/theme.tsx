@@ -7,7 +7,7 @@ import {
   Check,
   ChevronDown,
   Monitor,
-  Moon, 
+  Moon,
   Sun,
   Sunset,
   Trees,
@@ -37,10 +37,10 @@ export type ThemeToggleVariant =
   | "button"
   | "switch"
   | "dropdown"
-  | "tabs" 
+  | "tabs"
   | "grid"
-  | "radial"  
-  | "cards" 
+  | "radial"
+  | "cards"
 export type ThemeToggleSize = "sm" | "md" | "lg"
 
 interface ThemeToggleProps {
@@ -97,7 +97,7 @@ export function Theme({
       <motion.button
         onClick={() => setTheme(nextTheme)}
         className={cn(
-          "inline-flex items-center justify-center gap-2 rounded-lg border transition-all duration-200",
+          "cursor-pointer inline-flex items-center justify-center gap-2 rounded-lg border transition-all duration-200",
           "border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-foreground)]",
           "hover:scale-105 hover:bg-[var(--color-muted)] active:scale-95",
           sizeClasses[size],
@@ -128,7 +128,7 @@ export function Theme({
       <motion.button
         onClick={() => setTheme(isLight ? "dark" : "light")}
         className={cn(
-          "relative inline-flex items-center rounded-full border-2 transition-all duration-300",
+          "cursor-pointer relative inline-flex items-center rounded-full border-2 transition-all duration-300",
           "border-[var(--color-border)] bg-[var(--color-muted)]",
           size === "sm"
             ? "h-6 w-11.5"
@@ -188,7 +188,7 @@ export function Theme({
             {showLabel ? (
               <motion.button
                 className={cn(
-                  "inline-flex items-center justify-between gap-2 rounded-lg border transition-all duration-200",
+                  "cursor-pointer inline-flex items-center justify-between gap-2 rounded-lg border transition-all duration-200",
                   "border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-foreground)]",
                   "hover:bg-[var(--color-muted)]",
                   sizeClasses[size],
@@ -211,7 +211,7 @@ export function Theme({
             ) : (
               <motion.button
                 className={cn(
-                  "inline-flex items-center justify-center rounded-lg border transition-all duration-200",
+                  "cursor-pointer inline-flex items-center justify-center rounded-lg border transition-all duration-200",
                   "border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-foreground)]",
                   "hover:bg-[var(--color-muted)]",
                   sizeClasses[size],
@@ -241,7 +241,7 @@ export function Theme({
                   onClick={() => setTheme(themeOption)}
                   className={cn(
                     "flex items-center justify-between gap-2 px-3 py-2",
-                    isSelected && "bg-[var(--color-primary)] text-white"
+                    isSelected ? "bg-[var(--color-primary)] text-white" : "cursor-pointer"
                   )}
                 >
                   <div className="flex items-center gap-2">

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import { signIn } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import { SocialProviders } from '@/components/auth/social-providers';
 
 export default function SignInPage() {
     const navigate = useNavigate();
+    const { t } = useTranslation('auth');
     const [searchParams] = useSearchParams();
     const callbackUrl = searchParams.get('callbackUrl') || '/';
 
@@ -34,7 +36,7 @@ export default function SignInPage() {
         if (loading) return;
 
         if (!email || !password) {
-            toast.error('Email and password are required');
+            toast.error(t('errors.required'));
             return;
         }
 
@@ -48,10 +50,11 @@ export default function SignInPage() {
                 onRequest: () => setLoading(true),
                 onResponse: () => setLoading(false),
                 onSuccess: () => {
-                    navigate(callbackUrl);
+                    console.log('Sign in success', callbackUrl);
+                    // navigate(callbackUrl);
                 },
                 onError: (ctx) => {
-                    toast.error(ctx.error.message || 'Sign in failed');
+                    toast.error(ctx.error.message || t('errors.failed'));
                     setLoading(false);
                 },
             }
@@ -59,14 +62,14 @@ export default function SignInPage() {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen p-4 bg-muted/50">
-            <Card className="mx-auto w-full md:max-w-md">
+        <div className="flex items-center justify-center min-h-screen p-4 bg-background text-foreground">
+            <Card className="mx-auto w-full md:max-w-md shadow-md border-border">
                 <CardHeader>
                     <CardTitle className="text-lg md:text-xl">
-                        <h1>Sign In</h1>
+                        <h1>{t('title')}</h1>
                     </CardTitle>
                     <CardDescription className="text-xs md:text-sm">
-                        <h2>Enter your credentials to access your account</h2>
+                        <h2>{t('subtitle')}</h2>
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -74,11 +77,11 @@ export default function SignInPage() {
                         {isEmailAuthEnabled && (
                             <>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="email">Email</Label>
+                                    <Label htmlFor="email">{t('email')}</Label>
                                     <Input
                                         id="email"
                                         type="email"
-                                        placeholder="name@example.com"
+                                        placeholder={t('emailPlaceholder')}
                                         required
                                         onChange={(e) => setEmail(e.target.value)}
                                         value={email}
@@ -87,13 +90,13 @@ export default function SignInPage() {
 
                                 <div className="grid gap-2">
                                     <div className="flex items-center">
-                                        <Label htmlFor="password">Password</Label>
+                                        <Label htmlFor="password">{t('password')}</Label>
                                     </div>
 
                                     <Input
                                         id="password"
                                         type="password"
-                                        placeholder="Last passsword"
+                                        placeholder={t('passwordPlaceholder')}
                                         autoComplete="current-password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
@@ -109,7 +112,7 @@ export default function SignInPage() {
                                     {loading ? (
                                         <Loader2 size={16} className="animate-spin" />
                                     ) : (
-                                        <p>Sign In</p>
+                                        <p>{t('title')}</p>
                                     )}
                                 </Button>
                             </>
@@ -127,9 +130,9 @@ export default function SignInPage() {
                     <CardFooter>
                         <div className="flex w-full justify-center border-t py-4">
                             <p className="text-center text-xs text-neutral-500">
-                                Don&apos;t have an account?{" "}
+                                {t('noAccount')}{" "}
                                 <Link to={`/sign-up?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="underline cursor-pointer dark:text-white/70">
-                                    Sign Up
+                                    {t('signUp')}
                                 </Link>
                             </p>
                         </div>

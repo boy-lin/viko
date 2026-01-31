@@ -130,7 +130,6 @@ class Bridge {
 
     return {
       ...details,
-      ...details,
       format,
     };
   }
@@ -728,4 +727,3 @@ class MediaTaskQueue {
 
 export const converterQueue = new MediaTaskQueue("convert");
 export const compressorQueue = new MediaTaskQueue("compress");
-

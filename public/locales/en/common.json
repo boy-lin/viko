@@ -6,7 +6,7 @@
     "nav": {
         "home": "Home",
         "tasks": "Tasks",
-        "files": "My Files",
+        "my_files": "My Files",
         "batch": "Batch",
         "converter": "Converter",
         "compressor": "Compressor",
@@ -16,9 +16,6 @@
         "audio_test": "Audio Test",
         "home_v1": "Home V1",
         "video_player": "Video Player"
-    },
-    "sidebar": {
-        "quick_access": "Quick Access"
     },
     "acceleration": {
         "badge_high": "High",

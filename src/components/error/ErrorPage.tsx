@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { AlertTriangle, Home, RotateCcw } from 'lucide-react';
 import { useNavigate, useInRouterContext, useRouteError } from 'react-router-dom';
-import { errorMonitor } from '@/services/errorMonitor';
+// import { errorMonitor } from '@/services/errorMonitor';
 
 interface ErrorPageProps {
     error?: Error | null;
@@ -30,16 +30,16 @@ const ErrorPage: React.FC<ErrorPageProps> = ({
     useEffect(() => {
         if (routeError && !propError) {
             console.error("Route Error Caught:", routeError);
-            errorMonitor.log({
-                type: 'react',
-                message: routeError.message || String(routeError),
-                stack: routeError.stack,
-                url: window.location.href,
-                timestamp: Date.now(),
-                meta: {
-                    source: 'ReactRouter'
-                }
-            });
+            // errorMonitor.log({
+            //     type: 'react',
+            //     message: routeError.message || String(routeError),
+            //     stack: routeError.stack,
+            //     url: window.location.href,
+            //     timestamp: Date.now(),
+            //     meta: {
+            //         source: 'ReactRouter'
+            //     }
+            // });
         }
     }, [routeError, propError]);
 

@@ -1,0 +1,16 @@
+{
+  "nav": {
+    "home": "Home",
+    "ai_tools": "AI Tools",
+    "my_files": "My Files"
+  },
+  "quick": {
+    "converter": "Converter",
+    "metadata": "Metadata Editor",
+    "compressor": "Compressor"
+  
+  },
+  "pin": "Pin to top",
+  "unpin": "Unpin",
+  "quick_access": "Quick Access"
+}

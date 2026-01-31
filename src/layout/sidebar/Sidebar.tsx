@@ -1,30 +1,36 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
-  FileText,
-  Home,
-  Plus,
-  Wrench,
-  AudioLines,
-  Download,
-  Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { MenuItems } from "./menu";
+import HomeLinear from "@/components/icons/HomeLinear";
+import FolderLinear from "@/components/icons/FolderLinear";
+import AILinear from "@/components/icons/AILinear";
+import ConversionLinear from "@/components/icons/ConversionLinear";
+import SeityMetadata from "@/components/icons/SeityMetadata";
+import CompressionLinear from "@/components/icons/CompressionLinear";
+import PinLinear from "@/components/icons/PinLinear";
+import PinCancelLinear from "@/components/icons/PinCancelLinear";
+import { useAppStore } from "@/stores/app";
 
 type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   href?: string;
+  disabled?: boolean;
 };
 
 type QuickAccessItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
+  activeGradient?: string;
   href?: string;
 };
 
@@ -70,6 +76,30 @@ const itemVariants = {
   hidden: { opacity: 0, x: -6 },
   show: { opacity: 1, x: 0 },
 };
+
+const QUICK_ACCESS_CONFIG: QuickAccessItem[] = [
+  {
+    label: "quick.converter",
+    icon: ConversionLinear,
+    color: "bg-indigo-50 text-indigo-600",
+    activeGradient: "from-[#8B5CF6] to-[#6366F1]",
+    href: MenuItems.converter,
+  },
+  {
+    label: "quick.metadata",
+    icon: SeityMetadata,
+    color: "bg-sky-50 text-sky-600",
+    activeGradient: "from-[#06B6D4] to-[#3B82F6]",
+    href: MenuItems.metadata,
+  },
+  {
+    label: "quick.compressor",
+    icon: CompressionLinear,
+    color: "bg-rose-50 text-rose-600",
+    activeGradient: "from-[#F43F5E] to-[#F97316]",
+    href: MenuItems.compressor,
+  },
+];
 
 const SidebarProvider = ({
   children,
@@ -128,7 +158,7 @@ const SidebarLabel = ({
 const SidebarLogo = () => {
   const { open, animate } = useSidebar();
   return (
-    <motion.div variants={itemVariants} className="p-4">
+    <motion.div variants={itemVariants} className="px-5 py-4">
       <div className="flex items-center gap-2 h-9">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center grow-0 shrink-0">
           <img src="/logo.png" alt="" />
@@ -140,14 +170,18 @@ const SidebarLogo = () => {
           }}
         >
           <div className="text-xs text-muted-foreground">Viko</div>
-          <div className="text-sm font-bold">AudioVideoKit</div>
+          <div className="text-sm font-bold">AudioVideoKits</div>
         </motion.div>
       </div>
     </motion.div>
   );
 };
 
-const SidebarNavItem = ({ item }: { item: NavItem }) => {
+const SidebarNavItem = ({
+  item,
+}: {
+  item: NavItem;
+}) => {
   const Icon = item.icon;
   const navigate = useNavigate();
   const location = useLocation();
@@ -156,25 +190,69 @@ const SidebarNavItem = ({ item }: { item: NavItem }) => {
       ? location.pathname === "/"
       : location.pathname.startsWith(item.href)
     : false;
+  const isDisabled = item.disabled;
 
   return (
     <motion.button
       variants={itemVariants}
-      onClick={() => item.href && navigate(item.href)}
+      whileHover={{ x: 4 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={() => {
+        if (isDisabled) {
+          toast.info("功能开发中");
+          return;
+        }
+        if (item.href) {
+          navigate(item.href);
+        } else {
+          toast.info("This feature is coming soon");
+        }
+      }}
       className={cn(
-        "w-full flex items-center gap-3 px-3 h-10 rounded-lg text-foreground transition-colors",
+        "group relative w-full flex items-center gap-3 px-2 h-11 rounded-lg text-foreground transition-colors overflow-hidden",
         isActive
-          ? "bg-secondary-foreground text-background font-medium"
-          : "hover:bg-muted"
+          ? "bg-indigo-50 text-indigo-700 shadow-[0_10px_30px_-18px_rgba(99,102,241,0.8)]"
+          : "hover:bg-slate-100  cursor-pointer"
+        ,
+        isDisabled && "cursor-not-allowed"
       )}
     >
-      <Icon className="w-5 h-5 flex-shrink-0" />
-      <SidebarLabel>{item.label}</SidebarLabel>
+      <span
+        className={cn(
+          "absolute left-0 top-0 h-full w-1 rounded-r-full bg-indigo-500 transition-all",
+          isActive ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+        )}
+      />
+      <div
+        className={cn(
+          "flex flex-shrink-0 h-8 w-8 items-center justify-center rounded-xl transition-all",
+          isActive
+            ? "bg-indigo-100 text-indigo-700"
+            : "bg-slate-100 text-slate-500 group-hover:scale-105 group-hover:text-slate-700"
+        )}
+      >
+        <Icon className="w-5 h-5" />
+      </div>
+      <SidebarLabel className={cn(
+        "flex-1 text-left text-sm font-medium",
+        isActive ? "text-indigo-700" : "text-foreground group-hover:text-slate-700"
+      )}>
+        {item.label}
+      </SidebarLabel>
     </motion.button>
   );
 };
 
-const SidebarQuickAccessItem = ({ item }: { item: QuickAccessItem }) => {
+const SidebarQuickAccessItem = ({
+  item,
+  isPinned,
+  onTogglePin,
+}: {
+  item: QuickAccessItem;
+  isPinned?: boolean;
+  onTogglePin?: (href: string) => void;
+}) => {
+  const { t } = useTranslation("sidebar");
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = item.href ? location.pathname.startsWith(item.href) : false;
@@ -182,97 +260,172 @@ const SidebarQuickAccessItem = ({ item }: { item: QuickAccessItem }) => {
   return (
     <motion.button
       variants={itemVariants}
-      onClick={() => item.href && navigate(item.href)}
+      whileHover={{ x: 3 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={() =>
+        item.href &&
+        navigate(item.href, {
+          state: { fromQuickAccess: true },
+        })
+      }
       className={cn(
-        "w-full h-10 flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+        "w-full h-10 flex items-center gap-3 px-2 py-2 rounded-lg transition-colors overflow-hidden group cursor-pointer",
         isActive
-          ? "bg-white shadow-sm font-medium text-foreground"
-          : "text-gray-700 hover:bg-white/50"
+          ? cn("bg-gradient-to-r text-foreground shadow-md shadow-indigo-900/10", item.activeGradient)
+          : "text-foreground/80 hover:bg-slate-100"
       )}
     >
-      <div className={cn("w-5 h-5 flex-shrink-0", item.color)}>
+      <div
+        className={cn(
+          "flex flex-shrink-0 h-7 w-7 items-center justify-center rounded-lg transition-transform",
+          isActive ? "bg-white/20 text-white" : "group-hover:scale-105",
+          isActive ? "" : item.color
+        )}
+      >
         <item.icon className="w-5 h-5" />
       </div>
-      <SidebarLabel>{item.label}</SidebarLabel>
+      <SidebarLabel className={cn("text-sm", isActive ? "text-background" : "text-foreground group-hover:text-slate-700")}>
+        {t(item.label)}
+      </SidebarLabel>
+      {item.href && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onTogglePin?.(item.href as string);
+          }}
+          title={isPinned ? t("unpin") : t("pin")}
+          className={cn(
+            "ml-auto h-8 w-8 flex items-center justify-center rounded-md transition",
+            isPinned
+              ? "text-indigo-600 hover:bg-white/10"
+              : "text-foreground/60 hover:text-foreground hover:bg-white/10 opacity-0 group-hover:opacity-100"
+          )}
+        >
+          {isPinned ? (
+            <PinCancelLinear className="h-4 w-4" />
+          ) : (
+            <PinLinear className="h-4 w-4" />
+          )}
+        </button>
+      )}
     </motion.button>
   );
 };
 
-const SidebarQuickAccess = ({ items }: { items: QuickAccessItem[] }) => {
-  const { t } = useTranslation();
+const SidebarQuickAccess = ({
+  fixedItems,
+  recentItems,
+  pinnedPaths,
+  onTogglePin,
+}: {
+  fixedItems: QuickAccessItem[];
+  recentItems: QuickAccessItem[];
+  pinnedPaths: string[];
+  onTogglePin: (href: string) => void;
+}) => {
+  const { t } = useTranslation("sidebar");
   return (
     <motion.div variants={itemVariants} className="">
       <div className="flex items-center justify-between px-3 py-2">
-        <SidebarLabel useVisible className="text-xs text-gray-500 font-medium">
-          {t("sidebar.quick_access")}
+        <SidebarLabel useVisible className="text-xs text-foreground/50 font-medium">
+          {t("quick_access")}
         </SidebarLabel>
-        <SidebarLabel className="inline-flex text-gray-400">
+        {/* <SidebarLabel className="inline-flex text-foreground/40">
           <Plus className="w-4 h-4" />
-        </SidebarLabel>
+        </SidebarLabel> */}
       </div>
       <motion.div variants={listVariants} className="space-y-1 mt-1">
-        {items.map((item) => (
-          <SidebarQuickAccessItem key={item.href} item={item} />
-        ))}
+        {fixedItems.length > 0 && (
+          <>
+            {fixedItems.map((item) => (
+              <SidebarQuickAccessItem
+                key={`fixed_${item.href}`}
+                isPinned
+                item={item}
+                onTogglePin={onTogglePin}
+              />
+            ))}
+          </>
+        )}
+        {recentItems.length > 0 && (
+          <>
+            {recentItems.map((item) => (
+              <SidebarQuickAccessItem
+                key={`recent_${item.href}`}
+                item={item}
+                isPinned={pinnedPaths.includes(item.href ?? "")}
+                onTogglePin={onTogglePin}
+              />
+            ))}
+          </>
+        )}
       </motion.div>
     </motion.div>
   );
 };
 
 const SidebarNav = () => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("sidebar");
+  const location = useLocation();
+  const {
+    pinnedPaths,
+    recentPaths,
+    togglePinQuickAccess,
+    recordRecentQuickAccess,
+  } =
+    useAppStore();
+  const isQuickAccessNav = (location.state as any)?.fromQuickAccess;
+
+  const quickAccessConfigMap = useMemo(() => {
+    return new Map(
+      QUICK_ACCESS_CONFIG.filter((item) => item.href).map((item) => [
+        item.href as string,
+        item,
+      ])
+    );
+  }, []);
+
+  useEffect(() => {
+    const trackable = QUICK_ACCESS_CONFIG.map((item) => item.href).filter(
+      Boolean
+    ) as string[];
+    const matched = trackable.find((path) =>
+      location.pathname.startsWith(path)
+    );
+    if (!matched || isQuickAccessNav) return;
+
+    recordRecentQuickAccess(matched);
+  }, [location.pathname, isQuickAccessNav, recordRecentQuickAccess]);
 
   const sidebarNavItems: NavItem[] = [
-    { label: t("nav.home"), icon: Home, href: "/" },
-    { label: t("nav.ai_tools"), icon: Wrench, href: "/tools" },
-    { label: t("nav.files"), icon: FileText, href: "/my/files" },
+    { label: t("nav.home"), icon: HomeLinear, href: MenuItems.home },
+    { label: t("nav.my_files"), icon: FolderLinear, href: MenuItems.myFiles },
+    { label: t("nav.ai_tools"), icon: AILinear, disabled: true },
   ];
 
-  const quickAccessItems: QuickAccessItem[] = [
-    {
-      label: t("nav.converter"),
-      icon: Download,
-      color: "text-purple-600",
-      href: "/converter",
-    },
-    {
-      label: t("nav.downloader"),
-      icon: Download,
-      color: "text-orange-600",
-      href: "/downloader",
-    },
-    {
-      label: t("nav.compressor"),
-      icon: Download,
-      color: "text-green-600",
-      href: "/compressor",
-    },
-    {
-      label: t("nav.audio_test"),
-      icon: AudioLines,
-      color: "text-purple-600",
-      href: "/demo/audio-test",
-    },
-    {
-      label: t("nav.home_v1"),
-      icon: Home,
-      color: "text-purple-600",
-      href: "/demo/v1",
-    },
-    {
-      label: t("nav.video_player"),
-      icon: Video,
-      color: "text-purple-600",
-      href: "/ui/video-player",
-    },
-  ];
+  const fixedQuickAccessItems = pinnedPaths
+    .map((path) => quickAccessConfigMap.get(path))
+    .filter(Boolean) as QuickAccessItem[];
+  const recentQuickAccessItems = recentPaths
+    .filter((path) => !pinnedPaths.includes(path))
+    .map((path) => quickAccessConfigMap.get(path))
+    .filter(Boolean) as QuickAccessItem[];
 
   return (
-    <motion.nav variants={listVariants} className="flex-1 p-3 space-y-1">
-      {sidebarNavItems.map((item) => (
-        <SidebarNavItem key={item.href} item={item} />
+    <motion.nav variants={listVariants} className="flex-1 p-3 space-y-2">
+      {sidebarNavItems.map((item, i) => (
+        <SidebarNavItem
+          key={`${item.href}_${i}`}
+          item={item}
+        />
       ))}
-      <SidebarQuickAccess items={quickAccessItems} />
+      <SidebarQuickAccess
+        fixedItems={fixedQuickAccessItems}
+        recentItems={recentQuickAccessItems}
+        pinnedPaths={pinnedPaths}
+        onTogglePin={togglePinQuickAccess}
+      />
     </motion.nav>
   );
 };
@@ -312,7 +465,7 @@ const SidebarToggle = () => {
 
 const DesktopSidebar = ({ className }: { className?: string }) => {
   const { open, animate } = useSidebar();
-  const width = open ? "16rem" : "4.5rem";
+  const width = open ? "13rem" : "4.25rem";
   return (
     <motion.aside
       initial={animate ? { opacity: 0, x: -8 } : undefined}
@@ -328,7 +481,7 @@ const DesktopSidebar = ({ className }: { className?: string }) => {
       transition={{ duration: 0.25, ease: "easeOut" }}
       style={animate ? undefined : { width }}
       className={cn(
-        "relative w-64 bg-secondary border-r border-border flex flex-col",
+        "relative w-64 bg-sidebar border-r border-r-1/2 flex flex-col",
         className
       )}
     >

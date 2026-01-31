@@ -10,6 +10,7 @@ import {
   Play,
   Info,
   FolderOpen,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,13 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import {
   Dialog,
   DialogContent,
@@ -325,10 +320,54 @@ export default function MyFilesPage() {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* 头部 */}
-      <div className="flex-shrink-0 px-2 pt-0 pb-4 space-y-4 border-b border-border">
+      <div className="flex-shrink-0 px-2 pt-0 pb-0 space-y-4">
         {/* <h1 className="text-2xl font-semibold text-foreground">我的文件</h1> */}
 
-        {/* 导航标签和搜索栏 */}
+
+        <div className="flex items-center gap-3">
+          {/* 搜索框 */}
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="搜索"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {/* 排序方式选择 */}
+          <Select
+            value={sortBy}
+            onValueChange={(v) => setSortBy(v as SortBy)}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="排序方式" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="date">日期</SelectItem>
+              <SelectItem value="name">名称</SelectItem>
+              <SelectItem value="size">大小</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* 排序图标 - 点击切换升序/降序 */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() =>
+              setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+            }
+            title={sortOrder === "asc" ? "升序" : "降序"}
+          >
+            {sortOrder === "asc" ? (
+              <ArrowUp className="h-4 w-4" />
+            ) : (
+              <ArrowDown className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        {/* 导航标签 */}
         <div className="flex items-center justify-between gap-4">
           <Tabs
             value={activeTab}
@@ -338,7 +377,7 @@ export default function MyFilesPage() {
               <TabsTrigger
                 value="favorite"
                 className={cn(
-                  "px-4 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
+                  "px-4 py-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
                   activeTab === "favorite" && "border-primary"
                 )}
               >
@@ -347,7 +386,7 @@ export default function MyFilesPage() {
               <TabsTrigger
                 value="all"
                 className={cn(
-                  "px-4 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
+                  "px-4 py-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
                   activeTab === "all" && "border-primary"
                 )}
               >
@@ -356,7 +395,7 @@ export default function MyFilesPage() {
               <TabsTrigger
                 value="video"
                 className={cn(
-                  "px-4 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
+                  "px-4 py-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
                   activeTab === "video" && "border-primary"
                 )}
               >
@@ -365,7 +404,7 @@ export default function MyFilesPage() {
               <TabsTrigger
                 value="audio"
                 className={cn(
-                  "px-4 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
+                  "px-4 py-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
                   activeTab === "audio" && "border-primary"
                 )}
               >
@@ -374,7 +413,7 @@ export default function MyFilesPage() {
               <TabsTrigger
                 value="image"
                 className={cn(
-                  "px-4 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
+                  "px-4 py-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
                   activeTab === "image" && "border-primary"
                 )}
               >
@@ -383,7 +422,7 @@ export default function MyFilesPage() {
               <TabsTrigger
                 value="other"
                 className={cn(
-                  "px-4 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
+                  "px-4 py-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
                   activeTab === "other" && "border-primary"
                 )}
               >
@@ -391,56 +430,11 @@ export default function MyFilesPage() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-
-          <div className="flex items-center gap-3">
-            {/* 搜索框 */}
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="搜索"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            {/* 排序方式选择 */}
-            <Select
-              value={sortBy}
-              onValueChange={(v) => setSortBy(v as SortBy)}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="排序方式" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date">日期</SelectItem>
-                <SelectItem value="name">名称</SelectItem>
-                <SelectItem value="size">大小</SelectItem>
-                <SelectItem value="duration">时长</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* 排序图标 - 点击切换升序/降序 */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-              }
-              title={sortOrder === "asc" ? "升序" : "降序"}
-            >
-              {sortOrder === "asc" ? (
-                <ArrowUp className="h-4 w-4" />
-              ) : (
-                <ArrowDown className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
         </div>
       </div>
 
       {/* 内容区域 */}
-      <div className="flex-1 overflow-auto px-6 py-6">
+      <div className="flex-1 overflow-auto px-4 py-2">
         {filteredFiles.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-sm text-muted-foreground">暂无文件</div>
@@ -493,11 +487,22 @@ export default function MyFilesPage() {
                       toggleSelect(file.id);
                     }}
                   >
-                    <Checkbox
-                      checked={selectedFiles.has(file.id)}
-                      onCheckedChange={() => toggleSelect(file.id)}
-                      className="bg-background/90 backdrop-blur-sm border-2"
-                    />
+                    <div
+                      role="checkbox"
+                      aria-checked={selectedFiles.has(file.id)}
+                      className="cursor-pointer"
+                    >
+                      {selectedFiles.has(file.id) ? (
+                        <div className="bg-background rounded-full">
+                          <CheckCircle2 className="w-5 h-5 text-green-500 fill-green-100 dark:fill-green-900" />
+                        </div>
+                      ) : (
+                        <Checkbox
+                          checked={false}
+                          className="bg-background/90 backdrop-blur-sm border-2 border-white/70 data-[state=checked]:bg-primary data-[state=checked]:border-primary pointer-events-none"
+                        />
+                      )}
+                    </div>
                   </div>
                   {/* 右上角操作按钮 */}
                   <div className="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -520,54 +525,62 @@ export default function MyFilesPage() {
                         )}
                       />
                     </Button>
-                    {/* 更多操作按钮 */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                    {/* 更多操作：hover 弹出 */}
+                    <HoverCard openDelay={0} closeDelay={120}>
+                      <HoverCardTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background/95"
-                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
                         >
                           <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            // TODO: 实现添加至功能
-                            console.log("添加至", file);
+                      </HoverCardTrigger>
+                      <HoverCardContent align="end" side="bottom" sideOffset={8} className="w-48 p-2 space-y-1">
+                        <button
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlay(file);
                           }}
                         >
-                          <Plus className="mr-2 h-4 w-4" />
-                          添加至
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handlePlay(file)}>
-                          <Play className="mr-2 h-4 w-4" />
+                          <Play className="h-4 w-4" />
                           播放
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(file.id)}
-                          className="text-red-500 focus:text-red-500"
+                        </button>
+                        <div className="-mx-2 h-px bg-muted" />
+                        <button
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground text-red-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(file.id);
+                          }}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                           删除
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleShowInfo(file)}>
-                          <Info className="mr-2 h-4 w-4" />
-                          媒体信息
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            handleOpenFolder(file.outputPath || file.path)
-                          }
+                        </button>
+                        <button
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShowInfo(file);
+                          }}
                         >
-                          <FolderOpen className="mr-2 h-4 w-4" />
+                          <Info className="h-4 w-4" />
+                          媒体信息
+                        </button>
+                        <button
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenFolder(file.outputPath || file.path);
+                          }}
+                        >
+                          <FolderOpen className="h-4 w-4" />
                           在Finder中显示
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                        </button>
+                      </HoverCardContent>
+                    </HoverCard>
                   </div>
                 </div>
                 {/* 文件名 */}

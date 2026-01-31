@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, startTransition } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -216,7 +216,9 @@ export default function ConvertingTask({
                     size="icon"
                     onClick={() => {
                       setCurrentTask(task);
-                      setSettingsOpen(true);
+                      startTransition(() => {
+                        setSettingsOpen(true);
+                      });
                     }}
                   >
                     <Settings className="h-4 w-4" />
@@ -259,7 +261,7 @@ export default function ConvertingTask({
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: onGlobalFilterChange || (() => {}),
+    onGlobalFilterChange: onGlobalFilterChange || (() => { }),
     globalFilterFn: (row, _, filterValue) => {
       if (!filterValue || filterValue.trim() === "") {
         return true;
@@ -307,9 +309,9 @@ export default function ConvertingTask({
                   {header.isPlaceholder
                     ? null
                     : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
                 </TableHead>
               ))}
             </TableRow>
@@ -318,21 +320,21 @@ export default function ConvertingTask({
         <TableBody>
           {table.getRowModel().rows?.length
             ? table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className="border-b border-border h-auto"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="p-2">
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              <TableRow
+                key={row.id}
+                data-state={row.getIsSelected() && "selected"}
+                className="border-b border-border h-auto"
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id} className="p-2">
+                    {flexRender(
+                      cell.column.columnDef.cell,
+                      cell.getContext()
+                    )}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
             : null}
           {
             <TableRow

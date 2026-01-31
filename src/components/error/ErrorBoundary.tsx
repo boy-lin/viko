@@ -1,7 +1,7 @@
 
 import { Component, ErrorInfo, ReactNode } from 'react';
 import ErrorPage from './ErrorPage';
-import { errorMonitor } from '@/services/errorMonitor';
+// import { errorMonitor } from '@/services/errorMonitor';
 
 interface Props {
     children: ReactNode;
@@ -32,16 +32,16 @@ export class ErrorBoundary extends Component<Props, State> {
         console.error("1 Uncaught error:", { error, errorInfo });
 
         // 使用我们的监控服务记录 React 错误
-        errorMonitor.log({
-            type: 'react',
-            message: error.message,
-            stack: error.stack,
-            url: window.location.href,
-            timestamp: Date.now(),
-            meta: {
-                componentStack: errorInfo.componentStack
-            }
-        });
+        // errorMonitor.log({
+        //     type: 'react',
+        //     message: error.message,
+        //     stack: error.stack,
+        //     url: window.location.href,
+        //     timestamp: Date.now(),
+        //     meta: {
+        //         componentStack: errorInfo.componentStack
+        //     }
+        // });
     }
 
     private handleReset = () => {

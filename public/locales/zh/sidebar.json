@@ -1,0 +1,16 @@
+{
+  "nav": {
+    "home": "首页",
+    "ai_tools": "AI 工具",
+    "my_files": "我的文件"
+  },
+  "quick": {
+    "converter": "转换器",
+    "metadata": "元数据编辑器",
+    "compressor": "压缩器"
+  },
+  "pin": "固定到顶部",
+  "unpin": "取消固定",
+  "quick_access": "快捷访问"
+
+}

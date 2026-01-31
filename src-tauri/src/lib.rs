@@ -88,7 +88,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             crate::commands::get_media_info,
-            crate::commands::ffmpeg_exec,
             crate::commands::media_task_submit,
             crate::commands::media_task_has_running,
             crate::commands::media_task_clear,

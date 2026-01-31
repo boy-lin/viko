@@ -3,15 +3,19 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use crate::media_common;
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaDetails {
     pub path: String,
     pub extension: String,
     pub format_names: String,
+    pub format_long_name: Option<String>,
     pub duration: f64, // seconds
     pub size: u64,     // bytes
     pub streams: Vec<StreamDetails>,
+    pub tags: HashMap<String, String>,
+    pub stream_tags: Vec<HashMap<String, String>>, // aligned with streams by index
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -37,7 +41,9 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
     let context = media_common::open_input(path_str)?;
 
     let duration = context.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
-    let format_names = context.format().name().to_string();
+    let format_ctx = context.format();
+    let format_names = format_ctx.name().to_string();
+    let format_long_name = Some(format_ctx.description().to_string());
     let extension = path
         .extension()
         .and_then(|ext| ext.to_str())
@@ -46,6 +52,13 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
     let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
     let mut streams = Vec::new();
+    let mut stream_tags = Vec::new();
+
+    // Format-level metadata
+    let mut tags: HashMap<String, String> = HashMap::new();
+    for (k, v) in context.metadata().iter() {
+        tags.insert(k.to_string(), v.to_string());
+    }
 
     for stream in context.streams() {
         let codec_params = stream.parameters();
@@ -100,6 +113,13 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
             _ => {}
         }
 
+        // Collect stream-level tags for completeness (album art, language, etc.)
+        let mut stags: HashMap<String, String> = HashMap::new();
+        for (k, v) in stream.metadata().iter() {
+            stags.insert(k.to_string(), v.to_string());
+        }
+        stream_tags.push(stags);
+
         streams.push(stream_details);
     }
 
@@ -107,8 +127,11 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
         path: path_str.to_string(),
         extension,
         format_names,
+        format_long_name,
         duration,
         size,
         streams,
+        tags,
+        stream_tags,
     })
 }

@@ -49,7 +49,7 @@ interface ConverterState {
   incrementUnreadFinishedCount: () => void;
   resetUnreadFinishedCount: () => void;
   init: () => Promise<void>;
-  addFiles: () => Promise<void>;
+  addFiles: () => Promise<string[] | undefined>;
   addFilesFromPaths: (
     paths: string[],
     onFileProcessed?: (
@@ -57,7 +57,7 @@ interface ConverterState {
       status: "success" | "error",
       message?: string
     ) => void
-  ) => Promise<void>;
+  ) => Promise<string[] | undefined>;
   removeTask: (id: string) => void;
   removeFinishedTask: (id: string) => void;
   clearConvertingTasks: () => Promise<void>;
@@ -140,7 +140,7 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       //     },
       //   });
       //   if (!finalPaths.length) return;
-      await get().addFilesFromPaths(paths);
+      return await get().addFilesFromPaths(paths);
     } catch (err) {
       console.error("Error selecting files:", err);
     }
@@ -288,6 +288,8 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
           convertingTasks: [...state.convertingTasks, ...newTasks],
         }));
       }
+
+      return paths;
     } catch (err) {
       console.error("Error adding files:", err);
     }

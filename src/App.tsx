@@ -1,27 +1,26 @@
 import React from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import RootLayout from "./layout/RootPage";
-import HomePage from "./pages/home/v2";
+import HomePage from "./pages/home";
 import TaskListPage from "./pages/tasks/TaskListPage";
 import BatchPage from "./pages/batch/BatchPage";
 import CompressorPage from "./pages/compressor";
 import ConverterPage from "./pages/converter";
 import Mp3ConverterPage from "./pages/demo/converter";
 import AudioTestPage from "./pages/demo/AudioTestPage";
-import HomePageV1 from "./pages/home/HomePage";
 import VideoPlayerPage from "./pages/demo/VideoPlayer";
 import MyFilesPage from "./pages/myfiles";
 import SignInPage from "./pages/auth/sign-in";
 import SignUpPage from "./pages/auth/sign-up";
 import AuthLayout from "./layout/AuthLayout";
 import MetadataEditorPage from "./pages/metadata";
-// import ErrorPage from '@/components/error/ErrorPage';
+import ErrorPage from '@/components/error/ErrorPage';
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <AuthLayout />,
-    // errorElement: <ErrorPage />,
+    errorElement: <ErrorPage />,
     children: [
       {
         path: "/",
@@ -41,7 +40,7 @@ const router = createBrowserRouter([
             children: [
               { path: "mp3", element: <Mp3ConverterPage /> },
               { path: "audio-test", element: <AudioTestPage /> },
-              { path: "v1", element: <HomePageV1 /> },
+              { path: "v1", element: <HomePage /> },
             ],
           },
           {
@@ -56,11 +55,11 @@ const router = createBrowserRouter([
   },
   {
     path: "/sign-in", element: <SignInPage />,
-    // errorElement: <ErrorPage /> 
+    errorElement: <ErrorPage />
   },
   {
     path: "/sign-up", element: <SignUpPage />,
-    // errorElement: <ErrorPage /> 
+    errorElement: <ErrorPage />
   },
 ]);
 

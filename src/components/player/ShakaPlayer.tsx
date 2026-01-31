@@ -394,13 +394,13 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
     <div className={cn("mb-4 w-full", className)}>
       <div
         ref={containerRef}
-        className="relative w-full bg-black rounded-lg overflow-hidden group"
+        className="relative w-full bg-foreground rounded-lg overflow-hidden group"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         onMouseMove={() => setIsHovering(true)}
       >
         {/* 视频画布 */}
-        <div className="relative w-full aspect-video bg-black flex items-center justify-center">
+        <div className="relative w-full aspect-video bg-foreground flex items-center justify-center">
           <canvas ref={canvasRef} className="w-full h-full object-contain" />
 
           {/* 中央播放按钮 */}
@@ -408,10 +408,10 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
             <div className="absolute inset-0 flex items-center justify-center z-10">
               <button
                 aria-label="播放"
-                className="rounded-full bg-white/90 hover:bg-white p-4 flex items-center justify-center transition-all group shadow-lg cursor-pointer"
+                className="rounded-full bg-background/90 hover:bg-background p-4 flex items-center justify-center transition-all group shadow-lg cursor-pointer"
                 onClick={handlePlay}
               >
-                <PlayIcon className="w-12 h-12 text-black ml-1" />
+                <PlayIcon className="w-12 h-12 text-foreground ml-1" />
               </button>
             </div>
           )}
@@ -427,7 +427,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
           )}
         >
           {/* 渐变遮罩 */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-foreground/90 via-foreground/60 to-transparent pointer-events-none" />
 
           {/* 控制内容 */}
           <div className="relative px-4 pb-4 pt-6">
@@ -504,7 +504,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
                   side="top"
                   align="center"
                   sideOffset={8}
-                  className="w-auto p-3 bg-black/90 border-white/20"
+                  className="w-auto p-3 bg-foreground/90 border-background/20"
                 >
                   <Slider
                     value={[isMuted ? 0 : volume * 100]}
@@ -521,10 +521,10 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
               </HoverCard>
 
               {/* 时间显示 */}
-              <div className="flex items-center gap-1 text-white text-sm font-medium ml-2 select-none">
+              <div className="flex items-center gap-1 text-background text-sm font-medium ml-2 select-none">
                 <span>{formatTime(currentPosition)}</span>
-                <span className="text-white/70">/</span>
-                <span className="text-white/70">{formatTime(duration)}</span>
+                <span className="text-background/70">/</span>
+                <span className="text-background/70">{formatTime(duration)}</span>
               </div>
 
               {/* 播放速度 */}
@@ -533,7 +533,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="bg-transparent hover:bg-white/20 text-white hover:text-white  ml-auto h-9 px-2"
+                    className="bg-transparent hover:bg-background/20 text-background hover:text-background  ml-auto h-9 px-2"
                   >
                     {playbackRate}x
                   </Button>
@@ -560,7 +560,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="bg-transparent hover:bg-white/20 text-white p-0 h-9 w-9 hover:text-white "
+                    className="bg-transparent hover:bg-background/20 text-background p-0 h-9 w-9 hover:text-background "
                     aria-label="设置"
                   >
                     <SettingsIcon className="w-5 h-5" />
@@ -583,7 +583,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="bg-transparent hover:bg-white/20 text-white p-0 h-9 w-9 hover:text-white "
+                className="bg-transparent hover:bg-background/20 text-background p-0 h-9 w-9 hover:text-background "
                 onClick={handleFullscreen}
                 aria-label={isFullscreen ? "退出全屏" : "全屏"}
               >
