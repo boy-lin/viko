@@ -26,16 +26,29 @@ import {
   getValidVideoEncoders,
   getAvailableResolutions,
 } from "@/data/capabilities";
+import { useTranslation } from "react-i18next";
 interface ConversionSettingsDialogProps {
   taskConfig: ConversionConfig;
   onTaskConfigChange: (config: ConversionConfig) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  confirmLabel?: string;
+  descriptionOverride?: string;
+  onConfirm?: (config: ConversionConfig) => void;
 }
 
 export const ConversionSettingsDialog: React.FC<
   ConversionSettingsDialogProps
-> = ({ taskConfig, onTaskConfigChange, open, onOpenChange }) => {
+> = ({
+  taskConfig,
+  onTaskConfigChange,
+  open,
+  onOpenChange,
+  confirmLabel,
+  descriptionOverride,
+  onConfirm,
+}) => {
+  const { t } = useTranslation("converter");
   const [config, setConfig] = useState<ConversionConfig>(() => {
     if (taskConfig) return taskConfig;
     // 默认配置
@@ -50,6 +63,10 @@ export const ConversionSettingsDialog: React.FC<
 
   const handleSave = () => {
     onTaskConfigChange(config);
+    if (onConfirm) {
+      onConfirm(config);
+      return;
+    }
     onOpenChange(false);
   };
 
@@ -92,13 +109,21 @@ export const ConversionSettingsDialog: React.FC<
             title={config.outputTitle}
             onTitleChange={handleTitleChange}
           /> */}
-          <DialogTitle className="">Settings</DialogTitle>
+          <DialogTitle className="">{t("settings.title")}</DialogTitle>
           <DialogDescription className="">
-            Configure output settings for the converting task.
+            {descriptionOverride ?? t("settings.description")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4 px-4">
+          <div className="rounded-lg border border-border/60 bg-muted/40 px-4 py-3 text-sm text-foreground flex items-center gap-2">
+            <span className="text-xs uppercase text-muted-foreground">{t("settings.targetFormatLabel")}</span>
+            <span className="font-semibold">{config.outputFormat?.toUpperCase?.() || config.outputFormat}</span>
+            {config.outputTitle && (
+              <span className="text-muted-foreground">· {config.outputTitle}</span>
+            )}
+          </div>
+
           {/* Video Section */}
           {isVideoConfig(config) && (
             <>
@@ -150,9 +175,11 @@ export const ConversionSettingsDialog: React.FC<
 
         <div className="flex justify-end gap-2 py-4 px-4 border-t sticky bottom-0 bg-background/95 backdrop-blur z-10">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
-          <Button onClick={handleSave}>Save</Button>
+          <Button onClick={handleSave}>
+            {confirmLabel ?? t("common.save")}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

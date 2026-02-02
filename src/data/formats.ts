@@ -10,12 +10,12 @@ import { FormatEnum } from "@/types/options";
 import { FormatOption, FormatCategory, FormatGroup } from "@/types/options";
 
 export const FORMAT_CATEGORIES: FormatCategory[] = [
-  { id: "audio", label: "Audio", icon: Music },
-  { id: "video_generic", label: "Video", icon: FileVideo },
-  { id: "image", label: "Images", icon: ImageIcon },
-  { id: "video_device", label: "Devices", icon: Smartphone },
-  { id: "video_social", label: "Web/Social", icon: Globe },
-  { id: "video_editor", label: "Editors", icon: Layers },
+  { id: "audio", label: "Audio", icon: Music, type: "audio" },
+  { id: "video_generic", label: "Video", icon: FileVideo, type: "video" },
+  { id: "image", label: "Images", icon: ImageIcon, type: "image" },
+  { id: "video_device", label: "Devices", icon: Smartphone, type: "video" },
+  { id: "video_social", label: "Web/Social", icon: Globe, type: "video" },
+  { id: "video_editor", label: "Editors", icon: Layers, type: "video" },
 ];
 
 export const FORMAT_GROUPS: FormatGroup[] = [

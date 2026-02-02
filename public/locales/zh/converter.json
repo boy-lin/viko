@@ -1,0 +1,14 @@
+{
+  "settings": {
+    "title": "设置",
+    "description": "配置本次任务的输出参数",
+    "singleDescription": "仅对当前文件进行转换并立即开始。",
+    "startSingle": "开始转换",
+    "titleLabel": "标题：",
+    "targetFormatLabel": "目标",
+    "video": { "title": "视频" },
+    "audio": { "title": "音频", "trackLabel": "音轨 {{index}}" },
+    "image": { "title": "图片", "quality": "质量：", "resolution": "分辨率：" }
+  },
+  "common": { "cancel": "取消", "save": "保存" }
+}

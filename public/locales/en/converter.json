@@ -1,0 +1,14 @@
+{
+  "settings": {
+    "title": "Settings",
+    "description": "Configure output settings for this task",
+    "singleDescription": "This change will be applied and converted only for this file.",
+    "startSingle": "Start Convert",
+    "titleLabel": "Title:",
+    "targetFormatLabel": "Target",
+    "video": { "title": "Video" },
+    "audio": { "title": "Audio", "trackLabel": "Audio Track {{index}}" },
+    "image": { "title": "Image", "quality": "Quality:", "resolution": "Resolution:" }
+  },
+  "common": { "cancel": "Cancel", "save": "Save" }
+}

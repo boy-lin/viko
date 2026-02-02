@@ -8,6 +8,7 @@ import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
 import { getVideoEncoderOptions } from "@/data/capabilities";
+import { useTranslation } from "react-i18next";
 
 interface VideoSettingsSectionProps {
   video: VideoTrackConfig;
@@ -34,6 +35,7 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
   maxResolution,
   maxFrameRate,
 }) => {
+  const { t } = useTranslation("converter");
   const encoderOptions = getVideoEncoderOptions(video.encoder);
 
   // Filter Resolutions
@@ -73,7 +75,7 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-lg">Video:</h3>
+        <h3 className="font-bold text-lg">{t("settings.video.title")}</h3>
         {onReset && (
           <Button variant="ghost" size="icon" onClick={onReset}>
             <RefreshCw className="w-4 h-4" />

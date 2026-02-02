@@ -9,6 +9,7 @@ import { AudioChannelSelect } from "@/components/biz-form/AudioChannelSelect";
 import { AudioSampleRateSelect } from "@/components/biz-form/AudioSampleRateSelect";
 import { AudioBitrateSelect } from "@/components/biz-form/AudioBitrateSelect";
 import { getAudioEncoderOptions } from "@/data/capabilities";
+import { useTranslation } from "react-i18next";
 
 interface AudioSettingsSectionProps {
   audioTracks: AudioTrackConfig[];
@@ -26,6 +27,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
   onReset,
   multiTrack = false,
 }) => {
+  const { t } = useTranslation("converter");
   const updateTrack = (index: number, field: keyof AudioTrackConfig, value: string) => {
     const newTracks = [...audioTracks];
     newTracks[index] = { ...newTracks[index], [field]: value };
@@ -37,7 +39,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-bold text-lg">Audio:</h3>
+          <h3 className="font-bold text-lg">{t("settings.audio.title")}</h3>
           {onReset && (
             <Button variant="ghost" size="icon" onClick={onReset}>
               <RefreshCw className="w-4 h-4" />
@@ -55,7 +57,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-bold text-lg">Audio:</h3>
+          <h3 className="font-bold text-lg">{t("settings.audio.title")}</h3>
           {onReset && (
             <Button variant="ghost" size="icon" onClick={onReset}>
               <RefreshCw className="w-4 h-4" />
@@ -106,7 +108,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
                 htmlFor={`audio-check-${index}`}
                 className="font-bold text-lg cursor-pointer"
               >
-                Audio Track {index + 1}
+                {t("settings.audio.trackLabel", { index: index + 1 })}
               </Label>
             </div>
             {onReset && (

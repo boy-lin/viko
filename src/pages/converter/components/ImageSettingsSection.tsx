@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ImageConfig } from "@/types/converter";
 import { RefreshCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ImageSettingsSectionProps {
   image: ImageConfig;
@@ -16,10 +17,11 @@ export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
   onImageChange,
   onReset,
 }) => {
+  const { t } = useTranslation("converter");
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-lg">Image:</h3>
+        <h3 className="font-bold text-lg">{t("settings.image.title")}</h3>
         {onReset && (
           <Button variant="ghost" size="icon" onClick={onReset}>
             <RefreshCw className="w-4 h-4" />
@@ -29,7 +31,7 @@ export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
 
       <div className="grid grid-cols-2 gap-x-8 gap-y-4">
         <div className="space-y-2">
-          <Label className="text-muted-foreground">Quality:</Label>
+          <Label className="text-muted-foreground">{t("settings.image.quality")}</Label>
           <Input
             type="text"
             value={image.quality || "80"}
@@ -41,7 +43,7 @@ export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-muted-foreground">Resolution:</Label>
+          <Label className="text-muted-foreground">{t("settings.image.resolution")}</Label>
           <Input
             type="text"
             value={image.resolution || "auto"}

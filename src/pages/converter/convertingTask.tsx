@@ -33,6 +33,8 @@ import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { formatFileSize } from "@/lib/file";
 import { formatDuration } from "@/lib/time";
 import { ConversionSettingsDialog } from "./SettingsDialog";
+import { converterQueue } from "@/lib/bridge";
+import { useTranslation } from "react-i18next";
 
 interface ConvertingTaskProps {
   globalFilter?: string;
@@ -45,6 +47,7 @@ export default function ConvertingTask({
 }: ConvertingTaskProps = {}) {
   const { convertingTasks, removeTask, updateUnfinishedTaskConfig } =
     useConverterStore();
+  const { t } = useTranslation("converter");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
@@ -361,6 +364,13 @@ export default function ConvertingTask({
           }}
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
+          descriptionOverride={t("settings.singleDescription")}
+          confirmLabel={t("settings.startSingle")}
+          onConfirm={async (config) => {
+            await updateUnfinishedTaskConfig(currentTask.id, config);
+            await converterQueue.add([currentTask]);
+            setSettingsOpen(false);
+          }}
         />
       )}
     </>

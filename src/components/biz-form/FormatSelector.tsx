@@ -46,7 +46,6 @@ interface BaseFormatSelectorProps {
 
 // Video FormatSelector Props
 interface VideoFormatSelectorProps extends BaseFormatSelectorProps {
-  formatType: "video";
   encoder?: string;
   resolution?: string;
   // audioBitrate 不应该在这里，因为视频的音频配置在 audioTracks 中
@@ -54,7 +53,6 @@ interface VideoFormatSelectorProps extends BaseFormatSelectorProps {
 
 // Audio FormatSelector Props
 interface AudioFormatSelectorProps extends BaseFormatSelectorProps {
-  formatType: "audio";
   audioEncoder?: string;
   audioBitrate?: string;
   // encoder, resolution 不应该在这里
@@ -62,17 +60,20 @@ interface AudioFormatSelectorProps extends BaseFormatSelectorProps {
 
 // Image FormatSelector Props
 interface ImageFormatSelectorProps extends BaseFormatSelectorProps {
-  formatType: "image";
   quality?: string;
   resolution?: string;
   // encoder, audioBitrate 不应该在这里
 }
 
 // 联合类型
-export type FormatSelectorProps =
-  | VideoFormatSelectorProps
-  | AudioFormatSelectorProps
-  | ImageFormatSelectorProps;
+export interface FormatSelectorProps {
+  format: string;
+  imageResolution?: string;
+  videoResolution?: string;
+  audioBitrate?: string;
+  onValueChange: (formatType: string, updates: FormatSelectorValue) => void;
+  className?: string;
+}
 
 export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
   const { format, onValueChange, className } = props;
@@ -88,59 +89,28 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
   );
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-
-  // 根据 formatType 提取对应的参数
-  const formatType = props.formatType;
-  const videoParams =
-    formatType === "video"
-      ? {
-        encoder: props.encoder,
-        resolution: props.resolution,
-      }
-      : null;
-  const audioParams =
-    formatType === "audio"
-      ? {
-        audioEncoder: props.audioEncoder,
-        audioBitrate: props.audioBitrate,
-      }
-      : null;
-  const imageParams =
-    formatType === "image"
-      ? {
-        quality: props.quality,
-        resolution: props.resolution,
-      }
-      : null;
+  const formatCategory = FORMAT_CATEGORIES.find((c) => c.id === activeCategory) || { type: "video" };
 
   // Find the selected format based on props
   const selectedFormat = React.useMemo(() => {
     // 1. Try to find precise match including resolution/rate/quality
     let match = FORMAT_DATA.find((f) => {
       if (f.extension !== format) return false;
-
       // Video: check resolution match
       if (
-        formatType === "video" &&
-        videoParams?.resolution &&
-        f.videoResolution === videoParams.resolution
+        f.videoResolution === props.videoResolution
       ) {
         return true;
       }
-
       // Audio: check bitrate match (e.g. 320k)
       if (
-        formatType === "audio" &&
-        audioParams?.audioBitrate &&
-        f.audioBitrate === `${audioParams.audioBitrate}k`
+        f.audioBitrate === props.audioBitrate
       ) {
         return true;
       }
-
       // Image: check quality or resolution match
-      if (formatType === "image") {
-        if (imageParams?.resolution && f.imageResolution === imageParams.resolution)
-          return true;
+      if (f.imageResolution === props.imageResolution) {
+        return true;
       }
 
       return false;
@@ -154,11 +124,10 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
     return match;
   }, [
     format,
-    formatType,
-    videoParams?.resolution,
-    audioParams?.audioBitrate,
-    imageParams?.quality,
-    imageParams?.resolution,
+    formatCategory?.type,
+    props.videoResolution,
+    props.audioBitrate,
+    props.imageResolution,
   ]);
 
   const value = selectedFormat?.id || "";
@@ -231,30 +200,30 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
   }, [activeGroup]);
 
   const applySelection = (
-    format: FormatOption,
+    formatOpt: FormatOption,
     options: { close?: boolean; addRecent?: boolean; resetSearch?: boolean } = {}
   ) => {
     const { close = true, addRecent = true, resetSearch = true } = options;
-    if (addRecent) addToRecents(format.id);
+    if (addRecent) addToRecents(formatOpt.id);
     if (close) setOpen(false);
     if (resetSearch) setSearchQuery("");
 
-    if (!format.extension) return;
+    if (!formatOpt.extension) return;
 
     const updates: FormatSelectorValue = {
-      outputFormat: format.extension,
-      group: format.groupId,
+      outputFormat: formatOpt.extension,
+      group: formatOpt.groupId,
     };
 
     // 根据 formatType 设置对应的字段
-    if (formatType === "video") {
-      const caps = CONTAINER_DEFINITIONS[format.groupId];
+    if (formatOpt.audioBitrate === "video") {
+      const caps = CONTAINER_DEFINITIONS[formatOpt.groupId];
       updates.resolution = caps.video?.defaultResolution;
       updates.videoEncoder = caps.video?.defaultEncoder;
       updates.audioEncoder = caps.audio?.defaultEncoder;
-    } else if (formatType === "audio") {
-      if (format.audioBitrate) {
-        updates.audioBitrate = format.audioBitrate;
+    } else if (formatCategory?.type === "audio") {
+      if (formatOpt.audioBitrate) {
+        updates.audioBitrate = formatOpt.audioBitrate;
       } else {
         updates.audioBitrate = "auto";
       }
@@ -277,18 +246,18 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
           updates.audioBitrate = options.bitrates[0].value;
         }
       }
-    } else if (formatType === "image") {
+    } else if (formatCategory?.type === "image") {
       // Image Quality
-      if (format.imageResolution) {
-        updates.quality = format.imageResolution;
+      if (formatOpt.imageResolution) {
+        updates.quality = formatOpt.imageResolution;
       }
       // Image Resolution (如果有)
-      if (format.imageResolution && format.imageResolution.includes("x")) {
-        updates.resolution = format.imageResolution;
+      if (formatOpt.imageResolution && formatOpt.imageResolution.includes("x")) {
+        updates.resolution = formatOpt.imageResolution;
       }
     }
 
-    onValueChange(formatType, updates);
+    onValueChange(formatCategory?.type, updates);
   };
 
   const handleSelect = (format: FormatOption) => {

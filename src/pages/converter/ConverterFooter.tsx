@@ -167,76 +167,17 @@ export const ConverterFooter: React.FC = () => {
             目标格式
           </span>
           <div className="flex items-center gap-2">
-            {(() => {
-              const formatType = isVideoFormat(globalConfig.outputFormat)
-                ? "video"
-                : isAudioFormat(globalConfig.outputFormat)
-                  ? "audio"
-                  : isImageFormat(globalConfig.outputFormat)
-                    ? "image"
-                    : "video"; // 默认值
-
-              if (formatType === "video") {
-                return (
-                  <FormatSelector
-                    className="w-[14em]"
-                    formatType="video"
-                    format={globalConfig.outputFormat}
-                    encoder={
-                      isVideoConfig(globalConfig)
-                        ? globalConfig.video.encoder
-                        : undefined
-                    }
-                    resolution={
-                      isVideoConfig(globalConfig)
-                        ? globalConfig.video.resolution
-                        : undefined
-                    }
-                    onValueChange={handleFormatChange}
-                  />
-                );
-              } else if (formatType === "audio") {
-                return (
-                  <FormatSelector
-                    className="w-[14em]"
-                    formatType="audio"
-                    format={globalConfig.outputFormat}
-                    audioEncoder={
-                      isAudioConfig(globalConfig) &&
-                        globalConfig.audioTracks.length > 0
-                        ? globalConfig.audioTracks[0].encoder
-                        : undefined
-                    }
-                    audioBitrate={
-                      isAudioConfig(globalConfig) &&
-                        globalConfig.audioTracks.length > 0
-                        ? globalConfig.audioTracks[0].bitrate
-                        : undefined
-                    }
-                    onValueChange={handleFormatChange}
-                  />
-                );
-              } else {
-                return (
-                  <FormatSelector
-                    className="w-[14em]"
-                    formatType="image"
-                    format={globalConfig.outputFormat}
-                    quality={
-                      isImageConfig(globalConfig)
-                        ? globalConfig.image.quality
-                        : undefined
-                    }
-                    resolution={
-                      isImageConfig(globalConfig)
-                        ? globalConfig.image.resolution
-                        : undefined
-                    }
-                    onValueChange={handleFormatChange}
-                  />
-                );
-              }
-            })()}
+            <FormatSelector
+              className="w-[14em]"
+              format={globalConfig.outputFormat}
+              videoResolution={globalConfig.video?.resolution}
+              audioBitrate={globalConfig.audioTracks?.[0]?.bitrate}
+              audioSampleRate={globalConfig.audioTracks?.[0]?.sampleRate}
+              audioChannels={globalConfig.audioTracks?.[0]?.channels}
+              quality={globalConfig.image?.quality}
+              imageResolution={globalConfig.image?.resolution}
+              onValueChange={handleFormatChange}
+            />
             <Button
               variant="ghost"
               size="icon"

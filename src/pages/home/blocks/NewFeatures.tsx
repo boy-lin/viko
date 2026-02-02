@@ -96,11 +96,11 @@ export const NewFeatures = () => {
                 {t("comingSoon")}
               </div>
             )}
-            {tool.icon && (
+            {/* {tool.icon && (
               <div className="absolute inset-0 flex items-center justify-center text-background text-2xl font-bold">
                 {tool.icon}
               </div>
-            )}
+            )} */}
           </div>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">

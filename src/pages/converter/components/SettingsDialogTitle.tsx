@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface SettingsDialogTitleProps {
   title: string;
@@ -13,10 +14,11 @@ export const SettingsDialogTitle: React.FC<SettingsDialogTitleProps> = ({
   title,
   onTitleChange,
 }) => {
+  const { t } = useTranslation("converter");
   return (
     <div className="flex-1 flex items-center gap-2 mr-8">
       <Label htmlFor="title" className="shrink-0 text-muted-foreground">
-        Title:
+        {t("settings.titleLabel")}
       </Label>
       <div className="relative flex-1">
         <Input

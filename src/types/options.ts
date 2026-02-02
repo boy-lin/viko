@@ -31,6 +31,7 @@ export interface FormatCategory {
   id: string;
   label: string;
   icon: any;
+  type: "audio" | "video" | "image";
 }
 
 /**
