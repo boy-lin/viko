@@ -49,7 +49,7 @@ interface ConverterState {
   incrementUnreadFinishedCount: () => void;
   resetUnreadFinishedCount: () => void;
   init: () => Promise<void>;
-  addFiles: () => Promise<string[] | undefined>;
+  addFiles: (extensions?: string[]) => Promise<string[] | undefined>;
   addFilesFromPaths: (
     paths: string[],
     onFileProcessed?: (
@@ -114,14 +114,14 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       set({ isLoading: false });
     }
   },
-  addFiles: async () => {
+  addFiles: async (extensions?: string[]) => {
     try {
       const selected = await open({
         multiple: true,
         filters: [
           {
             name: "Media Files",
-            extensions: SupportedFormats,
+            extensions: extensions || SupportedFormats,
           },
         ],
       });

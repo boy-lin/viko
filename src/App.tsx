@@ -1,5 +1,5 @@
 import React from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import RootLayout from "./layout/RootPage";
 import HomePage from "./pages/home";
 import TaskListPage from "./pages/tasks/TaskListPage";
@@ -28,7 +28,13 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <HomePage /> },
           { path: "compressor", element: <CompressorPage /> },
-          { path: "converter", element: <ConverterPage /> },
+          {
+            path: "converter", element: <Outlet />, children: [
+              { path: "videos", element: <ConverterPage /> },
+              { path: "audios", element: <ConverterPage /> },
+              { path: "images", element: <ConverterPage /> },
+            ]
+          },
           {
             path: "my",
             children: [{ path: "files", element: <MyFilesPage /> }],

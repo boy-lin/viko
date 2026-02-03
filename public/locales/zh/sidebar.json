@@ -6,6 +6,10 @@
   },
   "quick": {
     "converter": "转换器",
+    "converter_videos": "视频转换器",
+    "converter_audios": "音频转换器",
+    "converter_images": "图片转换器",
+    "watermark": "水印生成器",
     "metadata": "元数据编辑器",
     "compressor": "压缩器"
   },

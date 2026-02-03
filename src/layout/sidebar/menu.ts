@@ -3,7 +3,9 @@ export enum MenuItems {
   aiTools = '',
   myFiles = '/my/files',
 
-  converter = '/converter',
+  converterVideos = '/converter/videos',
+  converterAudios = '/converter/audios',
+  converterImages = '/converter/images',
   compressor = '/compressor',
   
   metadata = '/metadata',
@@ -11,7 +13,4 @@ export enum MenuItems {
   
   tasks = '/tasks',
   batch = '/batch',
-  audio = '/audio',
-  video = '/video',
-  image = '/image',
 }

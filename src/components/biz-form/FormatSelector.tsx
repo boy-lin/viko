@@ -3,7 +3,6 @@ import {
   Check,
   ChevronsUpDown,
   Search,
-  Star,
   Clock,
   ChevronRight,
 } from "lucide-react";
@@ -16,10 +15,22 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FORMAT_DATA, FORMAT_CATEGORIES, FORMAT_GROUPS } from "@/data/formats";
 import { FormatOption } from "@/types/options";
 import { useConverterStore } from "@/stores/converterStore";
 import { AUDIO_ENCODERS } from "@/data/encoders";
+import { AudioSettingsSection } from "@/pages/converter/components/AudioSettingsSection";
+import { VideoSettingsSection } from "@/pages/converter/components/VideoSettingsSection";
+import { AudioTrackConfig, VideoTrackConfig } from "@/types/converter";
+import { VideoSimpleSettings } from "@/pages/converter/components/VideoSimpleSettings";
+import { Link2 } from "lucide-react";
 
 import { CONTAINER_DEFINITIONS, getAudioEncoderOptions } from "@/data/capabilities";
 export interface FormatSelectorValue {
@@ -37,34 +48,6 @@ export interface FormatSelectorValue {
   quality?: string;
 }
 
-// 基础 Props（所有类型共享）
-interface BaseFormatSelectorProps {
-  format: string;
-  onValueChange: (formatType: string, updates: FormatSelectorValue) => void;
-  className?: string;
-}
-
-// Video FormatSelector Props
-interface VideoFormatSelectorProps extends BaseFormatSelectorProps {
-  encoder?: string;
-  resolution?: string;
-  // audioBitrate 不应该在这里，因为视频的音频配置在 audioTracks 中
-}
-
-// Audio FormatSelector Props
-interface AudioFormatSelectorProps extends BaseFormatSelectorProps {
-  audioEncoder?: string;
-  audioBitrate?: string;
-  // encoder, resolution 不应该在这里
-}
-
-// Image FormatSelector Props
-interface ImageFormatSelectorProps extends BaseFormatSelectorProps {
-  quality?: string;
-  resolution?: string;
-  // encoder, audioBitrate 不应该在这里
-}
-
 // 联合类型
 export interface FormatSelectorProps {
   format: string;
@@ -79,17 +62,16 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
   const { format, onValueChange, className } = props;
 
   /* State for 3-Level Navigation */
-  const { formatFavorites, formatRecents, addToRecents, toggleFavorite } =
-    useConverterStore();
+  const { formatRecents, addToRecents } = useConverterStore();
 
   const [open, setOpen] = useState(false);
   // 首次打开时，如果 recents 有值就打开 recents 分类
   const [activeCategory, setActiveCategory] = useState<string>(
-    formatRecents.length > 0 ? "recents" : "favorites"
+    formatRecents.length > 0 ? "recents" : FORMAT_CATEGORIES[0]?.id
   );
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const formatCategory = FORMAT_CATEGORIES.find((c) => c.id === activeCategory) || { type: "video" };
+  const [openAdvanced, setOpenAdvanced] = useState(false);
 
   // Find the selected format based on props
   const selectedFormat = React.useMemo(() => {
@@ -124,24 +106,16 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
     return match;
   }, [
     format,
-    formatCategory?.type,
     props.videoResolution,
     props.audioBitrate,
     props.imageResolution,
   ]);
+  console.log("selectedFormat", selectedFormat);
+  const formatCategory = { type: selectedFormat?.category || "video" };
 
   const value = selectedFormat?.id || "";
 
 
-  // Derived Data
-  const formatGroups = React.useMemo(() => {
-    if (["favorites", "recents"].includes(activeCategory)) return [];
-    // Get all items in current category
-    const groups = FORMAT_GROUPS.filter(
-      (item) => item.category === activeCategory
-    );
-    return groups;
-  }, [activeCategory]);
 
   const filteredItems = React.useMemo(() => {
     // 1. Search Mode (Global Search)
@@ -154,9 +128,6 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
     }
 
     // 2. Special Categories (Flat List - no groups)
-    if (activeCategory === "favorites") {
-      return FORMAT_DATA.filter((item) => formatFavorites.includes(item.id));
-    }
     if (activeCategory === "recents") {
       return formatRecents
         .map((id) => FORMAT_DATA.find((f) => f.id === id))
@@ -178,10 +149,22 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
     searchQuery,
     activeCategory,
     activeGroup,
-    formatFavorites,
     formatRecents,
   ]);
 
+  // Derived Data
+  const formatGroups = React.useMemo(() => {
+    if (["recents"].includes(activeCategory)) {
+      return FORMAT_GROUPS.filter(item => {
+        return filteredItems.some(f => f.groupId === item.id);
+      });
+    }
+    // Get all items in current category
+    const groups = FORMAT_GROUPS.filter(
+      (item) => item.category === activeCategory
+    );
+    return groups;
+  }, [activeCategory, filteredItems]);
 
   useEffect(() => {
     const firstGroup = FORMAT_GROUPS.find((g) => g.category === activeCategory)
@@ -192,6 +175,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
 
   useEffect(() => {
     if (activeGroup) {
+      console.log("activeGroup", activeGroup);
       const item = FORMAT_DATA.find((item) => item.groupId === activeGroup)
       if (item?.id) {
         applySelection(item, { close: false, addRecent: true })
@@ -260,18 +244,68 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
     onValueChange(formatCategory?.type, updates);
   };
 
+  const renderAdvancedSettings = () => {
+    if (formatCategory?.type === "audio") {
+      const track: AudioTrackConfig = {
+        trackIndex: 0,
+        encoder: props.audioEncoder || "auto",
+        bitrate: props.audioBitrate || "auto",
+        sampleRate: props.audioSampleRate || "auto",
+        channels: props.audioChannels || "auto",
+      };
+      return (
+        <AudioSettingsSection
+          audioTracks={[track]}
+          outputFormat={format}
+          onAudioTracksChange={(tracks) => {
+            const next = tracks[0];
+            if (!next) return;
+            onValueChange("audio", {
+              outputFormat: format,
+              group: selectedFormat?.groupId || "",
+              audioEncoder: next.encoder,
+              audioBitrate: next.bitrate,
+              audioSampleRate: next.sampleRate,
+              audioChannels: next.channels,
+            });
+          }}
+          multiTrack={false}
+        />
+      );
+    }
+
+    if (formatCategory?.type === "video") {
+      const video: VideoTrackConfig = {
+        encoder: props.videoEncoder || "auto",
+        resolution: props.videoResolution || "auto",
+        frameRate: undefined,
+        bitrate: undefined,
+      };
+      return (
+        <VideoSettingsSection
+          video={video}
+          onVideoChange={(next) => {
+            onValueChange("video", {
+              outputFormat: format,
+              group: selectedFormat?.groupId || "",
+              videoEncoder: next.encoder,
+              resolution: next.resolution,
+            });
+          }}
+        />
+      );
+    }
+
+    return (
+      <div className="h-full flex items-center justify-center text-sm text-muted-foreground border border-dashed rounded-md">
+        高级配置占位，后续补充
+      </div>
+    );
+  };
+
   const handleSelect = (format: FormatOption) => {
     applySelection(format);
   };
-
-  const currentCategoryLabel = React.useMemo(() => {
-    if (activeCategory === "favorites") return "Favorites";
-    if (activeCategory === "recents") return "Recently Used";
-    return FORMAT_CATEGORIES.find((c) => c.id === activeCategory)?.label;
-  }, [activeCategory]);
-
-  // 判断是否显示中间列（Groups）
-  const showGroupsColumn = !searchQuery && !["favorites", "recents"].includes(activeCategory);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -318,17 +352,6 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
               <ScrollArea className="h-full">
                 {/* Special Categories */}
                 <CategoryItem
-                  id="favorites"
-                  label="Favorites"
-                  icon={Star}
-                  active={activeCategory === "favorites" && !searchQuery}
-                  onClick={() => {
-                    setActiveCategory("favorites");
-                    setSearchQuery("");
-                    setActiveGroup(null);
-                  }}
-                />
-                <CategoryItem
                   id="recents"
                   label="Recents"
                   icon={Clock}
@@ -362,148 +385,142 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
           </div>
 
           {/* Middle Column: Groups (Level 2) - Only show for standard categories */}
-          {showGroupsColumn && (
-            <div className="w-[120px] border-r bg-muted/10 flex flex-col">
-              <div className="p-3 border-b bg-muted/10 font-medium text-sm h-[50px] flex items-center">
-                <span>{currentCategoryLabel}</span>
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {formatGroups.length}
-                </span>
-              </div>
-              <div className="flex-1 overflow-hidden p-2">
-                <ScrollArea className="h-full">
-                  {formatGroups.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                      <p className="text-xs">No groups</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {formatGroups.map((group) => (
-                        <button
-                          key={group.id}
-                          onClick={() => {
-                            setActiveGroup(group.id);
-
-                          }}
-                          className={cn(
-                            "w-full flex items-center justify-between p-2 rounded-md text-left transition-colors",
-                            activeGroup === group.id
-                              ? "bg-accent text-accent-foreground"
-                              : "hover:bg-accent/50"
-                          )}
-                        >
-                          <span className="text-sm font-medium">{group.label}</span>
-                          {activeGroup === group.id && (
-                            <Check className="w-4 h-4 text-primary" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </div>
+          <div className="w-[120px] border-r bg-muted/10 flex flex-col">
+            <div className="flex-1 overflow-hidden p-2">
+              <ScrollArea className="h-full">
+                {formatGroups.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <p className="text-xs">No groups</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {formatGroups.map((group) => (
+                      <button
+                        key={group.id}
+                        onClick={() => {
+                          setActiveGroup(group.id);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between p-2 rounded-md text-left transition-colors",
+                          activeGroup === group.id
+                            ? "bg-accent text-accent-foreground"
+                            : "hover:bg-accent/50"
+                        )}
+                      >
+                        <span className="text-sm font-medium">{group.label}</span>
+                        {activeGroup === group.id && (
+                          <Check className="w-4 h-4 text-primary" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
             </div>
-          )}
+          </div>
 
           {/* Right Column: Options (Level 3) */}
           <div className="flex-1 flex flex-col">
             {/* Header */}
             <div className="p-3 border-b bg-muted/10 font-medium text-sm flex justify-between items-center h-[50px]">
-              {searchQuery ? (
-                <span>Search Results</span>
-              ) : showGroupsColumn && activeGroup ? (
-                <span>{activeGroup}</span>
-              ) : (
-                <span>{currentCategoryLabel}</span>
-              )}
-              <span className="text-xs text-muted-foreground">
-                {filteredItems.length} {filteredItems.length === 1 ? "option" : "options"}
-              </span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center rounded-full border border-border bg-background text-xs font-medium overflow-hidden">
+                  <button
+                    type="button"
+                    className={cn(
+                      "px-3 py-1 transition-colors",
+                      !openAdvanced ? "bg-muted text-foreground" : "text-muted-foreground"
+                    )}
+                    onClick={() => setOpenAdvanced(false)}
+                  >
+                    简易设置
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "px-3 py-1 transition-colors",
+                      openAdvanced ? "bg-muted text-foreground" : "text-muted-foreground"
+                    )}
+                    onClick={() => setOpenAdvanced(true)}
+                  >
+                    高级设置
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="flex-1 overflow-hidden p-2">
-              <ScrollArea className="h-full">
-                {filteredItems.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                    <p className="text-sm">No formats found.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-1">
-                    {filteredItems.map((item) => (
-                      <div
-                        key={item.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleSelect(item)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            handleSelect(item);
-                          }
-                        }}
-                        className={cn(
-                          "flex items-center justify-between p-2 rounded-md hover:bg-accent hover:text-accent-foreground text-left transition-colors group cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                          value === item.id && "bg-accent/50"
-                        )}
-                      >
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">
-                            {item.label}
-                          </span>
-                          <div className="flex items-end gap-2 max-w-[300px] text-xs text-muted-foreground">
-                            <span className=" whitespace-nowrap">
-                              {item.extension?.toUpperCase()}
+              {openAdvanced ? (
+                <div className="h-full">
+                  {renderAdvancedSettings()}
+                </div>
+              ) : formatCategory?.type === "video" ? (
+                <VideoSimpleSettings
+                  resolution={props.videoResolution}
+                  onResolutionChange={(value) => {
+                    onValueChange("video", {
+                      outputFormat: format,
+                      group: selectedFormat?.groupId || "",
+                      resolution: value,
+                      videoEncoder: props.videoEncoder,
+                    });
+                  }}
+                />
+              ) : (
+                <ScrollArea className="h-full">
+                  {filteredItems.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                      <p className="text-sm">No formats found.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-1">
+                      {filteredItems.map((item) => (
+                        <div
+                          key={item.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleSelect(item)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleSelect(item);
+                            }
+                          }}
+                          className={cn(
+                            "flex items-center justify-between p-2 rounded-md hover:bg-accent hover:text-accent-foreground text-left transition-colors group cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                            value === item.id && "bg-accent/50"
+                          )}
+                        >
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">
+                              {item.label}
                             </span>
-                            {item.description && (
-                              <span
-                                className="truncate"
-                                title={item.description}
-                              >
-                                ({item.description})
+                            <div className="flex items-end gap-2 max-w-[300px] text-xs text-muted-foreground">
+                              <span className=" whitespace-nowrap">
+                                {item.extension?.toUpperCase()}
                               </span>
+                              {item.description && (
+                                <span
+                                  className="truncate"
+                                  title={item.description}
+                                >
+                                  ({item.description})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {value === item.id && (
+                              <Check className="w-4 h-4 text-primary" />
                             )}
                           </div>
                         </div>
-
-                        <div
-                          className={cn(
-                            "flex items-center gap-2 transition-opacity",
-                            formatFavorites.includes(item.id)
-                              ? "opacity-100"
-                              : "opacity-0 group-hover:opacity-100"
-                          )}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn(
-                              "h-6 w-6",
-                              formatFavorites.includes(item.id)
-                                ? "text-yellow-400"
-                                : "text-muted-foreground"
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite(item.id);
-                            }}
-                          >
-                            <Star
-                              className={cn(
-                                "w-3 h-3",
-                                formatFavorites.includes(item.id) &&
-                                "fill-current"
-                              )}
-                            />
-                          </Button>
-                          {value === item.id && (
-                            <Check className="w-4 h-4 text-primary" />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              )}
             </div>
           </div>
         </div>

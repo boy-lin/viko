@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Trash2, Settings } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -10,7 +10,6 @@ import { FormatSelector } from "@/components/biz-form/FormatSelector";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
 import { useConverterStore, defaultVideoConfig } from "@/stores/converterStore";
 import type { FormatSelectorValue } from "@/components/biz-form/FormatSelector";
-import { ConversionSettingsDialog } from "./SettingsDialog";
 import { converterQueue } from "@/lib/bridge";
 import { isAudioFormat, isVideoFormat, isImageFormat } from "@/data/formats";
 import {
@@ -33,7 +32,6 @@ export const ConverterFooter: React.FC = () => {
     (state) => state.updateUnfinishedTaskConfig
   );
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
   const handleFormatChange = (
@@ -178,14 +176,6 @@ export const ConverterFooter: React.FC = () => {
               imageResolution={globalConfig.image?.resolution}
               onValueChange={handleFormatChange}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              onClick={() => setIsSettingsOpen(true)}
-            >
-              <Settings className="w-4 h-4 text-muted-foreground" />
-            </Button>
           </div>
         </div>
 
@@ -253,12 +243,6 @@ export const ConverterFooter: React.FC = () => {
         </Button>
       </div>
 
-      <ConversionSettingsDialog
-        taskConfig={globalConfig}
-        onTaskConfigChange={updateGlobalConfig}
-        open={isSettingsOpen}
-        onOpenChange={setIsSettingsOpen}
-      />
     </div>
   );
 };

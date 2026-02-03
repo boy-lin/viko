@@ -1,37 +1,12 @@
 import { useState, useMemo, startTransition } from "react";
-import {
-  useReactTable,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  flexRender,
-  type ColumnDef,
-  type SortingState,
-  type ColumnFiltersState,
-} from "@tanstack/react-table";
-import { ArrowUpDown, Trash2, Settings, ShieldAlert } from "lucide-react";
+import { Trash2, Settings, ShieldAlert, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { UploadPanel } from "./UploadPanel";
 import { useConverterStore } from "@/stores/converterStore";
 import { ConversionConfig, ConverterTask } from "@/types/converter";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
-import { formatFileSize } from "@/lib/file";
-import { formatDuration } from "@/lib/time";
 import { ConversionSettingsDialog } from "./SettingsDialog";
 import { converterQueue } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
@@ -48,314 +23,153 @@ export default function ConvertingTask({
   const { convertingTasks, removeTask, updateUnfinishedTaskConfig } =
     useConverterStore();
   const { t } = useTranslation("converter");
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<ConverterTask | null>(null);
 
-  // 定义列
-  const columns = useMemo<ColumnDef<ConverterTask>[]>(
-    () => [
-      {
-        accessorKey: "thumbnail",
-        header: "预览/文件名",
-        cell: ({ row }) => {
-          const task = row.original;
-          return (
-            <div className="flex items-center gap-3">
-              <MediaThumbnail
-                path={task.path}
-                title={task.title}
-                fileType={task.fileType}
-                className="shrink-0 w-10 h-10 rounded"
-              />
-              <div className="flex flex-col max-w-[200px]">
-                <span
-                  className="text-sm font-medium text-foreground truncate"
-                  title={task.title}
-                >
-                  {task.title}
-                </span>
-              </div>
-            </div>
-          );
-        },
-        enableSorting: false,
-      },
-      {
-        accessorKey: "size",
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() =>
-                column.toggleSorting(column.getIsSorted() === "asc")
-              }
-              className="h-auto p-0 hover:bg-transparent"
-            >
-              文件大小
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
-        cell: ({ row }) => (
-          <span className="text-sm font-normal text-foreground">
-            {formatFileSize(row.getValue("size"))}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "duration",
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() =>
-                column.toggleSorting(column.getIsSorted() === "asc")
-              }
-              className="h-auto p-0 hover:bg-transparent"
-            >
-              时长
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
-        cell: ({ row }) => (
-          <span className="text-sm font-normal text-foreground">
-            {formatDuration(row.getValue("duration"))}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "quality",
-        header: "格式/分辨率",
-        cell: ({ row }) => {
-          const task = row.original;
-          return (
-            <div className="flex flex-col">
-              <span className="text-sm">{task.extension.toUpperCase()}</span>
-              {task.displayResolution && (
-                <span className="text-xs text-muted-foreground">
-                  {task.displayResolution}
-                </span>
-              )}
-            </div>
-          );
-        },
-        enableSorting: false,
-      },
-      {
-        accessorKey: "status",
-        header: "状态/进度",
-        cell: ({ row }) => {
-          const task = row.original;
-          const statusConfig = {
-            idle: {
-              label: "等待中",
-              className: "border-gray-500 text-gray-700 bg-gray-50",
-              variant: "outline",
-            },
-            converting: {
-              label: "转换中",
-              className: "border-blue-500 text-blue-700 bg-blue-50",
-              variant: "outline",
-            },
-            finished: {
-              label: "已完成",
-              className: "border-green-500 text-green-700 bg-green-50",
-              variant: "outline",
-            },
-            error: {
-              label: "错误",
-              className: "border-red-500 text-red-700 bg-red-50",
-              variant: "outline",
-            },
-          };
-          const config = statusConfig[task.status] || statusConfig.idle;
-          const errorMessage =
-            (task as any).errorMessage || (task as any).error;
-          return (
-            <div className="flex flex-col gap-1 w-24">
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className={config.className}>
-                  {config.label}
-                  {task.status === "converting" &&
-                    task.progress !== undefined && (
-                      <span className="text-xs text-muted-foreground">
-                        {task.progress.toFixed(0)}%
-                      </span>
-                    )}
-                  {task.status === "error" && errorMessage && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">
-                          <ShieldAlert className="h-4 w-4 text-red-600" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p className="text-sm">{errorMessage}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </Badge>
-              </div>
-            </div>
-          );
-        },
-        enableSorting: false,
-      },
-      {
-        id: "actions",
-        header: "操作",
-        cell: ({ row }) => {
-          const task = row.original;
-          return (
-            <div className="flex items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setCurrentTask(task);
-                      startTransition(() => {
-                        setSettingsOpen(true);
-                      });
-                    }}
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>设置</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => removeTask(task.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>删除</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          );
-        },
-        enableSorting: false,
-      },
-    ],
-    [removeTask]
-  );
-
-  const table = useReactTable({
-    data: convertingTasks,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: onGlobalFilterChange || (() => { }),
-    globalFilterFn: (row, _, filterValue) => {
-      if (!filterValue || filterValue.trim() === "") {
-        return true;
-      }
-      const search = filterValue.toLowerCase().trim();
-      const task = row.original;
-      const fileName = task.title.toLowerCase();
-      const extension = task.extension?.toLowerCase() || "";
-      const displayFormat = task.displayFormat?.toLowerCase() || "";
-      const displayResolution = task.displayResolution?.toLowerCase() || "";
-
+  const filteredTasks = useMemo(() => {
+    const search = globalFilter?.trim().toLowerCase() || "";
+    if (!search) return convertingTasks;
+    return convertingTasks.filter((task) => {
+      const fileName = task.title?.toLowerCase?.() || "";
+      const extension = task.extension?.toLowerCase?.() || "";
+      const displayFormat = task.displayFormat?.toLowerCase?.() || "";
+      const displayResolution = task.displayResolution?.toLowerCase?.() || "";
       return (
         fileName.includes(search) ||
         extension.includes(search) ||
         displayFormat.includes(search) ||
         displayResolution.includes(search)
       );
-    },
-    state: {
-      sorting,
-      columnFilters,
-      globalFilter,
-    },
-    initialState: {
-      pagination: {
-        pageSize: 10,
-      },
-    },
-  });
+    });
+  }, [convertingTasks, globalFilter]);
+
+  const statusLabel = (task: ConverterTask) => {
+    const errorMessage = (task as any).errorMessage || (task as any).error;
+    const map = {
+      idle: { text: t("status.idle", "等待中"), color: "text-gray-600", badge: "bg-gray-100" },
+      converting: { text: t("status.converting", "转换中"), color: "text-blue-600", badge: "bg-blue-100" },
+      finished: { text: t("status.finished", "已完成"), color: "text-green-600", badge: "bg-green-100" },
+      error: { text: t("status.error", "错误"), color: "text-red-600", badge: "bg-red-100" },
+    } as const;
+    const cfg = map[task.status] || map.idle;
+    return (
+      <div className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${cfg.badge} ${cfg.color}`}>
+        <span>{cfg.text}</span>
+        {task.status === "converting" && task.progress !== undefined && (
+          <span>{task.progress.toFixed(0)}%</span>
+        )}
+        {task.status === "error" && errorMessage && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <ShieldAlert className="h-3 w-3" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p className="text-sm">{errorMessage}</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    );
+  };
+
+  const handleConvertSingle = async (task: ConverterTask) => {
+    await converterQueue.add([task]);
+  };
 
   return (
     <>
-      <Table
-        wrapperClassName="h-full"
-        className="w-full relative min-w-max table-auto text-left"
-      >
-        <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="hover:bg-transparent">
-              {headerGroup.headers.map((header) => (
-                <TableHead
-                  key={header.id}
-                  className="cursor-pointer border-y border-border bg-muted p-2 transition-colors hover:bg-muted"
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows?.length
-            ? table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() && "selected"}
-                className="border-b border-border h-auto"
+      <div className="space-y-3">
+        {filteredTasks.length === 0 ? (
+          <div className="border border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
+            <UploadPanel />
+          </div>
+        ) : (
+          filteredTasks.map((task) => {
+            const outputFormat = (task.config as any)?.outputFormat || task.displayFormat || task.extension;
+            const targetInfoParts = [
+              outputFormat?.toUpperCase?.(),
+              (task.config as any)?.audioTracks?.[0]?.bitrate || (task as any).displayBitrate,
+            ].filter(Boolean);
+            return (
+              <div
+                key={task.id}
+                className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm"
               >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="p-2">
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext()
-                    )}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-            : null}
-          {
-            <TableRow
-              style={{
-                display: table.getRowModel().rows?.length
-                  ? "none"
-                  : "table-row",
-              }}
-            >
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                <div className="mb-6">
-                  <UploadPanel />
+                <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                  <MediaThumbnail
+                    path={task.path}
+                    title={task.title}
+                    fileType={task.fileType}
+                    className="w-full h-full"
+                  />
                 </div>
-              </TableCell>
-            </TableRow>
-          }
-        </TableBody>
-      </Table>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <span className="text-base font-semibold text-foreground truncate">{task.title}</span>
+                    {statusLabel(task)}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                    <span>{task.extension.toUpperCase()}</span>
+                    {task.displayResolution && <span>{task.displayResolution}</span>}
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-muted-foreground">{t("targetInfo")}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-foreground">
+                    {targetInfoParts.length > 0 ? targetInfoParts.map((p, idx) => (
+                      <span key={idx}>{p}</span>
+                    )) : <span className="text-muted-foreground">-</span>}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setCurrentTask(task);
+                          startTransition(() => setSettingsOpen(true));
+                        }}
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("actions.settings")}</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => removeTask(task.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("actions.delete")}</TooltipContent>
+                  </Tooltip>
+
+                  <Button
+                    className="bg-purple-600 hover:bg-purple-700 text-white h-10 px-4"
+                    onClick={() => handleConvertSingle(task)}
+                  >
+                    <Play className="h-4 w-4 mr-1" />
+                    {t("actions.convertSingle", "转换")}
+                  </Button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
       {currentTask && (
         <ConversionSettingsDialog
           taskConfig={currentTask.config as ConversionConfig}

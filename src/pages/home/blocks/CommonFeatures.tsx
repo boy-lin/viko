@@ -23,7 +23,7 @@ type FeatureItem = {
 const FEATURE_MAP: FeatureItem[] = [
   {
     id: "converter",
-    path: MenuItems.converter,
+    path: MenuItems.converterVideos,
     titleKey: "common.converter.title",
     descKey: "common.converter.desc",
     icon: FileVideo,
@@ -33,14 +33,14 @@ const FEATURE_MAP: FeatureItem[] = [
     titleKey: "common.audio.title",
     descKey: "common.audio.desc",
     icon: FileAudio,
-    path: MenuItems.converter,
+    path: MenuItems.converterAudios,
   },
   {
     id: "image",
     titleKey: "common.image.title",
     descKey: "common.image.desc",
     icon: ImageIcon,
-    path: MenuItems.converter,
+    path: MenuItems.converterImages,
   },
   {
     id: "compressor",

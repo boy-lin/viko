@@ -52,9 +52,9 @@ export function ToolsTab() {
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              className={`relative cursor-pointer whitespace-nowrap flex items-center gap-2 pb-0 font-medium transition-colors ${activeKey === tab.key
+              className={`relative whitespace-nowrap flex items-center gap-2 pb-0 font-medium transition-colors ${activeKey === tab.key
                 ? "text-indigo-600"
-                : "text-muted-foreground hover:text-foreground"
+                : "cursor-pointer text-muted-foreground hover:text-foreground"
                 }`}
               onClick={() => setActiveKey(tab.key)}
             >

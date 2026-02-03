@@ -79,11 +79,25 @@ const itemVariants = {
 
 const QUICK_ACCESS_CONFIG: QuickAccessItem[] = [
   {
-    label: "quick.converter",
+    label: "quick.converter_videos",
     icon: ConversionLinear,
     color: "bg-indigo-50 text-indigo-600",
     activeGradient: "from-[#8B5CF6] to-[#6366F1]",
-    href: MenuItems.converter,
+    href: MenuItems.converterVideos,
+  },
+  {
+    label: "quick.converter_audios",
+    icon: ConversionLinear,
+    color: "bg-indigo-50 text-indigo-600",
+    activeGradient: "from-[#8B5CF6] to-[#6366F1]",
+    href: MenuItems.converterAudios,
+  },
+  {
+    label: "quick.converter_images",
+    icon: ConversionLinear,
+    color: "bg-indigo-50 text-indigo-600",
+    activeGradient: "from-[#8B5CF6] to-[#6366F1]",
+    href: MenuItems.converterImages,
   },
   {
     label: "quick.metadata",
