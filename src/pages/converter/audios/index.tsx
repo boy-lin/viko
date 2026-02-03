@@ -9,11 +9,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ConverterFooter } from "./ConverterFooter";
+import { ConverterFooter } from "../ConverterFooter";
 import { useConverterStore } from "@/stores/converterStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import ConvertingTask from "./convertingTask";
-import FinishedTask from "./finishedTask";
+import ConvertingTask from "../convertingTask";
+import FinishedTask from "../finishedTask";
 
 const TABS = [
   {

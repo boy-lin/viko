@@ -25,22 +25,41 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  const [isMissing, setIsMissing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
     const fetchThumbnail = async () => {
       if (!path) return;
+      if (isMounted) {
+        setIsMissing(false);
+      }
 
       try {
         // Invoke backend command to generate thumbnail
         const thumb = await invoke<string | null>("generate_media_thumbnail", {
           path,
         });
-        if (isMounted && thumb) {
-          setThumbnail(thumb);
+        if (isMounted) {
+          if (thumb) {
+            setThumbnail(thumb);
+          } else {
+            setThumbnail(null);
+          }
         }
       } catch (err) {
+        if (!isMounted) return;
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        const missing =
+          errorMessage.includes("文件不存在") ||
+          errorMessage.toLowerCase().includes("no such file") ||
+          errorMessage.toLowerCase().includes("not found");
+        if (missing) {
+          setIsMissing(true);
+          setThumbnail(null);
+          setIsDialogOpen(false);
+        }
         console.error("Failed to load thumbnail:", err);
       }
     };
@@ -61,10 +80,11 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   }, [fileType]);
 
   const handleClick = useCallback(() => {
+    if (isMissing) return;
     React.startTransition(() => {
       setIsDialogOpen(true);
     });
-  }, []);
+  }, [isMissing]);
 
   const renderPlayer = () => {
     if (!fileType) return null;
@@ -101,14 +121,20 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
     <>
       <div
         className={cn(
-          "w-38 h-38 bg-muted/30 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative cursor-pointer group",
+          "w-38 h-38 bg-muted/30 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative group",
+          isMissing ? "cursor-not-allowed" : "cursor-pointer",
           className
         )}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         onClick={handleClick}
       >
-        {thumbnail ? (
+        {isMissing ? (
+          <div className="w-full h-full bg-muted/30 rounded-lg flex flex-col items-center justify-center text-muted-foreground text-xs gap-2">
+            {icon}
+            <span>文件已删除</span>
+          </div>
+        ) : thumbnail ? (
           <>
             <img
               src={thumbnail}

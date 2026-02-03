@@ -5,7 +5,7 @@ import HomePage from "./pages/home";
 import TaskListPage from "./pages/tasks/TaskListPage";
 import BatchPage from "./pages/batch/BatchPage";
 import CompressorPage from "./pages/compressor";
-import ConverterPage from "./pages/converter";
+import ConverterPage from "./pages/converter/videos";
 import Mp3ConverterPage from "./pages/demo/converter";
 import AudioTestPage from "./pages/demo/AudioTestPage";
 import VideoPlayerPage from "./pages/demo/VideoPlayer";

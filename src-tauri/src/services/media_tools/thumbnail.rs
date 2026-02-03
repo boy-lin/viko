@@ -1,4 +1,5 @@
 use std::io::Cursor;
+use std::path::Path;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use ffmpeg_next as ffmpeg;
@@ -10,6 +11,10 @@ use crate::media_common;
 /// For video: extracts the first frame.
 /// For audio: extracts attached picture (cover art).
 pub fn generate_thumbnail(path: &str) -> Result<Option<String>, String> {
+    if !Path::new(path).exists() {
+        return Err(format!("文件不存在: {}", path));
+    }
+
     media_common::init_ffmpeg()?;
 
     let mut ictx = media_common::open_input(path)?;
