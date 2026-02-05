@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
+  ListOrdered,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
@@ -18,12 +19,14 @@ import CompressionLinear from "@/components/icons/CompressionLinear";
 import PinLinear from "@/components/icons/PinLinear";
 import PinCancelLinear from "@/components/icons/PinCancelLinear";
 import { useAppStore } from "@/stores/app";
+import { useConverterStore } from "@/stores/converterStore";
 
 type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   href?: string;
   disabled?: boolean;
+  badgeCount?: number;
 };
 
 type QuickAccessItem = {
@@ -253,6 +256,11 @@ const SidebarNavItem = ({
       )}>
         {item.label}
       </SidebarLabel>
+      {typeof item.badgeCount === "number" && item.badgeCount > 0 && (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-semibold px-1.5 h-4 min-w-[16px]">
+          {item.badgeCount > 99 ? "99+" : item.badgeCount}
+        </span>
+      )}
     </motion.button>
   );
 };
@@ -382,6 +390,7 @@ const SidebarQuickAccess = ({
 const SidebarNav = () => {
   const { t } = useTranslation("sidebar");
   const location = useLocation();
+  const unreadFinishedCount = useConverterStore((s) => s.unreadFinishedCount);
   const {
     pinnedPaths,
     recentPaths,
@@ -414,6 +423,7 @@ const SidebarNav = () => {
 
   const sidebarNavItems: NavItem[] = [
     { label: t("nav.home"), icon: HomeLinear, href: MenuItems.home },
+    { label: t("nav.tasks"), icon: ListOrdered, href: MenuItems.tasks, badgeCount: unreadFinishedCount },
     { label: t("nav.my_files"), icon: FolderLinear, href: MenuItems.myFiles },
     { label: t("nav.ai_tools"), icon: AILinear, disabled: true },
   ];

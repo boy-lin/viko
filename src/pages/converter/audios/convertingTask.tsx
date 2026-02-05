@@ -1,25 +1,28 @@
 import { useState, useMemo, startTransition } from "react";
 import { Trash2, Settings, ShieldAlert, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { UploadPanel } from "./UploadPanel";
+import { UploadPanel } from "../UploadPanel";
 import { useConverterStore } from "@/stores/converterStore";
-import { ConversionConfig, ConverterTask } from "@/types/converter";
+import { ConversionConfig, ConverterTask, FileType } from "@/types/converter";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
-import { ConversionSettingsDialog } from "./SettingsDialog";
+import { ConversionSettingsDialog } from "../SettingsDialog";
 import { converterQueue } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
+import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
+import { AUDIO_FORMATS } from "@/data/formats";
 
 interface ConvertingTaskProps {
+  convertTaskType: FileType;
   globalFilter?: string;
   onGlobalFilterChange?: (value: string) => void;
 }
 
 export default function ConvertingTask({
+  convertTaskType,
   globalFilter = "",
   onGlobalFilterChange,
-}: ConvertingTaskProps = {}) {
+}: ConvertingTaskProps) {
   const { convertingTasks, removeTask, updateUnfinishedTaskConfig } =
     useConverterStore();
   const { t } = useTranslation("converter");
@@ -82,14 +85,14 @@ export default function ConvertingTask({
       <div className="space-y-3">
         {filteredTasks.length === 0 ? (
           <div className="border border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
-            <UploadPanel />
+            <UploadPanel supportedExtensions={AUDIO_FORMATS} />
           </div>
         ) : (
           filteredTasks.map((task) => {
             const outputFormat = (task.config as any)?.outputFormat || task.displayFormat || task.extension;
             const targetInfoParts = [
               outputFormat?.toUpperCase?.(),
-              (task.config as any)?.audioTracks?.[0]?.bitrate || (task as any).displayBitrate,
+              (task.config as any)?.video?.resolution,
             ].filter(Boolean);
             return (
               <div
@@ -107,13 +110,16 @@ export default function ConvertingTask({
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">
-                    <span className="text-base font-semibold text-foreground truncate">{task.title}</span>
-                    {statusLabel(task)}
+                    <EllipsisName name={task.title} className="text-base font-semibold text-foreground" />
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                     <span>{task.extension.toUpperCase()}</span>
                     {task.displayResolution && <span>{task.displayResolution}</span>}
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {statusLabel(task)}
                 </div>
 
                 <div className="flex-1 min-w-0">

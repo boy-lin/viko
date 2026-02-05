@@ -50,19 +50,13 @@ export interface FormatSelectorValue {
 
 // 联合类型
 export interface FormatSelectorProps {
-  format: string;
-  imageResolution?: string;
-  videoResolution?: string;
-  audioBitrate?: string;
   onValueChange: (formatType: string, updates: FormatSelectorValue) => void;
   className?: string;
 }
 
 export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
-  const { format, onValueChange, className } = props;
-
-  /* State for 3-Level Navigation */
-  const { formatRecents, addToRecents } = useConverterStore();
+  const { onValueChange, className } = props;
+  const { globalConfig, formatRecents, addToRecents } = useConverterStore();
 
   const [open, setOpen] = useState(false);
   // 首次打开时，如果 recents 有值就打开 recents 分类
@@ -77,21 +71,21 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
   const selectedFormat = React.useMemo(() => {
     // 1. Try to find precise match including resolution/rate/quality
     let match = FORMAT_DATA.find((f) => {
-      if (f.extension !== format) return false;
+      if (f.extension !== globalConfig.outputFormat) return false;
       // Video: check resolution match
       if (
-        f.videoResolution === props.videoResolution
+        f.videoResolution === globalConfig.video?.resolution
       ) {
         return true;
       }
       // Audio: check bitrate match (e.g. 320k)
       if (
-        f.audioBitrate === props.audioBitrate
+        f.audioBitrate === globalConfig.audioTracks?.[0]?.bitrate
       ) {
         return true;
       }
       // Image: check quality or resolution match
-      if (f.imageResolution === props.imageResolution) {
+      if (f.imageResolution === globalConfig.image?.resolution) {
         return true;
       }
 
@@ -100,22 +94,18 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
 
     // 2. Fallback to just format extension
     if (!match) {
-      match = FORMAT_DATA.find((f) => f.extension === format);
+      match = FORMAT_DATA.find((f) => f.extension === globalConfig.outputFormat);
     }
 
     return match;
   }, [
-    format,
-    props.videoResolution,
-    props.audioBitrate,
-    props.imageResolution,
+    globalConfig.outputFormat,
+    globalConfig.video?.resolution,
+    globalConfig.audioTracks?.[0]?.bitrate,
+    globalConfig.image?.resolution,
   ]);
-  console.log("selectedFormat", selectedFormat);
-  const formatCategory = { type: selectedFormat?.category || "video" };
 
-  const value = selectedFormat?.id || "";
-
-
+  const formatCategory = { type: selectedFormat?.category || globalConfig.type };
 
   const filteredItems = React.useMemo(() => {
     // 1. Search Mode (Global Search)
@@ -248,20 +238,20 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
     if (formatCategory?.type === "audio") {
       const track: AudioTrackConfig = {
         trackIndex: 0,
-        encoder: props.audioEncoder || "auto",
-        bitrate: props.audioBitrate || "auto",
-        sampleRate: props.audioSampleRate || "auto",
-        channels: props.audioChannels || "auto",
+        encoder: globalConfig.audioTracks?.[0]?.encoder || "auto",
+        bitrate: globalConfig.audioTracks?.[0]?.bitrate || "auto",
+        sampleRate: globalConfig.audioTracks?.[0]?.sampleRate || "auto",
+        channels: globalConfig.audioTracks?.[0]?.channels || "auto",
       };
       return (
         <AudioSettingsSection
           audioTracks={[track]}
-          outputFormat={format}
+          outputFormat={globalConfig.outputFormat}
           onAudioTracksChange={(tracks) => {
             const next = tracks[0];
             if (!next) return;
             onValueChange("audio", {
-              outputFormat: format,
+              outputFormat: globalConfig.outputFormat,
               group: selectedFormat?.groupId || "",
               audioEncoder: next.encoder,
               audioBitrate: next.bitrate,
@@ -276,8 +266,8 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
 
     if (formatCategory?.type === "video") {
       const video: VideoTrackConfig = {
-        encoder: props.videoEncoder || "auto",
-        resolution: props.videoResolution || "auto",
+        encoder: globalConfig.video?.encoder || "auto",
+        resolution: globalConfig.video?.resolution || "auto",
         frameRate: undefined,
         bitrate: undefined,
       };
@@ -286,7 +276,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
           video={video}
           onVideoChange={(next) => {
             onValueChange("video", {
-              outputFormat: format,
+              outputFormat: globalConfig.outputFormat,
               group: selectedFormat?.groupId || "",
               videoEncoder: next.encoder,
               resolution: next.resolution,
@@ -456,13 +446,13 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                 </div>
               ) : formatCategory?.type === "video" ? (
                 <VideoSimpleSettings
-                  resolution={props.videoResolution}
+                  resolution={globalConfig.video?.resolution}
                   onResolutionChange={(value) => {
                     onValueChange("video", {
-                      outputFormat: format,
+                      outputFormat: globalConfig.outputFormat,
                       group: selectedFormat?.groupId || "",
                       resolution: value,
-                      videoEncoder: props.videoEncoder,
+                      videoEncoder: globalConfig.video?.encoder,
                     });
                   }}
                 />
@@ -488,7 +478,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                           }}
                           className={cn(
                             "flex items-center justify-between p-2 rounded-md hover:bg-accent hover:text-accent-foreground text-left transition-colors group cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                            value === item.id && "bg-accent/50"
+                            selectedFormat?.id === item.id && "bg-accent/50"
                           )}
                         >
                           <div className="flex flex-col">
@@ -511,7 +501,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            {value === item.id && (
+                            {selectedFormat?.id === item.id && (
                               <Check className="w-4 h-4 text-primary" />
                             )}
                           </div>

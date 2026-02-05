@@ -140,14 +140,14 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
       set({ isLoading: false });
     }
   },
-  addFiles: async () => {
+  addFiles: async (extensions?: string[]) => {
     try {
       const selected = await open({
         multiple: true,
         filters: [
           {
             name: "Media Files",
-            extensions: SupportedFormats,
+            extensions: extensions || SupportedFormats,
           },
         ],
       });

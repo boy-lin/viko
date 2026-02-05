@@ -1,6 +1,7 @@
 {
   "nav": {
     "home": "首页",
+    "tasks": "任务",
     "ai_tools": "AI 工具",
     "my_files": "我的文件"
   },

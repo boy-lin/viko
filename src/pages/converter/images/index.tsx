@@ -8,27 +8,14 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConverterFooter } from "../ConverterFooter";
 import { useConverterStore } from "@/stores/converterStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import ConvertingTask from "../convertingTask";
-import FinishedTask from "../finishedTask";
-
-const TABS = [
-  {
-    label: "待处理",
-    value: "converting",
-  },
-  {
-    label: "已完成",
-    value: "finished",
-  },
-];
+import ConvertingTask from "./convertingTask";
+import { IMAGE_FORMATS } from "@/data/formats";
 
 export default function ConverterPage() {
-  const { init, activeTab, setActiveTab, addFiles, unreadFinishedCount } =
-    useConverterStore();
+  const { init, addFiles } = useConverterStore();
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -37,35 +24,11 @@ export default function ConverterPage() {
     initSettings();
   }, [init, initSettings]);
 
-  // 当切换到已完成 tab 时，重置未读数
-  const handleTabChange = (tab: "converting" | "finished") => {
-    setActiveTab(tab);
-  };
-
   return (
     <Card className="h-full w-full py-0 gap-0 bg-transparent border-none shadow-none flex flex-col">
       <CardHeader className="rounded-none px-0 flex-shrink-0">
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => handleTabChange(v as any)}
-            className="w-full md:w-max"
-          >
-            <TabsList>
-              {TABS.map(({ label, value }) => (
-                <TabsTrigger key={value} value={value} className="relative">
-                  &nbsp;&nbsp;{label}&nbsp;&nbsp;
-                  {value === "finished" &&
-                    unreadFinishedCount > 0 &&
-                    activeTab !== "finished" && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-semibold px-1.5 h-4 rounded-full flex items-center justify-center min-w-[16px]">
-                        {unreadFinishedCount > 99 ? "99+" : unreadFinishedCount}
-                      </span>
-                    )}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <div className="text-sm font-medium text-muted-foreground">待处理</div>
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -79,7 +42,7 @@ export default function ConverterPage() {
             <Button
               className="flex items-center gap-3"
               size="sm"
-              onClick={() => addFiles()}
+              onClick={() => addFiles(IMAGE_FORMATS)}
             >
               <UserPlus className="h-4 w-4" /> 添加文件
             </Button>
@@ -88,25 +51,15 @@ export default function ConverterPage() {
       </CardHeader>
       <CardContent className="px-0 flex flex-col flex-1 min-h-0">
         <div className="relative flex-1 overflow-auto">
-          {activeTab === "converting" ? (
-            <ConvertingTask
-              globalFilter={globalFilter}
-              onGlobalFilterChange={setGlobalFilter}
-            />
-          ) : (
-            <FinishedTask
-              globalFilter={globalFilter}
-              onGlobalFilterChange={setGlobalFilter}
-            />
-          )}
+          <ConvertingTask
+            convertTaskType="image"
+            globalFilter={globalFilter}
+            onGlobalFilterChange={setGlobalFilter}
+          />
         </div>
       </CardContent>
       <CardFooter className="flex items-center justify-between border-t border-border px-4 py-4 [.border-t]:pt-4 flex-shrink-0">
-        {activeTab === "converting" ? (
-          <ConverterFooter />
-        ) : (
-          <div className="text-sm text-muted-foreground">已完成任务列表</div>
-        )}
+        <ConverterFooter />
       </CardFooter>
     </Card>
   );

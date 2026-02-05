@@ -4,11 +4,9 @@ import { UploadCloud } from "lucide-react";
 import { Gauge } from "@/components/ui-lab/gague-1";
 import { useConverterStore } from "@/stores/converterStore";
 import {
-  SupportedFormats,
   isAudioFormat,
   isImageFormat,
   isVideoFormat,
-  supportedExtensions,
 } from "@/data/formats";
 import { handleDirectoryToFiles } from "@/lib/file";
 import { useDragDrop } from "@/lib/drag";
@@ -35,7 +33,11 @@ const getFileKind = (extension?: string): UploadKind => {
   return "file";
 };
 
-export function UploadPanel() {
+export function UploadPanel({
+  supportedExtensions,
+}: {
+  supportedExtensions: string[];
+}) {
   const addFilesFromPaths = useConverterStore(
     (state) => state.addFilesFromPaths
   );
@@ -45,12 +47,13 @@ export function UploadPanel() {
   const progressTimers = useRef<Map<string, number>>(new Map());
 
   const supportedHint = useMemo(() => {
-    const preview = SupportedFormats.slice(0, 10).map((ext) =>
+    const preview = supportedExtensions.map((ext) =>
       ext.toUpperCase()
     );
     return `${preview.join(" / ")} 等`;
   }, []);
-
+  console.log("supportedHint", supportedHint);
+  console.log("supportedExtensions", supportedExtensions);
   useEffect(() => {
     return () => {
       progressTimers.current.forEach((timer) => window.clearInterval(timer));
@@ -144,7 +147,7 @@ export function UploadPanel() {
           depth: 1,
           filterCallback: (path) => {
             const extension = path.split(".").pop()?.toLowerCase();
-            return !!(extension && supportedExtensions.has(extension));
+            return !!(extension && supportedExtensions.includes(extension));
           },
         });
 
@@ -245,7 +248,7 @@ export function UploadPanel() {
         >
           <div
             className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
-            onClick={addFiles}
+            onClick={() => addFiles(supportedExtensions)}
           >
             <UploadCloud className="h-7 w-7" />
           </div>

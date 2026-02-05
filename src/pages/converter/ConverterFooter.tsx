@@ -17,9 +17,12 @@ import {
   isAudioConfig,
   isImageConfig,
   type ConversionConfig,
+  FileType,
 } from "@/types/converter";
 
-export const ConverterFooter: React.FC = () => {
+export const ConverterFooter: React.FC<{
+  convertTaskType: FileType;
+}> = ({ convertTaskType }) => {
   const globalConfig = useConverterStore((state) => state.globalConfig);
   const convertingTasks = useConverterStore((state) => state.convertingTasks);
   const updateGlobalConfig = useConverterStore(
@@ -131,6 +134,7 @@ export const ConverterFooter: React.FC = () => {
       }
       const tasks = useConverterStore.getState().convertingTasks;
       await converterQueue.add(tasks);
+      await clearConvertingTasks();
     }
   };
 
@@ -167,13 +171,6 @@ export const ConverterFooter: React.FC = () => {
           <div className="flex items-center gap-2">
             <FormatSelector
               className="w-[14em]"
-              format={globalConfig.outputFormat}
-              videoResolution={globalConfig.video?.resolution}
-              audioBitrate={globalConfig.audioTracks?.[0]?.bitrate}
-              audioSampleRate={globalConfig.audioTracks?.[0]?.sampleRate}
-              audioChannels={globalConfig.audioTracks?.[0]?.channels}
-              quality={globalConfig.image?.quality}
-              imageResolution={globalConfig.image?.resolution}
               onValueChange={handleFormatChange}
             />
           </div>

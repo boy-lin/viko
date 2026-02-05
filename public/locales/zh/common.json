@@ -25,7 +25,7 @@
         "title": "加速设置",
         "description": "配置硬件加速选项。",
         "ultra_fast_label": "启用极速模式",
-        "ultra_fast_desc": "优化转换设置以获得最大速度。",
+        "ultra_fast_desc": "优化转换/压缩设置以获得最大速度。",
         "gpu_label": "启用 GPU 加速",
         "checking": "正在检查硬件支持...",
         "gpu_desc_available": "可用时使用硬件编码器 (如 NVENC, QSV, VideoToolbox)。",

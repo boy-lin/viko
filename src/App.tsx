@@ -3,9 +3,10 @@ import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import RootLayout from "./layout/RootPage";
 import HomePage from "./pages/home";
 import TaskListPage from "./pages/tasks/TaskListPage";
-import BatchPage from "./pages/batch/BatchPage";
 import CompressorPage from "./pages/compressor";
-import ConverterPage from "./pages/converter/videos";
+import ConverterVideoPage from "./pages/converter/videos";
+import ConverterAudioPage from "./pages/converter/audios";
+import ConverterImagePage from "./pages/converter/images";
 import Mp3ConverterPage from "./pages/demo/converter";
 import AudioTestPage from "./pages/demo/AudioTestPage";
 import VideoPlayerPage from "./pages/demo/VideoPlayer";
@@ -30,9 +31,9 @@ const router = createBrowserRouter([
           { path: "compressor", element: <CompressorPage /> },
           {
             path: "converter", element: <Outlet />, children: [
-              { path: "videos", element: <ConverterPage /> },
-              { path: "audios", element: <ConverterPage /> },
-              { path: "images", element: <ConverterPage /> },
+              { path: "videos", element: <ConverterVideoPage /> },
+              { path: "audios", element: <ConverterAudioPage /> },
+              { path: "images", element: <ConverterImagePage /> },
             ]
           },
           {
@@ -40,7 +41,6 @@ const router = createBrowserRouter([
             children: [{ path: "files", element: <MyFilesPage /> }],
           },
           { path: "tasks", element: <TaskListPage /> },
-          { path: "batch", element: <BatchPage /> },
           {
             path: "demo",
             children: [
