@@ -9,7 +9,7 @@ import {
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
 import { useCompressorStore } from "@/stores/compressorStore";
 import { CompressionSettingsDialog } from "./CompressionSettingsDialog";
-import { compressorQueue } from "@/lib/bridge";
+import { getMediaTaskQueue } from "@/lib/bridge";
 import { Slider } from "@/components/ui/slider";
 
 export const CompressionFooter: React.FC = () => {
@@ -78,17 +78,17 @@ export const CompressionFooter: React.FC = () => {
       const tasks = useCompressorStore
         .getState()
         .compressingTasks.filter((task) => task.compressionConfig?.type);
-      await compressorQueue.add(tasks);
+      await getMediaTaskQueue().add(tasks, "compress");
     }
   };
 
   const handleDelete = async () => {
-    const hasRunningTasks = await compressorQueue.hasRunningTasks();
+    const hasRunningTasks = await getMediaTaskQueue().hasRunningTasks();
 
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
       await clearCompressingTasks();
-      await compressorQueue.clearQueue();
+      await getMediaTaskQueue().clearQueue();
     } else {
       // 有运行中的任务，打开确认弹窗
       setIsDeletePopoverOpen(true);
@@ -97,7 +97,7 @@ export const CompressionFooter: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     // 清空队列
-    await compressorQueue.clearQueue();
+    await getMediaTaskQueue().clearQueue();
     // 清空压缩中的任务
     await clearCompressingTasks();
     // 关闭弹窗

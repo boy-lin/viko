@@ -1,9 +1,7 @@
-﻿use std::collections::VecDeque;
-use std::path::Path;
+﻿use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{LazyLock, Mutex};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
 use crate::services::convert::audio::{self, AudioConversionParams};
@@ -16,8 +14,9 @@ use crate::events::TaskEmitter;
 use crate::services::convert::gif::{self, GifConversionParams};
 use crate::services::convert::image::{self, ImageConversionParams};
 use crate::services::convert::video::{self, VideoConversionParams};
+use crate::storage::media_queue;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(tag = "kind", content = "args")]
 pub enum MediaTaskRequest {
     #[serde(rename = "convert-audio")]
@@ -36,77 +35,84 @@ pub enum MediaTaskRequest {
     CompressImage(ImageCompressionArgs),
 }
 
-static TASK_QUEUE: LazyLock<Mutex<VecDeque<MediaTaskRequest>>> =
-    LazyLock::new(|| Mutex::new(VecDeque::new()));
 static TASK_RUNNING: AtomicBool = AtomicBool::new(false);
 
-pub fn submit_tasks(app: AppHandle, tasks: Vec<MediaTaskRequest>) -> Result<usize, String> {
-    let mut queue = TASK_QUEUE
-        .lock()
-        .map_err(|_| "Failed to lock task queue".to_string())?;
+pub async fn submit_tasks(app: AppHandle, tasks: Vec<MediaTaskRequest>) -> Result<usize, String> {
+    println!("submit_tasks");
     for task in tasks {
-        queue.push_back(task);
+        media_queue::enqueue(&task).await.map_err(|e| {
+            println!("enqueue err: {e}");
+            e.to_string()
+        })?;
     }
-    let pending = queue.len();
-    drop(queue);
-
+    println!("submit_tasks end");
+    let pending = media_queue::count().await.map_err(|e| {
+        println!("count err: {e}");
+        e.to_string()
+    })?;
+    println!("pending: {pending}");
     start_worker(app);
     Ok(pending)
 }
 
-pub fn has_running() -> bool {
+pub async fn has_running() -> bool {
     if TASK_RUNNING.load(Ordering::SeqCst) {
         return true;
     }
-    TASK_QUEUE
-        .lock()
-        .map(|q| !q.is_empty())
+    media_queue::count()
+        .await
+        .map(|c| c > 0)
         .unwrap_or(false)
 }
 
-pub fn clear_pending() -> Result<usize, String> {
-    let mut queue = TASK_QUEUE
-        .lock()
-        .map_err(|_| "Failed to lock task queue".to_string())?;
-    let removed = queue.len();
-    queue.clear();
-    Ok(removed)
+pub async fn clear_pending() -> Result<usize, String> {
+    let count = media_queue::count().await.map_err(|e| e.to_string())?;
+    media_queue::clear().await.map_err(|e| e.to_string())?;
+    Ok(count)
 }
 
 fn start_worker(app: AppHandle) {
+    println!("start_worker");
     if TASK_RUNNING.swap(true, Ordering::SeqCst) {
         return;
     }
 
-    std::thread::spawn(move || loop {
-        let task = {
-            let mut queue = match TASK_QUEUE.lock() {
-                Ok(q) => q,
-                Err(_) => {
-                    TASK_RUNNING.store(false, Ordering::SeqCst);
-                    return;
+    tauri::async_runtime::spawn(async move {
+        loop {
+            let task = match media_queue::dequeue().await {
+                Ok(t) => t,
+                Err(e) => {
+                    log::error!("Failed to dequeue task: {}", e);
+                    None
                 }
             };
-            queue.pop_front()
-        };
-
-        match task {
-            Some(task) => {
-                if let Err(err) = execute_task(&app, task) {
-                    log::error!("media task failed: {}", err);
+            println!("task: {:?}", task);
+            match task {
+                Some(task) => {
+                    // Run execution in blocking thread to avoid stalling async runtime
+                    let app_clone = app.clone();
+                    // We spawn a blocking task to handle the actual processing
+                    // This allows valid mixing of async and sync code without blocking the main runtime
+                    let result = tauri::async_runtime::spawn_blocking(move || {
+                        if let Err(err) = execute_task(&app_clone, task) {
+                            log::error!("media task failed: {}", err);
+                        }
+                    }).await;
+                    
+                    if let Err(e) = result {
+                         log::error!("Worker thread join error: {}", e);
+                    }
                 }
-            }
-            None => {
-                TASK_RUNNING.store(false, Ordering::SeqCst);
-                if TASK_QUEUE
-                    .lock()
-                    .map(|q| q.is_empty())
-                    .unwrap_or(true)
-                {
-                    break;
-                }
-                if !TASK_RUNNING.swap(true, Ordering::SeqCst) {
-                    continue;
+                None => {
+                    println!("No task found, breaking loop");
+                    TASK_RUNNING.store(false, Ordering::SeqCst);
+                    let count = media_queue::count().await.unwrap_or(0);
+                    if count == 0 {
+                        break;
+                    }
+                    if !TASK_RUNNING.swap(true, Ordering::SeqCst) {
+                        continue;
+                    }
                 }
             }
         }
@@ -114,6 +120,7 @@ fn start_worker(app: AppHandle) {
 }
 
 fn execute_task(app: &AppHandle, task: MediaTaskRequest) -> Result<(), String> {
+    println!("execute_task: {:?}", task);
     match task {
         MediaTaskRequest::ConvertAudio(args) => run_convert_audio(app, args),
         MediaTaskRequest::ConvertVideo(args) => run_convert_video(app, args),
@@ -165,6 +172,7 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
 }
 
 fn run_convert_video(app: &AppHandle, args: VideoConversionArgs) -> Result<(), String> {
+    println!("run_convert_video: {:?}", args);
     let resolved_format = args
         .format
         .clone()
@@ -364,4 +372,3 @@ fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(),
     }
     Ok(())
 }
-

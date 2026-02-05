@@ -43,7 +43,7 @@ mod tests {
 
     fn get_system_font() -> String {
         // Windows typical font
-        let path = PathBuf::from("C:\\Windows\\Fonts\\arial.ttf");
+        let path = PathBuf::from("c:\WINDOWS\Fonts\ARIAL.TTF");
         if path.exists() {
             return path.to_string_lossy().to_string();
         }

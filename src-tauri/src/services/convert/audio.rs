@@ -3,13 +3,15 @@
 use ffmpeg::{codec, format, frame, packet, software};
 use ffmpeg::util::channel_layout::ChannelLayout;
 use ffmpeg_next as ffmpeg;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
 
 use crate::media_common::{self, AudioFifo};
 use crate::events::TaskEmitter;
 
 /// 音频编码参数（可复用于视频多轨配置）
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+
 pub struct AudioEncodingParams {
     pub codec: Option<String>,        // libmp3lame, aac, flac, pcm 等
     pub bitrate: Option<f32>,         // kbps
@@ -169,7 +171,8 @@ pub fn convert_audio<E: TaskEmitter>(
     let codec_name = map_codec_name(&format, params.codec.as_deref(), use_hw);
     let is_amr = format == "amr" || codec_name.contains("amr");
 
-    emitter.emit("progress", Some(0.0), None, None);let duration = media_common::get_audio_duration(&params.input_path)?;
+    emitter.emit("progress", Some(0.0), None, None);
+    let duration = media_common::get_audio_duration(&params.input_path)?;
 
     let mut ictx = format::input(&params.input_path).map_err(|e| format!("打开输入文件失败: {}", e))?;
     let mut octx = open_output_context(&params.output_path, &format)?;

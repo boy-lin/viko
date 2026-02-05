@@ -1,4 +1,4 @@
-﻿import { emit, listen, UnlistenFn } from "@tauri-apps/api/event";
+import { emit, listen, UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { readDir, stat } from "@tauri-apps/plugin-fs";
 import {
@@ -23,9 +23,11 @@ export type DownloadProgress = {
   total?: number | null;
 };
 
+export type TaskType = "convert" | "compress" | "metadata" | "watermark";
+
 export type MediaTaskEvent = {
   task_id: string;
-  task_type: "convert" | "compress";
+  task_type: TaskType;
   media_type: "video" | "audio" | "image";
   event_type: "progress" | "complete" | "error";
   progress?: number;
@@ -38,7 +40,6 @@ export type BridgeEvents = {
   "ffmpeg-progress": string;
   "ffmpeg-complete": string;
   "ffmpeg-download-progress": DownloadProgress;
-  "ffmpeg-exec": string;
   "video-frame": { width: number; height: number; data: number[] | Uint8Array };
   "video-complete": string;
   "video-error": string;
@@ -50,19 +51,174 @@ type EventPayload<K extends string> = K extends KnownEvent
   ? BridgeEvents[K]
   : unknown;
 
-type MediaTaskRequest =
-  | { kind: "convert-audio"; args: Record<string, unknown> }
-  | { kind: "convert-video"; args: Record<string, unknown> }
-  | { kind: "convert-gif"; args: Record<string, unknown> }
-  | { kind: "convert-image"; args: Record<string, unknown> }
-  | { kind: "compress-video"; args: Record<string, unknown> }
-  | { kind: "compress-audio"; args: Record<string, unknown> }
-  | { kind: "compress-image"; args: Record<string, unknown> };
+/** 与 Rust AudioEncodingParams 对应 */
+export interface AudioEncodingParams {
+  codec?: string;
+  bitrate?: number;
+  sample_rate?: number;
+  channels?: number;
+  bit_depth?: number;
+  quality?: number;
+}
+
+/** 与 Rust AudioTrackConfig 对应 */
+export interface AudioTrackConfig {
+  source_stream_index?: number;
+  /** flatten: 与 AudioEncodingParams 字段一致 */
+  codec?: string;
+  bitrate?: number;
+  sample_rate?: number;
+  channels?: number;
+  bit_depth?: number;
+  quality?: number;
+}
+
+/** 与 Rust TextWatermark 对应 */
+export interface TextWatermark {
+  content: string;
+  font_path: string;
+  font_size: number;
+  color: string;
+  opacity: number;
+  x: string;
+  y: string;
+}
+
+/** 与 Rust ImageWatermark 对应 */
+export interface ImageWatermark {
+  path: string;
+  scale: number;
+  opacity: number;
+  x: string;
+  y: string;
+}
+
+/** 与 Rust WatermarkConfig 对应 */
+export interface WatermarkConfig {
+  text?: TextWatermark;
+  image?: ImageWatermark;
+}
+
+/** 与 Rust VideoConversionArgs 对应，用于 convert_video_file */
+export interface ConvertVideoTaskArgs {
+  task_id: string;
+  input_path: string;
+  output_path?: string;
+  format?: string;
+  video_encoder?: string;
+  video_bitrate?: number;
+  min_bitrate?: number;
+  max_bitrate?: number;
+  rc_mode?: string;
+  resolution?: string;
+  aspect_ratio?: string;
+  scaling_mode?: string;
+  frame_rate?: string;
+  gop_size?: number;
+  preset?: string;
+  profile?: string;
+  tune?: string;
+  color_space?: string;
+  bit_depth?: number;
+  crop?: string;
+  audio_encoder?: string;
+  audio_bitrate?: number;
+  audio_sample_rate?: number;
+  audio_channels?: number;
+  audio_bit_depth?: number;
+  audio_quality?: number;
+  audio_tracks?: AudioTrackConfig[];
+  default_audio_params?: AudioEncodingParams;
+  use_hardware_acceleration?: boolean;
+  use_ultra_fast_speed?: boolean;
+  watermark?: WatermarkConfig;
+}
+
+interface ConvertAudioTaskArgs {
+  task_id: string;
+  input_path: string;
+  format: string;
+  audio_encoder: string;
+}
+
+interface ConvertGifTaskArgs {
+  task_id: string;
+  input_path: string;
+  format: string;
+}
+
+interface ConvertImageTaskArgs {
+  task_id: string;
+  input_path: string;
+  format: string;
+  width: number;
+  height: number;
+  quality: number;
+}
+
+interface CompressVideoTaskArgs {
+
+  task_id: string;
+  input_path: string;
+  format: string;
+  video_encoder: string;
+  resolution: string;
+  video_bitrate: number;
+  frame_rate: number;
+}
+
+interface CompressAudioTaskArgs {
+  task_id: string;
+  input_path: string;
+  format: string;
+  audio_encoder: string;
+}
+
+interface CompressImageTaskArgs {
+  task_id: string;
+  input_path: string;
+  format: string;
+  width: number;
+  height: number;
+  quality: number;
+}
+
+interface ConvertAudioTaskArgs {
+  task_id: string;
+  input_path: string;
+  format: string;
+  audio_encoder: string;
+}
+
+type VideoTaskRequest = { kind: "convert-video"; args: ConvertVideoTaskArgs };
+type AudioTaskRequest = { kind: "convert-audio"; args: ConvertAudioTaskArgs };
+type GifTaskRequest = { kind: "convert-gif"; args: ConvertGifTaskArgs };
+type ImageTaskRequest = { kind: "convert-image"; args: ConvertImageTaskArgs };
+type CompressVideoTaskRequest = { kind: "compress-video"; args: CompressVideoTaskArgs };
+type CompressAudioTaskRequest = { kind: "compress-audio"; args: CompressAudioTaskArgs };
+type CompressImageTaskRequest = { kind: "compress-image"; args: CompressImageTaskArgs };
+
+type MediaTaskRequest = VideoTaskRequest | AudioTaskRequest | GifTaskRequest | ImageTaskRequest | CompressVideoTaskRequest | CompressAudioTaskRequest | CompressImageTaskRequest;
 
 class Bridge {
+  private static instance: Bridge | null = null;
   private disposers: UnlistenFn[] = [];
   private fallbackTarget = new EventTarget();
   private tauriReady = true;
+
+  private constructor() {
+    if (Bridge.instance) {
+      return Bridge.instance;
+    }
+    Bridge.instance = this;
+  }
+
+  static getInstance(): Bridge {
+    if (Bridge.instance === null) {
+      Bridge.instance = new Bridge();
+    }
+    return Bridge.instance;
+  }
 
   isTauri() {
     return this.tauriReady;
@@ -144,15 +300,8 @@ class Bridge {
   }
 }
 
-export const bridge = new Bridge();
+export const bridge = Bridge.getInstance();
 
-/**
- * 閫掑綊璇诲彇鐩綍涓嬬殑鎵€鏈夋敮鎸佺殑鏂囦欢
- * @param dirPath 鐩綍璺緞
- * @param maxDepth 鏈€澶ч€掑綊灞傛暟锛岄粯璁や负 Infinity锛堟棤闄愬埗锛?
- * @param currentDepth 褰撳墠閫掑綊娣卞害锛堝唴閮ㄤ娇鐢級
- * @returns 鏀寔鐨勬枃浠惰矾寰勬暟缁?
- */
 export async function readDirectoryFiles(
   dirPath: string,
   maxDepth: number = Infinity,
@@ -160,7 +309,6 @@ export async function readDirectoryFiles(
 ): Promise<string[]> {
   const filePaths: string[] = [];
 
-  // 妫€鏌ユ槸鍚﹁秴杩囨渶澶ч€掑綊灞傛暟
   if (currentDepth >= maxDepth) {
     return filePaths;
   }
@@ -172,13 +320,11 @@ export async function readDirectoryFiles(
   try {
     const entries = await readDir(dirPath);
     for (const entry of entries) {
-      // 鏋勫缓瀹屾暣璺緞
       const separator = dirPath.includes("\\") ? "\\" : "/";
       const entryPath = `${dirPath}${separator}${entry.name}`;
       try {
         const entryStat = await stat(entryPath);
         if (entryStat.isDirectory) {
-          // 閫掑綊璇诲彇瀛愮洰褰?
           const subFiles = await readDirectoryFiles(
             entryPath,
             maxDepth,
@@ -186,7 +332,6 @@ export async function readDirectoryFiles(
           );
           filePaths.push(...subFiles);
         } else if (entryStat.isFile) {
-          // 妫€鏌ユ枃浠舵墿灞曞悕鏄惁鏀寔
           const extension = entryPath.split(".").pop()?.toLowerCase();
           if (extension && supportedExtensions.has(extension)) {
             filePaths.push(entryPath);
@@ -204,73 +349,220 @@ export async function readDirectoryFiles(
 
 type TaskPriority = "high" | "normal" | "low";
 
-class MediaTaskQueue {
-  private listeners = new Map<string, UnlistenFn>();
-  private taskType: "convert" | "compress";
+function clampProgress(progress: number | undefined): number {
+  if (progress === undefined) return 0;
+  return Math.min(100, Math.max(0, progress));
+}
 
-  constructor(taskType: "convert" | "compress" = "convert") {
-    this.taskType = taskType;
+class MediaTaskQueue {
+  private static instance: MediaTaskQueue | null = null;
+
+  private pendingTaskIds = new Set<string>();
+  private eventUnlisten: UnlistenFn | null = null;
+
+  private constructor() {}
+
+  static getInstance(): MediaTaskQueue {
+    if (MediaTaskQueue.instance === null) {
+      MediaTaskQueue.instance = new MediaTaskQueue();
+    }
+    return MediaTaskQueue.instance;
   }
 
-  async add(tasks: ConverterTask[], priority: TaskPriority = "normal") {
-    const requests: MediaTaskRequest[] = [];
-    for (const task of tasks) {
-      if (this.listeners.has(task.id)) {
-        continue;
-      }
-      const request =
-        this.taskType === "compress"
-          ? await this.prepareCompressionTask(task)
-          : await this.prepareConversionTask(task);
-      if (request) {
-        requests.push(request);
-      }
-    }
-    if (requests.length === 0) return;
-    console.log("add", requests, priority);
-
-    await bridge.invoke("media_task_submit", { tasks: requests, priority });
+  async ensureEventListener(): Promise<void> {
+    if (this.eventUnlisten !== null) return;
+    this.eventUnlisten = await listen<MediaTaskEvent>(
+      "media-task-event",
+      (e) => this.handleMediaTaskEvent(e.payload)
+    );
   }
 
   /**
-   * 妫€鏌ユ槸鍚︽湁杩愯涓殑浠诲姟
-   * @returns true 濡傛灉鏈変换鍔℃鍦ㄦ墽琛屾垨闃熷垪涓湁浠诲姟
+   * 
+   * @param tasks 
+   * @param priority 
    */
+  async addConvertVideoTasks(
+    tasks: VideoTaskRequest[],
+    priority: TaskPriority = "normal"
+  ): Promise<void> {
+    this.ensureEventListener();
+    await bridge.invoke("media_task_submit", { tasks, priority });
+  }
+
+  async addConvertAudioTasks(
+    tasks: AudioTaskRequest[],
+    priority: TaskPriority = "normal"
+  ): Promise<void> {
+    this.ensureEventListener();
+    await bridge.invoke("media_task_submit", { tasks, priority });
+  }
+
+  async addConvertGifTasks(
+    tasks: GifTaskRequest[],
+    priority: TaskPriority = "normal"
+  ): Promise<void> {
+    this.ensureEventListener();
+    await bridge.invoke("media_task_submit", { tasks, priority });
+  }
+
+  async addConvertImageTasks(
+    tasks: ImageTaskRequest[],
+    priority: TaskPriority = "normal"
+  ): Promise<void> {
+    this.ensureEventListener();
+    await bridge.invoke("media_task_submit", { tasks, priority });
+  }
+
+  async addCompressVideoTasks(
+    tasks: CompressVideoTaskRequest[],
+    priority: TaskPriority = "normal"
+  ): Promise<void> {
+    this.ensureEventListener();
+    await bridge.invoke("media_task_submit", { tasks, priority });
+  }
+
+  async addCompressAudioTasks(
+    tasks: CompressAudioTaskRequest[],
+    priority: TaskPriority = "normal"
+  ): Promise<void> {
+    this.ensureEventListener();
+    await bridge.invoke("media_task_submit", { tasks, priority });
+  }
+
+  async addCompressImageTasks(
+    tasks: CompressImageTaskRequest[],
+    priority: TaskPriority = "normal"
+  ): Promise<void> {
+    this.ensureEventListener();
+    await bridge.invoke("media_task_submit", { tasks, priority });
+  }
+
   async hasRunningTasks(): Promise<boolean> {
     return bridge.invoke<boolean>("media_task_has_running");
   }
 
-  /**
-   * 娓呯┖闃熷垪锛堜笉浼氫腑鏂鍦ㄦ墽琛岀殑浠诲姟锛?
-   */
   async clearQueue(): Promise<void> {
     await bridge.invoke("media_task_clear");
   }
 
-  /**
-   * 鑾峰彇褰撳墠闃熷垪闀垮害
-   */
   getQueueLength(): number {
     return 0;
   }
 
-  /**
-   * 鑾峰彇褰撳墠娲诲姩浠诲姟鏁伴噺
-   */
   getActiveCount(): number {
     return 0;
+  }
+
+  private tryStopListener(): void {
+    if (this.pendingTaskIds.size === 0 && this.eventUnlisten) {
+      this.eventUnlisten();
+      this.eventUnlisten = null;
+    }
+  }
+
+  private handleMediaTaskEvent(payload: MediaTaskEvent): void {
+    if (!this.pendingTaskIds.has(payload.task_id)) return;
+    const taskType = payload.task_type as TaskType;
+    console.log("handleMediaTaskEvent", payload);
+
+    if (payload.event_type === "progress") {
+      if (taskType === "convert") {
+        useConverterStore
+          .getState()
+          .updateTaskById(payload.task_id, {
+            progress: clampProgress(payload.progress),
+          });
+      } else if (taskType === "compress") {
+        useCompressorStore
+          .getState()
+          .updateTaskById(payload.task_id, {
+            progress: clampProgress(payload.progress),
+          });
+      }
+      return;
+    }
+
+    if (payload.event_type === "complete" && payload.output_path) {
+      if (taskType === "convert") {
+        const store = useConverterStore.getState();
+        const task = store.convertingTasks.find((t) => t.id === payload.task_id);
+        if (task) {
+          store.updateTaskById(payload.task_id, {
+            status: "finished",
+            progress: 100,
+            outputPath: payload.output_path,
+            outputSize: payload.output_size,
+          });
+          if (store.activeTab !== "finished") store.incrementUnreadFinishedCount();
+          const updatedTask: ConverterTask = {
+            ...task,
+            status: "finished",
+            progress: 100,
+            outputPath: payload.output_path,
+            outputSize: payload.output_size,
+          };
+          converterDB
+            .addToMyFiles({ ...updatedTask, taskType: "convert" })
+            .catch((err) => console.error("Failed to save to my-files:", err));
+        }
+      } else if (taskType === "compress") {
+        const store = useCompressorStore.getState();
+        const task = store.compressingTasks.find((t) => t.id === payload.task_id);
+        if (task) {
+          store.updateTaskById(payload.task_id, {
+            status: "finished",
+            progress: 100,
+            outputPath: payload.output_path,
+            outputSize: payload.output_size,
+          });
+          if (store.activeTab !== "finished") store.incrementUnreadFinishedCount();
+          const updatedTask: ConverterTask = {
+            ...task,
+            status: "finished",
+            progress: 100,
+            outputPath: payload.output_path,
+            outputSize: payload.output_size,
+          };
+          converterDB
+            .addToMyFiles({ ...updatedTask, taskType: "compress" })
+            .catch((err) => console.error("Failed to save to my-files:", err));
+        }
+      }
+      this.pendingTaskIds.delete(payload.task_id);
+      this.tryStopListener();
+      return;
+    }
+
+    if (payload.event_type === "error") {
+      const errorMessage =
+        payload.error_message ||
+        (taskType === "convert" ? "转换失败" : "压缩失败");
+      if (taskType === "convert") {
+        useConverterStore
+          .getState()
+          .updateTaskById(payload.task_id, {
+            status: "error",
+            errorMessage,
+          });
+      } else if (taskType === "compress") {
+        useCompressorStore
+          .getState()
+          .updateTaskById(payload.task_id, {
+            status: "error",
+            errorMessage,
+          });
+      }
+      this.pendingTaskIds.delete(payload.task_id);
+      this.tryStopListener();
+    }
   }
 
   private async prepareCompressionTask(
     task: ConverterTask
   ): Promise<MediaTaskRequest | null> {
-    const {
-      updateTaskById,
-      incrementUnreadFinishedCount,
-      videoConfig,
-      audioConfig,
-      imageConfig,
-    } = useCompressorStore.getState();
+    const { updateTaskById, videoConfig, audioConfig, imageConfig } =
+      useCompressorStore.getState();
     const { outputPath } = useSettingsStore.getState();
     const compressionConfig =
       task.compressionConfig ||
@@ -283,7 +575,6 @@ class MediaTaskQueue {
     // Initial Status Update
     updateTaskById(task.id, { status: "converting", progress: 0 });
 
-    // 妫€娴嬪獟浣撶被鍨?
     const hasVideoStream =
       task.streams?.some((s) => s.codec_type === "video") ?? false;
     const hasAudioStream =
@@ -305,7 +596,7 @@ class MediaTaskQueue {
       console.error("Unsupported media type for compression", task);
       updateTaskById(task.id, {
         status: "error",
-        errorMessage: "涓嶆敮鎸佺殑濯掍綋绫诲瀷",
+        errorMessage: "unsupported media type for compression",
       });
       return null;
     }
@@ -331,79 +622,6 @@ class MediaTaskQueue {
         ? `${dir}${separator}${stem}_compressed.${ext}`
         : `${stem}_compressed.${ext}`;
       updateTaskById(task.id, { outputPath: finalOutputPath });
-    }
-
-    // 缁熶竴鐨勪簨浠剁洃鍚櫒
-    let unlistenEvent: UnlistenFn | null = null;
-
-    const cleanup = () => {
-      if (unlistenEvent) {
-        unlistenEvent();
-        this.listeners.delete(task.id);
-      }
-    };
-
-    if (!this.listeners.has(task.id)) {
-      unlistenEvent = await listen<MediaTaskEvent>(
-        "media-task-event",
-        (event) => {
-          const eventData = event.payload;
-          console.log("media-task-event", eventData);
-          if (eventData.task_id !== task.id) return;
-
-          if (
-            eventData.event_type === "progress" &&
-            eventData.progress !== undefined
-          ) {
-            const clampedProgress = Math.min(
-              100,
-              Math.max(0, eventData.progress)
-            );
-            updateTaskById(task.id, { progress: clampedProgress });
-          } else if (
-            eventData.event_type === "complete" &&
-            eventData.output_path
-          ) {
-            updateTaskById(task.id, {
-              status: "finished",
-              progress: 100,
-              outputPath: eventData.output_path,
-              outputSize: eventData.output_size,
-            });
-            const { activeTab } = useCompressorStore.getState();
-            if (activeTab !== "finished") {
-              incrementUnreadFinishedCount();
-            }
-            const updatedTask: ConverterTask = {
-              ...task,
-              status: "finished",
-              progress: 100,
-              outputPath: eventData.output_path,
-              outputSize: eventData.output_size,
-            };
-            converterDB
-              .addToMyFiles({
-                ...updatedTask,
-                taskType: "compress",
-              })
-              .catch((err) => {
-                console.error("Failed to save to my-files:", err);
-              });
-            cleanup();
-          } else if (eventData.event_type === "error") {
-            const errorMessage =
-              eventData.error_message || `${mediaType}鍘嬬缉澶辫触`;
-            updateTaskById(task.id, {
-              status: "error",
-              errorMessage,
-            });
-            cleanup();
-          }
-        }
-      );
-      if (unlistenEvent) {
-        this.listeners.set(task.id, unlistenEvent);
-      }
     }
 
     if (mediaType === "video" && isVideoCompressionConfig(compressionConfig)) {
@@ -466,8 +684,7 @@ class MediaTaskQueue {
   private async prepareConversionTask(
     task: ConverterTask
   ): Promise<MediaTaskRequest | null> {
-    const { updateTaskById, incrementUnreadFinishedCount, globalConfig } =
-      useConverterStore.getState();
+    const { updateTaskById, globalConfig } = useConverterStore.getState();
     const { outputPath } = useSettingsStore.getState();
     // 浼樺厛浣跨敤 task.config锛屽鏋滀笉瀛樺湪鍒欎娇鐢?globalConfig锛堝悗绔吋瀹癸級
     const taskConfig = task.config || globalConfig;
@@ -481,90 +698,8 @@ class MediaTaskQueue {
     const isGifConversion = isGifFormat && hasVideoStream;
 
     // 纭畾濯掍綋绫诲瀷
-    let mediaType: "video" | "audio" | "image" = "video";
-    if (isAudioTarget) {
-      mediaType = "audio";
-    } else if (isImageFormat(outputFormat)) {
-      mediaType = "image";
-    } else {
-      mediaType = "video";
-    }
-
     // Initial Status Update
     updateTaskById(task.id, { status: "converting", progress: 0 });
-
-    // 缁熶竴鐨勪簨浠剁洃鍚櫒
-    let unlistenEvent: UnlistenFn | null = null;
-
-    const cleanup = () => {
-      if (unlistenEvent) {
-        unlistenEvent();
-        this.listeners.delete(task.id);
-      }
-    };
-
-    if (!this.listeners.has(task.id)) {
-      unlistenEvent = await listen<MediaTaskEvent>(
-        "media-task-event",
-        (event) => {
-          const eventData = event.payload;
-          if (eventData.task_id !== task.id) return;
-
-          if (
-            eventData.event_type === "progress" &&
-            eventData.progress !== undefined
-          ) {
-            const clampedProgress = Math.min(
-              100,
-              Math.max(0, eventData.progress)
-            );
-            updateTaskById(task.id, { progress: clampedProgress });
-          } else if (
-            eventData.event_type === "complete" &&
-            eventData.output_path
-          ) {
-            updateTaskById(task.id, {
-              status: "finished",
-              progress: 100,
-              outputPath: eventData.output_path,
-              outputSize: eventData.output_size,
-            });
-            const { activeTab } = useConverterStore.getState();
-            if (activeTab !== "finished") {
-              incrementUnreadFinishedCount();
-            }
-            const updatedTask: ConverterTask = {
-              ...task,
-              status: "finished",
-              progress: 100,
-              outputPath: eventData.output_path,
-              outputSize: eventData.output_size,
-            };
-            converterDB
-              .addToMyFiles({
-                ...updatedTask,
-                taskType: task.taskType || "convert",
-              })
-              .catch((err) => {
-                console.error("Failed to save to my-files:", err);
-              });
-            cleanup();
-          } else if (eventData.event_type === "error") {
-            const errorMessage =
-              eventData.error_message || `${mediaType}杞崲澶辫触`;
-            updateTaskById(task.id, {
-              status: "error",
-              errorMessage,
-            });
-            console.error(`${mediaType} conversion failed:`, task);
-            cleanup();
-          }
-        }
-      );
-      if (unlistenEvent) {
-        this.listeners.set(task.id, unlistenEvent);
-      }
-    }
 
     if (isAudioTarget) {
       let finalOutputPath: string | null = null;
@@ -725,5 +860,6 @@ class MediaTaskQueue {
   }
 }
 
-export const converterQueue = new MediaTaskQueue("convert");
-export const compressorQueue = new MediaTaskQueue("compress");
+export function getMediaTaskQueue(): MediaTaskQueue {
+  return MediaTaskQueue.getInstance();
+}

@@ -59,7 +59,7 @@ pub trait TaskEmitter: Send + Sync {
 pub struct WindowEmitter {
     pub window: tauri::WebviewWindow,
     pub task_id: String,
-    pub task_type: String, // "convert" | "compress"
+    pub task_type: String, // "convert" | "compress" | "metadata" | "watermark"
     pub media_type: String, // "video" | "audio" | "image"
 }
 

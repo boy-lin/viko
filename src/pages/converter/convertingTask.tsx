@@ -8,7 +8,7 @@ import { useConverterStore } from "@/stores/converterStore";
 import { ConversionConfig, ConverterTask } from "@/types/converter";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { ConversionSettingsDialog } from "./SettingsDialog";
-import { converterQueue } from "@/lib/bridge";
+import { getMediaTaskQueue } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 
 interface ConvertingTaskProps {
@@ -74,7 +74,7 @@ export default function ConvertingTask({
   };
 
   const handleConvertSingle = async (task: ConverterTask) => {
-    await converterQueue.add([task]);
+    await getMediaTaskQueue().add([task], "convert");
   };
 
   return (
@@ -182,7 +182,7 @@ export default function ConvertingTask({
           confirmLabel={t("settings.startSingle")}
           onConfirm={async (config) => {
             await updateUnfinishedTaskConfig(currentTask.id, config);
-            await converterQueue.add([currentTask]);
+            await getMediaTaskQueue().add([currentTask], "convert");
             setSettingsOpen(false);
           }}
         />

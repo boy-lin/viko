@@ -14,6 +14,7 @@ import SignInPage from "./pages/auth/sign-in";
 import SignUpPage from "./pages/auth/sign-up";
 import AuthLayout from "./layout/AuthLayout";
 import MetadataEditorPage from "./pages/metadata";
+import WatermarkPage from "./pages/watermark";
 import ErrorPage from '@/components/error/ErrorPage';
 
 const router = createBrowserRouter([
@@ -55,6 +56,7 @@ const router = createBrowserRouter([
             ],
           },
           { path: "metadata", element: <MetadataEditorPage /> },
+          { path: "watermark", element: <WatermarkPage /> },
         ],
       },
     ],

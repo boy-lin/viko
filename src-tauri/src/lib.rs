@@ -1,18 +1,17 @@
-﻿// 澹版槑妯″潡 Cursor Write It
-pub mod commands;
+﻿pub mod commands;
 pub mod events;
 pub mod media_common;
 pub mod services;
 pub mod task;
+pub mod shared;
+pub mod storage;
 
-// 闊抽妯″潡闇€瑕佺殑鍏变韩绫诲瀷
 #[derive(Clone, Copy)]
 pub enum ControlCommand {
     Play,
     Pause,
 }
 
-// 鍏变韩鏃堕挓鐢ㄤ簬闊宠棰戝悓姝?
 #[derive(Clone)]
 pub struct SharedClock {
     start_time: std::sync::Arc<std::sync::Mutex<Option<std::time::Instant>>>,
@@ -78,7 +77,6 @@ impl SharedClock {
 
 use tauri::Manager;
 
-// Tauri 搴旂敤鍏ュ彛鏂囦欢锛屾敞鍐屾墍鏈夊悗绔懡浠?Cursor Write It
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -138,16 +136,19 @@ pub fn run() {
                         }
                     }
                 } else {
-                    // 寮€鍙戠幆澧冩垨鏈缃繙绋?URL锛屼娇鐢ㄩ粯璁よ涓猴紙鏈湴鏂囦欢鎴?devUrl锛?
                     log::info!("Using local frontend (devUrl or bundled files)");
                 }
             }
 
-            // 鍒濆鍖栬棰戞挱鏀惧櫒鐘舵€?
+            // Init database
+            tauri::async_runtime::block_on(async {
+                crate::storage::db::init_db().await.expect("failed to init db");
+                crate::storage::media_queue::init().await.expect("failed to init media_queue");
+            });
+
             app.manage(std::sync::Mutex::new(
                 None::<crate::services::player::video::VideoPlayer<crate::events::WindowEmitter>>,
             ));
-            // 鍒濆鍖栭煶棰戞挱鏀惧櫒鐘舵€?
             app.manage(std::sync::Mutex::new(None::<crate::services::player::audio::AudioPlayer<crate::events::WindowEmitter>>));
 
             log::info!("Tauri application setup completed");
