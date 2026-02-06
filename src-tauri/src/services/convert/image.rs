@@ -1,10 +1,12 @@
 ﻿use image::ImageFormat;
 use tauri::command;
 use ffmpeg_next as ffmpeg;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
 use crate::media_common;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
+
 pub struct ImageConversionParams {
     #[serde(default)]
     pub task_id: String,

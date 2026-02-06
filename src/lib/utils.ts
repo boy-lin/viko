@@ -20,7 +20,7 @@ export function extractFilenameFromPath(filePath: string): string {
     return filenameWithExt;
   }
 
-  return filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.'));
+  return filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.')) || '';
 }
 
 

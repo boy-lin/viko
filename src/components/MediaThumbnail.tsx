@@ -7,7 +7,7 @@ import { ShakaPlayer } from "@/components/player/ShakaPlayer";
 import { MusicPlayer } from "@/components/player/MusicPlayer";
 import { ImageViewer } from "@/components/player/ImageViewer";
 import { PlayIcon } from "@/components/icons/play";
-import { FileType } from "@/types/converter";
+import { FileType } from "@/types/tasks";
 
 interface MediaThumbnailProps {
   path: string;

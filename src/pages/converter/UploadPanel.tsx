@@ -10,6 +10,7 @@ import {
 } from "@/data/formats";
 import { handleDirectoryToFiles } from "@/lib/file";
 import { useDragDrop } from "@/lib/drag";
+import { MediaTaskType } from "@/lib/bridge";
 
 type UploadStatus = "queued" | "processing" | "done" | "error";
 type UploadKind = "audio" | "video" | "image" | "file";
@@ -35,8 +36,10 @@ const getFileKind = (extension?: string): UploadKind => {
 
 export function UploadPanel({
   supportedExtensions,
+  mediaType
 }: {
   supportedExtensions: string[];
+  mediaType: MediaTaskType;
 }) {
   const addFilesFromPaths = useConverterStore(
     (state) => state.addFilesFromPaths
@@ -248,7 +251,10 @@ export function UploadPanel({
         >
           <div
             className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
-            onClick={() => addFiles(supportedExtensions)}
+            onClick={() => addFiles({
+              supportedExtensions,
+              mediaType
+            })}
           >
             <UploadCloud className="h-7 w-7" />
           </div>

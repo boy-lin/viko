@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/table";
 import { UploadPanel } from "./UploadPanel";
 import { useCompressorStore } from "@/stores/compressorStore";
-import { ConverterTask } from "@/types/converter";
+import { ConverterTask } from "@/types/tasks";
 import { MediaThumbnail } from "../../components/MediaThumbnail";
 import { formatFileSize } from "@/lib/file";
 import { CompressionSettingsDialog } from "./CompressionSettingsDialog";

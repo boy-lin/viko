@@ -10,7 +10,7 @@ import { FormatSelector } from "@/components/biz-form/FormatSelector";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
 import { useConverterStore, defaultVideoConfig } from "@/stores/converterStore";
 import type { FormatSelectorValue } from "@/components/biz-form/FormatSelector";
-import { converterQueue } from "@/lib/bridge";
+import { getMediaTaskQueue } from "@/lib/bridge";
 import { isAudioFormat, isVideoFormat, isImageFormat } from "@/data/formats";
 import {
   isVideoConfig,
@@ -18,7 +18,7 @@ import {
   isImageConfig,
   type ConversionConfig,
   FileType,
-} from "@/types/converter";
+} from "@/types/tasks";
 
 export const ConverterFooter: React.FC<{
   convertTaskType: FileType;
@@ -133,18 +133,17 @@ export const ConverterFooter: React.FC<{
         await updateUnfinishedTaskConfig(task.id, { ...globalConfig });
       }
       const tasks = useConverterStore.getState().convertingTasks;
-      await converterQueue.add(tasks);
-      await clearConvertingTasks();
+      await getMediaTaskQueue().addConvertVideoTasks();
     }
   };
 
   const handleDelete = async () => {
-    const hasRunningTasks = await converterQueue.hasRunningTasks();
+    const hasRunningTasks = await getMediaTaskQueue().hasRunningTasks();
 
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
       await clearConvertingTasks();
-      await converterQueue.clearQueue();
+      await getMediaTaskQueue().clearQueue();
     } else {
       // 有运行中的任务，打开确认弹窗
       setIsDeletePopoverOpen(true);
@@ -153,7 +152,7 @@ export const ConverterFooter: React.FC<{
 
   const handleConfirmDelete = async () => {
     // 清空队列
-    await converterQueue.clearQueue();
+    await getMediaTaskQueue().clearQueue();
     // 清空转换中的任务
     await clearConvertingTasks();
     // 关闭弹窗

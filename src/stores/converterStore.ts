@@ -7,12 +7,12 @@ import {
   AudioConversionConfig,
   ImageConversionConfig,
   FileType,
-} from "../types/converter";
+} from "../types/tasks";
 import { converterDB } from "../db/converterDB";
 import { extractFilenameFromPath } from "@/lib/utils";
 import { isAudioFormat, isVideoFormat, SupportedFormats, isImageFormat } from "@/data/formats";
-import { FormatEnum } from "../types/options";
-import { bridge } from "@/lib/bridge";
+import { AudioEncoderEnum, FormatEnum, ImageEncoderEnum, VideoEncoderEnum } from "../types/options";
+import { bridge, MediaTaskType } from "@/lib/bridge";
 import { IMAGE_ENCODERS } from "@/data/encoders";
 
 export const defaultVideoConfig: VideoConversionConfig = {
@@ -20,7 +20,7 @@ export const defaultVideoConfig: VideoConversionConfig = {
   outputFormat: FormatEnum.MP4,
   outputTitle: "",
   video: {
-    encoder: "h264",
+    encoder: VideoEncoderEnum.H264,
     resolution: "1920x1080",
     frameRate: "30",
     bitrate: "1000",
@@ -43,20 +43,26 @@ interface ConverterState {
   activeTab: "converting" | "finished";
   unreadFinishedCount: number;
   globalConfig: ConversionConfig;
-  formatFavorites: string[];
   formatRecents: string[];
   setActiveTab: (tab: "converting" | "finished") => void;
   incrementUnreadFinishedCount: () => void;
   resetUnreadFinishedCount: () => void;
   init: () => Promise<void>;
-  addFiles: (extensions?: string[]) => Promise<string[] | undefined>;
+  addFiles: ({
+    extensions,
+    fileType,
+  }: {
+    extensions: string[];
+    fileType: FileType;
+  }) => Promise<string[] | undefined>;
   addFilesFromPaths: (
     paths: string[],
+    fileType: FileType,
     onFileProcessed?: (
       path: string,
       status: "success" | "error",
       message?: string
-    ) => void
+    ) => void,
   ) => Promise<string[] | undefined>;
   removeTask: (id: string) => void;
   removeFinishedTask: (id: string) => void;
@@ -67,7 +73,6 @@ interface ConverterState {
   ) => void;
   updateTaskById: (id: string, updates: Partial<ConverterTask>) => void;
   updateGlobalConfig: (config: ConversionConfig) => Promise<void>;
-  toggleFavorite: (formatId: string) => Promise<void>;
   addToRecents: (formatId: string) => Promise<void>;
 }
 
@@ -78,34 +83,13 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
   activeTab: "converting",
   unreadFinishedCount: 0,
   globalConfig: defaultVideoConfig,
-  formatFavorites: [],
   formatRecents: [],
   init: async () => {
     try {
-      const allTasks = await converterDB.getAllTasks();
-      const convertingTasks: ConverterTask[] = [];
-      const finishedTasks: ConverterTask[] = [];
-
-      // 使用 filter 而不是 forEach，因为 forEach 中的 async 不会等待
-      allTasks.forEach((task) => {
-        // 只处理转换任务（taskType 为 undefined 或 "convert"）
-        if (task.taskType && task.taskType !== "convert") return;
-
-        if (task.status === "finished") {
-          finishedTasks.push(task);
-        } else {
-          convertingTasks.push(task);
-        }
-      });
-      const favs = await converterDB.getSetting("format_favorites");
       const recents = await converterDB.getSetting("format_recents");
       const globalConfig = await converterDB.getSetting("globalConfig");
-
       set({
-        convertingTasks,
-        finishedTasks,
         globalConfig: globalConfig || defaultVideoConfig,
-        formatFavorites: favs || [],
         formatRecents: recents || [],
         isLoading: false,
       });
@@ -114,14 +98,17 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       set({ isLoading: false });
     }
   },
-  addFiles: async (extensions?: string[]) => {
+  addFiles: async ({
+    extensions,
+    fileType,
+  }) => {
     try {
       const selected = await open({
         multiple: true,
         filters: [
           {
             name: "Media Files",
-            extensions: extensions || SupportedFormats,
+            extensions: extensions,
           },
         ],
       });
@@ -140,12 +127,12 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       //     },
       //   });
       //   if (!finalPaths.length) return;
-      return await get().addFilesFromPaths(paths);
+      return await get().addFilesFromPaths(paths, fileType);
     } catch (err) {
       console.error("Error selecting files:", err);
     }
   },
-  addFilesFromPaths: async (paths, onFileProcessed) => {
+  addFilesFromPaths: async (paths, fileType, onFileProcessed) => {
     try {
       const newTasks: ConverterTask[] = [];
 
@@ -154,55 +141,26 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
         try {
           const details = await bridge.getMediaDetails(path);
           console.log("details", details);
-          // Logic to determine primary stream info for display
-
-          // 根据媒体类型确定压缩配置
-          const hasVideo = details.streams.some(
-            (s) => s.codec_type === "video"
-          );
-          const hasAudio = details.streams.some(
-            (s) => s.codec_type === "audio"
-          );
-          const hasImage = details.streams.some(
-            (s) => s.codec_type === "image" || IMAGE_ENCODERS.find((e) => e.value === s.codec_name)
-          );
-          let fileType: FileType = "video";
-
-          if (isVideoFormat(details.extension) && hasVideo) {
-            fileType = "video";
-          } else if (isAudioFormat(details.extension) && hasAudio) {
-            fileType = "audio";
-          } else if (isImageFormat(details.extension) && hasImage) {
-            fileType = "image";
+          let outputArgs: any = {
+            title: details.title,
+          }
+          if (fileType === FileType.Video) {
+            outputArgs.format = FormatEnum.MP4
+          } else if (fileType === FileType.Audio) {
+            outputArgs.format = FormatEnum.AAC
+          } else if (fileType === FileType.Image) {
+            outputArgs.format = FormatEnum.JPG
           } else {
-            throw new Error("Unsupported media type");
+            throw new Error("Unsupported file type");
           }
-
-          let displayResolution = "";
-          const vidStream = details.streams.find(
-            (s) => s.codec_type === "video"
-          );
-          if (vidStream && vidStream.width && vidStream.height) {
-            displayResolution = `${vidStream.width}*${vidStream.height}`;
-          }
-
-          const fileSizeMB = details.size / (1024 * 1024);
-          const displaySize =
-            fileSizeMB < 1
-              ? `${(details.size / 1024).toFixed(0)} KB`
-              : `${fileSizeMB.toFixed(1)} MB`;
-          const displayFormat = details.format.toUpperCase();
 
           newTasks.push({
-            ...details,
-            fileType,
             id: crypto.randomUUID(),
             status: "idle",
+            taskType: MediaTaskType.ConvertVideo,
             progress: 0,
-            title: extractFilenameFromPath(path) || "Unknown",
-            displayFormat,
-            displayResolution,
-            displaySize,
+            ...details,
+            outputArgs
           });
           onFileProcessed?.(path, "success");
         } catch (e: any) {
@@ -213,76 +171,6 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       }
 
       if (newTasks.length > 0) {
-        // Initialize default config for new tasks
-        newTasks.forEach((task) => {
-          let outputFormat = FormatEnum.MP4;
-
-          if (task.streams.some((s) => s.codec_type === "video")) {
-            outputFormat =
-              task.displayFormat === FormatEnum.MP4.toUpperCase()
-                ? FormatEnum.MOV
-                : FormatEnum.MP4;
-          } else if (task.streams.some((s) => s.codec_type === "audio")) {
-            outputFormat =
-              task.displayFormat === FormatEnum.MP3.toUpperCase()
-                ? FormatEnum.AAC
-                : FormatEnum.MP3;
-          } else if (task.streams.some((s) => s.codec_type === "image")) {
-            outputFormat =
-              task.displayFormat === FormatEnum.PNG.toUpperCase()
-                ? FormatEnum.JPG
-                : FormatEnum.PNG;
-          }
-          // 根据媒体类型创建对应的配置
-          if (task.streams.some((s) => s.codec_type === "video")) {
-            // Video 配置
-            task.config = {
-              type: "video",
-              outputFormat,
-              outputTitle: task.title,
-              video: {
-                encoder: "h264",
-                resolution: "auto",
-                frameRate: "auto",
-                bitrate: "auto",
-              },
-              audioTracks: task.streams
-                .filter((s) => s.codec_type === "audio")
-                .map((stream) => ({
-                  trackIndex: stream.index,
-                  encoder: stream.codec_name,
-                  channels: "auto",
-                  sampleRate: "auto",
-                })),
-            } as VideoConversionConfig;
-          } else if (task.streams.some((s) => s.codec_type === "audio")) {
-            // Audio 配置
-            task.config = {
-              type: "audio",
-              outputFormat,
-              outputTitle: task.title,
-              audioTracks: task.streams
-                .filter((s) => s.codec_type === "audio")
-                .map((stream) => ({
-                  trackIndex: stream.index,
-                  encoder: stream.codec_name,
-                  channels: "auto",
-                  sampleRate: "auto",
-                })),
-            } as AudioConversionConfig;
-          } else if (task.streams.some((s) => s.codec_type === "image")) {
-            // Image 配置
-            task.config = {
-              type: "image",
-              outputFormat,
-              outputTitle: task.title,
-              image: {
-                quality: "80",
-              },
-            } as ImageConversionConfig;
-          }
-        });
-
         await converterDB.addTasks(newTasks);
         set((state) => ({
           convertingTasks: [...state.convertingTasks, ...newTasks],
@@ -403,15 +291,6 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
   updateGlobalConfig: async (config: ConversionConfig) => {
     set({ globalConfig: config });
     await converterDB.saveSetting("globalConfig", config);
-  },
-  toggleFavorite: async (formatId: string) => {
-    const { formatFavorites } = get();
-    const newFavs = formatFavorites.includes(formatId)
-      ? formatFavorites.filter((id) => id !== formatId)
-      : [...formatFavorites, formatId];
-
-    set({ formatFavorites: newFavs });
-    await converterDB.saveSetting("format_favorites", newFavs);
   },
   addToRecents: async (formatId: string) => {
     const { formatRecents } = get();

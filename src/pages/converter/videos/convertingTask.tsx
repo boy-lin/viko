@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { UploadPanel } from "../UploadPanel";
 import { useConverterStore } from "@/stores/converterStore";
-import { ConversionConfig, ConverterTask, FileType } from "@/types/converter";
+import { ConversionConfig, ConverterTask, FileType } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { ConversionSettingsDialog } from "../SettingsDialog";
-import { converterQueue } from "@/lib/bridge";
+import { ConvertVideoTaskArgs, getMediaTaskQueue, MediaTaskType } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { VIDEO_FORMATS } from "@/data/formats";
@@ -35,14 +35,8 @@ export default function ConvertingTask({
     if (!search) return convertingTasks;
     return convertingTasks.filter((task) => {
       const fileName = task.title?.toLowerCase?.() || "";
-      const extension = task.extension?.toLowerCase?.() || "";
-      const displayFormat = task.displayFormat?.toLowerCase?.() || "";
-      const displayResolution = task.displayResolution?.toLowerCase?.() || "";
       return (
-        fileName.includes(search) ||
-        extension.includes(search) ||
-        displayFormat.includes(search) ||
-        displayResolution.includes(search)
+        fileName.includes(search)
       );
     });
   }, [convertingTasks, globalFilter]);
@@ -77,26 +71,27 @@ export default function ConvertingTask({
   };
 
   const handleConvertSingle = async (task: ConverterTask) => {
-    await converterQueue.add([task]);
+    await getMediaTaskQueue().addConvertVideoTasks([task]);
   };
 
-  const isVideoTask = convertTaskType === "video";
   return (
     <>
       <div className="space-y-3">
         {filteredTasks.length === 0 ? (
           <div className="border border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
-            <UploadPanel supportedExtensions={VIDEO_FORMATS} />
+            <UploadPanel
+              mediaType={MediaTaskType.ConvertVideo}
+              supportedExtensions={VIDEO_FORMATS}
+            />
           </div>
         ) : (
           filteredTasks.map((task) => {
-            const taskConfig = task.config as any;
-
-            const outputFormat = (task.config as any)?.outputFormat || task.displayFormat || task.extension;
+            const convertVideoTaskArgs = task.outputArgs as ConvertVideoTaskArgs;
             const targetInfoParts = [
-              outputFormat?.toUpperCase?.(),
-              isVideoTask ? taskConfig?.video?.resolution : taskConfig?.image?.resolution,
-            ].filter(Boolean);
+              convertVideoTaskArgs.format?.toUpperCase?.(),
+              convertVideoTaskArgs.resolution,
+              convertVideoTaskArgs.video_encoder,
+            ]
             return (
               <div
                 key={task.id}
@@ -117,7 +112,7 @@ export default function ConvertingTask({
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                     <span>{task.extension.toUpperCase()}</span>
-                    {task.displayResolution && <span>{task.displayResolution}</span>}
+                    <span>{convertVideoTaskArgs.resolution}</span>
                   </div>
                 </div>
 
@@ -128,9 +123,9 @@ export default function ConvertingTask({
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-muted-foreground">{t("targetInfo")}</div>
                   <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-foreground">
-                    {targetInfoParts.length > 0 ? targetInfoParts.map((p, idx) => (
-                      <span key={idx}>{p}</span>
-                    )) : <span className="text-muted-foreground">-</span>}
+                    {targetInfoParts.map((p, idx) => (
+                      <span key={idx}>{p || "-"}</span>
+                    ))}
                   </div>
                 </div>
 
@@ -181,17 +176,17 @@ export default function ConvertingTask({
 
       {currentTask && (
         <ConversionSettingsDialog
-          taskConfig={currentTask.config as ConversionConfig}
+          descriptionOverride={t("settings.singleDescription")}
+          confirmLabel={t("settings.startSingle")}
+          taskConfig={currentTask.outputArgs}
           onTaskConfigChange={(config) => {
             updateUnfinishedTaskConfig(currentTask.id, config);
           }}
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
-          descriptionOverride={t("settings.singleDescription")}
-          confirmLabel={t("settings.startSingle")}
           onConfirm={async (config) => {
             await updateUnfinishedTaskConfig(currentTask.id, config);
-            await converterQueue.add([currentTask]);
+            await getMediaTaskQueue().addConvertVideoTasks([currentTask]);
             setSettingsOpen(false);
           }}
         />

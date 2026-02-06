@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ConverterTask } from "@/types/converter";
+import { ConverterTask } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { converterDB } from "@/db/converterDB";
 import { cn } from "@/lib/utils";

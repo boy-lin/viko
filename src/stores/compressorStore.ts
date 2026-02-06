@@ -7,7 +7,7 @@ import {
   AudioCompressionConfig,
   ImageCompressionConfig,
   FileType,
-} from "../types/converter";
+} from "../types/tasks";
 import { converterDB } from "../db/converterDB";
 import { extractFilenameFromPath } from "@/lib/utils";
 import {

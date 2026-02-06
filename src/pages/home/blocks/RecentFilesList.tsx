@@ -5,7 +5,7 @@ import { converterDB } from "@/db/converterDB"
 import { MediaThumbnail } from "@/components/MediaThumbnail"
 import { formatFileSize } from "@/lib/file"
 import { formatDuration } from "@/lib/time"
-import { ConverterTask } from "@/types/converter"
+import { ConverterTask } from "@/types/tasks"
 import { useTranslation } from "react-i18next"
 
 type MyFileRecord = ConverterTask & {

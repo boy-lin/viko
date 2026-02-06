@@ -1,3 +1,5 @@
+import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs, MediaTaskType } from "@/lib/bridge";
+
 export interface StreamDetails {
   index: number;
   codec_type: string;
@@ -15,10 +17,12 @@ export interface MediaDetails {
   path: string;
   extension: string;
   format_names: string;
+  title: string;
   format_long_name?: string;
-  duration: number;
   size: number;
   streams: StreamDetails[];
+  
+  duration?: number;
   tags?: Record<string, string>;
   stream_tags?: Record<string, string>[];
 }
@@ -102,10 +106,7 @@ export interface ImageConversionConfig extends BaseConversionConfig {
 }
 
 // 联合类型
-export type ConversionConfig =
-  | VideoConversionConfig
-  | AudioConversionConfig
-  | ImageConversionConfig;
+export type ConversionConfig = ConvertVideoTaskArgs | 
 
 // 压缩配置类型
 export interface VideoCompressionConfig {
@@ -194,15 +195,29 @@ export function isImageCompressionConfig(
   return config.type === "image";
 }
 
-export type FileType = "video" | "audio" | "image";
+export enum FileType {
+  Video = "video",
+  Audio = "audio",
+  Image = "image",
+}
+
 export interface ConverterTask extends MediaDetails {
+  id: string;
+  status: "idle" | "converting" | "finished" | "error";
+  progress: number;
+  taskType: MediaTaskType;
+  fileType?: FileType;
+  errorMessage?: string;
+  outputArgs: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs
+}
+
+export interface CompressingTask extends MediaDetails {
   id: string;
   status: "idle" | "converting" | "finished" | "error";
   progress: number;
   fileType: FileType;
   outputPath?: string;
   outputSize?: number;
-  config?: ConversionConfig;
   compressionConfig?: CompressionConfig; // 压缩配置
   taskType?: "convert" | "compress"; // 任务类型：转码或压缩
   errorMessage?: string;
@@ -212,3 +227,4 @@ export interface ConverterTask extends MediaDetails {
   displayResolution: string;
   displaySize: string;
 }
+

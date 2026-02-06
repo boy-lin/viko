@@ -33,23 +33,26 @@ pub fn get_detailed_media_info(path: String) -> Result<MediaDetails, String> {
 }
 
 #[command]
-pub fn media_task_submit(
+pub async fn media_task_submit(
     app: AppHandle,
     tasks: Vec<MediaTaskRequest>,
     _priority: Option<String>,
 ) -> Result<usize, String> {
-    queue::submit_tasks(app, tasks)
+    queue::submit_tasks(app, tasks).await
 }
 
-#[command]
-pub fn media_task_has_running() -> Result<bool, String> {
-    Ok(queue::has_running())
-}
 
 #[command]
-pub fn media_task_clear() -> Result<usize, String> {
-    queue::clear_pending()
+pub async fn media_task_has_running() -> Result<bool, String> {
+    Ok(queue::has_running().await)
 }
+
+
+#[command]
+pub async fn media_task_clear() -> Result<usize, String> {
+    queue::clear_pending().await
+}
+
 
 #[derive(Serialize)]
 pub struct FileInfo {
@@ -789,7 +792,8 @@ pub fn audio_player_get_duration(
 
 // ==================== 音频转换相关命令 ====================
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
+
 pub struct AudioConversionArgs {
     pub task_id: String,
     pub input_path: String,
@@ -883,17 +887,6 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
         if let Err(e) = audio::convert_audio(emitter.clone(), params) {
             emitter.emit("error", None, None, Some(e));
         } else {
-            // Success event already handled in convert_audio but it uses explicit emit call at end.
-            // Actually convert_audio uses custom emit calls.
-            // Oh wait, convert_audio uses emit_media_task_event inside?
-            // I refactored convert_audio to use emitter.emit(). 
-            // So I don't need to re-emit if conversion function handles it.
-            // However, older code did emission here.
-            // Let's check my refactor of convert_audio.
-            // My refactor replaced explicit window.emit with emitter.emit. The "complete" event IS emitted inside convert_audio.
-            // BUT "error" event is NOT emitted inside convert_audio in case of error return?
-            // Let's check audio_converter refactor again.
-            // It replaces `window` with `emitter`. It emits progress and complete.
             // It returns Result. The error handling was OUTSIDE.
             // So if Err(e), I must emit error here.
         }
@@ -904,7 +897,8 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
 
 // ==================== 视频转换相关命令 ====================
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
+
 pub struct VideoConversionArgs {
     pub task_id: String,
     pub input_path: String,
@@ -1019,7 +1013,8 @@ pub fn convert_video_file(app: AppHandle, args: VideoConversionArgs) -> Result<(
 
 // ==================== GIF 转换相关命令 ====================
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
+
 pub struct GifConversionArgs {
     pub task_id: String,
     pub input_path: String,
@@ -1118,7 +1113,8 @@ pub fn generate_media_thumbnail(path: String) -> Result<Option<String>, String> 
 
 // ==================== 压缩相关命令 ====================
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
+
 pub struct VideoCompressionArgs {
     pub task_id: String,
     pub input_path: String,
@@ -1180,7 +1176,8 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
     Ok(())
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
+
 pub struct AudioCompressionArgs {
     pub task_id: String,
     pub input_path: String,
@@ -1234,7 +1231,8 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
     Ok(())
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
+
 pub struct ImageCompressionArgs {
     pub task_id: String,
     pub input_path: String,

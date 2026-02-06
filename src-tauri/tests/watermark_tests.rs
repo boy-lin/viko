@@ -1,8 +1,9 @@
+
 #[cfg(test)]
 mod tests {
     use audio_video_kit_lib::events::MockEmitter;
-    use audio_video_kit_lib::video_converter::{convert_video, VideoConversionParams};
-    use audio_video_kit_lib::watermark::{WatermarkConfig, TextWatermark, ImageWatermark};
+    use audio_video_kit_lib::services::convert::video::{convert_video, VideoConversionParams};
+    use audio_video_kit_lib::services::media_tools::watermark::{WatermarkConfig, TextWatermark, ImageWatermark};
     use std::fs;
     use std::path::PathBuf;
     use image::{RgbaImage, Rgba};
@@ -43,7 +44,7 @@ mod tests {
 
     fn get_system_font() -> String {
         // Windows typical font
-        let path = PathBuf::from("C:\\Windows\\Fonts\\arial.ttf");
+        let path = PathBuf::from("C:\\WINDOWS\\Fonts\\ARIAL.TTF");
         if path.exists() {
             return path.to_string_lossy().to_string();
         }

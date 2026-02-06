@@ -116,6 +116,13 @@ const QUICK_ACCESS_CONFIG: QuickAccessItem[] = [
     activeGradient: "from-[#F43F5E] to-[#F97316]",
     href: MenuItems.compressor,
   },
+  {
+    label: "quick.watermark",
+    icon: PinLinear,
+    color: "bg-rose-50 text-rose-600",
+    activeGradient: "from-[#F43F5E] to-[#F97316]",
+    href: MenuItems.watermark,
+  }
 ];
 
 const SidebarProvider = ({

@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { UploadPanel } from "../UploadPanel";
 import { useConverterStore } from "@/stores/converterStore";
-import { ConversionConfig, ConverterTask, FileType } from "@/types/converter";
+import { ConversionConfig, ConverterTask, FileType } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { ConversionSettingsDialog } from "../SettingsDialog";
-import { converterQueue } from "@/lib/bridge";
+import { getMediaTaskQueue } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { AUDIO_FORMATS } from "@/data/formats";
@@ -77,7 +77,8 @@ export default function ConvertingTask({
   };
 
   const handleConvertSingle = async (task: ConverterTask) => {
-    await converterQueue.add([task]);
+    const tasks = [task];
+    await getMediaTaskQueue().addConvertAudioTasks();
   };
 
   return (
@@ -188,7 +189,7 @@ export default function ConvertingTask({
           confirmLabel={t("settings.startSingle")}
           onConfirm={async (config) => {
             await updateUnfinishedTaskConfig(currentTask.id, config);
-            await converterQueue.add([currentTask]);
+            await getMediaTaskQueue().add([currentTask], "convert");
             setSettingsOpen(false);
           }}
         />

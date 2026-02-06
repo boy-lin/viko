@@ -1,5 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from "idb";
-import { ConverterTask } from "../types/converter";
+import { ConverterTask } from "../types/tasks";
 
 const DB_NAME = "FigureXDB";
 const DB_VERSION = 6; // 升级版本：添加索引

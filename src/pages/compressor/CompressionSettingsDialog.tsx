@@ -25,13 +25,13 @@ import {
   VideoCompressionConfig,
   AudioCompressionConfig,
   ImageCompressionConfig,
-} from "@/types/converter";
+} from "@/types/tasks";
 import {
   defaultVideoCompressionConfig,
   defaultAudioCompressionConfig,
   defaultImageCompressionConfig,
 } from "@/stores/compressorStore";
-import { compressorQueue } from "@/lib/bridge";
+import { getMediaTaskQueue } from "@/lib/bridge";
 
 interface CompressionSettingsDialogProps {
   taskConfig?: CompressionConfig;
@@ -109,7 +109,7 @@ export const CompressionSettingsDialog: React.FC<
         .compressingTasks.filter(
           (task) => task.compressionConfig?.type === targetType
         );
-      await compressorQueue.add(tasks);
+      await getMediaTaskQueue().add(tasks, "compress");
     }
 
     onOpenChange(false);

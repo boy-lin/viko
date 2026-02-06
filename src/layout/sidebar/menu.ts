@@ -7,9 +7,11 @@ export enum MenuItems {
   converterAudios = '/converter/audios',
   converterImages = '/converter/images',
   compressor = '/compressor',
+
   metadata = '/metadata',
-  tasks = '/tasks',
   watermark = '/watermark',
+
+  tasks = '/tasks',
   
   batch = '/batch',
 }

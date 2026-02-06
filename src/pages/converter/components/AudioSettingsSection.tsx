@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AudioTrackConfig } from "@/types/converter";
+import { AudioTrackConfig } from "@/types/tasks";
 import { RefreshCw } from "lucide-react";
 import { AudioEncoderSelect } from "@/components/biz-form/AudioEncoderSelect";
 import { AudioChannelSelect } from "@/components/biz-form/AudioChannelSelect";

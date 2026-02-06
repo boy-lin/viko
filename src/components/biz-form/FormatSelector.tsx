@@ -28,7 +28,7 @@ import { useConverterStore } from "@/stores/converterStore";
 import { AUDIO_ENCODERS } from "@/data/encoders";
 import { AudioSettingsSection } from "@/pages/converter/components/AudioSettingsSection";
 import { VideoSettingsSection } from "@/pages/converter/components/VideoSettingsSection";
-import { AudioTrackConfig, VideoTrackConfig } from "@/types/converter";
+import { AudioTrackConfig, VideoTrackConfig } from "@/types/tasks";
 import { VideoSimpleSettings } from "@/pages/converter/components/VideoSimpleSettings";
 import { Link2 } from "lucide-react";
 

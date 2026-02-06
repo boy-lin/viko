@@ -161,7 +161,10 @@ export function HeroCard() {
       }
     } else if (actionId === "watermark-add") {
       const videoAndImageFormats = [...VIDEO_FORMATS, ...IMAGE_FORMATS];
-      await addFiles(videoAndImageFormats);
+      const picked = await addFiles(videoAndImageFormats);
+      if (picked && picked.length > 0) {
+        navigate(MenuItems.watermark);
+      }
     }
   };
 

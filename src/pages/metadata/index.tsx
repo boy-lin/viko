@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { FileText, Save, Upload, AlertCircle, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { bridge } from "@/lib/bridge";
-import { MediaDetails } from "@/types/converter";
+import { MediaDetails } from "@/types/tasks";
 import { AUDIO_FORMATS, VIDEO_FORMATS } from "@/data/formats";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { useTranslation } from "react-i18next";

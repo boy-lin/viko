@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { VideoTrackConfig } from "@/types/converter";
+import { VideoTrackConfig } from "@/types/tasks";
 import { RefreshCw } from "lucide-react";
 import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
 import { VideoResolutionSelect } from "@/components/biz-form/VideoResolutionSelect";

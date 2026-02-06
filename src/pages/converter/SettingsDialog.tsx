@@ -16,7 +16,7 @@ import {
   AudioConversionConfig,
   ImageConversionConfig,
   AudioTrackConfig,
-} from "@/types/converter";
+} from "@/types/tasks";
 import { VideoSettingsSection } from "./components/VideoSettingsSection";
 import { AudioSettingsSection } from "./components/AudioSettingsSection";
 import { ImageSettingsSection } from "./components/ImageSettingsSection";
@@ -48,140 +48,140 @@ export const ConversionSettingsDialog: React.FC<
   descriptionOverride,
   onConfirm,
 }) => {
-  const { t } = useTranslation("converter");
-  const [config, setConfig] = useState<ConversionConfig>(() => {
-    if (taskConfig) return taskConfig;
-    // 默认配置
-    return defaultVideoConfig;
-  });
+    const { t } = useTranslation("converter");
+    const [config, setConfig] = useState<ConversionConfig>(() => {
+      if (taskConfig) return taskConfig;
+      // 默认配置
+      return defaultVideoConfig;
+    });
 
-  useEffect(() => {
-    if (taskConfig) {
-      setConfig(taskConfig);
-    }
-  }, [taskConfig]);
+    useEffect(() => {
+      if (taskConfig) {
+        setConfig(taskConfig);
+      }
+    }, [taskConfig]);
 
-  const handleSave = () => {
-    onTaskConfigChange(config);
-    if (onConfirm) {
-      onConfirm(config);
-      return;
-    }
-    onOpenChange(false);
-  };
+    const handleSave = () => {
+      onTaskConfigChange(config);
+      if (onConfirm) {
+        onConfirm(config);
+        return;
+      }
+      onOpenChange(false);
+    };
 
-  // const handleTitleChange = (title: string) => {
-  //   setConfig({ ...config, outputTitle: title });
-  // };
+    // const handleTitleChange = (title: string) => {
+    //   setConfig({ ...config, outputTitle: title });
+    // };
 
-  // Video config handlers
-  const handleVideoChange = (video: VideoConversionConfig["video"]) => {
-    if (isVideoConfig(config)) {
-      setConfig({ ...config, video } as VideoConversionConfig);
-    }
-  };
+    // Video config handlers
+    const handleVideoChange = (video: VideoConversionConfig["video"]) => {
+      if (isVideoConfig(config)) {
+        setConfig({ ...config, video } as VideoConversionConfig);
+      }
+    };
 
-  const handleVideoAudioTracksChange = (audioTracks: AudioTrackConfig[]) => {
-    if (isVideoConfig(config)) {
-      setConfig({ ...config, audioTracks } as VideoConversionConfig);
-    }
-  };
+    const handleVideoAudioTracksChange = (audioTracks: AudioTrackConfig[]) => {
+      if (isVideoConfig(config)) {
+        setConfig({ ...config, audioTracks } as VideoConversionConfig);
+      }
+    };
 
-  // Audio config handlers
-  const handleAudioTracksChange = (audioTracks: AudioTrackConfig[]) => {
-    if (isAudioConfig(config)) {
-      setConfig({ ...config, audioTracks } as AudioConversionConfig);
-    }
-  };
+    // Audio config handlers
+    const handleAudioTracksChange = (audioTracks: AudioTrackConfig[]) => {
+      if (isAudioConfig(config)) {
+        setConfig({ ...config, audioTracks } as AudioConversionConfig);
+      }
+    };
 
-  // Image config handlers
-  const handleImageChange = (image: ImageConversionConfig["image"]) => {
-    if (isImageConfig(config)) {
-      setConfig({ ...config, image } as ImageConversionConfig);
-    }
-  };
+    // Image config handlers
+    const handleImageChange = (image: ImageConversionConfig["image"]) => {
+      if (isImageConfig(config)) {
+        setConfig({ ...config, image } as ImageConversionConfig);
+      }
+    };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="flex flex-row items-center justify-between space-y-0 pt-8 pb-4 px-4 border-b">
-          {/* <SettingsDialogTitle
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0 pt-8 pb-4 px-4 border-b">
+            {/* <SettingsDialogTitle
             title={config.outputTitle}
             onTitleChange={handleTitleChange}
           /> */}
-          <DialogTitle className="">{t("settings.title")}</DialogTitle>
-          <DialogDescription className="">
-            {descriptionOverride ?? t("settings.description")}
-          </DialogDescription>
-        </DialogHeader>
+            <DialogTitle className="">{t("settings.title")}</DialogTitle>
+            <DialogDescription className="">
+              {descriptionOverride ?? t("settings.description")}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-6 py-4 px-4">
-          <div className="rounded-lg border border-border/60 bg-muted/40 px-4 py-3 text-sm text-foreground flex items-center gap-2">
-            <span className="text-xs uppercase text-muted-foreground">{t("settings.targetFormatLabel")}</span>
-            <span className="font-semibold">{config.outputFormat?.toUpperCase?.() || config.outputFormat}</span>
-            {config.outputTitle && (
-              <span className="text-muted-foreground">· {config.outputTitle}</span>
+          <div className="space-y-6 py-4 px-4">
+            <div className="rounded-lg border border-border/60 bg-muted/40 px-4 py-3 text-sm text-foreground flex items-center gap-2">
+              <span className="text-xs uppercase text-muted-foreground">{t("settings.targetFormatLabel")}</span>
+              <span className="font-semibold">{config.outputFormat?.toUpperCase?.() || config.outputFormat}</span>
+              {config.outputTitle && (
+                <span className="text-muted-foreground">· {config.outputTitle}</span>
+              )}
+            </div>
+
+            {/* Video Section */}
+            {isVideoConfig(config) && (
+              <>
+                <VideoSettingsSection
+                  video={config.video}
+                  onVideoChange={handleVideoChange}
+                  {...(() => {
+                    const currentGroup = config?.group || "";
+                    const validEncoders = getValidVideoEncoders(currentGroup);
+                    // Dynamic resolutions based on selected encoder
+                    const validResolutions = getAvailableResolutions(currentGroup, config.video.encoder);
+
+                    return {
+                      allowedEncoders: validEncoders,
+                      availableResolutions: validResolutions,
+                      // maxFrameRate is now handled inside capabilities logic implicitly or we can add helper
+                    };
+                  })()}
+                />
+                {config.audioTracks && config.audioTracks.length > 0 && (
+                  <AudioSettingsSection
+                    audioTracks={config.audioTracks}
+                    outputFormat={config.outputFormat}
+                    onAudioTracksChange={handleVideoAudioTracksChange}
+                    multiTrack={true}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Audio Section */}
+            {isAudioConfig(config) && (
+              <AudioSettingsSection
+                audioTracks={config.audioTracks}
+                outputFormat={config.outputFormat}
+                onAudioTracksChange={handleAudioTracksChange}
+                multiTrack={false}
+              />
+            )}
+
+            {/* Image Section */}
+            {isImageConfig(config) && (
+              <ImageSettingsSection
+                image={config.image}
+                onImageChange={handleImageChange}
+              />
             )}
           </div>
 
-          {/* Video Section */}
-          {isVideoConfig(config) && (
-            <>
-              <VideoSettingsSection
-                video={config.video}
-                onVideoChange={handleVideoChange}
-                {...(() => {
-                  const currentGroup = config?.group || "";
-                  const validEncoders = getValidVideoEncoders(currentGroup);
-                  // Dynamic resolutions based on selected encoder
-                  const validResolutions = getAvailableResolutions(currentGroup, config.video.encoder);
-
-                  return {
-                    allowedEncoders: validEncoders,
-                    availableResolutions: validResolutions,
-                    // maxFrameRate is now handled inside capabilities logic implicitly or we can add helper
-                  };
-                })()}
-              />
-              {config.audioTracks && config.audioTracks.length > 0 && (
-                <AudioSettingsSection
-                  audioTracks={config.audioTracks}
-                  outputFormat={config.outputFormat}
-                  onAudioTracksChange={handleVideoAudioTracksChange}
-                  multiTrack={true}
-                />
-              )}
-            </>
-          )}
-
-          {/* Audio Section */}
-          {isAudioConfig(config) && (
-            <AudioSettingsSection
-              audioTracks={config.audioTracks}
-              outputFormat={config.outputFormat}
-              onAudioTracksChange={handleAudioTracksChange}
-              multiTrack={false}
-            />
-          )}
-
-          {/* Image Section */}
-          {isImageConfig(config) && (
-            <ImageSettingsSection
-              image={config.image}
-              onImageChange={handleImageChange}
-            />
-          )}
-        </div>
-
-        <div className="flex justify-end gap-2 py-4 px-4 border-t sticky bottom-0 bg-background/95 backdrop-blur z-10">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t("common.cancel")}
-          </Button>
-          <Button onClick={handleSave}>
-            {confirmLabel ?? t("common.save")}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
+          <div className="flex justify-end gap-2 py-4 px-4 border-t sticky bottom-0 bg-background/95 backdrop-blur z-10">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={handleSave}>
+              {confirmLabel ?? t("common.save")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };

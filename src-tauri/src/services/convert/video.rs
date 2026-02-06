@@ -6,7 +6,8 @@ use ffmpeg::{
 use ffmpeg_next as ffmpeg;
 use ffmpeg::filter::context::Source as _;
 use ffmpeg::filter::context::Sink as _;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
 
 use crate::media_common;
 use crate::services::convert::audio::AudioEncodingParams;
@@ -45,7 +46,8 @@ pub struct VideoConversionParams {
     pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+
 pub struct AudioTrackConfig {
     pub source_stream_index: Option<usize>,
     #[serde(flatten)]
