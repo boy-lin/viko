@@ -31,13 +31,17 @@ export const defaultImageConfig: ConvertImageTaskArgs = {
   format: FormatEnum.JPG,
 };
 
+export interface GlobalConverterConfig extends Omit<ConversionConfig, "task_id"> {
+  mediaType: MediaTaskType.ConvertVideo | MediaTaskType.ConvertAudio | MediaTaskType.ConvertImage;
+}
+
 interface ConverterState {
   convertingTasks: ConverterTask[];
   finishedTasks: ConverterTask[];
   isLoading: boolean;
   activeTab: "converting" | "finished";
   unreadFinishedCount: number;
-  globalConfig: ConversionConfig;
+  globalConfig: GlobalConverterConfig;
   formatRecents: string[];
   setActiveTab: (tab: "converting" | "finished") => void;
   incrementUnreadFinishedCount: () => void;

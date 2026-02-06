@@ -1,4 +1,4 @@
-import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs, MediaTaskType } from "@/lib/bridge";
+import { ConvertAudioTaskArgs, ConvertGifTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs, MediaTaskType } from "@/lib/bridge";
 
 export interface StreamDetails {
   index: number;
@@ -148,7 +148,7 @@ export interface ConverterTask extends MediaDetails {
   fileType?: FileType;
   errorMessage?: string;
   taskType: MediaTaskType.ConvertVideo | MediaTaskType.ConvertAudio | MediaTaskType.ConvertImage;
-  args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs
+  args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs;
 }
 
 export interface CompressingTask extends MediaDetails {

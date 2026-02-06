@@ -207,10 +207,6 @@ export interface ConvertAudioTaskArgs {
   audio_encoder: string;
 }
 
-type VideoTaskRequest = { kind: MediaTaskType.ConvertVideo; args: ConvertVideoTaskArgs };
-type AudioTaskRequest = { kind: MediaTaskType.ConvertAudio; args: ConvertAudioTaskArgs };
-type GifTaskRequest = { kind: MediaTaskType.ConvertGif; args: ConvertGifTaskArgs };
-type ImageTaskRequest = { kind: MediaTaskType.ConvertImage; args: ConvertImageTaskArgs };
 type ConvertTaskRequest = {
   kind: MediaTaskType.ConvertVideo | MediaTaskType.ConvertAudio | MediaTaskType.ConvertImage;
   args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs;
@@ -221,7 +217,7 @@ type CompressVideoTaskRequest = { kind: MediaTaskType.CompressVideo; args: Compr
 type CompressAudioTaskRequest = { kind: MediaTaskType.CompressAudio; args: CompressAudioTaskArgs };
 type CompressImageTaskRequest = { kind: MediaTaskType.CompressImage; args: CompressImageTaskArgs };
 
-type MediaTaskRequest = VideoTaskRequest | AudioTaskRequest | GifTaskRequest | ImageTaskRequest | CompressVideoTaskRequest | CompressAudioTaskRequest | CompressImageTaskRequest;
+type MediaTaskRequest = CompressVideoTaskRequest | CompressAudioTaskRequest | CompressImageTaskRequest;
 
 class Bridge {
   private static instance: Bridge | null = null;
@@ -418,43 +414,6 @@ class MediaTaskQueue {
    */
   async addConvertTasks(
     tasks: ConvertTaskRequest[],
-    priority: TaskPriority = "normal"
-  ): Promise<void> {
-    this.ensureEventListener();
-    await bridge.invoke("media_task_submit", { tasks, priority });
-  }
-
-  /**
-   * 
-   * @param tasks 
-   * @param priority 
-   */
-  async addConvertVideoTasks(
-    tasks: VideoTaskRequest[],
-    priority: TaskPriority = "normal"
-  ): Promise<void> {
-    this.ensureEventListener();
-    await bridge.invoke("media_task_submit", { tasks, priority });
-  }
-
-  async addConvertAudioTasks(
-    tasks: AudioTaskRequest[],
-    priority: TaskPriority = "normal"
-  ): Promise<void> {
-    this.ensureEventListener();
-    await bridge.invoke("media_task_submit", { tasks, priority });
-  }
-
-  async addConvertGifTasks(
-    tasks: GifTaskRequest[],
-    priority: TaskPriority = "normal"
-  ): Promise<void> {
-    this.ensureEventListener();
-    await bridge.invoke("media_task_submit", { tasks, priority });
-  }
-
-  async addConvertImageTasks(
-    tasks: ImageTaskRequest[],
     priority: TaskPriority = "normal"
   ): Promise<void> {
     this.ensureEventListener();

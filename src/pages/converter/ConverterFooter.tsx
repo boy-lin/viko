@@ -21,9 +21,7 @@ import {
 } from "@/types/tasks";
 import type { ConverterTask } from "@/types/tasks";
 
-export const ConverterFooter: React.FC<{
-  fileType: FileType;
-}> = ({ fileType }) => {
+export const ConverterFooter: React.FC<{}> = () => {
   const globalConfig = useConverterStore((state) => state.globalConfig);
   const convertingTasks = useConverterStore((state) => state.convertingTasks);
   const updateGlobalConfig = useConverterStore(
@@ -174,6 +172,7 @@ export const ConverterFooter: React.FC<{
           <div className="flex items-center gap-2">
             <FormatSelector
               className="w-[14em]"
+              config={globalConfig}
               onValueChange={handleFormatChange}
             />
           </div>

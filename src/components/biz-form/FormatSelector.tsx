@@ -24,15 +24,16 @@ import {
 } from "@/components/ui/select";
 import { FORMAT_DATA, FORMAT_CATEGORIES, FORMAT_GROUPS } from "@/data/formats";
 import { FormatOption } from "@/types/options";
-import { useConverterStore } from "@/stores/converterStore";
+import { GlobalConverterConfig, useConverterStore } from "@/stores/converterStore";
 import { AUDIO_ENCODERS } from "@/data/encoders";
 import { AudioSettingsSection } from "@/pages/converter/components/AudioSettingsSection";
 import { VideoSettingsSection } from "@/pages/converter/components/VideoSettingsSection";
-import { AudioTrackConfig, VideoTrackConfig } from "@/types/tasks";
 import { VideoSimpleSettings } from "@/pages/converter/components/VideoSimpleSettings";
 import { Link2 } from "lucide-react";
 
 import { CONTAINER_DEFINITIONS, getAudioEncoderOptions } from "@/data/capabilities";
+import { MediaTaskType } from "@/lib/bridge";
+import { ConversionConfig } from "@/types/tasks";
 export interface FormatSelectorValue {
   group: string;
   outputFormat: string;
@@ -50,18 +51,19 @@ export interface FormatSelectorValue {
 
 // 联合类型
 export interface FormatSelectorProps {
-  onValueChange: (formatType: string, updates: FormatSelectorValue) => void;
+  config: GlobalConverterConfig;
+  onValueChange: (formatType: MediaTaskType.ConvertVideo | MediaTaskType.ConvertAudio | MediaTaskType.ConvertImage, updates: FormatSelectorValue) => void;
   className?: string;
 }
 
 export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
-  const { onValueChange, className } = props;
-  const { globalConfig, formatRecents, addToRecents } = useConverterStore();
+  const { config, onValueChange, className } = props;
+  const { formatRecents, addToRecents } = useConverterStore();
 
   const [open, setOpen] = useState(false);
   // 首次打开时，如果 recents 有值就打开 recents 分类
   const [activeCategory, setActiveCategory] = useState<string>(
-    formatRecents.length > 0 ? "recents" : FORMAT_CATEGORIES[0]?.id
+    formatRecents.length > 0 ? "recents" : config.mediaType.toString()
   );
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,21 +73,21 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
   const selectedFormat = React.useMemo(() => {
     // 1. Try to find precise match including resolution/rate/quality
     let match = FORMAT_DATA.find((f) => {
-      if (f.extension !== globalConfig.outputFormat) return false;
+      if (f.extension !== config.format) return false;
       // Video: check resolution match
       if (
-        f.videoResolution === globalConfig.video?.resolution
+        f.videoResolution === config.resolution
       ) {
         return true;
       }
       // Audio: check bitrate match (e.g. 320k)
       if (
-        f.audioBitrate === globalConfig.audioTracks?.[0]?.bitrate
+        f.audioBitrate === config.audioTracks?.[0]?.bitrate
       ) {
         return true;
       }
       // Image: check quality or resolution match
-      if (f.imageResolution === globalConfig.image?.resolution) {
+      if (f.imageResolution === config.resolution) {
         return true;
       }
 
@@ -94,18 +96,17 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
 
     // 2. Fallback to just format extension
     if (!match) {
-      match = FORMAT_DATA.find((f) => f.extension === globalConfig.outputFormat);
+      match = FORMAT_DATA.find((f) => f.extension === config.format);
     }
 
     return match;
   }, [
-    globalConfig.outputFormat,
-    globalConfig.video?.resolution,
-    globalConfig.audioTracks?.[0]?.bitrate,
-    globalConfig.image?.resolution,
+    config.format,
+    config.resolution,
+    config.audioBitrate,
   ]);
 
-  const formatCategory = { type: selectedFormat?.category || globalConfig.type };
+  const formatCategory = { type: selectedFormat?.category || config.mediaType.toString() };
 
   const filteredItems = React.useMemo(() => {
     // 1. Search Mode (Global Search)

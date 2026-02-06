@@ -1,9 +1,6 @@
 import {
   Music,
-  Smartphone,
-  Globe,
   Image as ImageIcon,
-  Layers,
   FileVideo,
 } from "lucide-react";
 import { FormatEnum } from "@/types/options";
@@ -11,9 +8,9 @@ import { FormatOption, FormatCategory, FormatGroup } from "@/types/options";
 import { MediaTaskType } from "@/lib/bridge";
 
 export const FORMAT_CATEGORIES: FormatCategory[] = [
-  { id: MediaTaskType.ConvertAudio, label: "Audio", icon: Music, type: "audio" },
-  { id: MediaTaskType.ConvertVideo, label: "Video", icon: FileVideo, type: "video" },
-  { id: MediaTaskType.ConvertImage, label: "Images", icon: ImageIcon, type: "image" },
+  { id: MediaTaskType.ConvertAudio.toString(), label: "Audio", icon: Music, type: "audio" },
+  { id: MediaTaskType.ConvertVideo.toString(), label: "Video", icon: FileVideo, type: "video" },
+  { id: MediaTaskType.ConvertImage.toString(), label: "Images", icon: ImageIcon, type: "image" },
 ];
 
 export const FORMAT_GROUPS: FormatGroup[] = [
