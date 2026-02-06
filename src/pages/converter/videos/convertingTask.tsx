@@ -72,12 +72,10 @@ export default function ConvertingTask({
 
   const handleConvertSingle = async (task: ConverterTask) => {
 
-    await getMediaTaskQueue().addConvertVideoTasks([
-      {
-        kind: task.kind,
-        args: task.args,
-      }
-    ]);
+    await getMediaTaskQueue().addConvertVideoTasks([{
+      kind: MediaTaskType.ConvertVideo,
+      args: task.args
+    }]);
   };
 
   return (

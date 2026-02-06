@@ -211,6 +211,12 @@ type VideoTaskRequest = { kind: MediaTaskType.ConvertVideo; args: ConvertVideoTa
 type AudioTaskRequest = { kind: MediaTaskType.ConvertAudio; args: ConvertAudioTaskArgs };
 type GifTaskRequest = { kind: MediaTaskType.ConvertGif; args: ConvertGifTaskArgs };
 type ImageTaskRequest = { kind: MediaTaskType.ConvertImage; args: ConvertImageTaskArgs };
+type ConvertTaskRequest = {
+  kind: MediaTaskType.ConvertVideo | MediaTaskType.ConvertAudio | MediaTaskType.ConvertImage;
+  args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs;
+}
+
+
 type CompressVideoTaskRequest = { kind: MediaTaskType.CompressVideo; args: CompressVideoTaskArgs };
 type CompressAudioTaskRequest = { kind: MediaTaskType.CompressAudio; args: CompressAudioTaskArgs };
 type CompressImageTaskRequest = { kind: MediaTaskType.CompressImage; args: CompressImageTaskArgs };
@@ -403,6 +409,19 @@ class MediaTaskQueue {
       "media-task-event",
       (e) => this.handleMediaTaskEvent(e.payload)
     );
+  }
+
+  /**
+   * 
+   * @param tasks 
+   * @param priority 
+   */
+  async addConvertTasks(
+    tasks: ConvertTaskRequest[],
+    priority: TaskPriority = "normal"
+  ): Promise<void> {
+    this.ensureEventListener();
+    await bridge.invoke("media_task_submit", { tasks, priority });
   }
 
   /**

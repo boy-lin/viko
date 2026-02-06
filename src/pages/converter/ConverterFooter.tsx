@@ -19,6 +19,7 @@ import {
   type ConversionConfig,
   FileType,
 } from "@/types/tasks";
+import type { ConverterTask } from "@/types/tasks";
 
 export const ConverterFooter: React.FC<{
   fileType: FileType;
@@ -133,7 +134,10 @@ export const ConverterFooter: React.FC<{
         await updateUnfinishedTaskConfig(task.id, { ...globalConfig });
       }
       const tasks = useConverterStore.getState().convertingTasks;
-      await getMediaTaskQueue().addConvertVideoTasks(tasks);
+      await getMediaTaskQueue().addConvertTasks(tasks.map((task) => ({
+        kind: task.taskType,
+        args: task.args
+      })));
     }
   };
 

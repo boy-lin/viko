@@ -8,14 +8,12 @@ import {
 } from "lucide-react";
 import { FormatEnum } from "@/types/options";
 import { FormatOption, FormatCategory, FormatGroup } from "@/types/options";
+import { MediaTaskType } from "@/lib/bridge";
 
 export const FORMAT_CATEGORIES: FormatCategory[] = [
-  { id: "audio", label: "Audio", icon: Music, type: "audio" },
-  { id: "video_generic", label: "Video", icon: FileVideo, type: "video" },
-  { id: "image", label: "Images", icon: ImageIcon, type: "image" },
-  // { id: "video_device", label: "Devices", icon: Smartphone, type: "video" },
-  // { id: "video_social", label: "Web/Social", icon: Globe, type: "video" },
-  // { id: "video_editor", label: "Editors", icon: Layers, type: "video" },
+  { id: MediaTaskType.ConvertAudio, label: "Audio", icon: Music, type: "audio" },
+  { id: MediaTaskType.ConvertVideo, label: "Video", icon: FileVideo, type: "video" },
+  { id: MediaTaskType.ConvertImage, label: "Images", icon: ImageIcon, type: "image" },
 ];
 
 export const FORMAT_GROUPS: FormatGroup[] = [

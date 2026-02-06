@@ -136,10 +136,12 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
         try {
           const details = await bridge.getMediaDetails(path);
           console.log("details", details);
+          let taskType: MediaTaskType;
           let outputArgs: any = {
             title: details.title,
           }
           if (fileType === FileType.Video) {
+            taskType = MediaTaskType.ConvertVideo;
             outputArgs.format = FormatEnum.MP4
             const containerDefinition = formatToDefinition.get(FormatEnum.MP4);
             outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder
@@ -150,8 +152,10 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
               }
             })
           } else if (fileType === FileType.Audio) {
+            taskType = MediaTaskType.ConvertAudio;
             outputArgs.format = FormatEnum.AAC
           } else if (fileType === FileType.Image) {
+            taskType = MediaTaskType.ConvertImage;
             outputArgs.format = FormatEnum.JPG
           } else {
             throw new Error("Unsupported file type");
@@ -162,7 +166,8 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
             status: "idle",
             progress: 0,
             ...details,
-            args: outputArgs
+            args: outputArgs,
+            taskType
           });
           onFileProcessed?.(path, "success");
         } catch (e: any) {

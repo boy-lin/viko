@@ -147,6 +147,7 @@ export interface ConverterTask extends MediaDetails {
   progress: number;
   fileType?: FileType;
   errorMessage?: string;
+  taskType: MediaTaskType.ConvertVideo | MediaTaskType.ConvertAudio | MediaTaskType.ConvertImage;
   args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs
 }
 
