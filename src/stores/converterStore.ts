@@ -3,37 +3,32 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
   ConverterTask,
   ConversionConfig,
-  VideoConversionConfig,
-  AudioConversionConfig,
-  ImageConversionConfig,
   FileType,
 } from "../types/tasks";
 import { converterDB } from "../db/converterDB";
-import { extractFilenameFromPath } from "@/lib/utils";
-import { isAudioFormat, isVideoFormat, SupportedFormats, isImageFormat } from "@/data/formats";
-import { AudioEncoderEnum, FormatEnum, ImageEncoderEnum, VideoEncoderEnum } from "../types/options";
+import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/bridge";
+import { AudioEncoderEnum, FormatEnum, VideoEncoderEnum } from "../types/options";
 import { bridge, MediaTaskType } from "@/lib/bridge";
-import { IMAGE_ENCODERS } from "@/data/encoders";
+import { formatToDefinition } from "@/data/capabilities";
 
-export const defaultVideoConfig: VideoConversionConfig = {
-  type: "video",
-  outputFormat: FormatEnum.MP4,
-  outputTitle: "",
-  video: {
-    encoder: VideoEncoderEnum.H264,
-    resolution: "1920x1080",
-    frameRate: "30",
-    bitrate: "1000",
-  },
-  audioTracks: [
-    {
-      trackIndex: 0,
-      encoder: "aac",
-      channels: "auto",
-      sampleRate: "auto",
-      bitrate: "auto",
-    },
-  ],
+export const defaultVideoConfig: ConvertVideoTaskArgs = {
+  task_id: crypto.randomUUID(),
+  input_path: "",
+  format: FormatEnum.MP4,
+  video_encoder: VideoEncoderEnum.H264
+};
+
+export const defaultAudioConfig: ConvertAudioTaskArgs = {
+  task_id: crypto.randomUUID(),
+  input_path: "",
+  format: FormatEnum.AAC,
+  audio_encoder: AudioEncoderEnum.AAC
+};
+
+export const defaultImageConfig: ConvertImageTaskArgs = {
+  task_id: crypto.randomUUID(),
+  input_path: "",
+  format: FormatEnum.JPG,
 };
 
 interface ConverterState {
@@ -146,6 +141,14 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
           }
           if (fileType === FileType.Video) {
             outputArgs.format = FormatEnum.MP4
+            const containerDefinition = formatToDefinition.get(FormatEnum.MP4);
+            outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder
+            outputArgs.audioTracks = details.streams.filter((stream) => stream.codec_type === "audio").map((stream) => {
+              return {
+                trackIndex: stream.index,
+                encoder: containerDefinition?.audio?.defaultEncoder
+              }
+            })
           } else if (fileType === FileType.Audio) {
             outputArgs.format = FormatEnum.AAC
           } else if (fileType === FileType.Image) {
@@ -157,10 +160,9 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
           newTasks.push({
             id: crypto.randomUUID(),
             status: "idle",
-            taskType: MediaTaskType.ConvertVideo,
             progress: 0,
             ...details,
-            outputArgs
+            args: outputArgs
           });
           onFileProcessed?.(path, "success");
         } catch (e: any) {

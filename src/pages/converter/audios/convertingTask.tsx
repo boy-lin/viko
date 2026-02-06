@@ -13,13 +13,13 @@ import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { AUDIO_FORMATS } from "@/data/formats";
 
 interface ConvertingTaskProps {
-  convertTaskType: FileType;
+  fileType: FileType;
   globalFilter?: string;
   onGlobalFilterChange?: (value: string) => void;
 }
 
 export default function ConvertingTask({
-  convertTaskType,
+  fileType,
   globalFilter = "",
   onGlobalFilterChange,
 }: ConvertingTaskProps) {

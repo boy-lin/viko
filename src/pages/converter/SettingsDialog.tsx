@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,28 +7,18 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  ConversionConfig,
-  isVideoConfig,
-  isAudioConfig,
-  isImageConfig,
-  VideoConversionConfig,
-  AudioConversionConfig,
-  ImageConversionConfig,
-  AudioTrackConfig,
-} from "@/types/tasks";
+import { ConversionConfig, FileType } from "@/types/tasks";
+import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/bridge";
+
 import { VideoSettingsSection } from "./components/VideoSettingsSection";
 import { AudioSettingsSection } from "./components/AudioSettingsSection";
 import { ImageSettingsSection } from "./components/ImageSettingsSection";
 // import { SettingsDialogTitle } from "./components/SettingsDialogTitle";
-import { defaultVideoConfig } from "@/stores/converterStore";
-import {
-  getValidVideoEncoders,
-  getAvailableResolutions,
-} from "@/data/capabilities";
+import { defaultVideoConfig, defaultAudioConfig, defaultImageConfig } from "@/stores/converterStore";
 import { useTranslation } from "react-i18next";
+import { isAudioFormat, isVideoFormat, isImageFormat } from "@/data/formats";
 interface ConversionSettingsDialogProps {
-  taskConfig: ConversionConfig;
+  fileType: FileType;
   onTaskConfigChange: (config: ConversionConfig) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,7 +30,7 @@ interface ConversionSettingsDialogProps {
 export const ConversionSettingsDialog: React.FC<
   ConversionSettingsDialogProps
 > = ({
-  taskConfig,
+  fileType,
   onTaskConfigChange,
   open,
   onOpenChange,
@@ -49,57 +39,50 @@ export const ConversionSettingsDialog: React.FC<
   onConfirm,
 }) => {
     const { t } = useTranslation("converter");
-    const [config, setConfig] = useState<ConversionConfig>(() => {
-      if (taskConfig) return taskConfig;
-      // 默认配置
-      return defaultVideoConfig;
-    });
+    const [config, setConfig] = useState(defaultVideoConfig);
 
     useEffect(() => {
-      if (taskConfig) {
-        setConfig(taskConfig);
+      if (fileType === FileType.Video) {
+        setConfig(defaultVideoConfig);
+      } else if (fileType === FileType.Audio) {
+        setConfig(defaultAudioConfig);
+      } else if (fileType === FileType.Image) {
+        setConfig(defaultImageConfig);
       }
-    }, [taskConfig]);
+    }, []);
 
-    const handleSave = () => {
-      onTaskConfigChange(config);
-      if (onConfirm) {
-        onConfirm(config);
-        return;
-      }
-      onOpenChange(false);
-    };
+  const toVideoFile = useMemo(() => isVideoFormat(config.format), [config.format])
+  const toAudioFile = useMemo(() => isAudioFormat(config.format), [config.format])
+  const toImageFile = useMemo(() => isImageFormat(config.format), [config.format])
+  
+
+  const handleSave = useCallback(() => {
+    onTaskConfigChange(config);
+
+    if (onConfirm) {
+      onConfirm(config);
+      return;
+    }
+    onOpenChange(false);
+  }, [config, onTaskConfigChange, onConfirm, onOpenChange ])
 
     // const handleTitleChange = (title: string) => {
     //   setConfig({ ...config, outputTitle: title });
     // };
 
     // Video config handlers
-    const handleVideoChange = (video: VideoConversionConfig["video"]) => {
-      if (isVideoConfig(config)) {
-        setConfig({ ...config, video } as VideoConversionConfig);
-      }
+    const handleConfigChange = (vals: Partial<ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs>) => {
+      setConfig((prev) => {
+        return {
+          ...prev,
+          ...vals,
+        }
+      });
     };
 
-    const handleVideoAudioTracksChange = (audioTracks: AudioTrackConfig[]) => {
-      if (isVideoConfig(config)) {
-        setConfig({ ...config, audioTracks } as VideoConversionConfig);
-      }
-    };
-
-    // Audio config handlers
-    const handleAudioTracksChange = (audioTracks: AudioTrackConfig[]) => {
-      if (isAudioConfig(config)) {
-        setConfig({ ...config, audioTracks } as AudioConversionConfig);
-      }
-    };
-
-    // Image config handlers
-    const handleImageChange = (image: ImageConversionConfig["image"]) => {
-      if (isImageConfig(config)) {
-        setConfig({ ...config, image } as ImageConversionConfig);
-      }
-    };
+    if (!config.format) {
+      return <div>error: no format</div>
+    }
 
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -118,59 +101,60 @@ export const ConversionSettingsDialog: React.FC<
           <div className="space-y-6 py-4 px-4">
             <div className="rounded-lg border border-border/60 bg-muted/40 px-4 py-3 text-sm text-foreground flex items-center gap-2">
               <span className="text-xs uppercase text-muted-foreground">{t("settings.targetFormatLabel")}</span>
-              <span className="font-semibold">{config.outputFormat?.toUpperCase?.() || config.outputFormat}</span>
-              {config.outputTitle && (
-                <span className="text-muted-foreground">· {config.outputTitle}</span>
-              )}
+              <span className="font-semibold">{config.format?.toUpperCase?.()}</span>
             </div>
 
-            {/* Video Section */}
-            {isVideoConfig(config) && (
-              <>
-                <VideoSettingsSection
-                  video={config.video}
-                  onVideoChange={handleVideoChange}
-                  {...(() => {
-                    const currentGroup = config?.group || "";
-                    const validEncoders = getValidVideoEncoders(currentGroup);
-                    // Dynamic resolutions based on selected encoder
-                    const validResolutions = getAvailableResolutions(currentGroup, config.video.encoder);
-
-                    return {
-                      allowedEncoders: validEncoders,
-                      availableResolutions: validResolutions,
-                      // maxFrameRate is now handled inside capabilities logic implicitly or we can add helper
-                    };
-                  })()}
-                />
-                {config.audioTracks && config.audioTracks.length > 0 && (
-                  <AudioSettingsSection
-                    audioTracks={config.audioTracks}
-                    outputFormat={config.outputFormat}
-                    onAudioTracksChange={handleVideoAudioTracksChange}
-                    multiTrack={true}
+            {toVideoFile && (
+              () => {
+                const videoConfig = config as ConvertVideoTaskArgs
+                return (<>
+                  <VideoSettingsSection
+                    format={videoConfig.format}
+                    video_encoder={videoConfig.video_encoder}
+                    video_bitrate={videoConfig.video_bitrate}
+                    resolution={videoConfig.resolution}
+                    frame_rate={videoConfig.frame_rate}
+                    onChange={handleConfigChange}
                   />
-                )}
-              </>
-            )}
+                  {videoConfig.audio_tracks && videoConfig.audio_tracks.length > 0 && (
+                    <AudioSettingsSection
+                      format={videoConfig.format}
+                      audio_tracks={videoConfig.audio_tracks}
+                      onAudioTracksChange={(audio_tracks) => handleConfigChange({ audio_tracks })}
+                      multiTrack={true}
+                    />
+                  )}
+                </>)
+              }
+            )()}
 
             {/* Audio Section */}
-            {isAudioConfig(config) && (
-              <AudioSettingsSection
-                audioTracks={config.audioTracks}
-                outputFormat={config.outputFormat}
-                onAudioTracksChange={handleAudioTracksChange}
-                multiTrack={false}
-              />
-            )}
+            {toAudioFile && (
+              () => {
+                const audioConfig = config as ConvertAudioTaskArgs
+                return (<AudioSettingsSection
+                  format={audioConfig.format}
+                  audio_tracks={[{
+                    codec: audioConfig.audio_encoder,
+                  }]}
+                  onAudioTracksChange={(audio_tracks) => handleConfigChange(audio_tracks[0])}
+                  multiTrack={false}
+                />)
+              }
+            )()}
 
             {/* Image Section */}
-            {isImageConfig(config) && (
-              <ImageSettingsSection
-                image={config.image}
-                onImageChange={handleImageChange}
-              />
-            )}
+            {toImageFile && (
+              () => {
+                const imageConfig = config as ConvertImageTaskArgs
+                return (<ImageSettingsSection
+                  format={imageConfig.format}
+                  image_encoder={imageConfig.image_encoder}
+                  resolution={imageConfig.resolution}
+                  onImageChange={handleConfigChange}
+                />)
+              }
+            )()}
           </div>
 
           <div className="flex justify-end gap-2 py-4 px-4 border-t sticky bottom-0 bg-background/95 backdrop-blur z-10">

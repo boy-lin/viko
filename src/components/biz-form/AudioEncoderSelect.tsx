@@ -9,28 +9,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatToDefinition } from "@/data/capabilities";
+import { EncoderEnum } from "@/types/options";
 
 interface AudioEncoderSelectProps {
-  value: string;
-  onValueChange: (value: string) => void;
   format?: string;
+  value?: string;
+  onValueChange: (value: string) => void;
 }
 
 export const AudioEncoderSelect: React.FC<AudioEncoderSelectProps> = ({
+  format,
   value,
   onValueChange,
-  format,
 }) => {
   const filteredEncoders = React.useMemo(() => {
     if (!format) return AUDIO_ENCODERS;
+    const containerDefinition = formatToDefinition.get(format);
+    if (!containerDefinition) {
+      return AUDIO_ENCODERS;
+    }
     return AUDIO_ENCODERS.filter((encoder) => {
-      if (encoder.formats) {
-        return encoder.formats.includes(format.toLowerCase());
-      }
-      return true;
+      return containerDefinition.audio?.allowedEncoders.includes(encoder.value as EncoderEnum);
     });
   }, [format]);
-  console.log('filteredEncoders', format)
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">

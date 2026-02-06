@@ -11,7 +11,7 @@ import {
 import type { SelectOption } from "@/types/options";
 
 interface VideoFrameRateSelectProps {
-  value: string;
+  value?: string;
   onValueChange: (value: string) => void;
   options?: SelectOption[];
 }
@@ -35,7 +35,7 @@ export const VideoFrameRateSelect: React.FC<VideoFrameRateSelectProps> = ({
         <Label className="text-muted-foreground">Frame Rate :</Label>
         <Info className="w-4 h-4 text-muted-foreground" />
       </div>
-      <Select value={value} onValueChange={onValueChange}>
+      <Select value={value ?? "auto"} onValueChange={onValueChange}>
         <SelectTrigger>
           <SelectValue placeholder="Select frame rate" />
         </SelectTrigger>

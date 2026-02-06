@@ -83,6 +83,8 @@ export interface AudioTrackConfig {
   channels?: number;
   bit_depth?: number;
   quality?: number;
+  /** 扩展待同步到rust */
+
 }
 
 /** 与 Rust TextWatermark 对应 */
@@ -163,9 +165,12 @@ export interface ConvertImageTaskArgs {
   task_id: string;
   input_path: string;
   format: string;
-  width: number;
-  height: number;
-  quality: number;
+  width?: number;
+  height?: number;
+  quality?: number;
+  /** 扩展待同步到rust */
+  image_encoder?: string;
+  resolution?: string;
 }
 
 export interface CompressVideoTaskArgs {
@@ -383,7 +388,7 @@ class MediaTaskQueue {
   private pendingTaskIds = new Set<string>();
   private eventUnlisten: UnlistenFn | null = null;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): MediaTaskQueue {
     if (MediaTaskQueue.instance === null) {
@@ -857,9 +862,9 @@ class MediaTaskQueue {
           : undefined,
       video_bitrate:
         task.config &&
-        isVideoConfig(task.config) &&
-        task.config.video.bitrate &&
-        task.config.video.bitrate !== "auto"
+          isVideoConfig(task.config) &&
+          task.config.video.bitrate &&
+          task.config.video.bitrate !== "auto"
           ? parseInt(task.config.video.bitrate.replace("k", ""))
           : null,
       frame_rate:

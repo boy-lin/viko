@@ -21,8 +21,8 @@ import {
 } from "@/types/tasks";
 
 export const ConverterFooter: React.FC<{
-  convertTaskType: FileType;
-}> = ({ convertTaskType }) => {
+  fileType: FileType;
+}> = ({ fileType }) => {
   const globalConfig = useConverterStore((state) => state.globalConfig);
   const convertingTasks = useConverterStore((state) => state.convertingTasks);
   const updateGlobalConfig = useConverterStore(
@@ -133,7 +133,7 @@ export const ConverterFooter: React.FC<{
         await updateUnfinishedTaskConfig(task.id, { ...globalConfig });
       }
       const tasks = useConverterStore.getState().convertingTasks;
-      await getMediaTaskQueue().addConvertVideoTasks();
+      await getMediaTaskQueue().addConvertVideoTasks(tasks);
     }
   };
 

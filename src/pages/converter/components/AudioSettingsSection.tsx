@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AudioTrackConfig } from "@/types/tasks";
+import { AudioTrackConfig, ConvertVideoTaskArgs } from "@/lib/bridge";
 import { RefreshCw } from "lucide-react";
 import { AudioEncoderSelect } from "@/components/biz-form/AudioEncoderSelect";
 import { AudioChannelSelect } from "@/components/biz-form/AudioChannelSelect";
@@ -11,31 +11,32 @@ import { AudioBitrateSelect } from "@/components/biz-form/AudioBitrateSelect";
 import { getAudioEncoderOptions } from "@/data/capabilities";
 import { useTranslation } from "react-i18next";
 
-interface AudioSettingsSectionProps {
-  audioTracks: AudioTrackConfig[];
-  outputFormat: string;
+type AudioConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "audio_tracks">
+
+interface AudioSettingsSectionProps extends AudioConversionConfig {
   onAudioTracksChange: (tracks: AudioTrackConfig[]) => void;
-  onReset?: () => void;
   // 是否为多轨道模式（video 类型）或单轨道模式（audio 类型）
   multiTrack?: boolean;
 }
 
 export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
-  audioTracks,
-  outputFormat,
+  format,
+  audio_tracks = [],
   onAudioTracksChange,
-  onReset,
   multiTrack = false,
 }) => {
   const { t } = useTranslation("converter");
-  const updateTrack = (index: number, field: keyof AudioTrackConfig, value: string) => {
-    const newTracks = [...audioTracks];
+
+  const updateTrack = (index: number, field: keyof AudioTrackConfig, value: string | number) => {
+    const newTracks = [...audio_tracks];
     newTracks[index] = { ...newTracks[index], [field]: value };
     onAudioTracksChange(newTracks);
   };
-  const getEncoderOptions = (encoder?: string) => getAudioEncoderOptions(encoder);
-
-  if (audioTracks.length === 0) {
+  const getAudioOptionsByEncoder = (encoder?: string) => getAudioEncoderOptions(encoder);
+  const onReset = () => {
+    onAudioTracksChange([]);
+  }
+  if (audio_tracks.length === 0) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -52,8 +53,9 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
   }
 
   // 单轨道模式（audio 类型）
-  if (!multiTrack && audioTracks.length > 0) {
-    const track = audioTracks[0];
+  if (!multiTrack && audio_tracks.length > 0) {
+    const track = audio_tracks[0];
+    const audioOptions = getAudioOptionsByEncoder(track.codec);
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -66,24 +68,24 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
         </div>
         <div className="grid grid-cols-2 gap-x-8 gap-y-4">
           <AudioEncoderSelect
-            value={track.encoder}
-            onValueChange={(v) => updateTrack(0, "encoder", v)}
-            format={outputFormat}
+            format={format}
+            value={track.codec}
+            onValueChange={(v) => updateTrack(0, "codec", v)}
           />
           <AudioChannelSelect
-            value={track.channels}
-            onValueChange={(v) => updateTrack(0, "channels", v)}
-            options={getEncoderOptions(track.encoder).channels}
+            value={String(track.channels)}
+            onValueChange={(v) => updateTrack(0, "channels", parseInt(v))}
+            options={audioOptions.channels}
           />
           <AudioSampleRateSelect
-            value={track.sampleRate}
-            onValueChange={(v) => updateTrack(0, "sampleRate", v)}
-            options={getEncoderOptions(track.encoder).sampleRates}
+            value={String(track.sample_rate)}
+            onValueChange={(v) => updateTrack(0, "sample_rate", parseInt(v))}
+            options={audioOptions.sampleRates}
           />
           <AudioBitrateSelect
-            value={track.bitrate}
+            value={String(track.bitrate)}
             onValueChange={(v) => updateTrack(0, "bitrate", v)}
-            options={getEncoderOptions(track.encoder).bitrates}
+            options={audioOptions.bitrates}
           />
         </div>
       </div>
@@ -93,8 +95,9 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
   // 多轨道模式（video 类型）
   return (
     <div className="space-y-6">
-      {audioTracks.map((track, index) => (
-        <div key={index} className="space-y-4">
+      {audio_tracks.map((track, index) => {
+        const audioOptions = getAudioOptionsByEncoder(track.codec);
+        return <div key={index} className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Checkbox
@@ -120,28 +123,28 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
 
           <div className="grid grid-cols-2 gap-x-8 gap-y-4">
             <AudioEncoderSelect
-              value={track.encoder}
-              onValueChange={(v) => updateTrack(index, "encoder", v)}
-              format={outputFormat}
+              format={format}
+              value={track.codec}
+              onValueChange={(v) => updateTrack(index, "codec", v)}
             />
             <AudioChannelSelect
-              value={track.channels}
-              onValueChange={(v) => updateTrack(index, "channels", v)}
-              options={getEncoderOptions(track.encoder).channels}
+              value={String(track.channels)}
+              onValueChange={(v) => updateTrack(index, "channels", parseInt(v))}
+              options={audioOptions.channels}
             />
             <AudioSampleRateSelect
-              value={track.sampleRate}
-              onValueChange={(v) => updateTrack(index, "sampleRate", v)}
-              options={getEncoderOptions(track.encoder).sampleRates}
+              value={String(track.sample_rate)}
+              onValueChange={(v) => updateTrack(index, "sample_rate", parseInt(v))}
+              options={audioOptions.sampleRates}
             />
             <AudioBitrateSelect
-              value={track.bitrate}
-              onValueChange={(v) => updateTrack(index, "bitrate", v)}
-              options={getEncoderOptions(track.encoder).bitrates}
+              value={String(track.bitrate)}
+              onValueChange={(v) => updateTrack(index, "bitrate", parseInt(v))}
+              options={audioOptions.bitrates}
             />
           </div>
         </div>
-      ))}
+      })}
     </div>
   );
 };

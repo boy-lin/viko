@@ -1,75 +1,56 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { VideoTrackConfig } from "@/types/tasks";
 import { RefreshCw } from "lucide-react";
 import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
 import { VideoResolutionSelect } from "@/components/biz-form/VideoResolutionSelect";
 import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect";
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
-import { getVideoEncoderOptions } from "@/data/capabilities";
+import { getVideoOptionsByEncoder, encoderToDefinition, formatToDefinition } from "@/data/capabilities";
 import { useTranslation } from "react-i18next";
+import { ConvertVideoTaskArgs } from "@/lib/bridge";
 
-interface VideoSettingsSectionProps {
-  video: VideoTrackConfig;
-  onVideoChange: (video: VideoTrackConfig) => void;
+type VideoConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "video_encoder" | "video_bitrate" | "resolution" | "frame_rate">
+
+interface VideoSettingsSectionProps extends VideoConversionConfig {
+  onChange?: (config: Partial<VideoConversionConfig>) => void;
   onReset?: () => void;
-  allowedEncoders?: string[];
-  allowedResolutions?: string[];
-  maxResolution?: string;
-  maxFrameRate?: string;
 }
 
-const parseResolution = (res: string) => {
-  const match = res.match(/(\d+)x(\d+)/);
-  if (!match) return null;
-  return { w: parseInt(match[1]), h: parseInt(match[2]) };
-};
-
 export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
-  video,
-  onVideoChange,
-  onReset,
-  allowedEncoders,
-  allowedResolutions,
-  maxResolution,
-  maxFrameRate,
+  format,
+  video_encoder,
+  video_bitrate,
+  resolution,
+  frame_rate,
+  onChange,
 }) => {
   const { t } = useTranslation("converter");
-  const encoderOptions = getVideoEncoderOptions(video.encoder);
+  if (!format || !video_encoder) {
+    return <div> format or encoder is not set </div>
+  }
+  const containerDefinition = formatToDefinition.get(format);
+  const definition = encoderToDefinition.get(video_encoder);
+  const videoOptions = getVideoOptionsByEncoder(video_encoder);
 
-  // Filter Resolutions
-  const filteredResolutions = encoderOptions.resolutions.filter((opt) => {
-    if (opt.value === "auto") return true;
+  if (!containerDefinition || !definition || !videoOptions) {
+    return <div> format or encoder is not set </div>
+  }
 
-    // 1. Allowed List Check
-    if (allowedResolutions && allowedResolutions.length > 0) {
-      return allowedResolutions.includes(opt.value);
-    }
-
-    // 2. Max Resolution Check
-    if (maxResolution) {
-      const max = parseResolution(maxResolution);
-      const current = parseResolution(opt.value);
-      if (max && current) {
-        return current.w * current.h <= max.w * max.h;
+  const onReset = () => {
+    if (onChange) {
+      if (!containerDefinition?.video?.defaultEncoder) {
+        console.error("No default encoder found for container", containerDefinition);
+        return;
       }
+      onChange({
+        video_encoder: containerDefinition?.video?.defaultEncoder,
+        video_bitrate: definition?.defaultBitrate,
+        resolution: definition?.defaultResolution,
+        frame_rate: definition?.defaultFrameRate.toString(),
+      });
     }
-    return true;
-  });
-
-  // Filter Frame Rates
-  const filteredFrameRates = encoderOptions.frameRates.filter((opt) => {
-    if (opt.value === "auto") return true;
-    if (maxFrameRate) {
-      const max = parseFloat(maxFrameRate);
-      const current = parseFloat(opt.value);
-      if (!isNaN(max) && !isNaN(current)) {
-        return current <= max;
-      }
-    }
-    return true;
-  });
+  };
 
 
   return (
@@ -85,34 +66,34 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
 
       <div className="grid grid-cols-2 gap-x-8 gap-y-4">
         <VideoEncoderSelect
-          value={video.encoder}
-          onValueChange={(v) => onVideoChange({ ...video, encoder: v })}
-          allowedEncoders={allowedEncoders}
+          value={video_encoder}
+          onValueChange={(v) => onChange?.({ video_encoder: v })}
+          allowedEncoders={containerDefinition.video?.allowedEncoders}
         />
 
         <VideoResolutionSelect
-          value={video.resolution}
-          onValueChange={(v) => onVideoChange({ ...video, resolution: v })}
-          options={filteredResolutions}
+          value={resolution}
+          onValueChange={(v) => onChange?.({ resolution: v })}
+          options={videoOptions.resolutions}
         />
 
         <VideoFrameRateSelect
-          value={video.frameRate ?? "auto"}
-          onValueChange={(v) => onVideoChange({ ...video, frameRate: v })}
-          options={filteredFrameRates}
+          value={frame_rate}
+          onValueChange={(v) => onChange?.({ frame_rate: v })}
+          options={videoOptions.frameRates}
         />
 
         <VideoBitrateSelect
-          value={video.bitrate ?? "auto"}
-          onValueChange={(v) => onVideoChange({ ...video, bitrate: v })}
-          options={encoderOptions.bitrates}
+          value={String(video_bitrate)}
+          onValueChange={(v) => onChange?.({ video_bitrate: parseInt(v) })}
+          options={videoOptions.bitrates}
         />
       </div>
 
       <ColorSpaceSelect
         value="auto"
         onValueChange={() => { }}
-        options={encoderOptions.colorSpaces}
+        options={videoOptions.colorSpaces}
       />
 
       <div className="w-full h-px bg-border"></div>

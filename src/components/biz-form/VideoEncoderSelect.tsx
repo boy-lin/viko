@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 
 interface VideoEncoderSelectProps {
-  value: string;
+  value?: string;
   onValueChange: (value: string) => void;
   allowedEncoders?: string[];
 }
@@ -53,7 +53,7 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
         <Label className="text-muted-foreground">Encoder :</Label>
         <Info className="w-4 h-4 text-muted-foreground" />
       </div>
-      <Select value={value} onValueChange={onValueChange}>
+      <Select value={value ?? "auto"} onValueChange={onValueChange}>
         <SelectTrigger>
           <SelectValue placeholder="Select encoder" />
         </SelectTrigger>

@@ -21,37 +21,10 @@ export interface MediaDetails {
   format_long_name?: string;
   size: number;
   streams: StreamDetails[];
-  
+
   duration?: number;
   tags?: Record<string, string>;
   stream_tags?: Record<string, string>[];
-}
-
-export interface AudioTrackConfig {
-  trackIndex: number;
-  encoder: string;
-  channels: string;
-  sampleRate: string;
-  bitrate: string;
-}
-
-export interface VideoTrackConfig {
-  encoder: string;
-  resolution: string;
-  frameRate?: string;
-  bitrate?: string;
-  sampleRate?: string;
-  channels?: string;
-}
-
-export interface ImageConfig {
-  quality?: string;
-  resolution?: string;
-}
-
-export interface WatermarkConfig {
-  text?: TextWatermark;
-  image?: ImageWatermark;
 }
 
 export interface TextWatermark {
@@ -72,41 +45,8 @@ export interface ImageWatermark {
   y: string;
 }
 
-// 基础配置（所有类型共享）
-interface BaseConversionConfig {
-  outputFormat: string;
-  outputTitle: string;
-}
-
-// Video 配置
-export interface VideoConversionConfig extends BaseConversionConfig {
-  type: "video";
-  group?: string;
-  video: VideoTrackConfig;
-  audioTracks?: AudioTrackConfig[]; // 视频可能包含音频轨道
-  watermark?: WatermarkConfig;
-  image?: never; // 明确禁止
-}
-
-// Audio 配置
-export interface AudioConversionConfig extends BaseConversionConfig {
-  type: "audio";
-  audioTracks: AudioTrackConfig[]; // 必需
-  video?: never; // 明确禁止
-  image?: never;
-}
-
-// Image 配置
-export interface ImageConversionConfig extends BaseConversionConfig {
-  type: "image";
-  image: ImageConfig;
-  watermark?: WatermarkConfig;
-  video?: never; // 明确禁止
-  audioTracks?: never;
-}
-
 // 联合类型
-export type ConversionConfig = ConvertVideoTaskArgs | 
+export type ConversionConfig = ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs;
 
 // 压缩配置类型
 export interface VideoCompressionConfig {
@@ -205,10 +145,9 @@ export interface ConverterTask extends MediaDetails {
   id: string;
   status: "idle" | "converting" | "finished" | "error";
   progress: number;
-  taskType: MediaTaskType;
   fileType?: FileType;
   errorMessage?: string;
-  outputArgs: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs
+  args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs
 }
 
 export interface CompressingTask extends MediaDetails {

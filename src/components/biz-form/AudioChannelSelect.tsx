@@ -12,7 +12,7 @@ import { AUDIO_CHANNELS } from "@/data/audio_options";
 import type { SelectOption } from "@/types/options";
 
 interface AudioChannelSelectProps {
-  value: string;
+  value?: string;
   onValueChange: (value: string) => void;
   options?: SelectOption[];
 }
@@ -30,7 +30,7 @@ export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
         <Label className="text-muted-foreground">Channel:</Label>
         <Info className="w-4 h-4 text-muted-foreground" />
       </div>
-      <Select value={value} onValueChange={onValueChange}>
+      <Select value={value ?? "auto"} onValueChange={onValueChange}>
         <SelectTrigger>
           <SelectValue placeholder="Select channels" />
         </SelectTrigger>

@@ -1145,17 +1145,17 @@ export const supportedExtensions = new Set(
   SupportedFormats.map((ext) => ext.toLowerCase())
 );
 
-export function isAudioFormat(format: any): boolean {
-  if (!format) return false;
-  return AUDIO_FORMATS.includes(format);
+export function isAudioFormat(extension: any): boolean {
+  if (!extension) return false;
+  return AUDIO_FORMATS.includes(extension);
 }
 
-export function isVideoFormat(format: any): boolean {
-  if (!format) return false;
-  return VIDEO_FORMATS.includes(format);
+export function isVideoFormat(extension: any): boolean {
+  if (!extension) return false;
+  return VIDEO_FORMATS.includes(extension);
 }
 
-export function isImageFormat(format: any): boolean {
-  if (!format) return false;
-  return IMAGE_FORMATS.includes(format);
+export function isImageFormat(extension: any): boolean {
+  if (!extension) return false;
+  return IMAGE_FORMATS.includes(extension);
 }

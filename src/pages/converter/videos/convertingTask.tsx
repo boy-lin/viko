@@ -13,13 +13,13 @@ import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { VIDEO_FORMATS } from "@/data/formats";
 
 interface ConvertingTaskProps {
-  convertTaskType: FileType;
+  fileType: FileType;
   globalFilter?: string;
   onGlobalFilterChange?: (value: string) => void;
 }
 
 export default function ConvertingTask({
-  convertTaskType,
+  fileType,
   globalFilter = "",
   onGlobalFilterChange,
 }: ConvertingTaskProps) {
@@ -71,7 +71,13 @@ export default function ConvertingTask({
   };
 
   const handleConvertSingle = async (task: ConverterTask) => {
-    await getMediaTaskQueue().addConvertVideoTasks([task]);
+
+    await getMediaTaskQueue().addConvertVideoTasks([
+      {
+        kind: task.kind,
+        args: task.args,
+      }
+    ]);
   };
 
   return (
@@ -86,7 +92,7 @@ export default function ConvertingTask({
           </div>
         ) : (
           filteredTasks.map((task) => {
-            const convertVideoTaskArgs = task.outputArgs as ConvertVideoTaskArgs;
+            const convertVideoTaskArgs = task.args as ConvertVideoTaskArgs;
             const targetInfoParts = [
               convertVideoTaskArgs.format?.toUpperCase?.(),
               convertVideoTaskArgs.resolution,
@@ -178,15 +184,13 @@ export default function ConvertingTask({
         <ConversionSettingsDialog
           descriptionOverride={t("settings.singleDescription")}
           confirmLabel={t("settings.startSingle")}
-          taskConfig={currentTask.outputArgs}
+          fileType={fileType}
           onTaskConfigChange={(config) => {
             updateUnfinishedTaskConfig(currentTask.id, config);
           }}
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
-          onConfirm={async (config) => {
-            await updateUnfinishedTaskConfig(currentTask.id, config);
-            await getMediaTaskQueue().addConvertVideoTasks([currentTask]);
+          onConfirm={(config) => {
             setSettingsOpen(false);
           }}
         />
