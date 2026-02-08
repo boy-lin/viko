@@ -25,6 +25,7 @@ pub struct VideoConversionParams {
     pub min_bitrate: Option<u32>,
     pub max_bitrate: Option<u32>,
     pub rc_mode: Option<String>,            // cbr/vbr/crf
+    pub crf: Option<u32>,
     pub resolution: Option<String>,         // "1920x1080", "original", etc.
     pub frame_rate: Option<String>,         // "30", "60", "original"
     pub aspect_ratio: Option<String>,
@@ -70,6 +71,7 @@ struct ResolvedVideoParams {
     pub min_bitrate: Option<u32>,
     pub max_bitrate: Option<u32>,
     pub rc_mode: Option<String>,
+    pub crf: Option<u32>,
     pub resolution: Option<String>,
     pub aspect_ratio: Option<String>,
     pub scaling_mode: Option<String>,
@@ -172,6 +174,7 @@ fn resolve_video_params(params: VideoConversionParams, input_audio_indices: &[us
         min_bitrate: params.min_bitrate,
         max_bitrate: params.max_bitrate,
         rc_mode: params.rc_mode,
+        crf: params.crf,
         resolution: params.resolution,
         aspect_ratio: params.aspect_ratio,
         scaling_mode: params.scaling_mode,
@@ -755,9 +758,12 @@ fn create_black_video_encoder(
     let encoder_time_base = Rational(1, fps);
     encoder.set_time_base(encoder_time_base);
 
-    // 码率
-    if let Some(bitrate) = params.video_bitrate {
-        encoder.set_bit_rate((bitrate * 1000) as usize);
+    // 码率控制
+    let is_crf = params.rc_mode.as_deref() == Some("crf");
+    if !is_crf {
+        if let Some(bitrate) = params.video_bitrate {
+            encoder.set_bit_rate((bitrate * 1000) as usize);
+        }
     } else {
         // 默认低码率（黑屏不需要高码率）
         encoder.set_bit_rate(500 * 1000); // 500 kbps

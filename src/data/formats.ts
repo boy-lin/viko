@@ -5,12 +5,12 @@ import {
 } from "lucide-react";
 import { FormatEnum } from "@/types/options";
 import { FormatOption, FormatCategory, FormatGroup } from "@/types/options";
-import { MediaTaskType } from "@/lib/bridge";
+import { FileType } from "@/types/tasks";
 
 export const FORMAT_CATEGORIES: FormatCategory[] = [
-  { id: MediaTaskType.ConvertAudio.toString(), label: "Audio", icon: Music, type: "audio" },
-  { id: MediaTaskType.ConvertVideo.toString(), label: "Video", icon: FileVideo, type: "video" },
-  { id: MediaTaskType.ConvertImage.toString(), label: "Images", icon: ImageIcon, type: "image" },
+  { id: FileType.Audio, label: "Audio", icon: Music },
+  { id: FileType.Video, label: "Video", icon: FileVideo },
+  { id: FileType.Image, label: "Images", icon: ImageIcon },
 ];
 
 export const FORMAT_GROUPS: FormatGroup[] = [
@@ -31,20 +31,18 @@ export const FORMAT_GROUPS: FormatGroup[] = [
   { id: "m4r", label: "M4R", category: "audio" },
 
   // Video Generic
-  { id: "mp4", label: "MP4", category: "video_generic" },
-  { id: "hevc_mp4", label: "HEVC MP4", category: "video_generic" },
-  { id: "mov", label: "MOV", category: "video_generic" },
-  { id: "mkv", label: "MKV", category: "video_generic" },
-  { id: "hevc_mkv", label: "HEVC MKV", category: "video_generic" },
-  { id: "avi", label: "AVI", category: "video_generic" },
-  { id: "wmv", label: "WMV", category: "video_generic" },
-  { id: "webm", label: "WebM", category: "video_generic" },
-  { id: "flv", label: "FLV", category: "video_generic" },
-  { id: "3gp", label: "3GP", category: "video_generic" },
-  { id: "mpeg1", label: "MPEG-1", category: "video_generic" },
-  { id: "mpeg2", label: "MPEG-2", category: "video_generic" },
-  { id: "vob", label: "VOB", category: "video_generic" },
-  { id: "ogv", label: "OGV", category: "video_generic" },
+  { id: "mp4", label: "MP4", category: FileType.Video },
+  { id: "mov", label: "MOV", category: FileType.Video },
+  { id: "mkv", label: "MKV", category: FileType.Video },
+  { id: "avi", label: "AVI", category: FileType.Video },
+  { id: "wmv", label: "WMV", category: FileType.Video },
+  { id: "webm", label: "WebM", category: FileType.Video },
+  { id: "flv", label: "FLV", category: FileType.Video },
+  { id: "3gp", label: "3GP", category: FileType.Video },
+  { id: "mpeg1", label: "MPEG-1", category: FileType.Video },
+  { id: "mpeg2", label: "MPEG-2", category: FileType.Video },
+  { id: "vob", label: "VOB", category: FileType.Video },
+  { id: "ogv", label: "OGV", category: FileType.Video },
 
   // Devices
   { id: "apple", label: "Apple", category: "video_device" },
@@ -359,7 +357,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp4-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mp4",
     extension: FormatEnum.MP4,
     videoResolution: "auto",
@@ -367,7 +365,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp4-8k",
     label: "8K Video",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mp4",
     extension: FormatEnum.MP4,
     videoResolution: "7680x4320",
@@ -375,7 +373,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp4-4k",
     label: "4K Video",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mp4",
     extension: FormatEnum.MP4,
     videoResolution: "3840x2160",
@@ -383,7 +381,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp4-1080",
     label: "HD 1080P",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mp4",
     extension: FormatEnum.MP4,
     videoResolution: "1920x1080",
@@ -391,7 +389,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp4-720",
     label: "HD 720P",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mp4",
     extension: FormatEnum.MP4,
     videoResolution: "1280x720",
@@ -399,7 +397,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp4-640",
     label: "SD 640P",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mp4",
     extension: FormatEnum.MP4,
     videoResolution: "960x640",
@@ -407,7 +405,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp4-576",
     label: "SD 576P",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mp4",
     extension: FormatEnum.MP4,
     videoResolution: "720x576",
@@ -417,7 +415,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "hevc-mp4-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "hevc_mp4",
     extension: FormatEnum.MP4,
     videoResolution: "auto",
@@ -425,7 +423,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "hevc-mp4-8k",
     label: "8K Video (7680x4320)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "hevc_mp4",
     extension: FormatEnum.MP4,
     videoResolution: "7680x4320",
@@ -433,7 +431,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "hevc-mp4-4k",
     label: "4K Video (3840x2160)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "hevc_mp4",
     extension: FormatEnum.MP4,
     videoResolution: "3840x2160",
@@ -441,7 +439,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "hevc-mp4-1080",
     label: "HD 1080P (1920x1080)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "hevc_mp4",
     extension: FormatEnum.MP4,
     videoResolution: "1920x1080",
@@ -449,7 +447,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "hevc-mp4-720",
     label: "HD 720P (1280x720)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "hevc_mp4",
     extension: FormatEnum.MP4,
     videoResolution: "1280x720",
@@ -459,7 +457,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mov-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mov",
     extension: FormatEnum.MOV,
     videoResolution: "auto",
@@ -467,7 +465,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mov-4k",
     label: "4K Video (3840x2160)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mov",
     extension: FormatEnum.MOV,
     videoResolution: "3840x2160",
@@ -475,7 +473,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mov-1080",
     label: "HD 1080P (1920x1080)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mov",
     extension: FormatEnum.MOV,
     videoResolution: "1920x1080",
@@ -483,7 +481,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mov-720",
     label: "HD 720P (1280x720)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mov",
     extension: FormatEnum.MOV,
     videoResolution: "1280x720",
@@ -493,7 +491,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mkv-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mkv",
     extension: FormatEnum.MKV,
     videoResolution: "auto",
@@ -501,7 +499,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mkv-4k",
     label: "4K Video (3840x2160)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mkv",
     extension: FormatEnum.MKV,
     videoResolution: "3840x2160",
@@ -509,7 +507,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mkv-1080",
     label: "HD 1080P (1920x1080)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mkv",
     extension: FormatEnum.MKV,
     videoResolution: "1920x1080",
@@ -517,7 +515,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mkv-720",
     label: "HD 720P (1280x720)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mkv",
     extension: FormatEnum.MKV,
     videoResolution: "1280x720",
@@ -527,7 +525,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "hevc-mkv-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "hevc_mkv",
     extension: FormatEnum.MKV,
     videoResolution: "auto",
@@ -535,7 +533,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "hevc-mkv-4k",
     label: "4K Video (3840x2160)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "hevc_mkv",
     extension: FormatEnum.MKV,
     videoResolution: "3840x2160",
@@ -543,7 +541,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "hevc-mkv-1080",
     label: "HD 1080P (1920x1080)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "hevc_mkv",
     extension: FormatEnum.MKV,
     videoResolution: "1920x1080",
@@ -553,7 +551,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "avi-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "avi",
     extension: FormatEnum.AVI,
     videoResolution: "auto",
@@ -561,7 +559,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "avi-1080",
     label: "HD 1080P (1920x1080)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "avi",
     extension: FormatEnum.AVI,
     videoResolution: "1920x1080",
@@ -569,7 +567,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "avi-720",
     label: "HD 720P (1280x720)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "avi",
     extension: FormatEnum.AVI,
     videoResolution: "1280x720",
@@ -577,7 +575,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "avi-576",
     label: "SD 576P (720x576)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "avi",
     extension: FormatEnum.AVI,
     videoResolution: "720x576",
@@ -587,7 +585,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "wmv-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "wmv",
     extension: FormatEnum.WMV,
     videoResolution: "auto",
@@ -595,7 +593,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "wmv-1080",
     label: "HD 1080P (1920x1080)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "wmv",
     extension: FormatEnum.WMV,
     videoResolution: "1920x1080",
@@ -603,7 +601,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "wmv-720",
     label: "HD 720P (1280x720)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "wmv",
     extension: FormatEnum.WMV,
     videoResolution: "1280x720",
@@ -613,7 +611,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "webm-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "webm",
     extension: FormatEnum.WEBM,
     videoResolution: "auto",
@@ -621,7 +619,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "webm-1080",
     label: "HD 1080P (1920x1080)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "webm",
     extension: FormatEnum.WEBM,
     videoResolution: "1920x1080",
@@ -629,7 +627,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "webm-720",
     label: "HD 720P (1280x720)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "webm",
     extension: FormatEnum.WEBM,
     videoResolution: "1280x720",
@@ -639,7 +637,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "flv-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "flv",
     extension: FormatEnum.FLV,
     videoResolution: "auto",
@@ -647,7 +645,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "flv-1080",
     label: "HD 1080P (1920x1080)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "flv",
     extension: FormatEnum.FLV,
     videoResolution: "1920x1080",
@@ -655,7 +653,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "flv-720",
     label: "HD 720P (1280x720)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "flv",
     extension: FormatEnum.FLV,
     videoResolution: "1280x720",
@@ -665,7 +663,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "3gp-352",
     label: "CIF (352x288)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "3gp",
     extension: FormatEnum.GP3,
     videoResolution: "352x288",
@@ -673,7 +671,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "3gp-176",
     label: "QCIF (176x144)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "3gp",
     extension: FormatEnum.GP3,
     videoResolution: "176x144",
@@ -683,7 +681,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mpeg1-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mpeg1",
     extension: FormatEnum.MPG,
     videoResolution: "auto",
@@ -691,7 +689,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mpeg1-cif",
     label: "CIF (352x288)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mpeg1",
     extension: FormatEnum.MPG,
     videoResolution: "352x288",
@@ -701,7 +699,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mpeg2-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mpeg2",
     extension: FormatEnum.MPG,
     videoResolution: "auto",
@@ -709,7 +707,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mpeg2-1080",
     label: "HD 1080P (1920x1080)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mpeg2",
     extension: FormatEnum.MPG,
     videoResolution: "1920x1080",
@@ -717,7 +715,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mpeg2-576",
     label: "SD (720x576)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "mpeg2",
     extension: FormatEnum.MPG,
     videoResolution: "720x576",
@@ -727,7 +725,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "vob-dvd",
     label: "DVD Standard",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "vob",
     extension: FormatEnum.VOB,
     videoResolution: "auto",
@@ -737,7 +735,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "ogv-orig",
     label: "Same as source",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "ogv",
     extension: FormatEnum.OGV,
     videoResolution: "auto",
@@ -745,7 +743,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "ogv-720",
     label: "HD 720P (1280x720)",
-    category: "video_generic",
+    category: FileType.Video,
     groupId: "ogv",
     extension: FormatEnum.OGV,
     videoResolution: "1280x720",

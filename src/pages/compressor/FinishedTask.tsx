@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -10,7 +10,8 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Trash2, FolderOpen } from "lucide-react";
+import { ArrowUpDown, Trash2, FolderOpen, Loader2 } from "lucide-react";
+import { TaskHistoryItem } from "@/lib/bridge";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -25,32 +26,30 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useCompressorStore } from "@/stores/compressorStore";
-import { ConverterTask } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { formatFileSize } from "@/lib/file";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { useAppStore } from "@/stores/app";
 
 interface FinishedTaskProps {
-  globalFilter?: string;
-  onGlobalFilterChange?: (value: string) => void;
+  tasks?: TaskHistoryItem[];
+  loading?: boolean;
+  isPending?: boolean;
+  onRemove?: (id: string) => void;
 }
 
 export default function FinishedTask({
-  globalFilter = "",
-  onGlobalFilterChange,
-}: FinishedTaskProps = {}) {
-  const { finishedTasks, removeFinishedTask, resetUnreadFinishedCount } =
-    useCompressorStore();
+  tasks = [],
+  loading = false,
+  isPending = false,
+  onRemove,
+}: FinishedTaskProps) {
+
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
-  useEffect(() => {
-    resetUnreadFinishedCount();
-  }, []);
-
   // 定义列
-  const columns = useMemo<ColumnDef<ConverterTask>[]>(
+  const columns = useMemo<ColumnDef<TaskHistoryItem>[]>(
     () => [
       {
         accessorKey: "thumbnail",
@@ -60,9 +59,8 @@ export default function FinishedTask({
           return (
             <div className="flex items-center gap-3">
               <MediaThumbnail
-                path={task.path}
-                title={task.title}
-                fileType={task.fileType}
+                path={task.output_path || task.input_path}
+                title={task.title || "Unknown"}
                 className="shrink-0 w-10 h-10 rounded"
               />
               <div className="flex flex-col max-w-[200px]">
@@ -72,12 +70,12 @@ export default function FinishedTask({
                 >
                   {task.title}
                 </span>
-                {task.outputPath && (
+                {task.output_path && (
                   <span
                     className="text-xs text-muted-foreground truncate"
-                    title={task.outputPath}
+                    title={task.output_path}
                   >
-                    输出: {task.outputPath.split(/[/\\]/).pop()}
+                    输出: {task.output_path.split(/[/\\]/).pop()}
                   </span>
                 )}
               </div>
@@ -104,19 +102,15 @@ export default function FinishedTask({
         },
         cell: ({ row }) => {
           const task = row.original;
-          const originalSize = task.size;
-          const outputSize = task.outputSize;
+          const outputSize = task.output_size;
           return (
             <div className="flex flex-col">
-              <span className="text-sm font-normal text-foreground">
-                原文件: {formatFileSize(originalSize)}
-              </span>
-              {task.outputPath && (
+              {task.output_path && (
                 <span className="text-xs text-muted-foreground">
-                  压缩后:{" "}
+                  大小:{" "}
                   {outputSize !== undefined
                     ? formatFileSize(outputSize)
-                    : "计算中..."}
+                    : "Unknown"}
                 </span>
               )}
             </div>
@@ -128,25 +122,24 @@ export default function FinishedTask({
         header: "压缩率",
         cell: ({ row }) => {
           const task = row.original;
-          // 从 compressionConfig 获取压缩比例
-          if (task.compressionConfig) {
-            if (
-              task.compressionConfig.type === "video" ||
-              task.compressionConfig.type === "audio"
-            ) {
+          try {
+            const args = JSON.parse(task.task_data || "{}");
+            if (args.compression_ratio) {
               return (
                 <span className="text-sm font-normal text-foreground">
-                  {task.compressionConfig.compressionRatio}%
+                  {args.compression_ratio}%
                 </span>
-              );
-            } else if (task.compressionConfig.type === "image") {
-              return (
-                <span className="text-sm font-normal text-foreground">
-                  质量: {task.compressionConfig.quality}%
-                </span>
-              );
+              )
             }
-          }
+            if (args.quality) {
+              return (
+                <span className="text-sm font-normal text-foreground">
+                  质量: {args.quality}%
+                </span>
+              )
+            }
+          } catch (e) { }
+
           return (
             <span className="text-sm font-normal text-muted-foreground">-</span>
           );
@@ -159,9 +152,10 @@ export default function FinishedTask({
         cell: ({ row }) => {
           const task = row.original;
           const handleOpenFolder = async () => {
-            if (!task.outputPath) return;
+            const path = task.output_path
+            if (!path) return;
             try {
-              await revealItemInDir(task.outputPath);
+              await revealItemInDir(path);
             } catch (e) {
               console.error("Failed to open folder:", e);
             }
@@ -175,7 +169,7 @@ export default function FinishedTask({
                     variant="ghost"
                     size="icon"
                     onClick={handleOpenFolder}
-                    disabled={!task.outputPath}
+                    disabled={!task.output_path}
                   >
                     <FolderOpen className="h-4 w-4" />
                   </Button>
@@ -190,7 +184,7 @@ export default function FinishedTask({
                     variant="ghost"
                     size="icon"
                     className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => removeFinishedTask(task.id)}
+                    onClick={() => onRemove?.(task.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -205,47 +199,11 @@ export default function FinishedTask({
         enableSorting: false,
       },
     ],
-    [removeFinishedTask]
-  );
-
-  // 使用 useCallback 稳定 onGlobalFilterChange 引用
-  const stableOnGlobalFilterChange = useCallback(
-    (value: string) => {
-      onGlobalFilterChange?.(value);
-    },
-    [onGlobalFilterChange]
-  );
-
-  // 使用 useCallback 稳定 globalFilterFn
-  const globalFilterFn = useCallback(
-    (row: any, _: any, filterValue: string) => {
-      if (!filterValue || filterValue.trim() === "") {
-        return true;
-      }
-      const search = filterValue.toLowerCase().trim();
-      const task = row.original;
-      const fileName = task.title.toLowerCase();
-      const format = task.format?.toLowerCase() || "";
-      const displayFormat = task.displayFormat?.toLowerCase() || "";
-      const displayResolution = task.displayResolution?.toLowerCase() || "";
-      const outputPath = task.outputPath?.toLowerCase() || "";
-      const outputFileName =
-        outputPath.split(/[/\\]/).pop()?.toLowerCase() || "";
-
-      return (
-        fileName.includes(search) ||
-        format.includes(search) ||
-        displayFormat.includes(search) ||
-        displayResolution.includes(search) ||
-        outputPath.includes(search) ||
-        outputFileName.includes(search)
-      );
-    },
-    []
+    [onRemove]
   );
 
   const table = useReactTable({
-    data: finishedTasks,
+    data: tasks,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -253,12 +211,9 @@ export default function FinishedTask({
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: stableOnGlobalFilterChange,
-    globalFilterFn,
     state: {
       sorting,
       columnFilters,
-      globalFilter,
     },
     initialState: {
       pagination: {
@@ -272,6 +227,7 @@ export default function FinishedTask({
       wrapperClassName="h-full"
       className="w-full relative min-w-max table-auto text-left"
     >
+
       <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id} className="hover:bg-transparent">
@@ -291,8 +247,16 @@ export default function FinishedTask({
           </TableRow>
         ))}
       </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows?.length ? (
+      <TableBody className={`${isPending ? "opacity-50" : ""}`}>
+        {loading ? (
+          <TableRow>
+            <TableCell colSpan={columns.length} className="h-24 text-center">
+              <div className="flex justify-center items-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            </TableCell>
+          </TableRow>
+        ) : table.getRowModel().rows?.length ? (
           table.getRowModel().rows.map((row) => (
             <TableRow
               key={row.id}

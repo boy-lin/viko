@@ -1,4 +1,4 @@
-import { ColorSpaceOption } from "@/types/options";
+import { ColorSpaceOption, SelectOption } from "@/types/options";
 import { EncoderEnum } from "@/types/options";
 
 /**
@@ -30,4 +30,19 @@ export const COLOR_SPACES: ColorSpaceOption[] = [
     supportedEncoders: [EncoderEnum.H264, EncoderEnum.H265],
   },
 ];
+
+export const VIDEO_BITRATES: SelectOption[] = [
+  { value: "auto", label: "自动" },
+  { value: "5000", label: "5000 kbps" },
+  { value: "2000", label: "2000 kbps" },
+  { value: "1000", label: "1000 kbps" },
+];
+
+export const VIDEO_QUALITIES: SelectOption[] = [
+  { value: "auto", label: "自动" },
+  { value: "18", label: "超清 (CRF 18)" },
+  { value: "23", label: "高清 (CRF 23)" },
+  { value: "28", label: "标清 (CRF 28)" },
+];
+
 

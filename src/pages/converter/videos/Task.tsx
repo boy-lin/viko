@@ -1,16 +1,18 @@
-import { useState, useMemo, startTransition } from "react";
-import { Trash2, Settings, ShieldAlert, Play } from "lucide-react";
+import { useMemo } from "react";
+import { Trash2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { UploadPanel } from "../UploadPanel";
-import { useConverterStore } from "@/stores/converterStore";
-import { ConversionConfig, ConverterTask, FileType } from "@/types/tasks";
+import { ConverterTask, FileType } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
-import { ConversionSettingsDialog } from "../SettingsDialog";
-import { ConvertVideoTaskArgs, getMediaTaskQueue, MediaTaskType } from "@/lib/bridge";
+import { ConvertVideoTaskArgs, getMediaTaskQueue } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
+import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
 import { VIDEO_FORMATS } from "@/data/formats";
+import { MediaTaskType } from "@/types/tasks";
+
+import { UploadPanel } from "./UploadPanel";
+import { useConverterStore } from "./store";
 
 interface ConvertingTaskProps {
   fileType: FileType;
@@ -23,12 +25,10 @@ export default function ConvertingTask({
   globalFilter = "",
   onGlobalFilterChange,
 }: ConvertingTaskProps) {
-  const { convertingTasks, removeTask, updateUnfinishedTaskConfig } =
-    useConverterStore();
+  const { convertingTasks, removeTask } = useConverterStore();
   const { t } = useTranslation("converter");
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [currentTask, setCurrentTask] = useState<ConverterTask | null>(null);
+  const globalConfig = useConverterStore((state) => state.globalConfig);
 
   const filteredTasks = useMemo(() => {
     const search = globalFilter?.trim().toLowerCase() || "";
@@ -40,7 +40,7 @@ export default function ConvertingTask({
       );
     });
   }, [convertingTasks, globalFilter]);
-
+  console.log("filteredTasks", filteredTasks);
   const statusLabel = (task: ConverterTask) => {
     const errorMessage = (task as any).errorMessage || (task as any).error;
     const map = {
@@ -90,10 +90,18 @@ export default function ConvertingTask({
         ) : (
           filteredTasks.map((task) => {
             const convertVideoTaskArgs = task.args as ConvertVideoTaskArgs;
+            const firstVideoStream = task.streams.find((s) => s.codec_type === "video");
+            const originalInfoParts = [
+              task.extension.toUpperCase(),
+              firstVideoStream?.codec_name?.toUpperCase?.(),
+              firstVideoStream?.width + "x" + firstVideoStream?.height,
+              firstVideoStream?.frame_rate,
+            ]
             const targetInfoParts = [
               convertVideoTaskArgs.format?.toUpperCase?.(),
+              convertVideoTaskArgs.video_encoder?.toUpperCase?.(),
               convertVideoTaskArgs.resolution,
-              convertVideoTaskArgs.video_encoder,
+              convertVideoTaskArgs.frame_rate,
             ]
             return (
               <div
@@ -113,9 +121,12 @@ export default function ConvertingTask({
                   <div className="flex items-center gap-3">
                     <EllipsisName name={task.title} className="text-base font-semibold text-foreground" />
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                    <span>{task.extension.toUpperCase()}</span>
-                    <span>{convertVideoTaskArgs.resolution}</span>
+                  <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground">
+                    {
+                      originalInfoParts.map((p, idx) => (
+                        <span key={idx}>{p || "-"}</span>
+                      ))
+                    }
                   </div>
                 </div>
 
@@ -124,37 +135,27 @@ export default function ConvertingTask({
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-muted-foreground">{t("targetInfo")}</div>
-                  <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-foreground">
+                  <div className="text-base font-semibold text-foreground">{t("targetInfo")}</div>
+                  <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground">
                     {targetInfoParts.map((p, idx) => (
-                      <span key={idx}>{p || "-"}</span>
+                      <span key={idx}>{p || "auto"}</span>
                     ))}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <FormatSelectorDialog
+                    config={globalConfig}
+                    formatRecents={[]}
+                    addToRecents={() => { }}
+                    applyConfigToAllTasks={() => { }}
+                  />
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="icon"
-                        onClick={() => {
-                          setCurrentTask(task);
-                          startTransition(() => setSettingsOpen(true));
-                        }}
-                      >
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{t("actions.settings")}</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
                         onClick={() => removeTask(task.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -164,10 +165,10 @@ export default function ConvertingTask({
                   </Tooltip>
 
                   <Button
-                    className="bg-purple-600 hover:bg-purple-700 text-white h-10 px-4"
+                    variant="outline"
+                    className="cursor-pointer px-4"
                     onClick={() => handleConvertSingle(task)}
                   >
-                    <Play className="h-4 w-4 mr-1" />
                     {t("actions.convertSingle", "转换")}
                   </Button>
                 </div>
@@ -177,7 +178,8 @@ export default function ConvertingTask({
         )}
       </div>
 
-      {currentTask && (
+
+      {/* {currentTask && (
         <ConversionSettingsDialog
           descriptionOverride={t("settings.singleDescription")}
           confirmLabel={t("settings.startSingle")}
@@ -191,7 +193,7 @@ export default function ConvertingTask({
             setSettingsOpen(false);
           }}
         />
-      )}
+      )} */}
     </>
   );
 }

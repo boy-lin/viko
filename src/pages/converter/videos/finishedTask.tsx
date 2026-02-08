@@ -10,7 +10,8 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Trash2, FolderOpen } from "lucide-react";
+import { ArrowUpDown, Trash2, FolderOpen, Loader2 } from "lucide-react";
+import { TaskHistoryItem } from "@/lib/bridge";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -25,35 +26,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useConverterStore } from "@/stores/converterStore";
-import { ConverterTask } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { formatFileSize } from "@/lib/file";
 import { formatDuration } from "@/lib/time";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { useAppStore } from "@/stores/app";
 
 interface FinishedTaskProps {
-  globalFilter?: string;
-  onGlobalFilterChange?: (value: string) => void;
+  tasks: TaskHistoryItem[];
+  loading?: boolean;
+  isPending?: boolean;
+  onRemove: (id: string) => void;
 }
 
 export default function FinishedTask({
-  globalFilter = "",
-  onGlobalFilterChange,
-}: FinishedTaskProps = {}) {
-  const { finishedTasks, removeFinishedTask } = useConverterStore();
-  const resetUnreadFinishedCount = useConverterStore(
-    (store) => store.resetUnreadFinishedCount
-  );
+  tasks,
+  loading = false,
+  isPending = false,
+  onRemove,
+}: FinishedTaskProps) {
+
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
-  useEffect(() => {
-    resetUnreadFinishedCount();
-  }, []);
-
   // 定义列
-  const columns = useMemo<ColumnDef<ConverterTask>[]>(
+  const columns = useMemo<ColumnDef<TaskHistoryItem>[]>(
     () => [
       {
         accessorKey: "thumbnail",
@@ -63,9 +60,8 @@ export default function FinishedTask({
           return (
             <div className="flex items-center gap-3">
               <MediaThumbnail
-                path={task.outputPath || ""}
-                title={task.title}
-                fileType={task.fileType}
+                path={task.output_path}
+                title={task.title || "Unknown"}
                 className="shrink-0 w-10 h-10 rounded"
               />
               <div className="flex flex-col max-w-[200px]">
@@ -75,12 +71,12 @@ export default function FinishedTask({
                 >
                   {task.title}
                 </span>
-                {task.outputPath && (
+                {task.output_path && (
                   <span
                     className="text-xs text-muted-foreground truncate"
-                    title={task.outputPath}
+                    title={task.output_path || ""}
                   >
-                    输出: {task.outputPath.split(/[/\\]/).pop()}
+                    输出: {task.output_path?.split(/[/\\]/).pop()}
                   </span>
                 )}
               </div>
@@ -107,7 +103,7 @@ export default function FinishedTask({
         },
         cell: ({ row }) => (
           <span className="text-sm font-normal text-foreground">
-            {formatFileSize(row.getValue("size"))}
+            {formatFileSize(row.original.output_size || 0)}
           </span>
         ),
       },
@@ -129,7 +125,7 @@ export default function FinishedTask({
         },
         cell: ({ row }) => (
           <span className="text-sm font-normal text-foreground">
-            {formatDuration(row.getValue("duration"))}
+            {formatDuration((row.original.duration || 0) / 1000)}
           </span>
         ),
       },
@@ -138,23 +134,35 @@ export default function FinishedTask({
         header: "格式/分辨率",
         cell: ({ row }) => {
           const task = row.original;
-          const format = task.config?.outputFormat;
-          if (!format) return null;
-          let quality = null;
-          switch (task.config?.type) {
-            case "video":
-              quality = task.config?.video?.resolution;
-              break;
-            case "audio":
-              quality = task.config?.audioTracks?.[0]?.bitrate + "kbps";
-              break;
-            case "image":
-              quality = task.config?.image?.quality;
-              break;
+          let quality = "";
+          let args
+          try {
+            args = JSON.parse(task.task_data || "{}");
+            // Determine quality based on task type (inferred from args or an explicit type field if available)
+            // Assuming task.task_type exists based on usage in line 155
+            console.log('args', task.media_type, args);
+            switch (task.media_type) {
+              case "video":
+                quality = args.resolution;
+                break;
+              case "audio":
+                quality = args.bitrate ? args.bitrate + "kbps" : "";
+                break;
+              case "image":
+                quality = args.quality;
+                break;
+              default:
+                // Fallback or try to guess
+                if (args.resolution) quality = args.resolution;
+                else if (args.bitrate) quality = args.bitrate + "kbps";
+                else if (args.quality) quality = args.quality;
+            }
+          } catch (e) {
+            console.error("Failed to parse task data", e);
           }
           return (
             <div className="flex flex-col">
-              <span className="text-sm">{format.toUpperCase()}</span>
+              <span className="text-sm">{args.format.toUpperCase()}</span>
               {quality && (
                 <span className="text-xs text-muted-foreground">{quality}</span>
               )}
@@ -169,9 +177,10 @@ export default function FinishedTask({
         cell: ({ row }) => {
           const task = row.original;
           const handleOpenFolder = async () => {
-            if (!task.outputPath) return;
+            const path = task.output_path;
+            if (!path) return;
             try {
-              await revealItemInDir(task.outputPath);
+              await revealItemInDir(path);
             } catch (e) {
               console.error("Failed to open folder:", e);
             }
@@ -185,7 +194,6 @@ export default function FinishedTask({
                     variant="ghost"
                     size="icon"
                     onClick={handleOpenFolder}
-                    disabled={!task.outputPath}
                   >
                     <FolderOpen className="h-4 w-4" />
                   </Button>
@@ -200,7 +208,7 @@ export default function FinishedTask({
                     variant="ghost"
                     size="icon"
                     className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => removeFinishedTask(task.id)}
+                    onClick={() => onRemove(task.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -209,17 +217,17 @@ export default function FinishedTask({
                   <p>删除</p>
                 </TooltipContent>
               </Tooltip>
-            </div>
+            </div >
           );
         },
         enableSorting: false,
       },
     ],
-    [removeFinishedTask]
+    [onRemove]
   );
 
   const table = useReactTable({
-    data: finishedTasks,
+    data: tasks,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -227,34 +235,9 @@ export default function FinishedTask({
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: onGlobalFilterChange || (() => { }),
-    globalFilterFn: (row, _, filterValue) => {
-      if (!filterValue || filterValue.trim() === "") {
-        return true;
-      }
-      const search = filterValue.toLowerCase().trim();
-      const task = row.original;
-      const fileName = task.title.toLowerCase();
-      const extension = task.extension?.toLowerCase() || "";
-      const displayFormat = task.displayFormat?.toLowerCase() || "";
-      const displayResolution = task.displayResolution?.toLowerCase() || "";
-      const outputPath = task.outputPath?.toLowerCase() || "";
-      const outputFileName =
-        outputPath.split(/[/\\]/).pop()?.toLowerCase() || "";
-
-      return (
-        fileName.includes(search) ||
-        extension.includes(search) ||
-        displayFormat.includes(search) ||
-        displayResolution.includes(search) ||
-        outputPath.includes(search) ||
-        outputFileName.includes(search)
-      );
-    },
     state: {
       sorting,
       columnFilters,
-      globalFilter,
     },
     initialState: {
       pagination: {
@@ -287,8 +270,16 @@ export default function FinishedTask({
           </TableRow>
         ))}
       </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows?.length ? (
+      <TableBody className={`${isPending ? "opacity-50" : ""}`}>
+        {loading ? (
+          <TableRow>
+            <TableCell colSpan={columns.length} className="h-24 text-center">
+              <div className="flex justify-center items-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            </TableCell>
+          </TableRow>
+        ) : table.getRowModel().rows?.length ? (
           table.getRowModel().rows.map((row) => (
             <TableRow
               key={row.id}

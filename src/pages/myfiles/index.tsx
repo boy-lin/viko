@@ -30,9 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ConverterTask } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
-import { converterDB } from "@/db/converterDB";
 import { cn } from "@/lib/utils";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { formatFileSize } from "@/lib/file";
@@ -40,8 +38,20 @@ import { formatDuration } from "@/lib/time";
 import { ShakaPlayer } from "@/components/player/ShakaPlayer";
 import { MusicPlayer } from "@/components/player/MusicPlayer";
 import { ImageViewer } from "@/components/player/ImageViewer";
+import { bridge, type MyFileItem } from "@/lib/bridge";
+import { extractFilenameFromPath } from "@/lib/utils";
 
-type MyFileRecord = ConverterTask & {
+type MyFileRecord = {
+  id: string;
+  title: string;
+  fileType: "video" | "audio" | "image" | "other";
+  path: string;
+  outputPath?: string;
+  size?: number;
+  duration?: number;
+  extension?: string;
+  displayFormat?: string;
+  displayResolution?: string;
   createdAt: number;
   taskType: "convert" | "compress";
   isFavorite?: boolean;
@@ -50,6 +60,44 @@ type MyFileRecord = ConverterTask & {
 type FilterType = "all" | "favorite" | "video" | "audio" | "image" | "other";
 type SortBy = "date" | "name" | "size" | "duration";
 type SortOrder = "asc" | "desc";
+
+const getExtension = (path?: string) => {
+  if (!path) return undefined;
+  const filename = path.split(/[/\\]/).pop() || "";
+  const idx = filename.lastIndexOf(".");
+  if (idx <= 0) return undefined;
+  return filename.slice(idx + 1).toLowerCase();
+};
+
+const normalizeFileType = (mediaType?: string): MyFileRecord["fileType"] => {
+  if (mediaType === "video") return "video";
+  if (mediaType === "audio") return "audio";
+  if (mediaType === "image" || mediaType === "gif") return "image";
+  return "other";
+};
+
+const mapHistoryToRecord = (item: MyFileItem): MyFileRecord => {
+  const path = item.input_path;
+  const outputPath = item.output_path || undefined;
+  const extension = getExtension(outputPath || path);
+  const title =
+    item.title || extractFilenameFromPath(outputPath || path) || "Untitled";
+
+  return {
+    id: item.id,
+    title,
+    fileType: normalizeFileType(item.media_type),
+    path,
+    outputPath,
+    size: item.output_size ?? undefined,
+    duration: item.duration ?? undefined,
+    extension,
+    displayFormat: extension,
+    createdAt: item.created_at,
+    taskType: item.task_type === "compress" ? "compress" : "convert",
+    isFavorite: item.is_favorite,
+  };
+};
 
 export default function MyFilesPage() {
   const [myFiles, setMyFiles] = useState<MyFileRecord[]>([]);
@@ -80,10 +128,18 @@ export default function MyFilesPage() {
       if (pageNum === 1) setIsLoading(true);
       else setIsLoadingMore(true);
 
+      const keyword = searchQuery.trim();
+      const pageSize = 20;
+
       // Only use DB pagination if sorting by Date
       if (sortBy === "date") {
-        const result = await converterDB.getMyFilesPaged(pageNum, 20, sortOrder === "desc");
-        const newFiles = result.items as MyFileRecord[];
+        const history = await bridge.getMyFiles(
+          pageSize,
+          (pageNum - 1) * pageSize,
+          keyword || undefined
+        );
+        console.log("history", history);
+        const newFiles = history.map(mapHistoryToRecord);
 
         if (isReset) {
           setMyFiles(newFiles);
@@ -91,13 +147,14 @@ export default function MyFilesPage() {
           setMyFiles(prev => [...prev, ...newFiles]);
         }
 
-        setHasMore(result.hasMore);
+        setHasMore(newFiles.length === pageSize);
       } else {
         // Fallback or "Load All" for other sort types (simplification)
         // Ideally we'd have indexes for all, but for now we load all if non-date sort
         if (isReset) {
-          const all = await converterDB.getAllMyFiles();
-          setMyFiles(all as MyFileRecord[]);
+          const history = await bridge.getMyFiles(1000, 0, keyword || undefined);
+          console.log("history", history);
+          setMyFiles(history.map(mapHistoryToRecord));
           setHasMore(false);
         }
       }
@@ -114,6 +171,14 @@ export default function MyFilesPage() {
     setPage(1);
     loadFiles(1, true);
   }, [sortBy, sortOrder]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      loadFiles(1, true);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleLoadMore = () => {
     const nextPage = page + 1;
@@ -192,7 +257,7 @@ export default function MyFilesPage() {
         if (!file) return;
 
         const updatedFile = { ...file, isFavorite: !file.isFavorite };
-        await converterDB.addToMyFiles(updatedFile);
+        await bridge.setMyFileFavorite(id, !!updatedFile.isFavorite);
         setMyFiles((prev) => prev.map((f) => (f.id === id ? updatedFile : f)));
       } catch (error) {
         console.error("Failed to toggle favorite:", error);
@@ -205,7 +270,7 @@ export default function MyFilesPage() {
   const handleBatchDelete = useCallback(async () => {
     try {
       await Promise.all(
-        Array.from(selectedFiles).map((id) => converterDB.removeFromMyFiles(id))
+        Array.from(selectedFiles).map((id) => bridge.deleteTaskHistory(id))
       );
       setMyFiles((prev) => prev.filter((file) => !selectedFiles.has(file.id)));
       setSelectedFiles(new Set());
@@ -261,7 +326,7 @@ export default function MyFilesPage() {
   // 删除单个文件
   const handleDelete = useCallback(async (id: string) => {
     try {
-      await converterDB.removeFromMyFiles(id);
+      await bridge.deleteTaskHistory(id);
       setMyFiles((prev) => prev.filter((file) => file.id !== id));
       setSelectedFiles((prev) => {
         const newSet = new Set(prev);
@@ -469,9 +534,8 @@ export default function MyFilesPage() {
                 {/* 文件卡片 */}
                 <div className="relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30 mb-2 shadow-sm transition-shadow hover:shadow-md">
                   <MediaThumbnail
-                    path={file.outputPath || file.path}
+                    path={file.outputPath}
                     title={file.title}
-                    fileType={file.fileType}
                     className="w-full h-full"
                   />
                   {/* 选择复选框 - hover 时显示 */}

@@ -1,8 +1,11 @@
 import { EncoderEnum, FormatEnum } from "@/types/options";
 import { SelectOption } from "@/types/options";
 import { AUDIO_BITRATES, AUDIO_CHANNELS, AUDIO_SAMPLE_RATES } from "@/data/audio_options";
-import { COLOR_SPACES } from "@/data/video_options";
+import { COLOR_SPACES, VIDEO_BITRATES } from "@/data/video_options";
 import { ColorSpaceOption } from "@/types/options";
+import { RESOLUTION_OPTIONS, ResolutionGroup } from "./resolution";
+
+
 
 // ================= TYPES =================
 
@@ -13,7 +16,7 @@ export interface AudioEncoderOptions {
 }
 
 export interface VideoEncoderOptions {
-  resolutions: SelectOption[];
+  resolutions: ResolutionGroup[];
   frameRates: SelectOption[];
   bitrates: SelectOption[];
   colorSpaces: ColorSpaceOption[];
@@ -144,6 +147,7 @@ export const ENCODER_DEFINITIONS: Record<string, EncoderDefinition> = {
 
 export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
   [FormatEnum.MP4]: {
+
     video: {
       allowedEncoders: [
         EncoderEnum.H264, EncoderEnum.H264_HARDWARE,
@@ -260,17 +264,6 @@ export const encoderToDefinition = new Map<string, VideoEncoderDefinition>(Objec
 
 // ================= HELPERS =================
 
-const VIDEO_RESOLUTIONS: SelectOption[] = [
-  { value: "auto", label: "auto" },
-  { value: "7680x4320", label: "7680x4320" },
-  { value: "3840x2160", label: "3840x2160" },
-  { value: "1920x1080", label: "1920x1080" },
-  { value: "1280x720", label: "1280x720" },
-  { value: "720x576", label: "720x576" },
-  { value: "720x480", label: "720x480" },
-  { value: "640x480", label: "640x480" },
-];
-
 const VIDEO_FRAME_RATES: SelectOption[] = [
   { value: "auto", label: "auto" },
   { value: "60", label: "60 FPS" },
@@ -304,36 +297,6 @@ export function getValidAudioEncoders(group: string): EncoderEnum[] {
   return [EncoderEnum.AAC, EncoderEnum.MP3];
 }
 
-/**
- * Get valid resolutions for a given Container + Encoder
- */
-export function getAvailableResolutions(group: string, encoderId: string): SelectOption[] {
-  const containerDef = CONTAINER_DEFINITIONS[group];
-  const encoderDef = ENCODER_DEFINITIONS[encoderId];
-
-  let maxRes = "99999x99999";
-
-  // 1. Container Limit
-  if (containerDef?.video?.maxResolution) {
-    maxRes = containerDef.video.maxResolution;
-  }
-
-  // 2. Encoder Limit
-  if (encoderDef?.maxResolution) {
-    // Simple logic: take the stricter of the two?
-    // Parsing "WxH" to compare area
-    if (compareRes(encoderDef.maxResolution, maxRes) < 0) {
-      maxRes = encoderDef.maxResolution;
-    }
-  }
-
-  // Filter list
-  return VIDEO_RESOLUTIONS.filter(opt => {
-    if (opt.value === 'auto') return true;
-    return compareRes(opt.value, maxRes) <= 0;
-  });
-}
-
 function parseRes(res: string) {
   const [w, h] = res.split('x').map(Number);
   return w * h;
@@ -352,13 +315,6 @@ export function getDefaultAudioEncoder(group: string): EncoderEnum {
 }
 
 // ================= OPTION HELPERS =================
-
-const VIDEO_BITRATES: SelectOption[] = [
-  { value: "auto", label: "Smart Fit" },
-  { value: "5000", label: "5000 kbps" },
-  { value: "2000", label: "2000 kbps" },
-  { value: "1000", label: "1000 kbps" },
-];
 
 export function getAudioEncoderOptions(encoderId?: string): AudioEncoderOptions {
   const defaults: AudioEncoderOptions = {
@@ -416,7 +372,7 @@ const parseResolution = (res: string) => {
 
 export function getVideoOptionsByEncoder(encoderId?: string): VideoEncoderOptions {
   const defaults: VideoEncoderOptions = {
-    resolutions: VIDEO_RESOLUTIONS,
+    resolutions: RESOLUTION_OPTIONS,
     frameRates: VIDEO_FRAME_RATES,
     bitrates: VIDEO_BITRATES,
     colorSpaces: [],
@@ -434,14 +390,17 @@ export function getVideoOptionsByEncoder(encoderId?: string): VideoEncoderOption
   const maxResolution = parseResolution(def.maxResolution);
 
   return {
-    resolutions: VIDEO_RESOLUTIONS.filter((opt) => {
-      if (opt.value === "auto") return true;
-      const current = parseResolution(opt.value);
-      if (maxResolution && current) {
-        return current.w * current.h <= maxResolution.w * maxResolution.h;
-      }
-      return true;
-    }),
+    resolutions: RESOLUTION_OPTIONS.map((group) => ({
+      ...group,
+      options: group.options.filter((opt) => {
+        if (opt.value === "auto" || opt.value === "custom_16_9") return true;
+        const current = parseResolution(opt.value);
+        if (maxResolution && current) {
+          return current.w * current.h <= maxResolution.w * maxResolution.h;
+        }
+        return true;
+      }),
+    })).filter((group) => group.options.length > 0),
     frameRates: VIDEO_FRAME_RATES.filter((opt) => {
       if (opt.value === "auto") return true;
       const current = parseFloat(opt.value);

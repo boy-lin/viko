@@ -107,3 +107,69 @@ export const RESOLUTION_GROUPS_PLATFORMS = [
     ],
   },
 ]
+
+export interface ResolutionOption {
+  label: string;
+  value: string;
+}
+
+export interface ResolutionGroup {
+  label: string;
+  options: ResolutionOption[];
+}
+
+export const RESOLUTION_OPTIONS = [
+  {
+    label: "Auto",
+    options: [
+      { value: "auto", label: "自动" },
+    ]
+  },
+  {
+    label: "8K / 4K / UHD",
+    options: [
+      { value: "7680x4320", label: "8K (7680x4320)" },
+      { value: "3840x2160", label: "4K (3840x2160)" },
+    ]
+  },
+  {
+    label: "2K / QHD",
+    options: [
+      { value: "2560x1440", label: "2K (2560x1440)" },
+      { value: "2796x1290", label: "2796x1290" },
+      { value: "2556x1179", label: "2556x1179" },
+    ]
+  },
+  {
+    label: "FHD / 1080P",
+    options: [
+      { value: "1920x1080", label: "1080P (1920x1080)" },
+      { value: "1080x1920", label: "1080x1920" },
+      { value: "1080x1440", label: "1080x1440" },
+      { value: "1242x1660", label: "1242x1660" },
+      { value: "1080x1260", label: "1080x1260" },
+      { value: "1080x1080", label: "1080x1080" },
+    ]
+  },
+  {
+    label: "HD / 720P",
+    options: [
+      { value: "1280x720", label: "720P (1280x720)" },
+      { value: "1146x717", label: "1146x717" },
+      { value: "1080x608", label: "1080x608" },
+    ]
+  },
+  {
+    label: "SD / Others",
+    options: [
+      { value: "720x576", label: "576P (720x576)" },
+      { value: "480x360", label: "360P (480x360)" },
+    ]
+  },
+  {
+    label: "Custom",
+    options: [
+      { value: "custom_16_9", label: "自定义(16:9)" },
+    ]
+  }
+];

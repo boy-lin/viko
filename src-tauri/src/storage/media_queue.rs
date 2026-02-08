@@ -1,6 +1,6 @@
 use anyhow::Result;
 use sea_query::{
-    ColumnDef, Expr, Iden, OnConflict, Order, Query, SqliteQueryBuilder, Table,
+    ColumnDef, Expr, Iden, Order, Query, SqliteQueryBuilder, Table,
     TableCreateStatement,
 };
 use sea_query_binder::SqlxBinder;

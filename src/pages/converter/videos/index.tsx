@@ -8,11 +8,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ConverterFooter } from "../ConverterFooter";
-import { useConverterStore } from "@/stores/converterStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import ConvertingTask from "./convertingTask";
 import { VIDEO_FORMATS } from "@/data/formats";
+import { FileType } from "@/types/tasks";
+
+import { useConverterStore } from "./store";
+import { ConverterFooter } from "./Footer";
+import ConvertingTask from "./Task";
 
 export default function ConverterPage() {
   const { init, addFiles } = useConverterStore();
@@ -42,7 +44,10 @@ export default function ConverterPage() {
             <Button
               className="flex items-center gap-3"
               size="sm"
-              onClick={() => addFiles(VIDEO_FORMATS)}
+              onClick={() => addFiles({
+                extensions: VIDEO_FORMATS,
+                fileType: FileType.Video,
+              })}
             >
               <UserPlus className="h-4 w-4" /> 添加文件
             </Button>
@@ -52,7 +57,7 @@ export default function ConverterPage() {
       <CardContent className="px-0 flex flex-col flex-1 min-h-0">
         <div className="relative flex-1 overflow-auto">
           <ConvertingTask
-            convertTaskType="video"
+            fileType={FileType.Video}
             globalFilter={globalFilter}
             onGlobalFilterChange={setGlobalFilter}
           />

@@ -27,8 +27,14 @@ const TABS = [
 ];
 
 export default function ConverterPage() {
-  const { init, activeTab, setActiveTab, addFiles, unreadFinishedCount } =
-    useCompressorStore();
+  const {
+    init,
+    activeTab,
+    setActiveTab,
+    addFiles,
+    unreadFinishedCount,
+    removeFinishedTask,
+  } = useCompressorStore();
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -94,6 +100,7 @@ export default function ConverterPage() {
             <FinishedTask
               globalFilter={globalFilter}
               onGlobalFilterChange={setGlobalFilter}
+              onRemove={removeFinishedTask}
             />
           ) : (
             <ConvertingTask

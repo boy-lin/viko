@@ -11,9 +11,10 @@ interface SettingsState {
   setOutputPath: (path: string) => Promise<void>;
   toggleHardwareAcceleration: (enabled: boolean) => Promise<void>;
   toggleUltraFastSpeed: (enabled: boolean) => Promise<void>;
+  getOutputDir: (path: string) => string;
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
+export const useSettingsStore = create<SettingsState>((set, get) => ({
   outputPath: "",
   useHardwareAcceleration: false,
   useUltraFastSpeed: false,
@@ -45,7 +46,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       set({ isLoading: false });
     }
   },
-  setOutputPath: async (path: string) => {
+  setOutputPath: async (path) => {
     try {
       await converterDB.saveSetting("outputPath", path);
       set({ outputPath: path });
@@ -53,12 +54,16 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       console.error("Failed to save output path:", error);
     }
   },
-  toggleHardwareAcceleration: async (enabled: boolean) => {
+  toggleHardwareAcceleration: async (enabled) => {
     set({ useHardwareAcceleration: enabled });
     await converterDB.saveSetting("use_hardware_acceleration", enabled);
   },
-  toggleUltraFastSpeed: async (enabled: boolean) => {
+  toggleUltraFastSpeed: async (enabled) => {
     set({ useUltraFastSpeed: enabled });
     await converterDB.saveSetting("use_ultra_fast_speed", enabled);
+  },
+  getOutputDir: (path) => {
+    const relativePath = path.split("/").slice(0, -1).join("/");
+    return get().outputPath.length > 0 ? get().outputPath : relativePath;
   },
 }));

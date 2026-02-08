@@ -1,4 +1,16 @@
-import { ConvertAudioTaskArgs, ConvertGifTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs, MediaTaskType } from "@/lib/bridge";
+import { ConvertAudioTaskArgs, ConvertGifTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/bridge";
+
+export enum MediaTaskType {
+  ConvertVideo = "convert-video",
+  ConvertAudio = "convert-audio",
+  ConvertGif = "convert-gif",
+  ConvertImage = "convert-image",
+  CompressVideo = "compress-video",
+  CompressAudio = "compress-audio",
+  CompressImage = "compress-image",
+  Metadata = "metadata",
+  Watermark = "watermark",
+}
 
 export interface StreamDetails {
   index: number;
@@ -98,25 +110,6 @@ export type CompressionConfig =
   | AudioCompressionConfig
   | ImageCompressionConfig;
 
-// 类型守卫函数
-export function isVideoConfig(
-  config: ConversionConfig
-): config is VideoConversionConfig {
-  return config.type === "video";
-}
-
-export function isAudioConfig(
-  config: ConversionConfig
-): config is AudioConversionConfig {
-  return config.type === "audio";
-}
-
-export function isImageConfig(
-  config: ConversionConfig
-): config is ImageConversionConfig {
-  return config.type === "image";
-}
-
 export function isVideoCompressionConfig(
   config: CompressionConfig
 ): config is VideoCompressionConfig {
@@ -149,6 +142,8 @@ export interface ConverterTask extends MediaDetails {
   errorMessage?: string;
   taskType: MediaTaskType.ConvertVideo | MediaTaskType.ConvertAudio | MediaTaskType.ConvertImage;
   args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs;
+  outputPath?: string;
+  outputSize?: number;
 }
 
 export interface CompressingTask extends MediaDetails {

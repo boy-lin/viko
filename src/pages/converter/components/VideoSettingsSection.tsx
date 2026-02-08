@@ -27,6 +27,7 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
 }) => {
   const { t } = useTranslation("converter");
   if (!format || !video_encoder) {
+    console.log("format or encoder is not set", format, video_encoder);
     return <div> format or encoder is not set </div>
   }
   const containerDefinition = formatToDefinition.get(format);
@@ -34,6 +35,9 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
   const videoOptions = getVideoOptionsByEncoder(video_encoder);
 
   if (!containerDefinition || !definition || !videoOptions) {
+    console.log("format or encoder or videoOptions is not set", {
+      containerDefinition, definition, videoOptions, video_encoder
+    });
     return <div> format or encoder is not set </div>
   }
 
@@ -74,7 +78,7 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
         <VideoResolutionSelect
           value={resolution}
           onValueChange={(v) => onChange?.({ resolution: v })}
-          options={videoOptions.resolutions}
+          groups={videoOptions.resolutions}
         />
 
         <VideoFrameRateSelect
@@ -84,7 +88,7 @@ export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
         />
 
         <VideoBitrateSelect
-          value={String(video_bitrate)}
+          value={String(video_bitrate || "auto")}
           onValueChange={(v) => onChange?.({ video_bitrate: parseInt(v) })}
           options={videoOptions.bitrates}
         />

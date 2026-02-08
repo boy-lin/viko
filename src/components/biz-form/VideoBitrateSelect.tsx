@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { SelectOption } from "@/types/options";
+import { VIDEO_BITRATES } from "@/data/video_options";
 
 interface VideoBitrateSelectProps {
   value?: string;
@@ -21,31 +22,19 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
   onValueChange,
   options,
 }) => {
-  const bitrateOptions = options ?? [
-    { value: "auto", label: "Smart Fit" },
-    { value: "5000", label: "5000 kbps" },
-    { value: "2000", label: "2000 kbps" },
-    { value: "1000", label: "1000 kbps" },
-  ];
-
+  const bitrateOptions = options ?? VIDEO_BITRATES;
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-muted-foreground">Bit Rate :</Label>
-        <Info className="w-4 h-4 text-muted-foreground" />
-      </div>
-      <Select value={value ?? "auto"} onValueChange={onValueChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Select bitrate" />
-        </SelectTrigger>
-        <SelectContent>
-          {bitrateOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={value ?? "auto"} onValueChange={onValueChange}>
+      <SelectTrigger>
+        <SelectValue placeholder="Select bitrate" />
+      </SelectTrigger>
+      <SelectContent>
+        {bitrateOptions.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };

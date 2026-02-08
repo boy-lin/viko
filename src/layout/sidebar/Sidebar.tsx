@@ -264,7 +264,7 @@ const SidebarNavItem = ({
         {item.label}
       </SidebarLabel>
       {typeof item.badgeCount === "number" && item.badgeCount > 0 && (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-semibold px-1.5 h-4 min-w-[16px]">
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-semibold px-1 h-4 min-w-4">
           {item.badgeCount > 99 ? "99+" : item.badgeCount}
         </span>
       )}
@@ -397,7 +397,7 @@ const SidebarQuickAccess = ({
 const SidebarNav = () => {
   const { t } = useTranslation("sidebar");
   const location = useLocation();
-  const unreadFinishedCount = useConverterStore((s) => s.unreadFinishedCount);
+  const unreadFinishedCount = useAppStore((s) => s.unreadFinishedCount);
   const {
     pinnedPaths,
     recentPaths,

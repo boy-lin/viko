@@ -10,5 +10,16 @@
     "audio": { "title": "音频", "trackLabel": "音轨 {{index}}" },
     "image": { "title": "图片", "quality": "质量：", "resolution": "分辨率：" }
   },
-  "common": { "cancel": "取消", "save": "保存" }
+  "common": { "cancel": "取消", "save": "保存" },
+  "status": {
+    "idle": "等待中",
+    "converting": "转换中",
+    "finished": "已完成",
+    "error": "错误"
+  },
+  "targetInfo": "目标信息",
+  "actions": {
+    "delete": "删除",
+    "convertSingle": "转换"
+  }
 }

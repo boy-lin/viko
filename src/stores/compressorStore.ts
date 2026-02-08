@@ -17,7 +17,8 @@ import {
   isImageFormat
 } from "@/data/formats";
 import { IMAGE_ENCODERS } from "@/data/encoders";
-import { bridge } from "@/lib/bridge";
+import { IMAGE_ENCODERS } from "@/data/encoders";
+import { bridge, TaskHistoryItem } from "@/lib/bridge";
 
 export const defaultVideoCompressionConfig: VideoCompressionConfig = {
   type: "video",
@@ -39,7 +40,6 @@ interface CompressorState {
   finishedTasks: ConverterTask[];
   isLoading: boolean;
   activeTab: "idle" | "finished";
-  unreadFinishedCount: number;
   compressionScope: "general" | "video" | "audio" | "image";
   videoConfig: VideoCompressionConfig;
   audioConfig: AudioCompressionConfig;
@@ -48,8 +48,6 @@ interface CompressorState {
   setCompressionScope: (
     scope: "general" | "video" | "audio" | "image"
   ) => void;
-  incrementUnreadFinishedCount: () => void;
-  resetUnreadFinishedCount: () => void;
   init: () => Promise<void>;
   addFiles: () => Promise<void>;
   addFilesFromPaths: (
@@ -68,15 +66,17 @@ interface CompressorState {
     config: Partial<CompressionConfig>
   ) => void;
   updateTaskById: (id: string, updates: Partial<ConverterTask>) => void;
-  updateGlobalConfig: (config: Partial<CompressionConfig>) => Promise<void>;
+  historyTasks: TaskHistoryItem[];
+  fetchHistory: () => Promise<void>;
+  addHistoryItem: (item: TaskHistoryItem) => void;
 }
 
 export const useCompressorStore = create<CompressorState>((set, get) => ({
   compressingTasks: [],
+  historyTasks: [],
   finishedTasks: [],
   isLoading: true,
   activeTab: "idle",
-  unreadFinishedCount: 0,
   compressionScope: "general",
   videoConfig: defaultVideoCompressionConfig,
   audioConfig: defaultAudioCompressionConfig,
@@ -265,10 +265,8 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
   },
   removeFinishedTask: async (id) => {
     try {
-      await converterDB.removeTask(id);
-      set((state) => ({
-        finishedTasks: state.finishedTasks.filter((t) => t.id !== id),
-      }));
+      await bridge.deleteTaskHistory(id);
+      await get().fetchHistory();
     } catch (error) {
       console.error(`Failed to remove finished task ${id}:`, error);
     }
@@ -324,31 +322,40 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
         const updatedTask = { ...task, ...updates };
         const isFinished = updatedTask.status === "finished";
 
-        // 只更新 converting_tasks 表
+        // 更新数据库中的任务状态
         await converterDB.addTask(updatedTask);
 
-        // 更新状态：根据 status 决定在哪个列表中
         const currentState = get();
         if (isFinished) {
-          // 如果状态是 finished，从 compressingTasks 移除，添加到 finishedTasks
+          // 如果状态是 finished，从 compressingTasks 移除
+          // 并在数据库中删除该任务（因为已由后端历史记录保存）
+          await converterDB.removeTask(id);
+
           set({
             compressingTasks: currentState.compressingTasks.filter(
               (t) => t.id !== id
             ),
-            finishedTasks: [
-              updatedTask,
-              ...currentState.finishedTasks.filter((t) => t.id !== id),
-            ],
           });
-        } else {
-          // 如果状态不是 finished，从 finishedTasks 移除，添加到 compressingTasks
+
+          // 触发历史记录刷新
+          get().fetchHistory();
+        } else if (updatedTask.status === "error") {
+          // 如果状态是 error，逻辑同 finished
+          await converterDB.removeTask(id);
+
           set({
-            compressingTasks: [
-              updatedTask,
-              ...currentState.compressingTasks.filter((t) => t.id !== id),
-            ],
-            finishedTasks: currentState.finishedTasks.filter(
+            compressingTasks: currentState.compressingTasks.filter(
               (t) => t.id !== id
+            ),
+          });
+
+          // 触发历史记录刷新
+          get().fetchHistory();
+        } else {
+          // 仅更新正在进行的任务
+          set({
+            compressingTasks: currentState.compressingTasks.map((t) =>
+              t.id === id ? updatedTask : t
             ),
           });
         }
@@ -394,7 +401,17 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     converterDB.saveSetting("compressionScope", scope);
   },
   setActiveTab: (tab) => set({ activeTab: tab }),
-  incrementUnreadFinishedCount: () =>
-    set((state) => ({ unreadFinishedCount: state.unreadFinishedCount + 1 })),
-  resetUnreadFinishedCount: () => set({ unreadFinishedCount: 0 }),
+  fetchHistory: async () => {
+    try {
+      const history = await bridge.getTaskHistory(100, 0, "compress");
+      set({ historyTasks: history });
+    } catch (error) {
+      console.error("Failed to fetch history:", error);
+    }
+  },
+  addHistoryItem: (item) => {
+    set((state) => ({
+      historyTasks: [item, ...state.historyTasks],
+    }));
+  },
 }));

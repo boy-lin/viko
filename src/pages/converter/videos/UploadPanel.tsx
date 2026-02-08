@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { UploadCloud } from "lucide-react";
 import { Gauge } from "@/components/ui-lab/gague-1";
-import { useConverterStore } from "@/stores/converterStore";
+import { useConverterStore } from "./store";
 import {
   isAudioFormat,
   isImageFormat,
@@ -55,7 +55,6 @@ export function UploadPanel({
     );
     return `${preview.join(" / ")} 等`;
   }, []);
-
   useEffect(() => {
     return () => {
       progressTimers.current.forEach((timer) => window.clearInterval(timer));
@@ -251,8 +250,7 @@ export function UploadPanel({
           <div
             className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
             onClick={() => addFiles({
-              supportedExtensions,
-              mediaType
+              extensions: supportedExtensions,
             })}
           >
             <UploadCloud className="h-7 w-7" />

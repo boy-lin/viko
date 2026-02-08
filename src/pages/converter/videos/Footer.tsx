@@ -8,18 +8,9 @@ import {
 } from "@/components/ui/popover";
 import { FormatSelector } from "@/components/biz-form/FormatSelector";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
-import { useConverterStore, defaultVideoConfig } from "@/stores/converterStore";
-import type { FormatSelectorValue } from "@/components/biz-form/FormatSelector";
+import { GlobalConverterConfig, useConverterStore } from "./store";
 import { getMediaTaskQueue } from "@/lib/bridge";
-import { isAudioFormat, isVideoFormat, isImageFormat } from "@/data/formats";
-import {
-  isVideoConfig,
-  isAudioConfig,
-  isImageConfig,
-  type ConversionConfig,
-  FileType,
-} from "@/types/tasks";
-import type { ConverterTask } from "@/types/tasks";
+import { useAppStore } from "@/stores/app";
 
 export const ConverterFooter: React.FC<{}> = () => {
   const globalConfig = useConverterStore((state) => state.globalConfig);
@@ -30,108 +21,79 @@ export const ConverterFooter: React.FC<{}> = () => {
   const clearConvertingTasks = useConverterStore(
     (state) => state.clearConvertingTasks
   );
-  const updateUnfinishedTaskConfig = useConverterStore(
-    (state) => state.updateUnfinishedTaskConfig
+  const updateUnfinishedTask = useConverterStore(
+    (state) => state.updateUnfinishedTask
   );
+
+  const { formatRecents, addToRecents } = useConverterStore();
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
+  React.useEffect(() => {
+    const queue = getMediaTaskQueue();
+    const handleEvent = (payload: any) => {
+      // payload type is MediaTaskEvent but imported from bridge which might cause cycle if not careful, using any for now or import type
+      if (payload.task_type !== "convert") return;
+      console.log("handleEvent", payload);
+      const { task_id, event_type, progress, output_path, output_size, error_message } = payload;
+      const store = useConverterStore.getState();
+
+      // Check if this task belongs to video converter store
+      // We might want to check if task exists in convertingTasks
+      const taskExists = store.convertingTasks.some(t => t.id === task_id);
+      if (!taskExists && event_type !== 'complete') {
+        // If complete, it might have been moved? No, complete moves it.
+        return;
+      }
+
+      if (event_type === "progress") {
+        store.updateTaskById(task_id, {
+          progress: Math.min(100, Math.max(0, progress || 0)),
+        });
+      } else if (event_type === "complete") {
+        store.updateTaskById(task_id, {
+          status: "finished",
+          progress: 100,
+          outputPath: output_path,
+          outputSize: output_size,
+        });
+        useAppStore.getState().incrementUnreadFinishedCount();
+      } else if (event_type === "error") {
+        store.updateTaskById(task_id, {
+          status: "error",
+          errorMessage: error_message,
+        });
+      }
+    };
+
+    const unsubscribe = queue.on(handleEvent);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   const handleFormatChange = (
-    formatType: string,
-    updates: FormatSelectorValue
+    config: GlobalConverterConfig
   ) => {
-    console.log("updates", updates);
+    console.log("updates", config);
+    updateGlobalConfig(config);
+  };
 
-    if (!globalConfig) return;
-    // 根据当前配置类型和新格式类型创建新配置
-    let newConfig: ConversionConfig;
-    if (formatType === "video") {
-      const prevVideo = isVideoConfig(globalConfig)
-        ? globalConfig.video
-        : defaultVideoConfig.video;
+  const applyConfigToAllTasks = async (config: GlobalConverterConfig) => {
 
-      const prevAudioTracks =
-        isVideoConfig(globalConfig) || isAudioConfig(globalConfig)
-          ? globalConfig.audioTracks
-          : undefined;
-      // 创建或更新 Video 配置
-      newConfig = {
-        type: "video",
-        outputTitle: globalConfig.outputTitle,
-        outputFormat: updates.outputFormat,
-        group: updates.group,
-        video: {
-          ...prevVideo,
-          encoder: updates.videoEncoder || prevVideo.encoder,
-          resolution: updates.resolution || prevVideo.resolution,
-        },
-        audioTracks: prevAudioTracks?.map((it) => {
-          return {
-            ...it,
-            encoder: updates.audioEncoder || it.encoder,
-            bitrate: updates.audioBitrate || it.bitrate,
-            sampleRate: updates.audioSampleRate || it.sampleRate,
-            channels: updates.audioChannels || it.channels,
-          };
-        }),
-      };
-    } else if (formatType === "audio") {
-      // 创建或更新 Audio 配置
-      const existingAudioTracks = isAudioConfig(globalConfig)
-        ? globalConfig.audioTracks
-        : [
-          {
-            trackIndex: 0,
-            encoder: "aac",
-            channels: "auto",
-            sampleRate: "auto",
-            bitrate: "auto",
-          },
-        ];
-      newConfig = {
-        type: "audio",
-        outputFormat: updates.outputFormat || globalConfig.outputFormat,
-        outputTitle: globalConfig.outputTitle,
-        audioTracks: existingAudioTracks.map((track) => ({
-          ...track,
-          encoder: updates.audioEncoder || track.encoder,
-          bitrate: updates.audioBitrate || track.bitrate,
-          sampleRate: updates.audioSampleRate || track.sampleRate,
-          channels: updates.audioChannels || track.channels,
-        })),
-      };
-      console.log("newConfig", updates, globalConfig);
-    } else if (formatType === "image") {
-      // Image 配置
-      const existingImage = isImageConfig(globalConfig)
-        ? globalConfig.image
-        : { quality: "80" };
-
-      newConfig = {
-        type: "image",
-        outputFormat: updates.outputFormat || globalConfig.outputFormat,
-        outputTitle: globalConfig.outputTitle,
-        image: {
-          ...existingImage,
-          quality: updates.quality || existingImage.quality,
-          resolution: updates.resolution || existingImage.resolution,
-        },
-      };
-    } else {
-      return;
+    const pendingTasks = convertingTasks;
+    // 为每个任务设置 config（浅拷贝 globalConfig）
+    for (const task of pendingTasks) {
+      updateUnfinishedTask(task.id, {
+        taskType: config.taskType,
+        args: config.args,
+      });
     }
-    updateGlobalConfig(newConfig);
   };
 
   const handleConvertAll = async () => {
-    const pendingTasks = convertingTasks;
-    if (pendingTasks.length > 0 && globalConfig) {
-      console.log("globalConfig", globalConfig);
-      // 为每个任务设置 config（浅拷贝 globalConfig）
-      for (const task of pendingTasks) {
-        await updateUnfinishedTaskConfig(task.id, { ...globalConfig });
-      }
-      const tasks = useConverterStore.getState().convertingTasks;
+    const tasks = useConverterStore.getState().convertingTasks
+    if (tasks.length > 0 && globalConfig) {
       await getMediaTaskQueue().addConvertTasks(tasks.map((task) => ({
         kind: task.taskType,
         args: task.args
@@ -173,7 +135,10 @@ export const ConverterFooter: React.FC<{}> = () => {
             <FormatSelector
               className="w-[14em]"
               config={globalConfig}
+              formatRecents={formatRecents}
+              addToRecents={addToRecents}
               onValueChange={handleFormatChange}
+              applyConfigToAllTasks={applyConfigToAllTasks}
             />
           </div>
         </div>

@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Check,
   ChevronsUpDown,
   Search,
   Clock,
   ChevronRight,
+  Settings,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -14,26 +15,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { FORMAT_DATA, FORMAT_CATEGORIES, FORMAT_GROUPS } from "@/data/formats";
 import { FormatOption } from "@/types/options";
-import { GlobalConverterConfig, useConverterStore } from "@/stores/converterStore";
-import { AUDIO_ENCODERS } from "@/data/encoders";
 import { AudioSettingsSection } from "@/pages/converter/components/AudioSettingsSection";
 import { VideoSettingsSection } from "@/pages/converter/components/VideoSettingsSection";
 import { VideoSimpleSettings } from "@/pages/converter/components/VideoSimpleSettings";
-import { Link2 } from "lucide-react";
-
-import { CONTAINER_DEFINITIONS, getAudioEncoderOptions } from "@/data/capabilities";
-import { MediaTaskType } from "@/lib/bridge";
-import { ConversionConfig } from "@/types/tasks";
+import { GlobalConverterConfig, ActiveCategoryEnum } from "@/pages/converter/videos/store";
+import { FileType } from "@/types/tasks";
+import { ConvertAudioTaskArgs, ConvertVideoTaskArgs } from "@/lib/bridge";
+import { Tooltip, TooltipTrigger } from "@radix-ui/react-tooltip";
 export interface FormatSelectorValue {
   group: string;
   outputFormat: string;
@@ -49,64 +45,45 @@ export interface FormatSelectorValue {
   quality?: string;
 }
 
+
 // 联合类型
 export interface FormatSelectorProps {
   config: GlobalConverterConfig;
-  onValueChange: (formatType: MediaTaskType.ConvertVideo | MediaTaskType.ConvertAudio | MediaTaskType.ConvertImage, updates: FormatSelectorValue) => void;
+  onValueChange?: (config: GlobalConverterConfig) => void;
   className?: string;
+  formatRecents: FormatOption[];
+  addToRecents: (format: FormatOption) => void;
+  applyConfigToAllTasks: (config: GlobalConverterConfig) => void;
 }
 
-export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
-  const { config, onValueChange, className } = props;
-  const { formatRecents, addToRecents } = useConverterStore();
+// 共享的内容组件 Props
+interface FormatSelectorContentProps {
+  config: GlobalConverterConfig;
+  formatRecents: FormatOption[];
+  addToRecents: (format: FormatOption) => void;
+  onValueChange: (config: GlobalConverterConfig) => void;
+  applyConfigToAllTasks: (config: GlobalConverterConfig) => void;
+  onClose: () => void;
+}
 
-  const [open, setOpen] = useState(false);
-  // 首次打开时，如果 recents 有值就打开 recents 分类
-  const [activeCategory, setActiveCategory] = useState<string>(
-    formatRecents.length > 0 ? "recents" : config.mediaType.toString()
-  );
+// 共享的内容组件
+const FormatSelectorContent: React.FC<FormatSelectorContentProps> = ({
+  config,
+  formatRecents,
+  addToRecents,
+  onValueChange,
+  applyConfigToAllTasks,
+  onClose,
+}) => {
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  const activeCategory = useMemo<string>(() => {
+    if (config.activeCategory === ActiveCategoryEnum.Recents && formatRecents.length > 0) {
+      return formatRecents[0].category
+    }
+    return config.activeCategory
+  }, [config.activeCategory, formatRecents]);
   const [searchQuery, setSearchQuery] = useState("");
   const [openAdvanced, setOpenAdvanced] = useState(false);
-
-  // Find the selected format based on props
-  const selectedFormat = React.useMemo(() => {
-    // 1. Try to find precise match including resolution/rate/quality
-    let match = FORMAT_DATA.find((f) => {
-      if (f.extension !== config.format) return false;
-      // Video: check resolution match
-      if (
-        f.videoResolution === config.resolution
-      ) {
-        return true;
-      }
-      // Audio: check bitrate match (e.g. 320k)
-      if (
-        f.audioBitrate === config.audioTracks?.[0]?.bitrate
-      ) {
-        return true;
-      }
-      // Image: check quality or resolution match
-      if (f.imageResolution === config.resolution) {
-        return true;
-      }
-
-      return false;
-    });
-
-    // 2. Fallback to just format extension
-    if (!match) {
-      match = FORMAT_DATA.find((f) => f.extension === config.format);
-    }
-
-    return match;
-  }, [
-    config.format,
-    config.resolution,
-    config.audioBitrate,
-  ]);
-
-  const formatCategory = { type: selectedFormat?.category || config.mediaType.toString() };
 
   const filteredItems = React.useMemo(() => {
     // 1. Search Mode (Global Search)
@@ -119,54 +96,56 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
     }
 
     // 2. Special Categories (Flat List - no groups)
-    if (activeCategory === "recents") {
+    if (config.activeCategory === ActiveCategoryEnum.Recents) {
       return formatRecents
-        .map((id) => FORMAT_DATA.find((f) => f.id === id))
+        .map((f) => FORMAT_DATA.find((item) => item.id === f.id))
         .filter(Boolean) as FormatOption[];
     }
 
 
-    if (activeGroup) {
+    if (config.activeCategory) {
       return FORMAT_DATA.filter(
-        (item) => item.groupId === activeGroup
+        (item) => item.groupId === config.activeCategory
       );
     }
 
     // If no group selected, show all items in the category
     return FORMAT_DATA.filter(
-      (item) => item.category === activeCategory
+      (item) => item.category === config.activeCategory
     );
   }, [
     searchQuery,
-    activeCategory,
-    activeGroup,
+    config.activeCategory,
     formatRecents,
   ]);
 
   // Derived Data
   const formatGroups = React.useMemo(() => {
-    if (["recents"].includes(activeCategory)) {
-      return FORMAT_GROUPS.filter(item => {
-        return filteredItems.some(f => f.groupId === item.id);
+    if (config.activeCategory === ActiveCategoryEnum.Recents) {
+      return filteredItems.filter(item => {
+        return item.category === config.activeCategory
       });
     }
     // Get all items in current category
     const groups = FORMAT_GROUPS.filter(
-      (item) => item.category === activeCategory
+      (item) => item.category === config.activeCategory
     );
     return groups;
-  }, [activeCategory, filteredItems]);
+  }, [config.activeCategory, filteredItems]);
 
   useEffect(() => {
-    const firstGroup = FORMAT_GROUPS.find((g) => g.category === activeCategory)
-    if (firstGroup?.id) {
-      setActiveGroup(firstGroup?.id);
+    if (formatGroups.length > 0) {
+      setActiveGroup((val) => {
+        if (val && formatGroups.some(it => it.id === val)) {
+          return val
+        }
+        return formatGroups[0].id
+      });
     }
-  }, [activeCategory]);
+  }, [formatGroups]);
 
   useEffect(() => {
     if (activeGroup) {
-      console.log("activeGroup", activeGroup);
       const item = FORMAT_DATA.find((item) => item.groupId === activeGroup)
       if (item?.id) {
         applySelection(item, { close: false, addRecent: true })
@@ -179,85 +158,58 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
     options: { close?: boolean; addRecent?: boolean; resetSearch?: boolean } = {}
   ) => {
     const { close = true, addRecent = true, resetSearch = true } = options;
-    if (addRecent) addToRecents(formatOpt.id);
-    if (close) setOpen(false);
+    if (addRecent) addToRecents(formatOpt);
+    if (close) onClose();
     if (resetSearch) setSearchQuery("");
 
     if (!formatOpt.extension) return;
 
-    const updates: FormatSelectorValue = {
-      outputFormat: formatOpt.extension,
-      group: formatOpt.groupId,
+    const updates: GlobalConverterConfig = {
+      ...config,
+      args: {
+        ...config.args,
+        format: formatOpt.extension,
+      },
+      activeCategory: formatOpt.category as any,
     };
 
     // 根据 formatType 设置对应的字段
-    if (formatOpt.audioBitrate === "video") {
-      const caps = CONTAINER_DEFINITIONS[formatOpt.groupId];
-      updates.resolution = caps.video?.defaultResolution;
-      updates.videoEncoder = caps.video?.defaultEncoder;
-      updates.audioEncoder = caps.audio?.defaultEncoder;
-    } else if (formatCategory?.type === "audio") {
-      if (formatOpt.audioBitrate) {
-        updates.audioBitrate = formatOpt.audioBitrate;
-      } else {
-        updates.audioBitrate = "auto";
-      }
-
-      const encoder = AUDIO_ENCODERS.find((encoder) =>
-        encoder.formats?.includes(updates.outputFormat.toLowerCase())
-      );
-      console.log("encoder", encoder);
-
-      if (encoder) {
-        updates.audioEncoder = encoder.value;
-        const options = getAudioEncoderOptions(encoder.value);
-        if (options.sampleRates.length) {
-          updates.audioSampleRate = options.sampleRates[0].value;
-        }
-        if (options.channels.length) {
-          updates.audioChannels = options.channels[0].value;
-        }
-        if (options.bitrates.length) {
-          updates.audioBitrate = options.bitrates[0].value;
-        }
-      }
-    } else if (formatCategory?.type === "image") {
-      // Image Quality
-      if (formatOpt.imageResolution) {
-        updates.quality = formatOpt.imageResolution;
-      }
-      // Image Resolution (如果有)
-      if (formatOpt.imageResolution && formatOpt.imageResolution.includes("x")) {
-        updates.resolution = formatOpt.imageResolution;
-      }
+    if (activeCategory === FileType.Video) {
+      updates.args = {
+        ...updates.args,
+      };
+    } else if (activeCategory === FileType.Audio) {
+      updates.args = {
+        ...updates.args,
+      };
+    } else if (activeCategory === FileType.Image) {
+      updates.args = {
+        ...updates.args,
+      };
     }
-
-    onValueChange(formatCategory?.type, updates);
+    console.log("updates", updates);
+    onValueChange(updates);
   };
 
   const renderAdvancedSettings = () => {
-    if (formatCategory?.type === "audio") {
-      const track: AudioTrackConfig = {
-        trackIndex: 0,
-        encoder: globalConfig.audioTracks?.[0]?.encoder || "auto",
-        bitrate: globalConfig.audioTracks?.[0]?.bitrate || "auto",
-        sampleRate: globalConfig.audioTracks?.[0]?.sampleRate || "auto",
-        channels: globalConfig.audioTracks?.[0]?.channels || "auto",
-      };
+    if (activeCategory === FileType.Audio) {
+      const audioArgs = config.args as ConvertAudioTaskArgs;
+
       return (
         <AudioSettingsSection
-          audioTracks={[track]}
-          outputFormat={globalConfig.outputFormat}
+          audio_tracks={[{
+            codec: audioArgs.audio_encoder,
+          }]}
+          format={audioArgs.format}
           onAudioTracksChange={(tracks) => {
             const next = tracks[0];
             if (!next) return;
-            onValueChange("audio", {
-              outputFormat: globalConfig.outputFormat,
-              group: selectedFormat?.groupId || "",
-              audioEncoder: next.encoder,
-              audioBitrate: next.bitrate,
-              audioSampleRate: next.sampleRate,
-              audioChannels: next.channels,
+            onValueChange({
+              ...config,
+              args: {
+                ...config.args,
+                audio_encoder: next.codec,
+              },
             });
           }}
           multiTrack={false}
@@ -265,22 +217,37 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
       );
     }
 
-    if (formatCategory?.type === "video") {
-      const video: VideoTrackConfig = {
-        encoder: globalConfig.video?.encoder || "auto",
-        resolution: globalConfig.video?.resolution || "auto",
-        frameRate: undefined,
-        bitrate: undefined,
-      };
+    if (activeCategory === FileType.Video) {
+      const videoArgs = config.args as ConvertVideoTaskArgs;
+      if (!openAdvanced) {
+        return <VideoSimpleSettings
+          resolution={videoArgs.resolution}
+          video_bitrate={videoArgs.video_bitrate}
+          onChange={(next) => {
+            onValueChange({
+              ...config,
+              args: {
+                ...config.args,
+                ...next,
+              },
+            });
+          }}
+        />
+      }
       return (
         <VideoSettingsSection
-          video={video}
-          onVideoChange={(next) => {
-            onValueChange("video", {
-              outputFormat: globalConfig.outputFormat,
-              group: selectedFormat?.groupId || "",
-              videoEncoder: next.encoder,
-              resolution: next.resolution,
+          format={videoArgs.format}
+          video_encoder={videoArgs.video_encoder}
+          resolution={videoArgs.resolution}
+          frame_rate={videoArgs.frame_rate}
+          video_bitrate={videoArgs.video_bitrate}
+          onChange={(next) => {
+            onValueChange({
+              ...config,
+              args: {
+                ...config.args,
+                ...next,
+              },
             });
           }}
         />
@@ -294,9 +261,168 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
     );
   };
 
-  const handleSelect = (format: FormatOption) => {
-    applySelection(format);
-  };
+  return (
+    <div className="flex bg-popover h-[400px] overflow-hidden rounded-md border text-popover-foreground">
+      {/* Left Column: Categories (Level 1) */}
+      <div className="w-[140px] border-r bg-muted/20 flex flex-col">
+        <div className="p-2 border-b">
+          <div className="flex items-center px-2 py-2 text-sm font-medium text-muted-foreground">
+            <Search className="w-4 h-4 mr-2" />
+            <input
+              className="bg-transparent outline-none w-full placeholder:text-muted-foreground/70"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-hidden py-2">
+          <ScrollArea className="h-full ">
+            {/* Special Categories */}
+            <CategoryItem
+              id={ActiveCategoryEnum.Recents}
+              label="Recents"
+              icon={Clock}
+              active={config.activeCategory === ActiveCategoryEnum.Recents && !searchQuery}
+              onClick={() => {
+                onValueChange({ ...config, activeCategory: ActiveCategoryEnum.Recents });
+                setSearchQuery("");
+                setActiveGroup(null);
+              }}
+            />
+
+            <div className="my-2 h-px bg-border mx-2" />
+
+            {/* Standard Categories */}
+            {FORMAT_CATEGORIES.map((cat) => (
+              <CategoryItem
+                key={cat.id}
+                id={cat.id}
+                label={cat.label}
+                icon={cat.icon}
+                active={config.activeCategory === cat.id && !searchQuery}
+                onClick={() => {
+                  const activeCategory = cat.id as any;
+                  onValueChange({ ...config, activeCategory });
+                  setSearchQuery("");
+                  setActiveGroup(null);
+                }}
+              />
+            ))}
+          </ScrollArea>
+        </div>
+      </div>
+
+      {/* Middle Column: Groups (Level 2) - Only show for standard categories */}
+      <div className="w-[120px] border-r bg-muted/10 flex flex-col">
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            {formatGroups.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                <p className="text-xs">No groups</p>
+              </div>
+            ) : (
+              <div className="space-y-1 p-2">
+                {formatGroups.map((group) => (
+                  <button
+                    key={group.id}
+                    onClick={() => {
+                      setActiveGroup(group.id);
+                    }}
+                    className={cn(
+                      "cursor-pointer w-full flex items-center justify-between p-2 rounded-md text-left transition-colors",
+                      activeGroup === group.id
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-accent/50"
+                    )}
+                  >
+                    <span className="text-sm font-medium">{group.label}</span>
+                    {activeGroup === group.id && (
+                      <Check className="w-4 h-4 text-primary" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+      </div>
+
+      {/* Right Column: Options (Level 3) */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="p-3 border-b bg-muted/10 font-medium text-sm flex justify-between items-center h-[50px]">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center rounded-full border border-border bg-background text-xs font-medium overflow-hidden">
+              <button
+                type="button"
+                className={cn(
+                  "cursor-pointer px-3 py-1 transition-colors",
+                  !openAdvanced ? "bg-muted text-foreground" : "text-muted-foreground"
+                )}
+                onClick={() => setOpenAdvanced(false)}
+              >
+                简易设置
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "cursor-pointer px-3 py-1 transition-colors",
+                  openAdvanced ? "bg-muted text-foreground" : "text-muted-foreground"
+                )}
+                onClick={() => setOpenAdvanced(true)}
+              >
+                高级设置
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-hidden p-2">
+
+          {renderAdvancedSettings()}
+
+        </div>
+        <div className="p-2 flex gap-2">
+          <Button className="cursor-pointer" onClick={() => {
+            applyConfigToAllTasks(config)
+            onClose()
+          }}>
+            确定
+          </Button>
+          <Button variant="outline" className="cursor-pointer" onClick={() => {
+            onClose()
+          }}>
+            取消
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Popover 版本的组件
+export const FormatSelectorPopover: React.FC<FormatSelectorProps> = (props) => {
+  const { config, formatRecents, addToRecents, onValueChange = () => { }, className, applyConfigToAllTasks } = props;
+  const [open, setOpen] = useState(false);
+
+  // Find the selected format based on props
+  const selectedFormat = React.useMemo(() => {
+    let label
+
+    if (config.activeCategory === FileType.Video) {
+      const args = config.args as ConvertVideoTaskArgs
+      label = `${args?.resolution ? `(${args?.resolution})` : 'Auto'}`
+    } else if (config.activeCategory === FileType.Audio) {
+      const args = config.args as ConvertAudioTaskArgs
+      label = ``
+    }
+    return {
+      extension: config.args.format,
+      label
+    };
+  }, [config.args, config.activeCategory]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -324,208 +450,59 @@ export const FormatSelector: React.FC<FormatSelectorProps> = (props) => {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[680px] p-0" align="start">
-        <div className="flex bg-popover h-[400px] overflow-hidden rounded-md border text-popover-foreground">
-          {/* Left Column: Categories (Level 1) */}
-          <div className="w-[140px] border-r bg-muted/20 flex flex-col">
-            <div className="p-2 border-b">
-              <div className="flex items-center px-2 py-2 text-sm font-medium text-muted-foreground">
-                <Search className="w-4 h-4 mr-2" />
-                <input
-                  className="bg-transparent outline-none w-full placeholder:text-muted-foreground/70"
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-hidden py-2">
-              <ScrollArea className="h-full">
-                {/* Special Categories */}
-                <CategoryItem
-                  id="recents"
-                  label="Recents"
-                  icon={Clock}
-                  active={activeCategory === "recents" && !searchQuery}
-                  onClick={() => {
-                    setActiveCategory("recents");
-                    setSearchQuery("");
-                    setActiveGroup(null);
-                  }}
-                />
-
-                <div className="my-2 h-px bg-border mx-2" />
-
-                {/* Standard Categories */}
-                {FORMAT_CATEGORIES.map((cat) => (
-                  <CategoryItem
-                    key={cat.id}
-                    id={cat.id}
-                    label={cat.label}
-                    icon={cat.icon}
-                    active={activeCategory === cat.id && !searchQuery}
-                    onClick={() => {
-                      setActiveCategory(cat.id);
-                      setSearchQuery("");
-                      setActiveGroup(null);
-                    }}
-                  />
-                ))}
-              </ScrollArea>
-            </div>
-          </div>
-
-          {/* Middle Column: Groups (Level 2) - Only show for standard categories */}
-          <div className="w-[120px] border-r bg-muted/10 flex flex-col">
-            <div className="flex-1 overflow-hidden p-2">
-              <ScrollArea className="h-full">
-                {formatGroups.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                    <p className="text-xs">No groups</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {formatGroups.map((group) => (
-                      <button
-                        key={group.id}
-                        onClick={() => {
-                          setActiveGroup(group.id);
-                        }}
-                        className={cn(
-                          "w-full flex items-center justify-between p-2 rounded-md text-left transition-colors",
-                          activeGroup === group.id
-                            ? "bg-accent text-accent-foreground"
-                            : "hover:bg-accent/50"
-                        )}
-                      >
-                        <span className="text-sm font-medium">{group.label}</span>
-                        {activeGroup === group.id && (
-                          <Check className="w-4 h-4 text-primary" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </div>
-          </div>
-
-          {/* Right Column: Options (Level 3) */}
-          <div className="flex-1 flex flex-col">
-            {/* Header */}
-            <div className="p-3 border-b bg-muted/10 font-medium text-sm flex justify-between items-center h-[50px]">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center rounded-full border border-border bg-background text-xs font-medium overflow-hidden">
-                  <button
-                    type="button"
-                    className={cn(
-                      "px-3 py-1 transition-colors",
-                      !openAdvanced ? "bg-muted text-foreground" : "text-muted-foreground"
-                    )}
-                    onClick={() => setOpenAdvanced(false)}
-                  >
-                    简易设置
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(
-                      "px-3 py-1 transition-colors",
-                      openAdvanced ? "bg-muted text-foreground" : "text-muted-foreground"
-                    )}
-                    onClick={() => setOpenAdvanced(true)}
-                  >
-                    高级设置
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-hidden p-2">
-              {openAdvanced ? (
-                <div className="h-full">
-                  {renderAdvancedSettings()}
-                </div>
-              ) : formatCategory?.type === "video" ? (
-                <VideoSimpleSettings
-                  resolution={globalConfig.video?.resolution}
-                  onResolutionChange={(value) => {
-                    onValueChange("video", {
-                      outputFormat: globalConfig.outputFormat,
-                      group: selectedFormat?.groupId || "",
-                      resolution: value,
-                      videoEncoder: globalConfig.video?.encoder,
-                    });
-                  }}
-                />
-              ) : (
-                <ScrollArea className="h-full">
-                  {filteredItems.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                      <p className="text-sm">No formats found.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-1">
-                      {filteredItems.map((item) => (
-                        <div
-                          key={item.id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleSelect(item)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              handleSelect(item);
-                            }
-                          }}
-                          className={cn(
-                            "flex items-center justify-between p-2 rounded-md hover:bg-accent hover:text-accent-foreground text-left transition-colors group cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                            selectedFormat?.id === item.id && "bg-accent/50"
-                          )}
-                        >
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium">
-                              {item.label}
-                            </span>
-                            <div className="flex items-end gap-2 max-w-[300px] text-xs text-muted-foreground">
-                              <span className=" whitespace-nowrap">
-                                {item.extension?.toUpperCase()}
-                              </span>
-                              {item.description && (
-                                <span
-                                  className="truncate"
-                                  title={item.description}
-                                >
-                                  ({item.description})
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {selectedFormat?.id === item.id && (
-                              <Check className="w-4 h-4 text-primary" />
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              )}
-            </div>
-          </div>
-        </div>
+        <FormatSelectorContent
+          config={config}
+          formatRecents={formatRecents}
+          addToRecents={addToRecents}
+          onValueChange={onValueChange}
+          applyConfigToAllTasks={applyConfigToAllTasks}
+          onClose={() => setOpen(false)}
+        />
       </PopoverContent>
     </Popover>
   );
 };
+
+// Dialog 版本的组件
+export const FormatSelectorDialog: React.FC<FormatSelectorProps> = (props) => {
+  const { config, formatRecents, addToRecents, onValueChange = () => { }, className, applyConfigToAllTasks } = props;
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          aria-expanded={open}
+          className={cn("cursor-pointer flex items-center justify-center", className)}
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="p-0 sm:max-w-[72vw]" showCloseButton={true}>
+        <FormatSelectorContent
+          config={config}
+          formatRecents={formatRecents}
+          addToRecents={addToRecents}
+          onValueChange={onValueChange}
+          applyConfigToAllTasks={applyConfigToAllTasks}
+          onClose={() => setOpen(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// 向后兼容：保留原来的导出，默认使用 Popover
+export const FormatSelector = FormatSelectorPopover;
 
 // Helper component for category listing
 const CategoryItem = ({ label, icon: Icon, active, onClick }: any) => (
   <button
     onClick={onClick}
     className={cn(
-      "w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50 text-muted-foreground rounded-r-full mr-2",
+      "cursor-pointer w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50 text-muted-foreground rounded-r-lg mr-2",
       active &&
       "bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-300"
     )}

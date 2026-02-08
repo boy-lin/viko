@@ -110,7 +110,6 @@ pub fn run() {
             crate::commands::convert_audio_file,
             crate::commands::get_detailed_media_info,
             crate::commands::check_hardware_acceleration,
-            crate::commands::convert_video_file,
             crate::commands::convert_gif_file,
             crate::commands::generate_media_thumbnail,
             crate::services::convert::image::convert_image_file,
@@ -119,6 +118,11 @@ pub fn run() {
             crate::commands::compress_image_file,
             crate::commands::write_media_metadata,
             crate::commands::get_device_id,
+            crate::commands::get_task_history,
+            crate::commands::get_my_files,
+            crate::commands::set_my_file_favorite,
+            crate::commands::delete_task_history,
+            crate::commands::clear_task_history,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main");
@@ -144,6 +148,8 @@ pub fn run() {
             tauri::async_runtime::block_on(async {
                 crate::storage::db::init_db().await.expect("failed to init db");
                 crate::storage::media_queue::init().await.expect("failed to init media_queue");
+                crate::storage::task_history::init().await.expect("failed to init task_history");
+                crate::storage::favorites::init().await.expect("failed to init task_favorites");
             });
 
             app.manage(std::sync::Mutex::new(
@@ -157,4 +163,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

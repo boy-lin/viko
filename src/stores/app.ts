@@ -19,11 +19,14 @@ type AppState = {
   pinnedPaths: string[];
   recentPaths: string[];
   usageCounts: Record<string, number>;
+  unreadFinishedCount: number;
   pinQuickAccess: (path: string) => void;
   unpinQuickAccess: (path: string) => void;
   togglePinQuickAccess: (path: string) => void;
   recordRecentQuickAccess: (path: string) => void;
   getSortedUsage: () => { path: string; count: number }[];
+  incrementUnreadFinishedCount: () => void;
+  resetUnreadFinishedCount: () => void;
 };
 
 export const useAppStore = create<AppState>()(
@@ -32,6 +35,7 @@ export const useAppStore = create<AppState>()(
       pinnedPaths: loadLegacyList(PINNED_STORAGE_KEY),
       recentPaths: loadLegacyList(RECENT_STORAGE_KEY),
       usageCounts: {},
+      unreadFinishedCount: 0,
       pinQuickAccess: (path: string) => {
         if (!path) return;
         set((state) => {
@@ -72,6 +76,9 @@ export const useAppStore = create<AppState>()(
           .map(([path, count]) => ({ path, count }))
           .sort((a, b) => b.count - a.count);
       },
+      incrementUnreadFinishedCount: () =>
+        set((state) => ({ unreadFinishedCount: state.unreadFinishedCount + 1 })),
+      resetUnreadFinishedCount: () => set({ unreadFinishedCount: 0 }),
     }),
     {
       name: "app_store",

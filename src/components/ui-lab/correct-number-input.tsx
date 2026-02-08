@@ -5,7 +5,7 @@ import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface CorrectNumberInputProps {
-  value: number
+  value?: number
   onChange: (value: number) => void
   label?: string
   className?: string
@@ -21,8 +21,8 @@ export default function CorrectNumberInput({
 }: CorrectNumberInputProps) {
   const id = useId()
 
-  const increment = () => onChange(value + 1)
-  const decrement = () => onChange(value > min ? value - 1 : min)
+  const increment = () => onChange((value || 0) + 1)
+  const decrement = () => onChange((value || 0) > min ? (value || 0) - 1 : min)
 
   return (
     <div className={cn("w-full max-w-xs", className)}>
@@ -37,7 +37,7 @@ export default function CorrectNumberInput({
             const val = e.target.value
             onChange(val === "" ? 0 : Number(val))
           }}
-          className="peer w-full h-10 pl-4 pr-10 text-foreground bg-muted/30 border border-muted-foreground/10 rounded-full focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 transition-all"
+          className="peer w-full h-10 pl-4 pr-10 text-foreground bg-muted/30 border border-muted-foreground/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 transition-all"
           placeholder={label ? " " : ""}
         />
 

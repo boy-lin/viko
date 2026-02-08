@@ -10,7 +10,7 @@ import { PlayIcon } from "@/components/icons/play";
 import { FileType } from "@/types/tasks";
 
 interface MediaThumbnailProps {
-  path: string;
+  path?: string;
   title?: string;
   className?: string;
   fileType?: FileType;
@@ -87,7 +87,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   }, [isMissing]);
 
   const renderPlayer = () => {
-    if (!fileType) return null;
+    if (!fileType || !path) return null;
 
     switch (fileType) {
       case "video":

@@ -15,6 +15,8 @@ use crate::services::convert::gif::{self, GifConversionParams};
 use crate::services::convert::image::{self, ImageConversionParams};
 use crate::services::convert::video::{self, VideoConversionParams};
 use crate::storage::media_queue;
+use crate::storage::task_history::{self, TaskHistoryItem};
+use crate::shared::get_millis;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(tag = "kind", content = "args")]
@@ -38,19 +40,16 @@ pub enum MediaTaskRequest {
 static TASK_RUNNING: AtomicBool = AtomicBool::new(false);
 
 pub async fn submit_tasks(app: AppHandle, tasks: Vec<MediaTaskRequest>) -> Result<usize, String> {
-    println!("submit_tasks");
     for task in tasks {
         media_queue::enqueue(&task).await.map_err(|e| {
             println!("enqueue err: {e}");
             e.to_string()
         })?;
     }
-    println!("submit_tasks end");
     let pending = media_queue::count().await.map_err(|e| {
         println!("count err: {e}");
         e.to_string()
     })?;
-    println!("pending: {pending}");
     start_worker(app);
     Ok(pending)
 }
@@ -144,17 +143,17 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
         })
         .unwrap_or_else(|| "mp3".to_string());
 
-    let output_path = if let Some(path) = args.output_path {
-        path
+    let output_path = if let Some(path) = args.output_path.as_ref() {
+        path.clone()
     } else {
         audio::generate_output_path(&args.input_path, &resolved_format)?
     };
 
     let params = AudioConversionParams {
-        input_path: args.input_path,
+        input_path: args.input_path.clone(),
         output_path: output_path.clone(),
-        format: args.format.or(Some(resolved_format)),
-        codec: args.codec,
+        format: args.format.clone().or(Some(resolved_format)),
+        codec: args.codec.clone(),
         bitrate: args.bitrate,
         sample_rate: args.sample_rate,
         channels: args.channels,
@@ -164,10 +163,28 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
         use_ultra_fast_speed: args.use_ultra_fast_speed,
     };
 
-    let emitter = events::window_emitter(app, args.task_id, "convert".into(), "audio".into())?;
-    if let Err(e) = audio::convert_audio(emitter.clone(), params) {
-        emitter.emit("error", None, None, Some(e));
-    }
+    let emitter = events::window_emitter(app, args.task_id.clone(), "convert".into(), "audio".into())?;
+    
+    let start_time = get_millis();
+    let result = audio::convert_audio(emitter.clone(), params);
+    let error = if let Err(ref e) = result {
+        emitter.emit("error", None, None, Some(e.clone()));
+        Some(e.clone())
+    } else {
+        None
+    };
+
+    record_history(
+        args.task_id.clone(),
+        "convert".into(),
+        "audio".into(),
+        args.input_path.clone(),
+        output_path,
+        start_time,
+        error,
+        args
+    );
+
     Ok(())
 }
 
@@ -184,8 +201,8 @@ fn run_convert_video(app: &AppHandle, args: VideoConversionArgs) -> Result<(), S
         })
         .unwrap_or_else(|| "mp4".to_string());
 
-    let output_path = if let Some(path) = args.output_path {
-        path
+    let output_path = if let Some(path) = args.output_path.as_ref() {
+        path.clone()
     } else {
         let path = Path::new(&args.input_path);
         let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
@@ -197,43 +214,62 @@ fn run_convert_video(app: &AppHandle, args: VideoConversionArgs) -> Result<(), S
     };
 
     let params = VideoConversionParams {
-        input_path: args.input_path,
+        input_path: args.input_path.clone(),
         output_path: output_path.clone(),
-        format: args.format.or(Some(resolved_format)),
-        video_encoder: args.video_encoder,
+        format: args.format.clone().or(Some(resolved_format)),
+        video_encoder: args.video_encoder.clone(),
         video_bitrate: args.video_bitrate,
         min_bitrate: args.min_bitrate,
         max_bitrate: args.max_bitrate,
-        rc_mode: args.rc_mode,
-        resolution: args.resolution,
-        aspect_ratio: args.aspect_ratio,
-        scaling_mode: args.scaling_mode,
-        frame_rate: args.frame_rate,
+        rc_mode: args.rc_mode.clone(),
+        crf: args.crf,
+        resolution: args.resolution.clone(),
+        aspect_ratio: args.aspect_ratio.clone(),
+        scaling_mode: args.scaling_mode.clone(),
+        frame_rate: args.frame_rate.clone(),
         gop_size: args.gop_size,
-        preset: args.preset,
-        profile: args.profile,
-        tune: args.tune,
-        color_space: args.color_space,
+        preset: args.preset.clone(),
+        profile: args.profile.clone(),
+        tune: args.tune.clone(),
+        color_space: args.color_space.clone(),
         bit_depth: args.bit_depth,
-        crop: args.crop,
-        audio_tracks: args.audio_tracks,
-        default_audio_params: args.default_audio_params,
-        audio_encoder: args.audio_encoder,
+        crop: args.crop.clone(),
+        audio_tracks: args.audio_tracks.clone(),
+        default_audio_params: args.default_audio_params.clone(),
+        audio_encoder: args.audio_encoder.clone(),
         use_hardware_acceleration: args.use_hardware_acceleration.unwrap_or(false),
         use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
-        watermark: args.watermark,
+        watermark: args.watermark.clone(),
     };
 
-    let emitter = events::window_emitter(app, args.task_id, "convert".into(), "image".into())?;
-    if let Err(e) = video::convert_video(emitter.clone(), params) {
-        emitter.emit("error", None, None, Some(e));
-    }
+    let emitter = events::window_emitter(app, args.task_id.clone(), "convert".into(), "video".into())?;
+    
+    let start_time = get_millis();
+    let result = video::convert_video(emitter.clone(), params);
+    let error = if let Err(ref e) = result {
+        emitter.emit("error", None, None, Some(e.clone()));
+        Some(e.clone())
+    } else {
+        None
+    };
+
+    record_history(
+        args.task_id.clone(),
+        "convert".into(),
+        "video".into(),
+        args.input_path.clone(),
+        output_path,
+        start_time,
+        error,
+        args
+    );
+
     Ok(())
 }
 
 fn run_convert_gif(app: &AppHandle, args: GifConversionArgs) -> Result<(), String> {
-    let output_path = if let Some(path) = args.output_path {
-        path
+    let output_path = if let Some(path) = args.output_path.as_ref() {
+        path.clone()
     } else {
         let path = Path::new(&args.input_path);
         let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
@@ -242,13 +278,13 @@ fn run_convert_gif(app: &AppHandle, args: GifConversionArgs) -> Result<(), Strin
     };
 
     let params = GifConversionParams {
-        input_path: args.input_path,
-        output_path,
+        input_path: args.input_path.clone(),
+        output_path: output_path.clone(),
         width: args.width,
         height: args.height,
         quality: args.quality,
         preserve_transparency: args.preserve_transparency,
-        color_mode: args.color_mode,
+        color_mode: args.color_mode.clone(),
         dpi: args.dpi,
         frame_rate: args.frame_rate,
         loop_count: args.loop_count,
@@ -259,10 +295,28 @@ fn run_convert_gif(app: &AppHandle, args: GifConversionArgs) -> Result<(), Strin
         denoise: args.denoise,
     };
 
-    let emitter = events::window_emitter(app, args.task_id, "convert".into(), "video".into())?;
-    if let Err(e) = gif::convert_video_to_gif(emitter.clone(), params) {
-        emitter.emit("error", None, None, Some(e));
-    }
+    let emitter = events::window_emitter(app, args.task_id.clone(), "convert".into(), "video".into())?; // GIF treated as video/image hybrid, but queue uses 'video' for now? Wait, original code says 'video'. Using 'image' might be better but let's stick to original.
+    
+    let start_time = get_millis();
+    let result = gif::convert_video_to_gif(emitter.clone(), params);
+    let error = if let Err(ref e) = result {
+        emitter.emit("error", None, None, Some(e.clone()));
+        Some(e.clone())
+    } else {
+        None
+    };
+
+    record_history(
+        args.task_id.clone(),
+        "convert".into(),
+        "gif".into(),
+        args.input_path.clone(),
+        output_path,
+        start_time,
+        error,
+        args
+    );
+
     Ok(())
 }
 
@@ -290,53 +344,88 @@ fn run_convert_image(app: &AppHandle, mut args: ImageConversionParams) -> Result
     } else {
         args.task_id.clone()
     };
-    let emitter = events::window_emitter(app, task_id, "convert".into(), "image".into())?;
-    let result = tauri::async_runtime::block_on(image::convert_image_file(args));
-    match result {
-        Ok(output_path) => {
-            emitter.emit("complete", Some(100.0), Some(output_path), None);
+    let emitter = events::window_emitter(app, task_id.clone(), "convert".into(), "image".into())?;
+    
+    let start_time = get_millis();
+    let result = tauri::async_runtime::block_on(image::convert_image_file(args.clone()));
+    
+    let (error, final_output_path) = match result {
+        Ok(path) => {
+            emitter.emit("complete", Some(100.0), Some(path.clone()), None);
+            (None, path)
         }
         Err(e) => {
-            emitter.emit("error", None, None, Some(e));
+            emitter.emit("error", None, None, Some(e.clone()));
+            (Some(e), args.output_path.clone())
         }
-    }
+    };
+
+    record_history(
+        task_id,
+        "convert".into(),
+        "image".into(),
+        args.input_path.clone(),
+        final_output_path,
+        start_time,
+        error,
+        args
+    );
+
     Ok(())
 }
 
 fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(), String> {
     let params = crate::services::compress::video::VideoCompressionParams {
-        input_path: args.input_path,
+        input_path: args.input_path.clone(),
         output_path: args.output_path.clone(),
         compression_ratio: args.compression_ratio,
         width: args.width,
         height: args.height,
         bitrate: args.bitrate,
         frame_rate: args.frame_rate,
-        codec: args.codec,
+        codec: args.codec.clone(),
         keyframe_interval: args.keyframe_interval,
         color_depth: args.color_depth,
-        aspect_ratio: args.aspect_ratio,
+        aspect_ratio: args.aspect_ratio.clone(),
         remove_audio: args.remove_audio,
         audio_bitrate: args.audio_bitrate,
-        preset: args.preset,
+        preset: args.preset.clone(),
         use_hardware_acceleration: args.use_hardware_acceleration,
     };
 
-    let emitter = events::window_emitter(app, args.task_id, "compress".into(), "video".into())?;
-    if let Err(e) = crate::services::compress::video::compress_video_file(emitter.clone(), params) {
-        emitter.emit("error", None, None, Some(e));
-    }
+    let emitter = events::window_emitter(app, args.task_id.clone(), "compress".into(), "video".into())?;
+    
+    let start_time = get_millis();
+    let result = crate::services::compress::video::compress_video_file(emitter.clone(), params);
+    let error = if let Err(ref e) = result {
+        emitter.emit("error", None, None, Some(e.clone()));
+        Some(e.clone())
+    } else {
+        None
+    };
+
+    record_history(
+        args.task_id.clone(),
+        "compress".into(),
+        "video".into(),
+        args.input_path.clone(),
+        args.output_path.clone(),
+        start_time,
+        error,
+        args
+    );
+
     Ok(())
 }
 
 fn run_compress_audio(app: &AppHandle, args: AudioCompressionArgs) -> Result<(), String> {
     let params = crate::services::compress::audio::AudioCompressionParams {
-        input_path: args.input_path,
+        input_path: args.input_path.clone(),
         output_path: args.output_path.clone(),
         compression_ratio: Some(args.compression_ratio),
         sample_rate: args.sample_rate,
         bitrate: args.bitrate,
-        codec: args.codec,
+        codec: args.codec.clone(),
         channels: args.channels,
         bit_depth: args.bit_depth,
         remove_silence: args.remove_silence,
@@ -344,31 +433,117 @@ fn run_compress_audio(app: &AppHandle, args: AudioCompressionArgs) -> Result<(),
         volume_gain: args.volume_gain,
     };
 
-    let emitter = events::window_emitter(app, args.task_id, "compress".into(), "audio".into())?;
-    if let Err(e) = crate::services::compress::audio::compress_audio_file(emitter.clone(), params) {
-        emitter.emit("error", None, None, Some(e));
-    }
+    let emitter = events::window_emitter(app, args.task_id.clone(), "compress".into(), "audio".into())?;
+    
+    let start_time = get_millis();
+    let result = crate::services::compress::audio::compress_audio_file(emitter.clone(), params);
+    let error = if let Err(ref e) = result {
+        emitter.emit("error", None, None, Some(e.clone()));
+        Some(e.clone())
+    } else {
+        None
+    };
+
+    record_history(
+        args.task_id.clone(),
+        "compress".into(),
+        "audio".into(),
+        args.input_path.clone(),
+        args.output_path.clone(),
+        start_time,
+        error,
+        args
+    );
+
     Ok(())
 }
 
 fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(), String> {
     let params = crate::services::compress::image::ImageCompressionParams {
-        input_path: args.input_path,
+        input_path: args.input_path.clone(),
         output_path: args.output_path.clone(),
         quality: args.quality,
-        format: args.format,
+        format: args.format.clone(),
         width: args.width,
         height: args.height,
-        color_mode: args.color_mode,
+        color_mode: args.color_mode.clone(),
         strip_metadata: args.strip_metadata,
         keep_transparency: args.keep_transparency,
         dpi: args.dpi,
         crop_whitespace: args.crop_whitespace,
     };
 
-    let emitter = events::window_emitter(app, args.task_id, "compress".into(), "image".into())?;
-    if let Err(e) = crate::services::compress::image::compress_image_file(emitter.clone(), params) {
-        emitter.emit("error", None, None, Some(e));
-    }
+    let emitter = events::window_emitter(app, args.task_id.clone(), "compress".into(), "image".into())?;
+    
+    let start_time = get_millis();
+    let result = crate::services::compress::image::compress_image_file(emitter.clone(), params);
+    let error = if let Err(ref e) = result {
+        emitter.emit("error", None, None, Some(e.clone()));
+        Some(e.clone())
+    } else {
+        None
+    };
+
+    record_history(
+        args.task_id.clone(),
+        "compress".into(),
+        "image".into(),
+        args.input_path.clone(),
+        args.output_path.clone(),
+        start_time,
+        error,
+        args
+    );
+
     Ok(())
+}
+
+fn record_history<T: Serialize + Send + Sync + 'static>(
+    id: String,
+    task_type: String,
+    media_type: String,
+    input_path: String,
+    output_path: String,
+    start_time: i64,
+    error: Option<String>,
+    args: T,
+) {
+    tauri::async_runtime::spawn(async move {
+        let finished_at = get_millis();
+        let duration = finished_at - start_time;
+        
+        let result_status = if error.is_some() { "error" } else { "finished" };
+        
+        // Only try to read file size if successful and path exists
+        let output_size = if error.is_none() {
+            std::fs::metadata(&output_path).ok().map(|m| m.len() as i64)
+        } else {
+            None
+        };
+
+        let title = Path::new(&output_path)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string());
+
+        let item = TaskHistoryItem {
+            id,
+            task_type,
+            media_type,
+            status: result_status.to_string(),
+            input_path,
+            output_path: Some(output_path),
+            output_size,
+            duration: Some(duration),
+            title,
+            thumbnail: None,
+            created_at: start_time,
+            finished_at,
+            error_message: error,
+            task_data: serde_json::to_string(&args).unwrap_or_default(),
+        };
+
+        if let Err(e) = task_history::add_history(&item).await {
+            log::error!("Failed to save task history: {}", e);
+        }
+    });
 }

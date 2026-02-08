@@ -909,6 +909,7 @@ pub struct VideoConversionArgs {
     pub min_bitrate: Option<u32>,
     pub max_bitrate: Option<u32>,
     pub rc_mode: Option<String>,
+    pub crf: Option<u32>,
     pub resolution: Option<String>,
     pub aspect_ratio: Option<String>,
     pub scaling_mode: Option<String>,
@@ -931,84 +932,6 @@ pub struct VideoConversionArgs {
     pub use_hardware_acceleration: Option<bool>,
     pub use_ultra_fast_speed: Option<bool>,
     pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
-}
-
-#[command]
-pub fn convert_video_file(app: AppHandle, args: VideoConversionArgs) -> Result<(), String> {
-    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
-
-    // 如果没有提供输出路径，自动生成
-    let resolved_format = args
-        .format
-        .clone()
-        .or_else(|| {
-            Path::new(&args.input_path)
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(|s| s.to_lowercase())
-        })
-        .unwrap_or_else(|| "mp4".to_string());
-
-    let output_path = if let Some(path) = args.output_path {
-        path
-    } else {
-        let path = Path::new(&args.input_path);
-        let stem = path.file_stem().unwrap().to_str().unwrap();
-        let parent = path.parent().unwrap();
-        parent
-            .join(format!("{}.{}", stem, resolved_format))
-            .to_str()
-            .unwrap()
-            .to_string()
-    };
-
-    let window = window.clone();
-    let task_id = args.task_id.clone();
-
-    std::thread::spawn(move || {
-        let params = crate::services::convert::video::VideoConversionParams {
-            input_path: args.input_path,
-            output_path: output_path.clone(),
-            format: args.format.or(Some(resolved_format)),
-            video_encoder: args.video_encoder,
-            video_bitrate: args.video_bitrate,
-            min_bitrate: args.min_bitrate,
-            max_bitrate: args.max_bitrate,
-            rc_mode: args.rc_mode,
-            resolution: args.resolution,
-            aspect_ratio: args.aspect_ratio,
-            scaling_mode: args.scaling_mode,
-            frame_rate: args.frame_rate,
-            gop_size: args.gop_size,
-            preset: args.preset,
-            profile: args.profile,
-            tune: args.tune,
-            color_space: args.color_space,
-            bit_depth: args.bit_depth,
-            crop: args.crop,
-            audio_tracks: args.audio_tracks,
-            default_audio_params: args.default_audio_params,
-            audio_encoder: args.audio_encoder,
-            use_hardware_acceleration: args.use_hardware_acceleration.unwrap_or(false),
-            use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
-            watermark: args.watermark,
-        };
-
-        let emitter = WindowEmitter::new(
-            window,
-            task_id,
-            "convert".to_string(),
-            "video".to_string(),
-        );
-
-        if let Err(e) = crate::services::convert::video::convert_video(emitter.clone(), params) {
-            emitter.emit("error", None, None, Some(e));
-        } else {
-            emitter.emit("complete", Some(100.0), Some(output_path), None);
-        }
-    });
-
-    Ok(())
 }
 
 // ==================== GIF 转换相关命令 ====================
@@ -1300,3 +1223,58 @@ pub fn write_media_metadata(args: WriteMetadataArgs) -> Result<(), String> {
     crate::services::media_tools::metadata::write_metadata(&args.input_path, &args.output_path, args.metadata)
 }
 
+
+// ==================== Task History Commands ====================
+
+#[command]
+pub async fn get_task_history(
+    limit: Option<u32>,
+    offset: Option<u32>,
+    task_type: Option<String>,
+    keyword: Option<String>,
+) -> Result<Vec<crate::storage::task_history::TaskHistoryItem>, String> {
+    crate::storage::task_history::get_history(
+        limit.unwrap_or(50) as usize,
+        offset.unwrap_or(0) as usize,
+        task_type,
+        keyword,
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[command]
+pub async fn get_my_files(
+    limit: Option<u32>,
+    offset: Option<u32>,
+    keyword: Option<String>,
+) -> Result<Vec<crate::storage::task_history::MyFileItem>, String> {
+    crate::storage::task_history::get_my_files(
+        limit.unwrap_or(50) as usize,
+        offset.unwrap_or(0) as usize,
+        keyword,
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[command]
+pub async fn set_my_file_favorite(id: String, favorite: bool) -> Result<(), String> {
+    crate::storage::favorites::set_favorite(&id, favorite)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[command]
+pub async fn delete_task_history(id: String) -> Result<(), String> {
+    crate::storage::task_history::delete_history(&id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[command]
+pub async fn clear_task_history(task_type: Option<String>) -> Result<(), String> {
+    crate::storage::task_history::clear_history(task_type)
+        .await
+        .map_err(|e| e.to_string())
+}

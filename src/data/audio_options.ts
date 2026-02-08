@@ -1,7 +1,7 @@
 import { SelectOption } from "@/types/options";
 
 export const AUDIO_BITRATES: SelectOption[] = [
-  { value: "auto", label: "Smart Fit" },
+  { value: "auto", label: "自动" },
   { value: "320k", label: "320 kbps" },
   { value: "256k", label: "256 kbps" },
   { value: "224k", label: "224 kbps" },

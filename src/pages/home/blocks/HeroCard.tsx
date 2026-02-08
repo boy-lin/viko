@@ -6,11 +6,12 @@ import { useNavigate } from "react-router-dom";
 import { ConverterLayer } from "@/components/icons/ConverterLayer";
 import { DownloaderLayer } from "@/components/icons/DownloaderLayer";
 import { CompressorLayer } from "@/components/icons/CompressorLayer";
-import { useConverterStore } from "@/stores/converterStore";
+import { useConverterStore } from "@/pages/converter/videos/store";
 import { useAnalytics } from "@/lib/analytics";
 import { MenuItems } from "@/layout/sidebar/menu";
 import { useTranslation } from "react-i18next";
 import { AUDIO_FORMATS, VIDEO_FORMATS, IMAGE_FORMATS } from "@/data/formats";
+import { FileType } from "@/types/tasks";
 
 type HeroCardAction = {
   id: string;
@@ -110,11 +111,11 @@ const HeroCardItemView = ({
       </p>
     </div>
     {item.iconLayer}
-    <div className="group-hover:opacity-100 opacity-0 absolute inset-0 flex items-center justify-center backdrop-blur-sm z-10 gap-2 flex-wrap p-4">
+    <div className="group-hover:opacity-100 opacity-0 absolute inset-0 flex flex-col items-center justify-center backdrop-blur-sm z-10 gap-2 flex-wrap p-4">
       {item.actions.map((action) => (
         <Button
           key={action.id}
-          className="w-fit text-background shadow-md border-none transition-all z-20 px-4 py-2 text-sm font-semibold cursor-pointer"
+          className="w-fit text-background shadow-md border-none transition-all z-20 px-4 py-2 text-sm font-semibold cursor-pointer hover:scale-105"
           style={{ backgroundImage: item.gradient }}
           onClick={(e) => {
             e.stopPropagation(); // Stop propagation to avoid any parent click handlers
@@ -140,28 +141,41 @@ export function HeroCard() {
     track("click_hero_card_action", { actionId });
 
     if (actionId === "converter-video") {
-      const picked = await addFiles(VIDEO_FORMATS);
+      const picked = await addFiles({
+        extensions: VIDEO_FORMATS,
+        fileType: FileType.Video,
+      });
       if (picked && picked.length > 0) {
         navigate(MenuItems.converterVideos);
       }
     } else if (actionId === "converter-audio") {
-      const picked = await addFiles(AUDIO_FORMATS);
+      const picked = await addFiles({
+        extensions: AUDIO_FORMATS,
+        fileType: FileType.Audio,
+      });
       if (picked && picked.length > 0) {
         navigate(MenuItems.converterAudios);
       }
     } else if (actionId === "converter-image") {
-      const picked = await addFiles(IMAGE_FORMATS);
+      const picked = await addFiles({
+        extensions: IMAGE_FORMATS,
+        fileType: FileType.Image,
+      });
       if (picked && picked.length > 0) {
         navigate(MenuItems.converterImages);
       }
     } else if (actionId === "compressor-add") {
-      const picked = await addFiles();
+      const picked = await addFiles({
+        extensions: [...VIDEO_FORMATS, ...AUDIO_FORMATS, ...IMAGE_FORMATS],
+      });
       if (picked && picked.length > 0) {
         navigate(MenuItems.compressor);
       }
     } else if (actionId === "watermark-add") {
       const videoAndImageFormats = [...VIDEO_FORMATS, ...IMAGE_FORMATS];
-      const picked = await addFiles(videoAndImageFormats);
+      const picked = await addFiles({
+        extensions: videoAndImageFormats,
+      });
       if (picked && picked.length > 0) {
         navigate(MenuItems.watermark);
       }

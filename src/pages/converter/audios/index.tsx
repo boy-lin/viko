@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ConverterFooter } from "../ConverterFooter";
+// import { ConverterFooter } from "../ConverterFooter";
 import { useConverterStore } from "@/stores/converterStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import ConvertingTask from "./convertingTask";
@@ -59,7 +59,7 @@ export default function ConverterPage() {
         </div>
       </CardContent>
       <CardFooter className="flex items-center justify-between border-t border-border px-4 py-4 [.border-t]:pt-4 flex-shrink-0">
-        <ConverterFooter />
+        {/* <ConverterFooter /> */}
       </CardFooter>
     </Card>
   );

@@ -1,53 +1,51 @@
 import React from "react";
-import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
-import type { SelectOption } from "@/types/options";
+import { RESOLUTION_OPTIONS, ResolutionGroup } from "@/data/resolution";
+import { cn } from "@/lib/utils";
 
 interface VideoResolutionSelectProps {
   value?: string;
   onValueChange: (value: string) => void;
-  options?: SelectOption[];
+  groups?: ResolutionGroup[];
+  className?: string;
+  placeholder?: string;
 }
 
 export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
   value,
   onValueChange,
-  options,
+  groups = RESOLUTION_OPTIONS,
+  className,
+  placeholder = "Select resolution",
 }) => {
-  const resolutionOptions = options ?? [
-    { value: "auto", label: "auto" },
-    { value: "7680x4320", label: "7680x4320" },
-    { value: "3840x2160", label: "3840x2160" },
-    { value: "1920x1080", label: "1920x1080" },
-    { value: "1280x720", label: "1280x720" },
-    { value: "720x576", label: "720x576" },
-  ];
-
+  console.log("value", value);
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-muted-foreground">Resolution :</Label>
-        <Info className="w-4 h-4 text-muted-foreground" />
-      </div>
-      <Select value={value ?? "auto"} onValueChange={onValueChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Select resolution" />
-        </SelectTrigger>
-        <SelectContent>
-          {resolutionOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className={cn("w-full", className)}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {
+          groups.map((group) => (
+            <SelectGroup key={group.label}>
+              <SelectLabel>{group.label}</SelectLabel>
+              {group.options.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          ))
+        }
+      </SelectContent>
+    </Select>
   );
 };
