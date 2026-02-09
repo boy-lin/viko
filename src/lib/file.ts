@@ -1,5 +1,4 @@
-import { stat } from "@tauri-apps/plugin-fs";
-import { readDirectoryFiles } from "./bridge";
+import { readDir, stat } from "@tauri-apps/plugin-fs";
 
 // 文件相关工具函数
 export function formatFileSize(size: number): string {
@@ -19,20 +18,65 @@ export function getFormatByPath(path: string): string {
   return ext || "";
 }
 
+
+export async function readDirectoryFiles(
+  dirPath: string,
+  maxDepth: number = Infinity,
+  currentDepth: number = 0,
+  supportedExtensions: string[]
+): Promise<string[]> {
+  const filePaths: string[] = [];
+
+  if (currentDepth >= maxDepth) {
+    return filePaths;
+  }
+
+  try {
+    const entries = await readDir(dirPath);
+    for (const entry of entries) {
+      const separator = dirPath.includes("\\") ? "\\" : "/";
+      const entryPath = `${dirPath}${separator}${entry.name}`;
+      try {
+        const entryStat = await stat(entryPath);
+        if (entryStat.isDirectory) {
+          const subFiles = await readDirectoryFiles(
+            entryPath,
+            maxDepth,
+            currentDepth + 1,
+            supportedExtensions
+          );
+          filePaths.push(...subFiles);
+        } else if (entryStat.isFile) {
+          const extension = entryPath.split(".").pop()?.toLowerCase();
+          if (extension && supportedExtensions.includes(extension)) {
+            filePaths.push(entryPath);
+          }
+        }
+      } catch (err) {
+        console.warn(`Failed to read entry ${entryPath}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error(`Failed to read directory ${dirPath}:`, err);
+  }
+  return filePaths;
+}
+
 export async function handleDirectoryToFiles({
   paths,
   depth,
-  filterCallback,
+  supportedExtensions,
 }: {
   paths: string[];
   depth: number;
-  filterCallback?: (path: string) => boolean;
+  supportedExtensions: string[];
 }) {
   // 处理文件夹：如果是文件夹，读取文件夹下的所有支持文件（只递归一层）
   let finalPaths: string[] = [];
 
   function addPath(path: string) {
-    const isAdd = filterCallback?.(path) || true;
+    const ext = getFormatByPath(path);
+    const isAdd = supportedExtensions.includes(ext);
     if (isAdd) {
       finalPaths.push(path);
     }
@@ -43,7 +87,7 @@ export async function handleDirectoryToFiles({
       const pathStat = await stat(path);
       if (pathStat.isDirectory) {
         // 如果是目录，读取目录下的所有支持文件（最大递归层数为1）
-        const dirFiles = await readDirectoryFiles(path, depth);
+        const dirFiles = await readDirectoryFiles(path, depth, 0, supportedExtensions);
 
         dirFiles.forEach((file) => {
           addPath(file);

@@ -1,12 +1,13 @@
 import { emit, listen, UnlistenFn } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
-import { readDir, stat } from "@tauri-apps/plugin-fs";
 import {
   MediaDetails,
 } from "@/types/tasks";
 import { extractFilenameFromPath } from "./utils";
 import { MediaTaskType } from "@/types/tasks";
 import { SupportedFormats } from "@/data/formats";
+import { handleDirectoryToFiles } from "./file";
 
 export type DownloadProgress = {
   stage: string;
@@ -342,6 +343,23 @@ class Bridge {
     this.disposers.forEach((dispose) => dispose());
     this.disposers = [];
   }
+
+  async getDirectoryToFiles(paths: string[], extensions: string[]) {
+    try {
+      if (!paths.length) return [];
+      // 处理文件夹：如果是文件夹，读取文件夹下的所有支持文件（只递归一层）
+      const finalPaths: string[] = await handleDirectoryToFiles({
+        paths,
+        depth: 1,
+        supportedExtensions: extensions
+      });
+      if (!finalPaths.length) return [];
+      return finalPaths
+    } catch (err) {
+      console.error("Error selecting files:", err);
+      return [];
+    }
+  }
 }
 
 export interface TaskHistoryItem {
@@ -367,50 +385,6 @@ export interface MyFileItem extends TaskHistoryItem {
 
 export const bridge = Bridge.getInstance();
 
-export async function readDirectoryFiles(
-  dirPath: string,
-  maxDepth: number = Infinity,
-  currentDepth: number = 0
-): Promise<string[]> {
-  const filePaths: string[] = [];
-
-  if (currentDepth >= maxDepth) {
-    return filePaths;
-  }
-
-  const supportedExtensions = new Set(
-    SupportedFormats.map((ext) => ext.toLowerCase())
-  );
-
-  try {
-    const entries = await readDir(dirPath);
-    for (const entry of entries) {
-      const separator = dirPath.includes("\\") ? "\\" : "/";
-      const entryPath = `${dirPath}${separator}${entry.name}`;
-      try {
-        const entryStat = await stat(entryPath);
-        if (entryStat.isDirectory) {
-          const subFiles = await readDirectoryFiles(
-            entryPath,
-            maxDepth,
-            currentDepth + 1
-          );
-          filePaths.push(...subFiles);
-        } else if (entryStat.isFile) {
-          const extension = entryPath.split(".").pop()?.toLowerCase();
-          if (extension && supportedExtensions.has(extension)) {
-            filePaths.push(entryPath);
-          }
-        }
-      } catch (err) {
-        console.warn(`Failed to read entry ${entryPath}:`, err);
-      }
-    }
-  } catch (err) {
-    console.error(`Failed to read directory ${dirPath}:`, err);
-  }
-  return filePaths;
-}
 
 type TaskPriority = "high" | "normal" | "low";
 

@@ -10,6 +10,8 @@ import {
 import { handleDirectoryToFiles } from "@/lib/file";
 import { useDragDrop } from "@/lib/drag";
 import { MediaTaskType } from "@/types/tasks";
+import { bridge } from "@/lib/bridge";
+import { open } from "@tauri-apps/plugin-dialog";
 
 type UploadStatus = "queued" | "processing" | "done" | "error";
 type UploadKind = "audio" | "video" | "image" | "file";
@@ -35,10 +37,19 @@ const getFileKind = (extension?: string): UploadKind => {
 
 export function UploadDrag({
   supportedExtensions,
-  mediaType
+  mediaType,
+  addFilesFromPaths
 }: {
   supportedExtensions: string[];
   mediaType: MediaTaskType;
+    addFilesFromPaths: (
+      paths: string[],
+      onFileProcessed?: (
+        path: string,
+        status: "success" | "error",
+        message?: string
+      ) => void,
+    ) => Promise<string[] | undefined>;
 }) {
 
   const [uploads, setUploads] = useState<UploadItem[]>([]);
@@ -136,22 +147,12 @@ export function UploadDrag({
   const handlePaths = useCallback(
     async (paths: string[]) => {
       if (!paths.length) return;
-
       try {
         // 处理文件夹：如果是文件夹，读取文件夹下的所有支持文件（只递归一层）
-        const finalPaths: string[] = await handleDirectoryToFiles({
-          paths,
-          depth: 1,
-          filterCallback: (path) => {
-            const extension = path.split(".").pop()?.toLowerCase();
-            return !!(extension && supportedExtensions.includes(extension));
-          },
-        });
-
+        const finalPaths: string[] = await bridge.getDirectoryToFiles(paths, supportedExtensions);
         if (!finalPaths.length) {
           return;
         }
-
         const nextItems: UploadItem[] = finalPaths.map((path) => {
           const name = path.split(/[/\\]/).pop() || path;
           const kind = getFileKind(path.split(".").pop()?.toLowerCase());
@@ -245,9 +246,20 @@ export function UploadDrag({
         >
           <div
             className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
-            onClick={() => addFiles({
-              extensions: supportedExtensions,
-            })}
+            onClick={async () => {
+              const selected = await open({
+                multiple: true,
+                filters: [
+                  {
+                    name: "Media Files",
+                    extensions: supportedExtensions,
+                  },
+                ],
+              });
+              if (!selected) return [];
+              const paths = Array.isArray(selected) ? selected : [selected];
+              handlePaths(paths)
+            }}
           >
             <UploadCloud className="h-7 w-7" />
           </div>
