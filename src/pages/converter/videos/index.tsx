@@ -16,15 +16,14 @@ import { useConverterStore } from "./store";
 import { ConverterFooter } from "./Footer";
 import ConvertingTask from "./Task";
 
-export default function ConverterPage() {
-  const { init, addFiles } = useConverterStore();
+export default function ConvertionVideoPage() {
+  const { addFiles } = useConverterStore();
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 
   useEffect(() => {
-    init();
     initSettings();
-  }, [init, initSettings]);
+  }, [initSettings]);
 
   return (
     <Card className="h-full w-full py-0 gap-0 bg-transparent border-none shadow-none flex flex-col">

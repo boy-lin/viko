@@ -8,21 +8,22 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-// import { ConverterFooter } from "../ConverterFooter";
-import { useConverterStore } from "@/stores/converterStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import ConvertingTask from "./convertingTask";
 import { IMAGE_FORMATS } from "@/data/formats";
+import { FileType } from "@/types/tasks";
 
-export default function ConverterPage() {
-  const { init, addFiles } = useConverterStore();
+import { useConverterStore } from "./store";
+import { ConverterFooter } from "./Footer";
+import ConvertingTask from "./Task";
+
+export default function ConvertionImagePage() {
+  const { addFiles } = useConverterStore();
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 
   useEffect(() => {
-    init();
     initSettings();
-  }, [init, initSettings]);
+  }, [initSettings]);
 
   return (
     <Card className="h-full w-full py-0 gap-0 bg-transparent border-none shadow-none flex flex-col">
@@ -42,7 +43,10 @@ export default function ConverterPage() {
             <Button
               className="flex items-center gap-3"
               size="sm"
-              onClick={() => addFiles(IMAGE_FORMATS)}
+              onClick={() => addFiles({
+                extensions: IMAGE_FORMATS,
+                fileType: FileType.Image,
+              })}
             >
               <UserPlus className="h-4 w-4" /> 添加文件
             </Button>
@@ -52,14 +56,14 @@ export default function ConverterPage() {
       <CardContent className="px-0 flex flex-col flex-1 min-h-0">
         <div className="relative flex-1 overflow-auto">
           <ConvertingTask
-            convertTaskType="image"
+            fileType={FileType.Image}
             globalFilter={globalFilter}
             onGlobalFilterChange={setGlobalFilter}
           />
         </div>
       </CardContent>
       <CardFooter className="flex items-center justify-between border-t border-border px-4 py-4 [.border-t]:pt-4 flex-shrink-0">
-        {/* <ConverterFooter /> */}
+        <ConverterFooter />
       </CardFooter>
     </Card>
   );

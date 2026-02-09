@@ -127,7 +127,6 @@ pub fn run() {
         .setup(|app| {
             let window = app.get_webview_window("main");
             if let Some(window) = window {
-                // 妫€鏌ユ槸鍚﹁缃簡杩滅▼ URL 鐜鍙橀噺
                 if let Ok(remote_url) = std::env::var("TAURI_REMOTE_URL") {
                     if !remote_url.is_empty() {
                         log::info!("Loading remote URL: {}", remote_url);

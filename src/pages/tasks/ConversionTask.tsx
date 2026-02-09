@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -30,7 +30,6 @@ import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { formatFileSize } from "@/lib/file";
 import { formatDuration } from "@/lib/time";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { useAppStore } from "@/stores/app";
 
 interface FinishedTaskProps {
   tasks: TaskHistoryItem[];

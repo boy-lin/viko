@@ -8,8 +8,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import ConverterFinishedTask from "@/pages/converter/videos/finishedTask";
-import CompressorFinishedTask from "@/pages/compressor/FinishedTask";
+import ConverterFinishedTask from "./ConversionTask";
+import CompressorFinishedTask from "./CompressionTask";
 import { Button } from "@/components/ui/button";
 import { remove } from "@tauri-apps/plugin-fs";
 import { useAppStore } from "@/stores/app";

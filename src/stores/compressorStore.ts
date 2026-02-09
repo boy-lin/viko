@@ -58,8 +58,6 @@ interface CompressorState {
       message?: string
     ) => void
   ) => Promise<void>;
-  removeTask: (id: string) => void;
-  removeFinishedTask: (id: string) => void;
   clearCompressingTasks: () => Promise<void>;
   updateUnfinishedTaskConfig: (
     id: string,
@@ -251,24 +249,6 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
       }
     } catch (err) {
       console.error("Error adding files:", err);
-    }
-  },
-  removeTask: async (id) => {
-    try {
-      await converterDB.removeTask(id);
-      set((state) => ({
-        compressingTasks: state.compressingTasks.filter((t) => t.id !== id),
-      }));
-    } catch (error) {
-      console.error(`Failed to remove task ${id}:`, error);
-    }
-  },
-  removeFinishedTask: async (id) => {
-    try {
-      await bridge.deleteTaskHistory(id);
-      await get().fetchHistory();
-    } catch (error) {
-      console.error(`Failed to remove finished task ${id}:`, error);
     }
   },
   clearCompressingTasks: async () => {

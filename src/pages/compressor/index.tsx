@@ -13,7 +13,7 @@ import { CompressionFooter } from "./CompressionFooter";
 import { useCompressorStore } from "@/stores/compressorStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import ConvertingTask from "./CompressionTask";
-import FinishedTask from "./FinishedTask";
+import FinishedTask from "../tasks/CompressionTask";
 
 const TABS = [
   {

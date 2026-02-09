@@ -177,23 +177,6 @@ export default function ConvertingTask({
           })
         )}
       </div>
-
-
-      {/* {currentTask && (
-        <ConversionSettingsDialog
-          descriptionOverride={t("settings.singleDescription")}
-          confirmLabel={t("settings.startSingle")}
-          fileType={fileType}
-          onTaskConfigChange={(config) => {
-            updateUnfinishedTaskConfig(currentTask.id, config);
-          }}
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          onConfirm={(config) => {
-            setSettingsOpen(false);
-          }}
-        />
-      )} */}
     </>
   );
 }
