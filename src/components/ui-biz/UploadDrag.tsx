@@ -9,7 +9,7 @@ import {
 } from "@/data/formats";
 import { handleDirectoryToFiles } from "@/lib/file";
 import { useDragDrop } from "@/lib/drag";
-import { MediaTaskType } from "@/types/tasks";
+import { MediaDetails, MediaTaskType } from "@/types/tasks";
 import { bridge } from "@/lib/bridge";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -38,35 +38,21 @@ const getFileKind = (extension?: string): UploadKind => {
 export function UploadDrag({
   supportedExtensions,
   mediaType,
-  addFilesFromPaths
+  addTasksByMediaList
 }: {
   supportedExtensions: string[];
   mediaType: MediaTaskType;
-    addFilesFromPaths: (
-      paths: string[],
-      onFileProcessed?: (
-        path: string,
-        status: "success" | "error",
-        message?: string
-      ) => void,
-    ) => Promise<string[] | undefined>;
+  addTasksByMediaList: (mediaList: MediaDetails[]) => void,
 }) {
 
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const progressTimers = useRef<Map<string, number>>(new Map());
 
   const supportedHint = useMemo(() => {
     const preview = supportedExtensions.map((ext) =>
       ext.toUpperCase()
     );
     return `${preview.join(" / ")} 等`;
-  }, []);
-  useEffect(() => {
-    return () => {
-      progressTimers.current.forEach((timer) => window.clearInterval(timer));
-      progressTimers.current.clear();
-    };
   }, []);
 
   const updateUpload = useCallback(
@@ -78,69 +64,36 @@ export function UploadDrag({
     []
   );
 
-  const startProgress = useCallback((id: string) => {
-    if (progressTimers.current.has(id)) return;
-    const timer = window.setInterval(() => {
-      setUploads((prev) =>
-        prev.map((item) => {
-          if (item.id !== id || item.status !== "processing") return item;
-          const next = Math.min(item.progress + 6, 92);
-          return { ...item, progress: next };
-        })
-      );
-    }, 300);
-    progressTimers.current.set(id, timer);
-  }, []);
-
-  const stopProgress = useCallback((id: string) => {
-    const timer = progressTimers.current.get(id);
-    if (timer) {
-      window.clearInterval(timer);
-      progressTimers.current.delete(id);
-    }
+  const removeUpload = useCallback((id: string) => {
     setUploads((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
   const processUploads = useCallback(
     async (items: UploadItem[]) => {
       const pathToId = new Map<string, string>();
-      const paths: string[] = [];
+      const mediaList: MediaDetails[] = [];
 
-      items.forEach((item) => {
+      items.forEach(async (item) => {
         if (!item.path) return;
         pathToId.set(item.path, item.id);
-        paths.push(item.path);
-        updateUpload(item.id, { status: "processing", progress: 8 });
-        startProgress(item.id);
-      });
-
-      if (!paths.length) return;
-
-      try {
-        await addFilesFromPaths(paths, (path, status, message) => {
-          const id = pathToId.get(path);
-          if (!id) return;
-          stopProgress(id);
-          updateUpload(id, {
-            status: status === "success" ? "done" : "error",
-            progress: 100,
-            error: status === "error" ? message || "解析失败" : undefined,
-          });
-        });
-      } catch (error: any) {
-        paths.forEach((path) => {
-          const id = pathToId.get(path);
-          if (!id) return;
-          stopProgress(id);
-          updateUpload(id, {
+        updateUpload(item.id, { status: "processing" });
+        try {
+          const details = await bridge.getMediaDetails(item.path);
+          mediaList.push(details);
+        } catch (error: any) {
+          updateUpload(item.id, {
             status: "error",
             progress: 100,
             error: error?.message || "上传失败",
           });
-        });
-      }
+        }
+
+      });
+
+      addTasksByMediaList(mediaList)
+
     },
-    [addFilesFromPaths, startProgress, stopProgress, updateUpload]
+    [addTasksByMediaList, removeUpload, updateUpload]
   );
 
   // 处理文件路径（来自 Tauri 后端事件）
@@ -200,18 +153,16 @@ export function UploadDrag({
     return cleanup;
   }, [handlePaths]);
 
-  const overallProgress =
-    uploads.length > 0
-      ? Math.round(
-        uploads.reduce((sum, item) => sum + item.progress, 0) / uploads.length
-      )
-      : 0;
-
   const completedCount = useMemo(
     () => uploads.filter((item) => item.status === "done").length,
     [uploads]
   );
   const totalCount = uploads.length;
+
+  const overallProgress =
+    uploads.length > 0
+      ? Math.round((completedCount / uploads.length) * 100)
+      : 0;
 
   return (
     <div>
