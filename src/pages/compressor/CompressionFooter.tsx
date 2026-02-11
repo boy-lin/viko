@@ -83,12 +83,12 @@ export const CompressionFooter: React.FC = () => {
   };
 
   const handleDelete = async () => {
-    const hasRunningTasks = await getMediaTaskQueue().hasRunningTasks();
+    const hasRunningTasks = await getMediaTaskQueue().hasRunningTasksByType();
 
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
       await clearCompressingTasks();
-      await getMediaTaskQueue().clearQueue();
+      await getMediaTaskQueue().clearQueueByType();
     } else {
       // 有运行中的任务，打开确认弹窗
       setIsDeletePopoverOpen(true);
@@ -97,7 +97,7 @@ export const CompressionFooter: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     // 清空队列
-    await getMediaTaskQueue().clearQueue();
+    await getMediaTaskQueue().clearQueueByType();
     // 清空压缩中的任务
     await clearCompressingTasks();
     // 关闭弹窗

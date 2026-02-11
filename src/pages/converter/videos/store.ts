@@ -1,12 +1,11 @@
 import { create } from "zustand";
-import { open } from "@tauri-apps/plugin-dialog";
 import {
   ConverterTask,
   FileType,
+  MediaDetails,
 } from "@/types/tasks";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { FormatEnum, FormatOption, VideoEncoderEnum } from "@/types/options";
-import { bridge } from "@/lib/bridge";
 import { formatToDefinition } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
 
@@ -34,21 +33,8 @@ interface ConverterState {
   isLoading: boolean;
   globalConfig: GlobalConverterConfig;
   formatRecents: FormatOption[];
-  addFiles: ({
-    extensions,
-    fileType,
-  }: {
-    extensions: string[];
-    fileType?: FileType;
-  }) => Promise<string[] | undefined>;
-  addFilesFromPaths: (
-    paths: string[],
-    onFileProcessed?: (
-      path: string,
-      status: "success" | "error",
-      message?: string
-    ) => void,
-  ) => Promise<string[] | undefined>;
+  addTasksByMediaList: (mediaList: MediaDetails[]) => void;
+  addTasksByPaths: (paths: string[]) => void;
   clearConvertingTasks: () => Promise<void>;
   updateTaskById: (id: string, updates: Partial<ConverterTask>) => void;
   removeTask: (id: string) => void;
@@ -61,94 +47,74 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
   isLoading: true,
   globalConfig: defaultVideoConfig,
   formatRecents: [],
-  addFiles: async ({
-    extensions,
-    fileType,
-  }) => {
-    try {
-      const selected = await open({
-        multiple: true,
-        filters: [
-          {
-            name: "Media Files",
-            extensions: extensions,
-          },
-        ],
-      });
-      if (!selected) return;
 
-      const paths = Array.isArray(selected) ? selected : [selected];
-      if (!paths.length) return;
-
-      // 处理文件夹：如果是文件夹，读取文件夹下的所有支持文件（只递归一层）
-      //   const finalPaths: string[] = await handleDirectoryToFiles({
-      //     paths,
-      //     depth: 1,
-      //     filterCallback: (path) => {
-      //       const extension = path.split(".").pop()?.toLowerCase();
-      //       return !!(extension && supportedExtensions.has(extension));
-      //     },
-      //   });
-      //   if (!finalPaths.length) return;
-      return await get().addFilesFromPaths(paths);
-    } catch (err) {
-      console.error("Error selecting files:", err);
-    }
-  },
-  addFilesFromPaths: async (paths, onFileProcessed) => {
-    try {
-      const newTasks: ConverterTask[] = [];
-      for (const path of paths) {
-        if (!path) continue;
-        const outputDir = useSettingsStore.getState().getOutputDir(path);
-        try {
-          const details = await bridge.getMediaDetails(path);
-          console.log("details", details);
-          let taskType: MediaTaskType;
-          let outputArgs: any = {
-            task_id: crypto.randomUUID(),
-            title: details.title,
-            input_path: path,
-            output_path: '',
-          }
-
-          taskType = MediaTaskType.ConvertVideo;
-          outputArgs.format = FormatEnum.MP4
-          outputArgs.output_path = `${outputDir}/${details.title}.${FormatEnum.MP4}`
-          const containerDefinition = formatToDefinition.get(FormatEnum.MP4);
-          outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder
-          outputArgs.audio_tracks = details.streams.filter((stream) => stream.codec_type === "audio").map((stream) => {
-            return {
-              trackIndex: stream.index,
-              encoder: containerDefinition?.audio?.defaultEncoder
-            }
-          })
-
-          newTasks.push({
-            id: outputArgs.task_id,
-            status: "idle",
-            progress: 0,
-            ...details,
-            args: outputArgs,
-            taskType
-          });
-          onFileProcessed?.(path, "success");
-        } catch (e: any) {
-          console.error(`Failed to get info for ${path}:`, e);
-          const message = e?.message || "Failed to read media info";
-          onFileProcessed?.(path, "error", message);
+  addTasksByMediaList: async (mediaList) => {
+    const newTasks: ConverterTask[] = [];
+    for (const mediaInfo of mediaList) {
+      if (!mediaInfo.path) continue;
+      const outputDir = useSettingsStore.getState().getOutputDir(mediaInfo.path);
+      let taskType = MediaTaskType.ConvertVideo
+      let outputArgs: any = {
+        task_id: crypto.randomUUID(),
+        title: mediaInfo.title,
+        input_path: mediaInfo.path,
+        output_path: '',
+      }
+      outputArgs.format = FormatEnum.MP4
+      outputArgs.output_path = `${outputDir}/${mediaInfo.title}.${FormatEnum.MP4}`
+      const containerDefinition = formatToDefinition.get(FormatEnum.MP4);
+      outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder
+      outputArgs.audio_tracks = mediaInfo.streams.filter((stream) => stream.codec_type === "audio").map((stream) => {
+        return {
+          trackIndex: stream.index,
+          encoder: containerDefinition?.audio?.defaultEncoder
         }
-      }
+      })
 
-      if (newTasks.length > 0) {
-        set((state) => ({
-          convertingTasks: [...state.convertingTasks, ...newTasks],
-        }));
-      }
+      newTasks.push({
+        id: outputArgs.task_id,
+        status: "idle",
+        progress: 0,
+        mediaDetails: mediaInfo,
+        args: outputArgs,
+        fileType: FileType.Image,
+        taskType
+      });
 
-      return paths;
-    } catch (err) {
-      console.error("Error adding files:", err);
+    }
+
+    if (newTasks.length > 0) {
+      set((state) => ({
+        convertingTasks: [...state.convertingTasks, ...newTasks],
+      }));
+    }
+
+  },
+  addTasksByPaths: async (paths) => {
+    const newTasks: ConverterTask[] = [];
+    for (const path of paths) {
+      if (!path) continue;
+      let outputArgs: any = {
+        task_id: crypto.randomUUID(),
+        input_path: path,
+        output_path: '',
+      }
+      let taskType = MediaTaskType.ConvertImage;
+      outputArgs.format = FormatEnum.MP4
+      newTasks.push({
+        id: outputArgs.task_id,
+        status: "idle",
+        progress: 0,
+        args: outputArgs,
+        fileType: FileType.Image,
+        taskType
+      });
+
+    }
+    if (newTasks.length > 0) {
+      set((state) => ({
+        convertingTasks: [...state.convertingTasks, ...newTasks],
+      }));
     }
   },
   clearConvertingTasks: async () => {

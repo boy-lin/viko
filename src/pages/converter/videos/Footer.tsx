@@ -102,12 +102,12 @@ export const ConverterFooter: React.FC<{}> = () => {
   };
 
   const handleDelete = async () => {
-    const hasRunningTasks = await getMediaTaskQueue().hasRunningTasks();
+    const hasRunningTasks = await getMediaTaskQueue().hasRunningTasksByType();
 
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
       await clearConvertingTasks();
-      await getMediaTaskQueue().clearQueue();
+      await getMediaTaskQueue().clearQueueByType();
     } else {
       // 有运行中的任务，打开确认弹窗
       setIsDeletePopoverOpen(true);
@@ -116,7 +116,7 @@ export const ConverterFooter: React.FC<{}> = () => {
 
   const handleConfirmDelete = async () => {
     // 清空队列
-    await getMediaTaskQueue().clearQueue();
+    await getMediaTaskQueue().clearQueueByType();
     // 清空转换中的任务
     await clearConvertingTasks();
     // 关闭弹窗

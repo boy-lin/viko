@@ -43,14 +43,13 @@ pub async fn media_task_submit(
 
 
 #[command]
-pub async fn media_task_has_running() -> Result<bool, String> {
-    Ok(queue::has_running().await)
+pub async fn media_task_has_running_by_type(task_type: Option<String>) -> Result<bool, String> {
+    Ok(queue::has_running(task_type).await)
 }
 
-
 #[command]
-pub async fn media_task_clear() -> Result<usize, String> {
-    queue::clear_pending().await
+pub async fn media_task_clear_by_type(task_type: Option<String>) -> Result<usize, String> {
+    queue::clear_pending(task_type).await
 }
 
 

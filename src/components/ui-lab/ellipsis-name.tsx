@@ -1,13 +1,13 @@
 import { cn } from "@/lib/utils";
 
 type EllipsisNameProps = {
-  name: string;
+  name?: string;
   className?: string;
   startCount?: number;
   endCount?: number;
 };
 
-const getEllipsisName = (name: string, startCount: number, endCount: number) => {
+const getEllipsisName = (name: string | undefined, startCount: number, endCount: number) => {
   if (!name) return "";
   if (name.length <= startCount + endCount + 1) return name;
   return `${name.slice(0, startCount)}...${name.slice(-endCount)}`;

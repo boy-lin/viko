@@ -87,8 +87,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             crate::commands::get_media_info,
             crate::commands::media_task_submit,
-            crate::commands::media_task_has_running,
-            crate::commands::media_task_clear,
+            crate::commands::media_task_has_running_by_type,
+            crate::commands::media_task_clear_by_type,
             crate::commands::run_self_check,
             crate::commands::video_player_open,
             crate::commands::video_player_play,

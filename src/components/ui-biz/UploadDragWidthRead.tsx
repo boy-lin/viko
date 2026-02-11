@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { UploadCloud } from "lucide-react";
-import { Loading } from "@/components/ui-lab/loading";
+import { Gauge } from "@/components/ui-lab/gague-1";
 import {
   isAudioFormat,
   isImageFormat,
@@ -22,6 +22,7 @@ export type UploadItem = {
   status: UploadStatus;
   progress: number;
   error?: string;
+  details?: MediaDetails;
 };
 
 export const getFileKind = (extension?: string): UploadKind => {
@@ -39,9 +40,10 @@ export function UploadDrag({
 }: {
   supportedExtensions: string[];
   mediaType: MediaTaskType;
-  onUploadComplete: (uploads: string[]) => void,
+  onUploadComplete: (uploads: UploadItem[]) => void,
 }) {
-  const [pending, setPending] = useState(false);
+
+  const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
   const supportedHint = useMemo(() => {
@@ -51,24 +53,73 @@ export function UploadDrag({
     return `${preview.join(" / ")} 等`;
   }, []);
 
+  const updateUpload = useCallback(
+    (id: string, updates: Partial<UploadItem>) => {
+      setUploads((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+      );
+    },
+    []
+  );
+
+  const processUploads = useCallback(
+    async (items: UploadItem[]) => {
+      await Promise.all(items.map(async (item) => {
+        if (!item.path) return;
+        updateUpload(item.id, { status: "processing" });
+        try {
+          const details = await bridge.getMediaDetails(item.path);
+          updateUpload(item.id, {
+            status: "done",
+            progress: 100,
+            details
+          });
+        } catch (error: any) {
+          updateUpload(item.id, {
+            status: "error",
+            error: error?.message || "获取媒体信息失败",
+          });
+        }
+      }))
+    },
+    [updateUpload]
+  );
 
   // 处理文件路径（来自 Tauri 后端事件）
   const handlePaths = useCallback(
     async (paths: string[]) => {
+      if (!paths.length) return;
       try {
-        setPending(true);
-        let finalPaths: string[] = [];
-        if (paths.length) {
-          finalPaths = await bridge.getDirectoryToFiles(paths, supportedExtensions) || [];
+        // 处理文件夹：如果是文件夹，读取文件夹下的所有支持文件（只递归一层）
+        const finalPaths: string[] = await bridge.getDirectoryToFiles(paths, supportedExtensions);
+        if (!finalPaths.length) {
+          return;
         }
-        onUploadComplete(finalPaths);
+        const nextItems: UploadItem[] = finalPaths.map((path) => {
+          return {
+            id: crypto.randomUUID(),
+            path,
+            status: "queued",
+            progress: 0,
+          };
+        });
+
+        if (!nextItems.length) {
+          return;
+        }
+
+        setUploads((prev) => [...nextItems, ...prev]);
+        const queuedItems = nextItems.filter(
+          (item) => item.status === "queued"
+        );
+        if (queuedItems.length > 0) {
+          await processUploads(queuedItems);
+        }
       } catch (error) {
         console.error("Error handling paths:", error);
-      } finally {
-        setPending(false);
       }
     },
-    [onUploadComplete]
+    [processUploads]
   );
 
   // 使用拖拽管理器注册事件监听
@@ -87,13 +138,44 @@ export function UploadDrag({
     return cleanup;
   }, [handlePaths]);
 
+  const completedCount = useMemo(
+    () => {
+      const finished = uploads.filter((item) => ["done", "error"].includes(item.status)).length
+
+      if (finished === uploads.length) {
+        onUploadComplete(uploads)
+      }
+      return finished
+    },
+    [uploads]
+  );
+
+  const totalCount = uploads.length;
+
+  const overallProgress =
+    uploads.length > 0
+      ? Math.round((completedCount / uploads.length) * 100)
+      : 0;
+
   return (
     <div>
-      {pending ? (
+      {uploads.length > 0 ? (
         <div className="mt-6 space-y-4">
           <div className="rounded-xl border border-border bg-background/70 p-4">
             <div className="flex flex-col items-center gap-2">
-              <Loading />
+              <Gauge
+                size="medium"
+                value={overallProgress}
+                showValue={true}
+                colors={{
+                  "0": "#e2162a",
+                  "34": "#ffae00",
+                  "68": "#00ac3a",
+                }}
+              />
+              <div className="text-sm text-muted-foreground">
+                上传进度 {completedCount} / {totalCount}
+              </div>
             </div>
           </div>
         </div>

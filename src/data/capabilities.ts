@@ -46,6 +46,10 @@ export interface ContainerDefinition {
     defaultEncoder: EncoderEnum;
     maxChannels?: number;
   };
+  image?: {
+    allowedEncoders: EncoderEnum[];
+    defaultEncoder: EncoderEnum;
+  };
 }
 
 // ================= DATA: ENCODERS =================
@@ -206,6 +210,19 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
       allowedEncoders: [EncoderEnum.MP3],
       defaultEncoder: EncoderEnum.MP3,
       maxChannels: 2,
+    }
+  },
+
+  [FormatEnum.PNG]: {
+    image: {
+      allowedEncoders: [EncoderEnum.PNG],
+      defaultEncoder: EncoderEnum.PNG,
+    }
+  },
+  [FormatEnum.JPG]: {
+    image: {
+      allowedEncoders: [EncoderEnum.JPEG],
+      defaultEncoder: EncoderEnum.JPEG,
     }
   },
 };

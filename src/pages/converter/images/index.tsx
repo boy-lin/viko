@@ -11,13 +11,12 @@ import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { IMAGE_FORMATS } from "@/data/formats";
 import { FileType } from "@/types/tasks";
+import { bridge } from "@/lib/bridge";
 
-import { useConverterStore } from "./store";
 import { ConverterFooter } from "./Footer";
 import ConvertingTask from "./Task";
 
 export default function ConvertionImagePage() {
-  const { addFiles } = useConverterStore();
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -43,9 +42,11 @@ export default function ConvertionImagePage() {
             <Button
               className="flex items-center gap-3"
               size="sm"
-              onClick={() => addFiles({
+              onClick={() => bridge.addFilesOrFolders({
+                name: "Images",
+                multiple: true,
                 extensions: IMAGE_FORMATS,
-                fileType: FileType.Image,
+                folder: true,
               })}
             >
               <UserPlus className="h-4 w-4" /> 添加文件

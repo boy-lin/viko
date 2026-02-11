@@ -11,6 +11,7 @@ import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect
 import { GlobalConverterConfig, useConverterStore } from "./store";
 import { getMediaTaskQueue } from "@/lib/bridge";
 import { useAppStore } from "@/stores/app";
+import { MediaTaskType } from "@/types/tasks";
 
 export const ConverterFooter: React.FC<{}> = () => {
   const globalConfig = useConverterStore((state) => state.globalConfig);
@@ -75,7 +76,6 @@ export const ConverterFooter: React.FC<{}> = () => {
   const handleFormatChange = (
     config: GlobalConverterConfig
   ) => {
-    console.log("updates", config);
     updateGlobalConfig(config);
   };
 
@@ -102,12 +102,12 @@ export const ConverterFooter: React.FC<{}> = () => {
   };
 
   const handleDelete = async () => {
-    const hasRunningTasks = await getMediaTaskQueue().hasRunningTasks();
+    const hasRunningTasks = await getMediaTaskQueue().hasRunningTasksByType(MediaTaskType.ConvertImage);
 
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
       await clearConvertingTasks();
-      await getMediaTaskQueue().clearQueue();
+      await getMediaTaskQueue().clearQueueByType(MediaTaskType.ConvertImage);
     } else {
       // 有运行中的任务，打开确认弹窗
       setIsDeletePopoverOpen(true);
@@ -116,7 +116,7 @@ export const ConverterFooter: React.FC<{}> = () => {
 
   const handleConfirmDelete = async () => {
     // 清空队列
-    await getMediaTaskQueue().clearQueue();
+    await getMediaTaskQueue().clearQueueByType(MediaTaskType.ConvertImage);
     // 清空转换中的任务
     await clearConvertingTasks();
     // 关闭弹窗

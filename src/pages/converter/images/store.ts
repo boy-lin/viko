@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { open } from "@tauri-apps/plugin-dialog";
 import {
   ConverterTask,
   FileType,
@@ -7,7 +6,6 @@ import {
 } from "@/types/tasks";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { FormatEnum, FormatOption, VideoEncoderEnum } from "@/types/options";
-import { bridge } from "@/lib/bridge";
 import { formatToDefinition } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
 
@@ -36,6 +34,7 @@ interface ConverterState {
   globalConfig: GlobalConverterConfig;
   formatRecents: FormatOption[];
   addTasksByMediaList: (mediaList: MediaDetails[]) => void;
+  addTasksByPaths: (paths: string[]) => void;
   clearConvertingTasks: () => Promise<void>;
   updateTaskById: (id: string, updates: Partial<ConverterTask>) => void;
   removeTask: (id: string) => void;
@@ -50,49 +49,72 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
   formatRecents: [],
 
   addTasksByMediaList: async (mediaList) => {
-    try {
-      const newTasks: ConverterTask[] = [];
-      for (const mediaInfo of mediaList) {
-        if (!mediaInfo.path) continue;
-        const outputDir = useSettingsStore.getState().getOutputDir(mediaInfo.path);
-        let taskType: MediaTaskType;
-        let outputArgs: any = {
-          task_id: crypto.randomUUID(),
-          title: mediaInfo.title,
-          input_path: mediaInfo.path,
-          output_path: '',
+    const newTasks: ConverterTask[] = [];
+    for (const mediaInfo of mediaList) {
+      if (!mediaInfo.path) continue;
+      const outputDir = useSettingsStore.getState().getOutputDir(mediaInfo.path);
+      let taskType = MediaTaskType.ConvertVideo
+      let outputArgs: any = {
+        task_id: crypto.randomUUID(),
+        title: mediaInfo.title,
+        input_path: mediaInfo.path,
+        output_path: '',
+      }
+      outputArgs.format = FormatEnum.MP4
+      outputArgs.output_path = `${outputDir}/${mediaInfo.title}.${FormatEnum.MP4}`
+      const containerDefinition = formatToDefinition.get(FormatEnum.MP4);
+      outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder
+      outputArgs.audio_tracks = mediaInfo.streams.filter((stream) => stream.codec_type === "audio").map((stream) => {
+        return {
+          trackIndex: stream.index,
+          encoder: containerDefinition?.audio?.defaultEncoder
         }
+      })
 
-        taskType = MediaTaskType.ConvertVideo;
-        outputArgs.format = FormatEnum.MP4
-        outputArgs.output_path = `${outputDir}/${mediaInfo.title}.${FormatEnum.MP4}`
-        const containerDefinition = formatToDefinition.get(FormatEnum.MP4);
-        outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder
-        outputArgs.audio_tracks = mediaInfo.streams.filter((stream) => stream.codec_type === "audio").map((stream) => {
-          return {
-            trackIndex: stream.index,
-            encoder: containerDefinition?.audio?.defaultEncoder
-          }
-        })
+      newTasks.push({
+        id: outputArgs.task_id,
+        status: "idle",
+        progress: 0,
+        mediaDetails: mediaInfo,
+        args: outputArgs,
+        fileType: FileType.Image,
+        taskType
+      });
 
-        newTasks.push({
-          id: outputArgs.task_id,
-          status: "idle",
-          progress: 0,
-          ...mediaInfo,
-          args: outputArgs,
-          taskType
-        });
+    }
 
+    if (newTasks.length > 0) {
+      set((state) => ({
+        convertingTasks: [...state.convertingTasks, ...newTasks],
+      }));
+    }
+
+  },
+  addTasksByPaths: async (paths) => {
+    const newTasks: ConverterTask[] = [];
+    for (const path of paths) {
+      if (!path) continue;
+      let outputArgs: any = {
+        task_id: crypto.randomUUID(),
+        input_path: path,
+        output_path: '',
       }
+      let taskType = MediaTaskType.ConvertImage;
+      outputArgs.format = FormatEnum.MP4
+      newTasks.push({
+        id: outputArgs.task_id,
+        status: "idle",
+        progress: 0,
+        args: outputArgs,
+        fileType: FileType.Image,
+        taskType
+      });
 
-      if (newTasks.length > 0) {
-        set((state) => ({
-          convertingTasks: [...state.convertingTasks, ...newTasks],
-        }));
-      }
-    } catch (err) {
-      console.error("Error adding files:", err);
+    }
+    if (newTasks.length > 0) {
+      set((state) => ({
+        convertingTasks: [...state.convertingTasks, ...newTasks],
+      }));
     }
   },
   clearConvertingTasks: async () => {

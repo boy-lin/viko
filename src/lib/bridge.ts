@@ -6,7 +6,7 @@ import {
 } from "@/types/tasks";
 import { extractFilenameFromPath } from "./utils";
 import { MediaTaskType } from "@/types/tasks";
-import { SupportedFormats } from "@/data/formats";
+import { supportedExtensions, SupportedFormats } from "@/data/formats";
 import { handleDirectoryToFiles } from "./file";
 
 export type DownloadProgress = {
@@ -187,7 +187,7 @@ export interface ConvertAudioTaskArgs {
 }
 
 type ConvertTaskRequest = {
-  kind: MediaTaskType.ConvertVideo | MediaTaskType.ConvertAudio | MediaTaskType.ConvertImage;
+  kind: MediaTaskType;
   args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs;
 }
 
@@ -360,6 +360,25 @@ class Bridge {
       return [];
     }
   }
+
+  async addFilesOrFolders(opts: { name: string, multiple: boolean, extensions: string[], folder?: boolean }) {
+    const { name = "", multiple = false, extensions = [], folder = false } = opts;
+    const selected = await open({
+      multiple,
+      filters: [
+        {
+          name,
+          extensions,
+        },
+      ],
+    });
+    if (!selected) return [];
+    const paths = Array.isArray(selected) ? selected : [selected];
+    if (folder) {
+      return this.getDirectoryToFiles(paths, extensions);
+    }
+    return paths;
+  }
 }
 
 export interface TaskHistoryItem {
@@ -471,12 +490,19 @@ class MediaTaskQueue {
     await bridge.invoke("media_task_submit", { tasks, priority });
   }
 
-  async hasRunningTasks(): Promise<boolean> {
-    return bridge.invoke<boolean>("media_task_has_running");
+  async hasRunningTasksByType(taskType?: MediaTaskType): Promise<boolean> {
+    if (taskType) {
+      return bridge.invoke<boolean>("media_task_has_running_by_type", { taskType });
+    }
+    return bridge.invoke<boolean>("media_task_has_running_by_type");
   }
 
-  async clearQueue(): Promise<void> {
-    await bridge.invoke("media_task_clear");
+  async clearQueueByType(taskType?: MediaTaskType): Promise<void> {
+    if (taskType) {
+      await bridge.invoke("media_task_clear_by_type", { taskType });
+      return;
+    }
+    await bridge.invoke("media_task_clear_by_type");
   }
 
   on(listener: (event: MediaTaskEvent) => void): () => void {

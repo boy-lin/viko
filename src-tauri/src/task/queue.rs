@@ -1,5 +1,6 @@
 ﻿use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
@@ -38,6 +39,19 @@ pub enum MediaTaskRequest {
 }
 
 static TASK_RUNNING: AtomicBool = AtomicBool::new(false);
+static CURRENT_TASK_KIND: Mutex<Option<String>> = Mutex::new(None);
+
+fn task_kind(task: &MediaTaskRequest) -> &'static str {
+    match task {
+        MediaTaskRequest::ConvertAudio(_) => "convert-audio",
+        MediaTaskRequest::ConvertVideo(_) => "convert-video",
+        MediaTaskRequest::ConvertGif(_) => "convert-gif",
+        MediaTaskRequest::ConvertImage(_) => "convert-image",
+        MediaTaskRequest::CompressVideo(_) => "compress-video",
+        MediaTaskRequest::CompressAudio(_) => "compress-audio",
+        MediaTaskRequest::CompressImage(_) => "compress-image",
+    }
+}
 
 pub async fn submit_tasks(app: AppHandle, tasks: Vec<MediaTaskRequest>) -> Result<usize, String> {
     for task in tasks {
@@ -54,17 +68,37 @@ pub async fn submit_tasks(app: AppHandle, tasks: Vec<MediaTaskRequest>) -> Resul
     Ok(pending)
 }
 
-pub async fn has_running() -> bool {
-    if TASK_RUNNING.load(Ordering::SeqCst) {
-        return true;
+pub async fn has_running(task_type: Option<String>) -> bool {
+    if task_type.is_none() {
+        if TASK_RUNNING.load(Ordering::SeqCst) {
+            return true;
+        }
+        return media_queue::count()
+            .await
+            .map(|c| c > 0)
+            .unwrap_or(false);
     }
-    media_queue::count()
+
+    let task_type = task_type.unwrap_or_default();
+
+    if TASK_RUNNING.load(Ordering::SeqCst) {
+        let current = CURRENT_TASK_KIND.lock().unwrap();
+        if current.as_deref() == Some(task_type.as_str()) {
+            return true;
+        }
+    }
+
+    media_queue::count_by_type(&task_type)
         .await
         .map(|c| c > 0)
         .unwrap_or(false)
 }
 
-pub async fn clear_pending() -> Result<usize, String> {
+pub async fn clear_pending(task_type: Option<String>) -> Result<usize, String> {
+    if let Some(task_type) = task_type {
+        return media_queue::clear_by_type(&task_type).await.map_err(|e| e.to_string());
+    }
+
     let count = media_queue::count().await.map_err(|e| e.to_string())?;
     media_queue::clear().await.map_err(|e| e.to_string())?;
     Ok(count)
@@ -88,6 +122,8 @@ fn start_worker(app: AppHandle) {
             println!("task: {:?}", task);
             match task {
                 Some(task) => {
+                    let kind = task_kind(&task).to_string();
+                    *CURRENT_TASK_KIND.lock().unwrap() = Some(kind);
                     // Run execution in blocking thread to avoid stalling async runtime
                     let app_clone = app.clone();
                     // We spawn a blocking task to handle the actual processing
@@ -99,12 +135,14 @@ fn start_worker(app: AppHandle) {
                     }).await;
                     
                     if let Err(e) = result {
-                         log::error!("Worker thread join error: {}", e);
+                        log::error!("Worker thread join error: {}", e);
                     }
+                    *CURRENT_TASK_KIND.lock().unwrap() = None;
                 }
                 None => {
                     println!("No task found, breaking loop");
                     TASK_RUNNING.store(false, Ordering::SeqCst);
+                    *CURRENT_TASK_KIND.lock().unwrap() = None;
                     let count = media_queue::count().await.unwrap_or(0);
                     if count == 0 {
                         break;

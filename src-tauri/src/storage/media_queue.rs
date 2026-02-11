@@ -108,6 +108,38 @@ pub async fn count() -> Result<usize> {
     Ok(count as usize)
 }
 
+fn task_kind(task: &MediaTaskRequest) -> &'static str {
+    match task {
+        MediaTaskRequest::ConvertAudio(_) => "convert-audio",
+        MediaTaskRequest::ConvertVideo(_) => "convert-video",
+        MediaTaskRequest::ConvertGif(_) => "convert-gif",
+        MediaTaskRequest::ConvertImage(_) => "convert-image",
+        MediaTaskRequest::CompressVideo(_) => "compress-video",
+        MediaTaskRequest::CompressAudio(_) => "compress-audio",
+        MediaTaskRequest::CompressImage(_) => "compress-image",
+    }
+}
+
+pub async fn count_by_type(task_type: &str) -> Result<usize> {
+    let pool = get_db().await?;
+    let (sql, values) = Query::select()
+        .columns([MediaQueue::TaskData])
+        .from(MediaQueue::Table)
+        .order_by(MediaQueue::Id, Order::Asc)
+        .build_sqlx(SqliteQueryBuilder);
+
+    let rows = sqlx::query_with(&sql, values).fetch_all(&pool).await?;
+    let mut count = 0;
+    for row in rows {
+        let data: String = row.try_get("task_data")?;
+        let task: MediaTaskRequest = serde_json::from_str(&data)?;
+        if task_kind(&task) == task_type {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
 pub async fn init() -> Result<()> {
     MediaQueueTable::check_latest().await
 }
@@ -120,4 +152,36 @@ pub async fn clear() -> Result<()> {
     
     sqlx::query_with(&sql, values).execute(&pool).await?;
     Ok(())
+}
+
+pub async fn clear_by_type(task_type: &str) -> Result<usize> {
+    let pool = get_db().await?;
+    let (sql, values) = Query::select()
+        .columns([MediaQueue::Id, MediaQueue::TaskData])
+        .from(MediaQueue::Table)
+        .order_by(MediaQueue::Id, Order::Asc)
+        .build_sqlx(SqliteQueryBuilder);
+
+    let rows = sqlx::query_with(&sql, values).fetch_all(&pool).await?;
+    let mut ids = Vec::new();
+    for row in rows {
+        let id: i64 = row.try_get("id")?;
+        let data: String = row.try_get("task_data")?;
+        let task: MediaTaskRequest = serde_json::from_str(&data)?;
+        if task_kind(&task) == task_type {
+            ids.push(id);
+        }
+    }
+
+    if ids.is_empty() {
+        return Ok(0);
+    }
+
+    let (del_sql, del_values) = Query::delete()
+        .from_table(MediaQueue::Table)
+        .and_where(Expr::col(MediaQueue::Id).is_in(ids.clone()))
+        .build_sqlx(SqliteQueryBuilder);
+
+    sqlx::query_with(&del_sql, del_values).execute(&pool).await?;
+    Ok(ids.len())
 }

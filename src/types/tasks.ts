@@ -30,10 +30,9 @@ export interface MediaDetails {
   extension: string;
   format_names: string;
   title: string;
-  format_long_name?: string;
   size: number;
   streams: StreamDetails[];
-
+  format_long_name?: string;
   duration?: number;
   tags?: Record<string, string>;
   stream_tags?: Record<string, string>[];
@@ -134,14 +133,15 @@ export enum FileType {
   Image = "image",
 }
 
-export interface ConverterTask extends MediaDetails {
+export interface ConverterTask {
   id: string;
   status: "idle" | "converting" | "finished" | "error";
   progress: number;
-  fileType?: FileType;
-  errorMessage?: string;
-  taskType: MediaTaskType.ConvertVideo | MediaTaskType.ConvertAudio | MediaTaskType.ConvertImage;
   args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs;
+  mediaDetails?: MediaDetails;
+  fileType: FileType;
+  taskType: MediaTaskType;
+  errorMessage?: string;
   outputPath?: string;
   outputSize?: number;
 }
