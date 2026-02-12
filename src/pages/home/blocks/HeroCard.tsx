@@ -6,12 +6,11 @@ import { useNavigate } from "react-router-dom";
 import { ConverterLayer } from "@/components/icons/ConverterLayer";
 import { DownloaderLayer } from "@/components/icons/DownloaderLayer";
 import { CompressorLayer } from "@/components/icons/CompressorLayer";
-import { useConverterStore } from "@/pages/converter/videos/store";
 import { useAnalytics } from "@/lib/analytics";
 import { MenuItems } from "@/layout/sidebar/menu";
 import { useTranslation } from "react-i18next";
 import { AUDIO_FORMATS, VIDEO_FORMATS, IMAGE_FORMATS } from "@/data/formats";
-import { FileType } from "@/types/tasks";
+import { bridge } from "@/lib/bridge";
 
 type HeroCardAction = {
   id: string;
@@ -131,7 +130,6 @@ const HeroCardItemView = ({
 );
 
 export function HeroCard() {
-  const addFiles = useConverterStore((state) => state.addFiles);
   const navigate = useNavigate();
 
   const { track } = useAnalytics();
@@ -141,42 +139,60 @@ export function HeroCard() {
     track("click_hero_card_action", { actionId });
 
     if (actionId === "converter-video") {
-      const picked = await addFiles({
+      const paths = await bridge.addFilesOrFolders({
+        name: "Video",
+        multiple: true,
         extensions: VIDEO_FORMATS,
-        fileType: FileType.Video,
-      });
-      if (picked && picked.length > 0) {
+        folder: true,
+      })
+      if (paths && paths.length > 0) {
+        const { useConverterStore } = await import("@/pages/converter/videos/store")
+        useConverterStore.getState().addTasksByPaths(paths)
         navigate(MenuItems.converterVideos);
       }
     } else if (actionId === "converter-audio") {
-      const picked = await addFiles({
+      const paths = await bridge.addFilesOrFolders({
+        name: "Audio",
+        multiple: true,
         extensions: AUDIO_FORMATS,
-        fileType: FileType.Audio,
-      });
-      if (picked && picked.length > 0) {
+        folder: true,
+      })
+      if (paths && paths.length > 0) {
+        const { useConverterStore } = await import("@/pages/converter/audios/store")
+        useConverterStore.getState().addTasksByPaths(paths)
         navigate(MenuItems.converterAudios);
       }
     } else if (actionId === "converter-image") {
-      const picked = await addFiles({
+      const paths = await bridge.addFilesOrFolders({
+        name: "Image",
+        multiple: true,
         extensions: IMAGE_FORMATS,
-        fileType: FileType.Image,
+        folder: true,
       });
-      if (picked && picked.length > 0) {
+      if (paths && paths.length > 0) {
+        const { useConverterStore } = await import("@/pages/converter/images/store")
+        useConverterStore.getState().addTasksByPaths(paths)
         navigate(MenuItems.converterImages);
       }
     } else if (actionId === "compressor-add") {
-      const picked = await addFiles({
+      const paths = await bridge.addFilesOrFolders({
+        name: "Compressor",
+        multiple: true,
         extensions: [...VIDEO_FORMATS, ...AUDIO_FORMATS, ...IMAGE_FORMATS],
+        folder: true,
       });
-      if (picked && picked.length > 0) {
+      if (paths && paths.length > 0) {
         navigate(MenuItems.compressor);
       }
     } else if (actionId === "watermark-add") {
       const videoAndImageFormats = [...VIDEO_FORMATS, ...IMAGE_FORMATS];
-      const picked = await addFiles({
+      const paths = await bridge.addFilesOrFolders({
+        name: "Watermark",
+        multiple: true,
         extensions: videoAndImageFormats,
+        folder: true,
       });
-      if (picked && picked.length > 0) {
+      if (paths && paths.length > 0) {
         navigate(MenuItems.watermark);
       }
     }

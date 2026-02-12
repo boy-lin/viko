@@ -42,7 +42,7 @@ pub fn emit_media_task_event(
     output_size,
     error_message,
   };
-  let _ = window.emit("media-task-event", event);
+  let _ = window.emit("media_task_event", event);
 }
 
 pub trait TaskEmitter: Send + Sync {

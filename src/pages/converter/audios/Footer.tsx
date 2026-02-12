@@ -6,7 +6,7 @@ import {
   PopoverContent,
   PopoverAnchor,
 } from "@/components/ui/popover";
-import { FormatSelector } from "@/components/biz-form/FormatSelector";
+import { FormatSelectorPopover } from "@/components/biz-form/format-selector";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
 import { GlobalConverterConfig, useConverterStore } from "./store";
 import { getMediaTaskQueue } from "@/lib/bridge";
@@ -126,7 +126,7 @@ export const ConverterFooter: React.FC<{}> = () => {
             目标格式
           </span>
           <div className="flex items-center gap-2">
-            <FormatSelector
+            <FormatSelectorPopover
               className="w-[14em]"
               config={globalConfig}
               formatRecents={formatRecents}

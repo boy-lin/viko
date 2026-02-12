@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCompressorStore } from "@/stores/compressorStore";
+import { useCompressorStore } from "@/pages/compressor/store";
 import {
   CompressionConfig,
   VideoCompressionConfig,
@@ -30,7 +30,7 @@ import {
   defaultVideoCompressionConfig,
   defaultAudioCompressionConfig,
   defaultImageCompressionConfig,
-} from "@/stores/compressorStore";
+} from "@/pages/compressor/store";
 import { getMediaTaskQueue } from "@/lib/bridge";
 
 interface CompressionSettingsDialogProps {

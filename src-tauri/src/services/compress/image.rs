@@ -34,12 +34,18 @@ pub fn compress_image_file<E: TaskEmitter>(
     emitter.emit("progress", Some(10.0), None, None);
 
     // 1. 读取图片
+    if crate::task::cancel::is_cancelled() {
+        return Err("Task cancelled".to_string());
+    }
     let mut img = image::open(&params.input_path)
         .map_err(|e| format!("无法打开图片文件: {}", e))?;
 
     emitter.emit("progress", Some(20.0), None, None);
 
     // 2. 自动裁剪 (Crop Whitespace)
+    if crate::task::cancel::is_cancelled() {
+        return Err("Task cancelled".to_string());
+    }
     if params.crop_whitespace.unwrap_or(false) {
         // 简单实现：基于左上角像素颜色进行裁剪
         let (width, height) = img.dimensions();
@@ -76,6 +82,9 @@ pub fn compress_image_file<E: TaskEmitter>(
     emitter.emit("progress", Some(40.0), None, None);
 
     // 3. 调整大小 (Resize)
+    if crate::task::cancel::is_cancelled() {
+        return Err("Task cancelled".to_string());
+    }
     // 如果指定了宽高
     if params.width.is_some() || params.height.is_some() {
         let current_ratio = img.width() as f64 / img.height() as f64;
@@ -97,6 +106,9 @@ pub fn compress_image_file<E: TaskEmitter>(
     emitter.emit("progress", Some(60.0), None, None);
 
     // 4. 颜色模式与透明度处理
+    if crate::task::cancel::is_cancelled() {
+        return Err("Task cancelled".to_string());
+    }
     let keep_transparency = params.keep_transparency.unwrap_or(true);
     let target_color_mode = params.color_mode.as_deref().unwrap_or("Default");
 
@@ -128,6 +140,9 @@ pub fn compress_image_file<E: TaskEmitter>(
     // CMYK 目前 image crate 支持有限，默认转为 RGB 保存
 
     // 5. 确定格式和保存
+    if crate::task::cancel::is_cancelled() {
+        return Err("Task cancelled".to_string());
+    }
     let output_ext = params.output_path.split('.').last().unwrap_or("jpg").to_lowercase();
     let format_override = params.format.as_deref().unwrap_or(&output_ext);
 

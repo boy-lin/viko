@@ -5,7 +5,7 @@
 		{"id":"bridge","type":"text","text":"Bridge API (src/lib/bridge.ts)\n- submit_tasks\n- query_task(s)\n- control_task (pause/cancel)\n- subscribe events","x":-500,"y":275,"width":300,"height":170},
 		{"id":"storage","type":"text","text":"Storage\n- tasks table\n- outputs table\n- logs/metrics\n- status transitions","x":420,"y":-50,"width":260,"height":180},
 		{"id":"tauri-commands","type":"text","text":"Tauri Commands (src-tauri/src/commands.rs)\n- submit_task(s)\n- get_task / list_tasks\n- cancel / pause / resume\n- retry / delete","x":0,"y":40,"width":320,"height":220},
-		{"id":"progress","type":"text","text":"Progress/Event Bus\n- media-task-event\n- progress/error/complete","x":120,"y":820,"width":260,"height":140},
+		{"id":"progress","type":"text","text":"Progress/Event Bus\n- media_task_event\n- progress/error/complete","x":120,"y":820,"width":260,"height":140},
 		{"id":"queue","type":"text","text":"Queue\n- priority\n- dedupe\n- concurrency limit\n- retry/backoff","x":680,"y":200,"width":240,"height":160},
 		{"id":"scheduler","type":"text","text":"Scheduler\n- pull pending\n- resource control\n- failure policy","x":460,"y":560,"width":240,"height":150},
 		{"id":"executor","type":"text","text":"Executor\n- ffmpeg orchestration\n- process lifecycle\n- timeout/cancel/cleanup","x":740,"y":535,"width":260,"height":160},

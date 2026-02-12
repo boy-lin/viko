@@ -10,10 +10,13 @@ import { AudioSampleRateSelect } from "@/components/biz-form/AudioSampleRateSele
 import { AudioBitrateSelect } from "@/components/biz-form/AudioBitrateSelect";
 import { getAudioEncoderOptions } from "@/data/capabilities";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 
 type AudioConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "audio_tracks">
 
+
 interface AudioSettingsSectionProps extends AudioConversionConfig {
+  className?: string;
   onAudioTracksChange: (tracks: AudioTrackConfig[]) => void;
   // 是否为多轨道模式（video 类型）或单轨道模式（audio 类型）
   multiTrack?: boolean;
@@ -24,6 +27,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
   audio_tracks = [],
   onAudioTracksChange,
   multiTrack = false,
+  className,
 }) => {
   const { t } = useTranslation("converter");
 
@@ -57,8 +61,8 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
     const track = audio_tracks[0];
     const audioOptions = getAudioOptionsByEncoder(track.codec);
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+      <div className={cn("", className)}>
+        <div className=" p-2 flex items-center justify-between border-b bg-muted/10">
           <h3 className="font-bold text-lg">{t("settings.audio.title")}</h3>
           {onReset && (
             <Button variant="ghost" size="icon" onClick={onReset}>
@@ -66,7 +70,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
             </Button>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+        <div className=" p-2 grid grid-cols-2 gap-x-8 gap-y-4">
           <AudioEncoderSelect
             format={format}
             value={track.codec}
@@ -94,7 +98,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
 
   // 多轨道模式（video 类型）
   return (
-    <div className="space-y-6">
+    <div className={cn("flex-1 p-2 space-y-6", className)}>
       {audio_tracks.map((track, index) => {
         const audioOptions = getAudioOptionsByEncoder(track.codec);
         return <div key={index} className="space-y-4">

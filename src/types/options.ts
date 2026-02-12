@@ -201,6 +201,7 @@ export enum ImageEncoderEnum {
   SUNRAST = "sunrast",                // Sun Raster image encoder
   XBM = "xbm",                        // XBM image encoder
   XWD = "xwd",                        // XWD image encoder
+  ICO = ""
 }
 
 /**
@@ -278,4 +279,5 @@ export enum EncoderEnum {
   SUNRAST = ImageEncoderEnum.SUNRAST,
   XBM = ImageEncoderEnum.XBM,
   XWD = ImageEncoderEnum.XWD,
+  ICO = ImageEncoderEnum.ICO
 }

@@ -52,6 +52,19 @@ pub async fn media_task_clear_by_type(task_type: Option<String>) -> Result<usize
     queue::clear_pending(task_type).await
 }
 
+#[command]
+pub async fn media_task_clear_by_type_with_stop(
+    taskType: Option<String>,
+    stopRunning: Option<bool>,
+) -> Result<usize, String> {
+    queue::clear_pending_with_cancel(taskType, stopRunning.unwrap_or(false)).await
+}
+
+#[command]
+pub async fn media_task_cancel_task(id: String) -> Result<(), String> {
+    queue::cancel_task(id).await
+}
+
 
 #[derive(Serialize)]
 pub struct FileInfo {

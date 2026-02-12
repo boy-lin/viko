@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { IMAGE_FORMATS } from "@/data/formats";
-import { FileType } from "@/types/tasks";
 import { bridge } from "@/lib/bridge";
 
 import { ConverterFooter } from "./Footer";
@@ -57,9 +56,7 @@ export default function ConvertionImagePage() {
       <CardContent className="px-0 flex flex-col flex-1 min-h-0">
         <div className="relative flex-1 overflow-auto">
           <ConvertingTask
-            fileType={FileType.Image}
             globalFilter={globalFilter}
-            onGlobalFilterChange={setGlobalFilter}
           />
         </div>
       </CardContent>

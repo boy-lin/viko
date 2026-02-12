@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompressionFooter } from "./CompressionFooter";
-import { useCompressorStore } from "@/stores/compressorStore";
+import { useCompressorStore } from "@/pages/compressor/store";
 import { useSettingsStore } from "@/stores/settingsStore";
 import ConvertingTask from "./CompressionTask";
 import FinishedTask from "../tasks/CompressionTask";

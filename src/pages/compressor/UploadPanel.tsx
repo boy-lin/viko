@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { UploadCloud } from "lucide-react";
 import { Gauge } from "@/components/ui-lab/gague-1";
-import { useCompressorStore } from "@/stores/compressorStore";
+import { useCompressorStore } from "@/pages/compressor/store";
 import {
   SupportedFormats,
   isAudioFormat,
@@ -202,8 +202,8 @@ export function UploadPanel() {
   const overallProgress =
     uploads.length > 0
       ? Math.round(
-          uploads.reduce((sum, item) => sum + item.progress, 0) / uploads.length
-        )
+        uploads.reduce((sum, item) => sum + item.progress, 0) / uploads.length
+      )
       : 0;
 
   const completedCount = useMemo(

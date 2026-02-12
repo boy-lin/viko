@@ -7,8 +7,8 @@ import {
   AudioCompressionConfig,
   ImageCompressionConfig,
   FileType,
-} from "../types/tasks";
-import { converterDB } from "../db/converterDB";
+} from "../../types/tasks";
+import { converterDB } from "../../db/converterDB";
 import { extractFilenameFromPath } from "@/lib/utils";
 import {
   isAudioFormat,
@@ -16,7 +16,6 @@ import {
   SupportedFormats,
   isImageFormat
 } from "@/data/formats";
-import { IMAGE_ENCODERS } from "@/data/encoders";
 import { IMAGE_ENCODERS } from "@/data/encoders";
 import { bridge, TaskHistoryItem } from "@/lib/bridge";
 
@@ -319,7 +318,7 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
 
           // 触发历史记录刷新
           get().fetchHistory();
-        } else if (updatedTask.status === "error") {
+        } else if (updatedTask.status === "error" || updatedTask.status === "cancelled") {
           // 如果状态是 error，逻辑同 finished
           await converterDB.removeTask(id);
 

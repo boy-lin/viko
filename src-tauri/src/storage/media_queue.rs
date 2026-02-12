@@ -120,6 +120,18 @@ fn task_kind(task: &MediaTaskRequest) -> &'static str {
     }
 }
 
+fn task_id(task: &MediaTaskRequest) -> Option<&str> {
+    match task {
+        MediaTaskRequest::ConvertAudio(args) => Some(args.task_id.as_str()),
+        MediaTaskRequest::ConvertVideo(args) => Some(args.task_id.as_str()),
+        MediaTaskRequest::ConvertGif(args) => Some(args.task_id.as_str()),
+        MediaTaskRequest::ConvertImage(args) => Some(args.task_id.as_str()),
+        MediaTaskRequest::CompressVideo(args) => Some(args.task_id.as_str()),
+        MediaTaskRequest::CompressAudio(args) => Some(args.task_id.as_str()),
+        MediaTaskRequest::CompressImage(args) => Some(args.task_id.as_str()),
+    }
+}
+
 pub async fn count_by_type(task_type: &str) -> Result<usize> {
     let pool = get_db().await?;
     let (sql, values) = Query::select()
@@ -169,6 +181,38 @@ pub async fn clear_by_type(task_type: &str) -> Result<usize> {
         let data: String = row.try_get("task_data")?;
         let task: MediaTaskRequest = serde_json::from_str(&data)?;
         if task_kind(&task) == task_type {
+            ids.push(id);
+        }
+    }
+
+    if ids.is_empty() {
+        return Ok(0);
+    }
+
+    let (del_sql, del_values) = Query::delete()
+        .from_table(MediaQueue::Table)
+        .and_where(Expr::col(MediaQueue::Id).is_in(ids.clone()))
+        .build_sqlx(SqliteQueryBuilder);
+
+    sqlx::query_with(&del_sql, del_values).execute(&pool).await?;
+    Ok(ids.len())
+}
+
+pub async fn remove_by_task_id(target_task_id: &str) -> Result<usize> {
+    let pool = get_db().await?;
+    let (sql, values) = Query::select()
+        .columns([MediaQueue::Id, MediaQueue::TaskData])
+        .from(MediaQueue::Table)
+        .order_by(MediaQueue::Id, Order::Asc)
+        .build_sqlx(SqliteQueryBuilder);
+
+    let rows = sqlx::query_with(&sql, values).fetch_all(&pool).await?;
+    let mut ids = Vec::new();
+    for row in rows {
+        let id: i64 = row.try_get("id")?;
+        let data: String = row.try_get("task_data")?;
+        let task: MediaTaskRequest = serde_json::from_str(&data)?;
+        if task_id(&task) == Some(target_task_id) {
             ids.push(id);
         }
     }

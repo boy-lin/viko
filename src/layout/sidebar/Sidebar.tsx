@@ -19,7 +19,6 @@ import CompressionLinear from "@/components/icons/CompressionLinear";
 import PinLinear from "@/components/icons/PinLinear";
 import PinCancelLinear from "@/components/icons/PinCancelLinear";
 import { useAppStore } from "@/stores/app";
-import { useConverterStore } from "@/stores/converterStore";
 
 type NavItem = {
   label: string;

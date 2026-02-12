@@ -100,7 +100,7 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
         output_path: '',
       }
       let taskType = MediaTaskType.ConvertImage;
-      outputArgs.format = FormatEnum.PNG
+      outputArgs.format = FormatEnum.MP4
       newTasks.push({
         id: outputArgs.task_id,
         status: "idle",

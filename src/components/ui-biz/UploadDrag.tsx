@@ -49,7 +49,7 @@ export function UploadDrag({
       ext.toUpperCase()
     );
     return `${preview.join(" / ")} 等`;
-  }, []);
+  }, [supportedExtensions]);
 
 
   // 处理文件路径（来自 Tauri 后端事件）

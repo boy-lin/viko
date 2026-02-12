@@ -15,20 +15,20 @@ export const FORMAT_CATEGORIES: FormatCategory[] = [
 
 export const FORMAT_GROUPS: FormatGroup[] = [
   // Audio
-  { id: "mp3", label: "MP3", category: "audio" },
-  { id: "m4a", label: "M4A", category: "audio" },
-  { id: "wav", label: "WAV", category: "audio" },
-  { id: "flac", label: "FLAC", category: "audio" },
-  { id: "ogg", label: "OGG", category: "audio" },
-  { id: "aac", label: "AAC", category: "audio" },
-  { id: "ac3", label: "AC3", category: "audio" },
-  { id: "amr", label: "AMR", category: "audio" },
-  { id: "mp2", label: "MP2", category: "audio" },
-  { id: "m4b", label: "M4B", category: "audio" },
-  { id: "ape", label: "APE", category: "audio" },
-  { id: "caf", label: "CAF", category: "audio" },
-  { id: "aiff", label: "AIFF", category: "audio" },
-  { id: "m4r", label: "M4R", category: "audio" },
+  { id: "mp3", label: "MP3", category: FileType.Audio },
+  { id: "m4a", label: "M4A", category: FileType.Audio },
+  { id: "wav", label: "WAV", category: FileType.Audio },
+  { id: "flac", label: "FLAC", category: FileType.Audio },
+  { id: "ogg", label: "OGG", category: FileType.Audio },
+  { id: "aac", label: "AAC", category: FileType.Audio },
+  { id: "ac3", label: "AC3", category: FileType.Audio },
+  { id: "amr", label: "AMR", category: FileType.Audio },
+  { id: "mp2", label: "MP2", category: FileType.Audio },
+  { id: "m4b", label: "M4B", category: FileType.Audio },
+  { id: "ape", label: "APE", category: FileType.Audio },
+  { id: "caf", label: "CAF", category: FileType.Audio },
+  { id: "aiff", label: "AIFF", category: FileType.Audio },
+  { id: "m4r", label: "M4R", category: FileType.Audio },
 
   // Video Generic
   { id: "mp4", label: "MP4", category: FileType.Video },
@@ -44,33 +44,13 @@ export const FORMAT_GROUPS: FormatGroup[] = [
   { id: "vob", label: "VOB", category: FileType.Video },
   { id: "ogv", label: "OGV", category: FileType.Video },
 
-  // Devices
-  { id: "apple", label: "Apple", category: "video_device" },
-  { id: "samsung", label: "Samsung", category: "video_device" },
-  { id: "huawei", label: "Huawei", category: "video_device" },
-  { id: "xiaomi", label: "Xiaomi", category: "video_device" },
-  { id: "google", label: "Google", category: "video_device" },
-  { id: "sony", label: "Sony", category: "video_device" },
-  { id: "games", label: "Games", category: "video_device" },
-
-  // Editors
-  { id: "final_cut", label: "Final Cut Pro X", category: "video_editor" },
-  { id: "imovie", label: "iMovie", category: "video_editor" },
-  { id: "avid", label: "Avid", category: "video_editor" },
-
-  // Social
-  { id: "youtube", label: "YouTube", category: "video_social" },
-  { id: "facebook", label: "Facebook", category: "video_social" },
-  { id: "instagram", label: "Instagram", category: "video_social" },
-  { id: "vimeo", label: "Vimeo", category: "video_social" },
-
   // Images
-  { id: "jpeg", label: "JPEG", category: "image" },
-  { id: "png", label: "PNG", category: "image" },
-  { id: "webp", label: "WEBP", category: "image" },
-  { id: "heic", label: "HEIC", category: "image" },
-  { id: "gif", label: "GIF", category: "image" },
-  { id: "tiff", label: "TIFF", category: "image" },
+  { id: "jpeg", label: "JPEG", category: FileType.Image },
+  { id: "png", label: "PNG", category: FileType.Image },
+  { id: "webp", label: "WEBP", category: FileType.Image },
+  { id: "heic", label: "HEIC", category: FileType.Image },
+  { id: "gif", label: "GIF", category: FileType.Image },
+  { id: "tiff", label: "TIFF", category: FileType.Image },
 ];
 
 export const FORMAT_DATA: FormatOption[] = [

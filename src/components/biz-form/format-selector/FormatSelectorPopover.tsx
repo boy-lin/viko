@@ -1,0 +1,75 @@
+import React, { useMemo, useState } from "react";
+import { ChevronsUpDown } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { FileType } from "@/types/tasks";
+import { ConvertAudioTaskArgs, ConvertVideoTaskArgs } from "@/lib/bridge";
+
+import FormatSelectorContent from "./FormatSelectorContent";
+import { FormatSelectorProps } from "./types";
+
+export default function FormatSelectorPopover(props: FormatSelectorProps) {
+  const {
+    config,
+    formatRecents,
+    addToRecents,
+    onValueChange = () => {},
+    className,
+    applyConfigToAllTasks,
+  } = props;
+  const [open, setOpen] = useState(false);
+
+  const selectedFormat = useMemo(() => {
+    let label;
+    if (config.activeCategory === FileType.Video) {
+      const args = config.args as ConvertVideoTaskArgs;
+      label = `${args?.resolution ? `(${args?.resolution})` : "Auto"}`;
+    } else if (config.activeCategory === FileType.Audio) {
+      const _args = config.args as ConvertAudioTaskArgs;
+      label = "";
+    }
+    return {
+      extension: config.args.format,
+      label,
+    };
+  }, [config.args, config.activeCategory]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("w-[240px] justify-between", className)}
+        >
+          {selectedFormat ? (
+            <span className="flex items-center gap-2 truncate">
+              <span className="font-semibold">
+                {selectedFormat.extension?.toUpperCase()}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {selectedFormat.label}
+              </span>
+            </span>
+          ) : (
+            "Select format..."
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[680px] p-0" align="start">
+        <FormatSelectorContent
+          config={config}
+          formatRecents={formatRecents}
+          addToRecents={addToRecents}
+          onValueChange={onValueChange}
+          applyConfigToAllTasks={applyConfigToAllTasks}
+          onClose={() => setOpen(false)}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}

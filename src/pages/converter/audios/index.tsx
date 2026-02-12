@@ -9,23 +9,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { VIDEO_FORMATS } from "@/data/formats";
+import { AUDIO_FORMATS } from "@/data/formats";
+import { FileType } from "@/types/tasks";
 import { bridge } from "@/lib/bridge";
 
-import { useConverterStore } from "./store";
 import { ConverterFooter } from "./Footer";
 import ConvertingTask from "./Task";
 
-export default function ConvertionVideoPage() {
+export default function ConvertionImagePage() {
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 
   useEffect(() => {
     initSettings();
   }, [initSettings]);
-
-  console.log('ConvertionVideoPage')
-
 
   return (
     <Card className="h-full w-full py-0 gap-0 bg-transparent border-none shadow-none flex flex-col">
@@ -45,15 +42,12 @@ export default function ConvertionVideoPage() {
             <Button
               className="flex items-center gap-3"
               size="sm"
-              onClick={async () => {
-                const paths = await bridge.addFilesOrFolders({
-                  name: "Video",
-                  multiple: true,
-                  extensions: VIDEO_FORMATS,
-                  folder: true,
-                })
-                useConverterStore.getState().addTasksByPaths(paths)
-              }}
+              onClick={() => bridge.addFilesOrFolders({
+                name: "Audios",
+                multiple: true,
+                extensions: AUDIO_FORMATS,
+                folder: true,
+              })}
             >
               <UserPlus className="h-4 w-4" /> 添加文件
             </Button>

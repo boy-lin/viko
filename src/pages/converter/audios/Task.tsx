@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { FileType } from "@/types/tasks";
-import { VIDEO_FORMATS } from "@/data/formats";
+import { AUDIO_FORMATS } from "@/data/formats";
 import { MediaTaskType } from "@/types/tasks";
 
 import { UploadPanel } from "./UploadPanel";
@@ -15,20 +15,15 @@ export default function ConvertingTask({
   globalFilter = "",
 }: ConvertingTaskProps) {
   const { convertingTasks } = useConverterStore();
-  const globalConfig = useConverterStore((state) => state.globalConfig);
 
   const filteredTasks = useMemo(() => {
     const search = globalFilter?.trim().toLowerCase() || "";
     if (!search) return convertingTasks;
     return convertingTasks.filter((task) => {
       const fileName = task.mediaDetails?.title?.toLowerCase?.() || "";
-      return (
-        fileName.includes(search)
-      );
+      return fileName.includes(search);
     });
   }, [convertingTasks, globalFilter]);
-
-  console.log('ConvertingTask')
 
   return (
     <>
@@ -36,20 +31,12 @@ export default function ConvertingTask({
         {filteredTasks.length === 0 ? (
           <div className="border border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
             <UploadPanel
-              mediaType={MediaTaskType.ConvertVideo}
-              supportedExtensions={VIDEO_FORMATS}
+              mediaType={MediaTaskType.ConvertAudio}
+              supportedExtensions={AUDIO_FORMATS}
             />
           </div>
         ) : (
-          filteredTasks.map((task) => {
-            return (
-              <TaskItem
-                key={task.id}
-                task={task}
-                globalConfig={globalConfig}
-              />
-            );
-          })
+          filteredTasks.map((task) => <TaskItem key={task.id} task={task} />)
         )}
       </div>
     </>

@@ -11,6 +11,7 @@ import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect
 import { GlobalConverterConfig, useConverterStore } from "./store";
 import { getMediaTaskQueue } from "@/lib/bridge";
 import { useAppStore } from "@/stores/app";
+import { MediaTaskType } from "@/types/tasks";
 
 export const ConverterFooter: React.FC<{}> = () => {
   const globalConfig = useConverterStore((state) => state.globalConfig);
@@ -34,33 +35,28 @@ export const ConverterFooter: React.FC<{}> = () => {
     const handleEvent = (payload: any) => {
       // payload type is MediaTaskEvent but imported from bridge which might cause cycle if not careful, using any for now or import type
       if (payload.task_type !== "convert") return;
-      console.log("handleEvent", payload);
-      const { task_id, event_type, progress, output_path, output_size, error_message } = payload;
+      const { task_id, event_type, progress, error_message } = payload;
       const store = useConverterStore.getState();
 
-      // Check if this task belongs to video converter store
-      // We might want to check if task exists in convertingTasks
       const taskExists = store.convertingTasks.some(t => t.id === task_id);
       if (!taskExists && event_type !== 'complete') {
-        // If complete, it might have been moved? No, complete moves it.
         return;
       }
 
       if (event_type === "progress") {
         store.updateTaskById(task_id, {
+          status: "converting",
           progress: Math.min(100, Math.max(0, progress || 0)),
         });
       } else if (event_type === "complete") {
         store.updateTaskById(task_id, {
           status: "finished",
           progress: 100,
-          outputPath: output_path,
-          outputSize: output_size,
         });
         useAppStore.getState().incrementUnreadFinishedCount();
       } else if (event_type === "error") {
         store.updateTaskById(task_id, {
-          status: "error",
+          status: error_message === "Task cancelled" ? "cancelled" : "error",
           errorMessage: error_message,
         });
       }
@@ -71,13 +67,6 @@ export const ConverterFooter: React.FC<{}> = () => {
       unsubscribe();
     };
   }, []);
-
-  const handleFormatChange = (
-    config: GlobalConverterConfig
-  ) => {
-    console.log("updates", config);
-    updateGlobalConfig(config);
-  };
 
   const applyConfigToAllTasks = async (config: GlobalConverterConfig) => {
 
@@ -107,7 +96,10 @@ export const ConverterFooter: React.FC<{}> = () => {
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
       await clearConvertingTasks();
-      await getMediaTaskQueue().clearQueueByType();
+      await getMediaTaskQueue().clearQueueByType(
+        MediaTaskType.ConvertVideo,
+        true
+      );
     } else {
       // 有运行中的任务，打开确认弹窗
       setIsDeletePopoverOpen(true);
@@ -116,7 +108,7 @@ export const ConverterFooter: React.FC<{}> = () => {
 
   const handleConfirmDelete = async () => {
     // 清空队列
-    await getMediaTaskQueue().clearQueueByType();
+    await getMediaTaskQueue().clearQueueByType(undefined, true);
     // 清空转换中的任务
     await clearConvertingTasks();
     // 关闭弹窗
@@ -137,7 +129,7 @@ export const ConverterFooter: React.FC<{}> = () => {
               config={globalConfig}
               formatRecents={formatRecents}
               addToRecents={addToRecents}
-              onValueChange={handleFormatChange}
+              onValueChange={updateGlobalConfig}
               applyConfigToAllTasks={applyConfigToAllTasks}
             />
           </div>

@@ -319,6 +319,9 @@ pub fn convert_audio<E: TaskEmitter>(
     let mut frames_processed = 0u64;
 
     for (stream, mut pkt) in ictx.packets() {
+        if crate::task::cancel::is_cancelled() {
+            return Err("Task cancelled".to_string());
+        }
         if stream.index() != input_stream_index { continue; }
         pkt.rescale_ts(stream.time_base(), decoder.time_base());
 
@@ -397,6 +400,9 @@ pub fn convert_audio<E: TaskEmitter>(
                     )?;
                     frames_processed += 1;
                     if frames_processed % 50 == 0 && duration > 0.0 {
+                        if crate::task::cancel::is_cancelled() {
+                            return Err("Task cancelled".to_string());
+                        }
                         let progress =
                             (pts_counter as f64 / target_rate as f64) / duration * 100.0;
                         emitter.emit("progress", Some(progress.min(99.0)), None, None);
@@ -416,6 +422,9 @@ pub fn convert_audio<E: TaskEmitter>(
                 )?;
                 frames_processed += 1;
                 if frames_processed % 50 == 0 && duration > 0.0 {
+                    if crate::task::cancel::is_cancelled() {
+                        return Err("Task cancelled".to_string());
+                    }
                     let progress = (pts_counter as f64 / target_rate as f64) / duration * 100.0;
                     emitter.emit("progress", Some(progress.min(99.0)), None, None);
                 }

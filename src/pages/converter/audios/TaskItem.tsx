@@ -20,13 +20,11 @@ interface TaskItemProps {
     task: ConverterTask;
 }
 
-function buildTaskDefaultsFromMedia(mediaInfo: MediaDetails, task: ConverterTask) {
+function buildDefaultArgs(mediaInfo: MediaDetails, task: ConverterTask) {
     const outputDir = useSettingsStore.getState().getOutputDir(mediaInfo.path);
-    let format = FormatEnum.PNG;
-    if (mediaInfo.extension === FormatEnum.PNG) {
-        format = FormatEnum.PNG;
-    } else {
-        format = FormatEnum.JPG;
+    let format = FormatEnum.MP3;
+    if (mediaInfo.extension === FormatEnum.MP3) {
+        format = FormatEnum.WAV;
     }
     const containerDefinition = formatToDefinition.get(format);
     const outputArgs: any = {
@@ -71,7 +69,7 @@ export default function TaskItem({ task }: TaskItemProps) {
         bridge
             .getMediaDetails(inputPath)
             .then((mediaInfo) => {
-                const updates = buildTaskDefaultsFromMedia(mediaInfo, task);
+                const updates = buildDefaultArgs(mediaInfo, task);
                 updateTaskById(task.id, updates);
                 setLoadError(null);
             })

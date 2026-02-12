@@ -1,7 +1,7 @@
 import { useCallback } from "react";
-import { UploadDrag } from '@/components/ui-biz/UploadDrag'
 import { useConverterStore } from "./store";
 import { MediaTaskType } from "@/types/tasks";
+import { UploadDrag, UploadItem } from '@/components/ui-biz/UploadDrag'
 
 export function UploadPanel({
   supportedExtensions,

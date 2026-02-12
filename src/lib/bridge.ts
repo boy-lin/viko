@@ -6,7 +6,6 @@ import {
 } from "@/types/tasks";
 import { extractFilenameFromPath } from "./utils";
 import { MediaTaskType } from "@/types/tasks";
-import { supportedExtensions, SupportedFormats } from "@/data/formats";
 import { handleDirectoryToFiles } from "./file";
 
 export type DownloadProgress = {
@@ -33,7 +32,7 @@ export type BridgeEvents = {
   "video-frame": { width: number; height: number; data: number[] | Uint8Array };
   "video-complete": string;
   "video-error": string;
-  "media-task-event": MediaTaskEvent;
+  "media_task_event": MediaTaskEvent;
 };
 
 type KnownEvent = keyof BridgeEvents;
@@ -373,7 +372,7 @@ class Bridge {
       ],
     });
     if (!selected) return [];
-    const paths = Array.isArray(selected) ? selected : [selected];
+    const paths: string[] = Array.isArray(selected) ? selected : [selected];
     if (folder) {
       return this.getDirectoryToFiles(paths, extensions);
     }
@@ -385,7 +384,7 @@ export interface TaskHistoryItem {
   id: string;
   task_type: string;
   media_type: string;
-  status: "finished" | "error";
+  status: "finished" | "error" | "cancelled";
   input_path: string;
   output_path?: string;
   output_size?: number;
@@ -426,7 +425,7 @@ class MediaTaskQueue {
   async ensureEventListener(): Promise<void> {
     if (this.eventUnlisten !== null) return;
     this.eventUnlisten = await listen<MediaTaskEvent>(
-      "media-task-event",
+      "media_task_event",
       (e) => this.handleMediaTaskEvent(e.payload)
     );
   }
@@ -497,12 +496,17 @@ class MediaTaskQueue {
     return bridge.invoke<boolean>("media_task_has_running_by_type");
   }
 
-  async clearQueueByType(taskType?: MediaTaskType): Promise<void> {
-    if (taskType) {
-      await bridge.invoke("media_task_clear_by_type", { taskType });
-      return;
-    }
-    await bridge.invoke("media_task_clear_by_type");
+  async clearQueueByType(
+    taskType?: MediaTaskType,
+    stopRunning: boolean = false
+  ): Promise<void> {
+    const args: Record<string, unknown> = { stopRunning };
+    if (taskType) args.taskType = taskType;
+    await bridge.invoke("media_task_clear_by_type_with_stop", args);
+  }
+
+  async cancelTaskById(id: string): Promise<void> {
+    await bridge.invoke("media_task_cancel_task", { id });
   }
 
   on(listener: (event: MediaTaskEvent) => void): () => void {

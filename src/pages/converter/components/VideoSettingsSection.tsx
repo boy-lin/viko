@@ -1,106 +1,104 @@
-import React from "react";
+import { useState } from "react";
+import { VideoAdvanceSetting } from "./VideoAdvanceSetting";
+import { VideoSimpleSettings } from "./VideoSimpleSettings";
+import { ConvertVideoTaskArgs } from "@/lib/bridge";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
-import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
-import { VideoResolutionSelect } from "@/components/biz-form/VideoResolutionSelect";
-import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect";
-import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
-import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
-import { getVideoOptionsByEncoder, encoderToDefinition, formatToDefinition } from "@/data/capabilities";
-import { useTranslation } from "react-i18next";
-import { ConvertVideoTaskArgs } from "@/lib/bridge";
+import { formatToDefinition } from "@/data/capabilities";
 
-type VideoConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "video_encoder" | "video_bitrate" | "resolution" | "frame_rate">
-
-interface VideoSettingsSectionProps extends VideoConversionConfig {
-  onChange?: (config: Partial<VideoConversionConfig>) => void;
-  onReset?: () => void;
+interface SettingsModeToggleProps {
+  openAdvanced: boolean;
+  onToggle: (next: boolean) => void;
 }
 
-export const VideoSettingsSection: React.FC<VideoSettingsSectionProps> = ({
-  format,
-  video_encoder,
-  video_bitrate,
-  resolution,
-  frame_rate,
-  onChange,
+const SettingsModeToggle: React.FC<SettingsModeToggleProps> = ({
+  openAdvanced,
+  onToggle,
 }) => {
-  const { t } = useTranslation("converter");
-  if (!format || !video_encoder) {
-    console.log("format or encoder is not set", format, video_encoder);
-    return <div> format or encoder is not set </div>
-  }
-  const containerDefinition = formatToDefinition.get(format);
-  const definition = encoderToDefinition.get(video_encoder);
-  const videoOptions = getVideoOptionsByEncoder(video_encoder);
+  return (
+    <div className="flex items-center rounded-full border border-border bg-background text-xs font-medium overflow-hidden">
+      <button
+        type="button"
+        className={`cursor-pointer px-3 py-1 transition-colors ${!openAdvanced ? "bg-muted text-foreground" : "text-muted-foreground"
+          }`}
+        onClick={() => onToggle(false)}
+      >
+        简易设置
+      </button>
+      <button
+        type="button"
+        className={`cursor-pointer px-3 py-1 transition-colors ${openAdvanced ? "bg-muted text-foreground" : "text-muted-foreground"
+          }`}
+        onClick={() => onToggle(true)}
+      >
+        高级设置
+      </button>
+    </div>
+  );
+};
 
-  if (!containerDefinition || !definition || !videoOptions) {
-    console.log("format or encoder or videoOptions is not set", {
-      containerDefinition, definition, videoOptions, video_encoder
-    });
-    return <div> format or encoder is not set </div>
-  }
+export default function VideoSettingsSection({
+  config,
+  onChange,
+}: {
+  config: ConvertVideoTaskArgs;
+  onChange: (next: Partial<ConvertVideoTaskArgs>) => void;
+}) {
+  const { t } = useTranslation("converter");
+  const [openAdvanced, setOpenAdvanced] = useState(false);
+
 
   const onReset = () => {
     if (onChange) {
-      if (!containerDefinition?.video?.defaultEncoder) {
+      if (!config.format) {
+        console.error("No format found");
+        return;
+      }
+      const containerDefinition = formatToDefinition.get(config.format);
+      const video_encoder = containerDefinition?.video?.defaultEncoder;
+      if (!video_encoder) {
         console.error("No default encoder found for container", containerDefinition);
         return;
       }
       onChange({
-        video_encoder: containerDefinition?.video?.defaultEncoder,
-        video_bitrate: definition?.defaultBitrate,
-        resolution: definition?.defaultResolution,
-        frame_rate: definition?.defaultFrameRate.toString(),
+        video_encoder,
+        video_bitrate: undefined,
+        resolution: undefined,
+        frame_rate: undefined,
       });
     }
   };
 
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-bold text-lg">{t("settings.video.title")}</h3>
-        {onReset && (
-          <Button variant="ghost" size="icon" onClick={onReset}>
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-        <VideoEncoderSelect
-          value={video_encoder}
-          onValueChange={(v) => onChange?.({ video_encoder: v })}
-          allowedEncoders={containerDefinition.video?.allowedEncoders}
-        />
-
-        <VideoResolutionSelect
-          value={resolution}
-          onValueChange={(v) => onChange?.({ resolution: v })}
-          groups={videoOptions.resolutions}
-        />
-
-        <VideoFrameRateSelect
-          value={frame_rate}
-          onValueChange={(v) => onChange?.({ frame_rate: v })}
-          options={videoOptions.frameRates}
-        />
-
-        <VideoBitrateSelect
-          value={String(video_bitrate || "auto")}
-          onValueChange={(v) => onChange?.({ video_bitrate: parseInt(v) })}
-          options={videoOptions.bitrates}
-        />
-      </div>
-
-      <ColorSpaceSelect
-        value="auto"
-        onValueChange={() => { }}
-        options={videoOptions.colorSpaces}
+  return <>
+    <div className="p-3 border-b bg-muted/10 font-medium text-sm flex gap-2 items-center">
+      <h3 className="font-bold text-lg">{t("settings.video.title")}</h3>
+      <SettingsModeToggle
+        openAdvanced={openAdvanced}
+        onToggle={setOpenAdvanced}
       />
-
-      <div className="w-full h-px bg-border"></div>
+      <Button className="cursor-pointer" variant="ghost" size="icon" onClick={onReset}>
+        <RefreshCw className="w-4 h-4" />
+      </Button>
     </div>
-  );
-};
+    {/*  custom settings body */}
+    <div className="flex-1 overflow-hidden p-2">
+      {openAdvanced ? (
+        <VideoAdvanceSetting
+          format={config.format}
+          video_encoder={config.video_encoder}
+          resolution={config.resolution}
+          frame_rate={config.frame_rate}
+          video_bitrate={config.video_bitrate}
+          onChange={onChange}
+        />
+      ) : (
+        <VideoSimpleSettings
+          resolution={config.resolution}
+          video_bitrate={config.video_bitrate}
+          onChange={onChange}
+        />
+      )}
+    </div>
+  </>
+}

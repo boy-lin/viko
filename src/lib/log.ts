@@ -7,7 +7,7 @@ function forwardConsole(
   const original = console[fnName];
   console[fnName] = (...args) => {
     original(args);
-    logger(args.join("\n"));
+    // logger(args.join("\n"));
   };
 }
 

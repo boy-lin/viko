@@ -129,7 +129,7 @@ export default function MyFilesPage() {
       else setIsLoadingMore(true);
 
       const keyword = searchQuery.trim();
-      const pageSize = 20;
+      const pageSize = 10;
 
       // Only use DB pagination if sorting by Date
       if (sortBy === "date") {
@@ -374,14 +374,6 @@ export default function MyFilesPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-sm text-muted-foreground">加载中...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full bg-background">
       {/* 头部 */}
@@ -500,6 +492,9 @@ export default function MyFilesPage() {
 
       {/* 内容区域 */}
       <div className="flex-1 overflow-auto px-4 py-2">
+        {isLoading && <div className="flex items-center justify-center h-full">
+          <div className="text-sm text-muted-foreground">加载中...</div>
+        </div>}
         {filteredFiles.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-sm text-muted-foreground">暂无文件</div>

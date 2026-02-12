@@ -7,7 +7,7 @@ import {
   PopoverAnchor,
 } from "@/components/ui/popover";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
-import { useCompressorStore } from "@/stores/compressorStore";
+import { useCompressorStore } from "@/pages/compressor/store";
 import { CompressionSettingsDialog } from "./CompressionSettingsDialog";
 import { getMediaTaskQueue } from "@/lib/bridge";
 import { Slider } from "@/components/ui/slider";

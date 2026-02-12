@@ -18,6 +18,7 @@ use crate::services::convert::video::{self, VideoConversionParams};
 use crate::storage::media_queue;
 use crate::storage::task_history::{self, TaskHistoryItem};
 use crate::shared::get_millis;
+use crate::task::cancel;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(tag = "kind", content = "args")]
@@ -40,6 +41,7 @@ pub enum MediaTaskRequest {
 
 static TASK_RUNNING: AtomicBool = AtomicBool::new(false);
 static CURRENT_TASK_KIND: Mutex<Option<String>> = Mutex::new(None);
+static CURRENT_TASK_ID: Mutex<Option<String>> = Mutex::new(None);
 
 fn task_kind(task: &MediaTaskRequest) -> &'static str {
     match task {
@@ -50,6 +52,18 @@ fn task_kind(task: &MediaTaskRequest) -> &'static str {
         MediaTaskRequest::CompressVideo(_) => "compress-video",
         MediaTaskRequest::CompressAudio(_) => "compress-audio",
         MediaTaskRequest::CompressImage(_) => "compress-image",
+    }
+}
+
+fn task_id(task: &MediaTaskRequest) -> Option<String> {
+    match task {
+        MediaTaskRequest::ConvertAudio(args) => Some(args.task_id.clone()),
+        MediaTaskRequest::ConvertVideo(args) => Some(args.task_id.clone()),
+        MediaTaskRequest::ConvertGif(args) => Some(args.task_id.clone()),
+        MediaTaskRequest::ConvertImage(args) => Some(args.task_id.clone()),
+        MediaTaskRequest::CompressVideo(args) => Some(args.task_id.clone()),
+        MediaTaskRequest::CompressAudio(args) => Some(args.task_id.clone()),
+        MediaTaskRequest::CompressImage(args) => Some(args.task_id.clone()),
     }
 }
 
@@ -95,6 +109,24 @@ pub async fn has_running(task_type: Option<String>) -> bool {
 }
 
 pub async fn clear_pending(task_type: Option<String>) -> Result<usize, String> {
+    clear_pending_with_cancel(task_type, false).await
+}
+
+pub async fn clear_pending_with_cancel(
+    task_type: Option<String>,
+    stop_running: bool,
+) -> Result<usize, String> {
+    if stop_running {
+        if let Some(t_type) = task_type.as_ref() {
+            let current = CURRENT_TASK_KIND.lock().unwrap();
+            if current.as_deref() == Some(t_type.as_str()) {
+                cancel::request_cancel();
+            }
+        } else {
+            cancel::request_cancel();
+        }
+    }
+
     if let Some(task_type) = task_type {
         return media_queue::clear_by_type(&task_type).await.map_err(|e| e.to_string());
     }
@@ -102,6 +134,19 @@ pub async fn clear_pending(task_type: Option<String>) -> Result<usize, String> {
     let count = media_queue::count().await.map_err(|e| e.to_string())?;
     media_queue::clear().await.map_err(|e| e.to_string())?;
     Ok(count)
+}
+
+pub async fn cancel_task(task_id: String) -> Result<(), String> {
+    {
+        let current = CURRENT_TASK_ID.lock().unwrap();
+        if current.as_deref() == Some(task_id.as_str()) {
+            cancel::request_cancel();
+        }
+    }
+    media_queue::remove_by_task_id(&task_id)
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 fn start_worker(app: AppHandle) {
@@ -123,7 +168,10 @@ fn start_worker(app: AppHandle) {
             match task {
                 Some(task) => {
                     let kind = task_kind(&task).to_string();
+                    let id = task_id(&task);
                     *CURRENT_TASK_KIND.lock().unwrap() = Some(kind);
+                    *CURRENT_TASK_ID.lock().unwrap() = id;
+                    cancel::reset_cancel();
                     // Run execution in blocking thread to avoid stalling async runtime
                     let app_clone = app.clone();
                     // We spawn a blocking task to handle the actual processing
@@ -138,11 +186,15 @@ fn start_worker(app: AppHandle) {
                         log::error!("Worker thread join error: {}", e);
                     }
                     *CURRENT_TASK_KIND.lock().unwrap() = None;
+                    *CURRENT_TASK_ID.lock().unwrap() = None;
+                    cancel::reset_cancel();
                 }
                 None => {
                     println!("No task found, breaking loop");
                     TASK_RUNNING.store(false, Ordering::SeqCst);
                     *CURRENT_TASK_KIND.lock().unwrap() = None;
+                    *CURRENT_TASK_ID.lock().unwrap() = None;
+                    cancel::reset_cancel();
                     let count = media_queue::count().await.unwrap_or(0);
                     if count == 0 {
                         break;
@@ -550,7 +602,15 @@ fn record_history<T: Serialize + Send + Sync + 'static>(
         let finished_at = get_millis();
         let duration = finished_at - start_time;
         
-        let result_status = if error.is_some() { "error" } else { "finished" };
+        let result_status = if let Some(ref msg) = error {
+            if msg == "Task cancelled" {
+                "cancelled"
+            } else {
+                "error"
+            }
+        } else {
+            "finished"
+        };
         
         // Only try to read file size if successful and path exists
         let output_size = if error.is_none() {

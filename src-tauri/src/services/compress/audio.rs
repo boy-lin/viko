@@ -191,6 +191,9 @@ pub fn compress_audio_file<E: TaskEmitter>(
     let mut encoded = ffmpeg::Packet::empty();
 
     for (stream, packet) in ictx.packets() {
+        if crate::task::cancel::is_cancelled() {
+            return Err("Task cancelled".to_string());
+        }
         if stream.index() != stream_index {
             continue;
         }
@@ -263,6 +266,9 @@ pub fn compress_audio_file<E: TaskEmitter>(
             if duration > 0.0 {
                 let progress = (pts_counter as f64 / target_rate as f64) / duration * 100.0;
                 if (progress - last_progress).abs() >= 1.0 {
+                    if crate::task::cancel::is_cancelled() {
+                        return Err("Task cancelled".to_string());
+                    }
                     last_progress = progress;
                     emitter.emit("progress", Some(progress.min(99.0)), None, None);
                 }

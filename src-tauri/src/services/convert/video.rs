@@ -417,9 +417,31 @@ impl<E: TaskEmitter> Transcoder<E> {
         while self.decoder.receive_frame(&mut decoded).is_ok() {
             // 进度报告
             if let Some(pts) = decoded.pts() {
-                let current_time = pts as f64
-                    * self.decoder.time_base().0 as f64
-                    / self.decoder.time_base().1 as f64;
+                if crate::task::cancel::is_cancelled() {
+                    return Err("Task cancelled".to_string());
+                }
+                let decoder_tb = self.decoder.time_base();
+                if decoder_tb.0 == 0 || decoder_tb.1 == 0 {
+                    log::warn!(
+                        "convert_video invalid decoder time_base: {}/{}; fallback to input time_base {}/{}",
+                        decoder_tb.0,
+                        decoder_tb.1,
+                        self.input_time_base.0,
+                        self.input_time_base.1
+                    );
+                }
+                let (tb_num, tb_den) = if decoder_tb.0 > 0 && decoder_tb.1 > 0 {
+                    (decoder_tb.0 as f64, decoder_tb.1 as f64)
+                } else if self.input_time_base.0 > 0 && self.input_time_base.1 > 0 {
+                    (
+                        self.input_time_base.0 as f64,
+                        self.input_time_base.1 as f64,
+                    )
+                } else {
+                    (0.0, 1.0)
+                };
+                let current_time = pts as f64 * tb_num / tb_den;
+                log::debug!("convert_video progress tick: pts={:?} current_time={} duration={}", pts, current_time, self.duration);
                 if self.duration > 0.0 {
                     let progress = (current_time / self.duration * 100.0).min(100.0);
                     self.emitter.emit(
@@ -510,6 +532,7 @@ pub fn convert_video<E: TaskEmitter + Clone>(
 
     // 获取时长和起始时间
     let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
+    log::info!("convert_video duration: raw={} seconds={}", ictx.duration(), duration);
     // 由于 ictx.start_time() 可能不可用，遍历流获取最早的其实时间
     let start_time = ictx
         .streams()
@@ -613,6 +636,9 @@ pub fn convert_video<E: TaskEmitter + Clone>(
 
     // Process packets
     for (stream, mut packet) in ictx.packets() {
+        if crate::task::cancel::is_cancelled() {
+            return Err("Task cancelled".to_string());
+        }
         let ist_index = stream.index();
         if ist_index >= stream_mapping.len() {
             continue;
@@ -926,6 +952,9 @@ fn generate_black_video_frames(
 
         // 进度报告（每30帧或每秒更新一次）
         if frame_count % 30 == 0 || frame_num % (fps as i64) == 0 {
+            if crate::task::cancel::is_cancelled() {
+                return Err("Task cancelled".to_string());
+            }
             let progress = if duration > 0.0 {
                 let current_time = frame_num as f64 / fps;
                 ((current_time / duration) * 100.0).min(100.0)
@@ -958,4 +987,3 @@ fn generate_black_video_frames(
 
     Ok(())
 }
-

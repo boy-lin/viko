@@ -28,7 +28,7 @@ export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
 }) => {
   console.log("value", value);
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value || "auto"} onValueChange={onValueChange}>
       <SelectTrigger className={cn("w-full", className)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

@@ -5,25 +5,31 @@ import { Label } from "@/components/ui/label";
 import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConvertImageTaskArgs } from "@/lib/bridge";
+import { cn } from "@/lib/utils";
 
 type ImageConfig = Pick<ConvertImageTaskArgs, "format" | "image_encoder" | "resolution">
 
 interface ImageSettingsSectionProps extends ImageConfig {
-  onImageChange: (image: Partial<ImageConfig>) => void;
-  onReset?: () => void;
+  onChange: (config: Partial<ImageConfig>) => void;
+  className?: string;
 }
 
 export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
   format,
   image_encoder,
   resolution,
-  onImageChange,
-  onReset,
+  onChange,
+  className,
 }) => {
   const { t } = useTranslation("converter");
+  const onReset = () => {
+    onChange({
+      resolution: "auto",
+    });
+  };
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className={cn("flex-1 overflow-hidden p-2 space-y-4", className)}>
+      <div className="flex items-center justify-between border-b bg-muted/10">
         <h3 className="font-bold text-lg">{t("settings.image.title")}</h3>
         {onReset && (
           <Button variant="ghost" size="icon" onClick={onReset}>
@@ -39,7 +45,7 @@ export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
             type="text"
             value={resolution || "auto"}
             onChange={(e) =>
-              onImageChange({ resolution: e.target.value })
+              onChange({ resolution: e.target.value })
             }
             placeholder="auto"
           />

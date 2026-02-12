@@ -135,7 +135,7 @@ export enum FileType {
 
 export interface ConverterTask {
   id: string;
-  status: "idle" | "converting" | "finished" | "error";
+  status: "idle" | "converting" | "finished" | "error" | "cancelled";
   progress: number;
   args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs;
   mediaDetails?: MediaDetails;
@@ -148,7 +148,7 @@ export interface ConverterTask {
 
 export interface CompressingTask extends MediaDetails {
   id: string;
-  status: "idle" | "converting" | "finished" | "error";
+  status: "idle" | "converting" | "finished" | "error" | "cancelled";
   progress: number;
   fileType: FileType;
   outputPath?: string;
@@ -162,4 +162,3 @@ export interface CompressingTask extends MediaDetails {
   displayResolution: string;
   displaySize: string;
 }
-

@@ -35,7 +35,6 @@ interface VideoSimpleSettingsProps {
   resolution?: string;
   video_bitrate?: number;
   crf?: number;
-  // clarityMode might be needed if we want to persist it, but for now user only asked to remove internal state for values that are in config.
   onChange: (args: Partial<ConvertVideoTaskArgs>) => void;
 }
 

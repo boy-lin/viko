@@ -219,6 +219,9 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
                     converted = smooth;
                 }
 
+                if crate::task::cancel::is_cancelled() {
+                    return Err("Task cancelled".to_string());
+                }
                 converted.set_pts(Some(next_pts));
                 next_pts = next_pts.saturating_add(pts_step);
 

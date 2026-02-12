@@ -27,7 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { UploadPanel } from "./UploadPanel";
-import { useCompressorStore } from "@/stores/compressorStore";
+import { useCompressorStore } from "@/pages/compressor/store";
 import { ConverterTask } from "@/types/tasks";
 import { MediaThumbnail } from "../../components/MediaThumbnail";
 import { formatFileSize } from "@/lib/file";
@@ -160,6 +160,11 @@ export default function ConvertingTask({
             error: {
               label: "错误",
               className: "border-red-500 text-red-700 bg-red-50",
+              variant: "outline",
+            },
+            cancelled: {
+              label: "已取消",
+              className: "border-gray-500 text-gray-700 bg-gray-50",
               variant: "outline",
             },
           };

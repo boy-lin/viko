@@ -39,6 +39,9 @@ pub async fn convert_image_file(args: ImageConversionParams) -> Result<String, S
             .to_string_lossy()
             .to_string();
     }
+    if crate::task::cancel::is_cancelled() {
+        return Err("Task cancelled".to_string());
+    }
     // Run in a blocking task to avoid blocking the async runtime with heavy CPU operations
     tauri::async_runtime::spawn_blocking(move || {
         convert_image_file_impl(args)
@@ -87,10 +90,16 @@ fn convert_image_file_impl(args: ImageConversionParams) -> Result<String, String
 
 
     for (stream, packet) in ictx.packets() {
+        if crate::task::cancel::is_cancelled() {
+            return Err("Task cancelled".to_string());
+        }
         if stream.index() == stream_index {
             decoder.send_packet(&packet).map_err(|e| format!("Send packet failed: {}", e))?;
             let mut decoded = ffmpeg::frame::Video::empty();
             if decoder.receive_frame(&mut decoded).is_ok() {
+                if crate::task::cancel::is_cancelled() {
+                    return Err("Task cancelled".to_string());
+                }
                 // Got frame
                 let mut rgb_frame = ffmpeg::frame::Video::empty();
                 scaler.run(&decoded, &mut rgb_frame).map_err(|e| format!("Scaling failed: {}", e))?;

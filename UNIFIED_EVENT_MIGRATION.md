@@ -2,7 +2,7 @@
 
 ## 概述
 
-为了减少事件监听器的数量，我们将所有转码和压缩任务的 progress、complete、error 事件统一为一个 `media-task-event` 事件。
+为了减少事件监听器的数量，我们将所有转码和压缩任务的 progress、complete、error 事件统一为一个 `media_task_event` 事件。
 
 ## 前端改动（已完成）
 
@@ -22,7 +22,7 @@ export type MediaTaskEvent = {
 
 ### 前端使用方式
 
-前端现在只需要监听一个 `media-task-event` 事件，通过 `taskId` 过滤属于当前任务的事件。
+前端现在只需要监听一个 `media_task_event` 事件，通过 `taskId` 过滤属于当前任务的事件。
 
 ## 后端需要修改的地方
 
@@ -64,7 +64,7 @@ pub fn emit_media_task_event(
         output_path,
         error_message,
     };
-    let _ = window.emit("media-task-event", event);
+    let _ = window.emit("media_task_event", event);
 }
 ```
 

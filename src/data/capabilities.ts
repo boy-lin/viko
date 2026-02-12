@@ -22,19 +22,6 @@ export interface VideoEncoderOptions {
   colorSpaces: ColorSpaceOption[];
 }
 
-export interface EncoderDefinition {
-  id: EncoderEnum;
-  type: 'video' | 'audio' | 'image';
-  label: string;
-  // Intrinsic capabilities
-  maxResolution?: string; // "w x h"
-  maxFrameRate?: number;
-  supportedPixelFormats?: string[];
-  bitrateRange?: { min: number; max: number }; // kbps
-  // If specific options are restricted (e.g. only specific sample rates)
-  supportedSampleRates?: string[];
-  supportedChannels?: string[];
-}
 
 export interface ContainerDefinition {
   video?: {
@@ -53,7 +40,19 @@ export interface ContainerDefinition {
 }
 
 // ================= DATA: ENCODERS =================
-
+export interface EncoderDefinition {
+  id: EncoderEnum;
+  type: 'video' | 'audio' | 'image';
+  label: string;
+  // Intrinsic capabilities
+  maxResolution?: string; // "w x h"
+  maxFrameRate?: number;
+  supportedPixelFormats?: string[];
+  bitrateRange?: { min: number; max: number }; // kbps
+  // If specific options are restricted (e.g. only specific sample rates)
+  supportedSampleRates?: string[];
+  supportedChannels?: string[];
+}
 export const ENCODER_DEFINITIONS: Record<string, EncoderDefinition> = {
   // --- Video Encoders ---
   [EncoderEnum.H264]: {
@@ -151,7 +150,6 @@ export const ENCODER_DEFINITIONS: Record<string, EncoderDefinition> = {
 
 export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
   [FormatEnum.MP4]: {
-
     video: {
       allowedEncoders: [
         EncoderEnum.H264, EncoderEnum.H264_HARDWARE,
@@ -163,6 +161,23 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
     audio: {
       allowedEncoders: [EncoderEnum.AAC, EncoderEnum.MP3, EncoderEnum.AC3, EncoderEnum.OPUS],
       defaultEncoder: EncoderEnum.AAC,
+    }
+  },
+
+  [FormatEnum.MOV]: {
+    video: {
+      allowedEncoders: [
+        EncoderEnum.H264, EncoderEnum.H264_HARDWARE,
+        EncoderEnum.H265, EncoderEnum.HEVC_HARDWARE,
+        EncoderEnum.PRORES, EncoderEnum.PRORES_HARDWARE,
+        EncoderEnum.MJPEG, EncoderEnum.MPEG4
+      ],
+      defaultEncoder: EncoderEnum.H264,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.AAC, EncoderEnum.ALAC, EncoderEnum.PCM_S16LE],
+      defaultEncoder: EncoderEnum.AAC,
+      maxChannels: 2,
     }
   },
 
@@ -181,6 +196,18 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
     }
   },
 
+  [FormatEnum.WEBM]: {
+    video: {
+      allowedEncoders: [EncoderEnum.VP8, EncoderEnum.VP9, EncoderEnum.AV1],
+      defaultEncoder: EncoderEnum.VP9,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.OPUS, EncoderEnum.VORBIS],
+      defaultEncoder: EncoderEnum.OPUS,
+      maxChannels: 2,
+    }
+  },
+
   [FormatEnum.AVI]: {
     video: {
       allowedEncoders: [EncoderEnum.MPEG4, EncoderEnum.MJPEG, EncoderEnum.H264], // H264 in AVI is non-standard but possible
@@ -189,6 +216,54 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
     audio: {
       allowedEncoders: [EncoderEnum.MP3, EncoderEnum.PCM_S16LE, EncoderEnum.AC3],
       defaultEncoder: EncoderEnum.MP3,
+      maxChannels: 2,
+    }
+  },
+
+  [FormatEnum.FLV]: {
+    video: {
+      allowedEncoders: [EncoderEnum.H264, EncoderEnum.MPEG4],
+      defaultEncoder: EncoderEnum.H264,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.AAC, EncoderEnum.MP3],
+      defaultEncoder: EncoderEnum.AAC,
+      maxChannels: 2,
+    }
+  },
+
+  [FormatEnum.WMV]: {
+    video: {
+      allowedEncoders: [EncoderEnum.MPEG4, EncoderEnum.H264],
+      defaultEncoder: EncoderEnum.MPEG4,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.WMAV2, EncoderEnum.MP3],
+      defaultEncoder: EncoderEnum.WMAV2,
+      maxChannels: 2,
+    }
+  },
+
+  [FormatEnum.GP3]: {
+    video: {
+      allowedEncoders: [EncoderEnum.H264, EncoderEnum.H263, EncoderEnum.MPEG4],
+      defaultEncoder: EncoderEnum.H264,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.AAC, EncoderEnum.AMR_NB, EncoderEnum.AMR_WB],
+      defaultEncoder: EncoderEnum.AAC,
+      maxChannels: 2,
+    }
+  },
+
+  [FormatEnum.MPG]: {
+    video: {
+      allowedEncoders: [EncoderEnum.MPEG2VIDEO, EncoderEnum.MPEG4],
+      defaultEncoder: EncoderEnum.MPEG2VIDEO,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.MP2, EncoderEnum.AC3, EncoderEnum.MP3],
+      defaultEncoder: EncoderEnum.MP2,
       maxChannels: 2,
     }
   },
@@ -205,10 +280,120 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
     }
   },
 
+  [FormatEnum.OGV]: {
+    video: {
+      allowedEncoders: [EncoderEnum.THEORA],
+      defaultEncoder: EncoderEnum.THEORA,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.VORBIS, EncoderEnum.OPUS],
+      defaultEncoder: EncoderEnum.VORBIS,
+      maxChannels: 2,
+    }
+  },
+
   [FormatEnum.MP3]: {
     audio: {
       allowedEncoders: [EncoderEnum.MP3],
       defaultEncoder: EncoderEnum.MP3,
+      maxChannels: 2,
+    }
+  },
+
+  [FormatEnum.M4A]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.AAC, EncoderEnum.ALAC],
+      defaultEncoder: EncoderEnum.AAC,
+      maxChannels: 2,
+    }
+  },
+  [FormatEnum.M4B]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.AAC, EncoderEnum.ALAC],
+      defaultEncoder: EncoderEnum.AAC,
+      maxChannels: 2,
+    }
+  },
+  [FormatEnum.AAC]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.AAC],
+      defaultEncoder: EncoderEnum.AAC,
+      maxChannels: 2,
+    }
+  },
+  [FormatEnum.WAV]: {
+    audio: {
+      allowedEncoders: [
+        EncoderEnum.PCM_S16LE, EncoderEnum.PCM_S24LE, EncoderEnum.PCM_S32LE,
+        EncoderEnum.PCM_F32LE, EncoderEnum.PCM_F64LE
+      ],
+      defaultEncoder: EncoderEnum.PCM_S16LE,
+      maxChannels: 2,
+    }
+  },
+  [FormatEnum.AIFF]: {
+    audio: {
+      allowedEncoders: [
+        EncoderEnum.PCM_S16BE, EncoderEnum.PCM_S24BE, EncoderEnum.PCM_S32BE,
+        EncoderEnum.PCM_F32BE, EncoderEnum.PCM_F64BE
+      ],
+      defaultEncoder: EncoderEnum.PCM_S16BE,
+      maxChannels: 2,
+    }
+  },
+  [FormatEnum.FLAC]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.FLAC],
+      defaultEncoder: EncoderEnum.FLAC,
+      maxChannels: 2,
+    }
+  },
+  [FormatEnum.OGG]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.OPUS, EncoderEnum.VORBIS, EncoderEnum.FLAC],
+      defaultEncoder: EncoderEnum.OPUS,
+      maxChannels: 2,
+    }
+  },
+  [FormatEnum.AC3]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.AC3],
+      defaultEncoder: EncoderEnum.AC3,
+      maxChannels: 6,
+    }
+  },
+  [FormatEnum.EAC3]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.EAC3],
+      defaultEncoder: EncoderEnum.EAC3,
+      maxChannels: 6,
+    }
+  },
+  [FormatEnum.AMR]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.AMR_NB, EncoderEnum.AMR_WB],
+      defaultEncoder: EncoderEnum.AMR_NB,
+      maxChannels: 1,
+    }
+  },
+  [FormatEnum.MP2]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.MP2],
+      defaultEncoder: EncoderEnum.MP2,
+      maxChannels: 2,
+    }
+  },
+  [FormatEnum.APE]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.APE],
+      defaultEncoder: EncoderEnum.APE,
+      maxChannels: 2,
+    }
+  },
+  [FormatEnum.CAF]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.AAC, EncoderEnum.ALAC, EncoderEnum.PCM_S16LE],
+      defaultEncoder: EncoderEnum.AAC,
       maxChannels: 2,
     }
   },
@@ -225,6 +410,48 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
       defaultEncoder: EncoderEnum.JPEG,
     }
   },
+  [FormatEnum.WEBP]: {
+    image: {
+      allowedEncoders: [EncoderEnum.WEBP],
+      defaultEncoder: EncoderEnum.WEBP,
+    }
+  },
+  [FormatEnum.AVIF]: {
+    image: {
+      allowedEncoders: [EncoderEnum.AVIF],
+      defaultEncoder: EncoderEnum.AVIF,
+    }
+  },
+  [FormatEnum.GIF]: {
+    image: {
+      allowedEncoders: [EncoderEnum.GIF],
+      defaultEncoder: EncoderEnum.GIF,
+    }
+  },
+  [FormatEnum.HEIC]: {
+    image: {
+      allowedEncoders: [EncoderEnum.HEIC],
+      defaultEncoder: EncoderEnum.HEIC,
+    }
+  },
+  [FormatEnum.TIFF]: {
+    image: {
+      allowedEncoders: [EncoderEnum.TIFF],
+      defaultEncoder: EncoderEnum.TIFF,
+    }
+  },
+  [FormatEnum.BMP]: {
+    image: {
+      allowedEncoders: [EncoderEnum.BMP],
+      defaultEncoder: EncoderEnum.BMP,
+    }
+  },
+  [FormatEnum.ICO]: {
+    image: {
+      allowedEncoders: [EncoderEnum.ICO],
+      defaultEncoder: EncoderEnum.ICO,
+    }
+  },
 };
 
 export const formatToDefinition = new Map<string, ContainerDefinition>(Object.entries(CONTAINER_DEFINITIONS));
@@ -239,41 +466,203 @@ interface VideoEncoderDefinition {
   colorSpaces: ColorSpaceOption[];
 }
 
-export const encoderToDefinition = new Map<string, VideoEncoderDefinition>(Object.entries({
+export const videoEncoderToDefinition = new Map<string, VideoEncoderDefinition>(Object.entries({
   [EncoderEnum.H264]: {
-    maxResolution: "4096x2304", // 4K+
-    defaultResolution: "1920x1080", // 1080p
+    maxResolution: "4096x2304",
+    defaultResolution: "1920x1080",
     maxFrameRate: 60,
     defaultFrameRate: 30,
-    maxBitrate: 10000000, // 10 Mbps
-    defaultBitrate: 5000000, // 5 Mbps
+    maxBitrate: 50000, // kbps
+    defaultBitrate: 5000, // kbps
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.H264_HARDWARE]: {
+    maxResolution: "4096x2304",
+    defaultResolution: "1920x1080",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 50000,
+    defaultBitrate: 5000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.H264_NVENC]: {
+    maxResolution: "4096x2304",
+    defaultResolution: "1920x1080",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 80000,
+    defaultBitrate: 6000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.H264_QSV]: {
+    maxResolution: "4096x2304",
+    defaultResolution: "1920x1080",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 60000,
+    defaultBitrate: 5000,
     colorSpaces: COLOR_SPACES,
   },
   [EncoderEnum.H265]: {
-    maxResolution: "8192x4320", // 8K
-    defaultResolution: "1920x1080", // 1080p
+    maxResolution: "8192x4320",
+    defaultResolution: "1920x1080",
     maxFrameRate: 60,
     defaultFrameRate: 30,
-    maxBitrate: 10000000, // 10 Mbps
-    defaultBitrate: 5000000, // 5 Mbps
+    maxBitrate: 80000,
+    defaultBitrate: 8000,
     colorSpaces: COLOR_SPACES,
   },
   [EncoderEnum.HEVC_HARDWARE]: {
-    maxResolution: "8192x4320", // 8K
-    defaultResolution: "1920x1080", // 1080p
+    maxResolution: "8192x4320",
+    defaultResolution: "1920x1080",
     maxFrameRate: 60,
     defaultFrameRate: 30,
-    maxBitrate: 10000000, // 10 Mbps
-    defaultBitrate: 5000000, // 5 Mbps
+    maxBitrate: 80000,
+    defaultBitrate: 8000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.HEVC_NVENC]: {
+    maxResolution: "8192x4320",
+    defaultResolution: "1920x1080",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 100000,
+    defaultBitrate: 10000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.HEVC_QSV]: {
+    maxResolution: "8192x4320",
+    defaultResolution: "1920x1080",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 80000,
+    defaultBitrate: 8000,
     colorSpaces: COLOR_SPACES,
   },
   [EncoderEnum.AV1]: {
-    maxResolution: "8192x4320", // 8K
-    defaultResolution: "1920x1080", // 1080p
+    maxResolution: "7680x4320",
+    defaultResolution: "1920x1080",
     maxFrameRate: 60,
     defaultFrameRate: 30,
-    maxBitrate: 10000000, // 10 Mbps
-    defaultBitrate: 5000000, // 5 Mbps
+    maxBitrate: 50000,
+    defaultBitrate: 6000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.AV1_SVTAV1]: {
+    maxResolution: "7680x4320",
+    defaultResolution: "1920x1080",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 50000,
+    defaultBitrate: 6000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.AV1_RAV1E]: {
+    maxResolution: "7680x4320",
+    defaultResolution: "1920x1080",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 50000,
+    defaultBitrate: 6000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.VP8]: {
+    maxResolution: "1920x1080",
+    defaultResolution: "1280x720",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 10000,
+    defaultBitrate: 2500,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.VP9]: {
+    maxResolution: "7680x4320",
+    defaultResolution: "1920x1080",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 50000,
+    defaultBitrate: 6000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.PRORES]: {
+    maxResolution: "8192x4320",
+    defaultResolution: "1920x1080",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 200000,
+    defaultBitrate: 50000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.PRORES_HARDWARE]: {
+    maxResolution: "8192x4320",
+    defaultResolution: "1920x1080",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 200000,
+    defaultBitrate: 50000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.MPEG4]: {
+    maxResolution: "1920x1080",
+    defaultResolution: "1280x720",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 20000,
+    defaultBitrate: 4000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.MPEG2VIDEO]: {
+    maxResolution: "1920x1080",
+    defaultResolution: "1280x720",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 20000,
+    defaultBitrate: 6000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.MJPEG]: {
+    maxResolution: "1920x1080",
+    defaultResolution: "1280x720",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 50000,
+    defaultBitrate: 10000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.THEORA]: {
+    maxResolution: "1920x1080",
+    defaultResolution: "1280x720",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 8000,
+    defaultBitrate: 2000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.XVID]: {
+    maxResolution: "1920x1080",
+    defaultResolution: "1280x720",
+    maxFrameRate: 60,
+    defaultFrameRate: 30,
+    maxBitrate: 20000,
+    defaultBitrate: 4000,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.H263]: {
+    maxResolution: "1280x720",
+    defaultResolution: "640x480",
+    maxFrameRate: 30,
+    defaultFrameRate: 25,
+    maxBitrate: 2000,
+    defaultBitrate: 800,
+    colorSpaces: COLOR_SPACES,
+  },
+  [EncoderEnum.H261]: {
+    maxResolution: "352x288",
+    defaultResolution: "352x288",
+    maxFrameRate: 30,
+    defaultFrameRate: 25,
+    maxBitrate: 1000,
+    defaultBitrate: 256,
     colorSpaces: COLOR_SPACES,
   },
 }));
@@ -312,15 +701,6 @@ export function getValidAudioEncoders(group: string): EncoderEnum[] {
     return caps.audio.allowedEncoders;
   }
   return [EncoderEnum.AAC, EncoderEnum.MP3];
-}
-
-function parseRes(res: string) {
-  const [w, h] = res.split('x').map(Number);
-  return w * h;
-}
-
-function compareRes(res1: string, res2: string) {
-  return parseRes(res1) - parseRes(res2);
 }
 
 export function getDefaultVideoEncoder(group: string): EncoderEnum {
@@ -396,7 +776,7 @@ export function getVideoOptionsByEncoder(encoderId?: string): VideoEncoderOption
   };
 
   if (!encoderId) return defaults;
-  const def = encoderToDefinition.get(encoderId);
+  const def = videoEncoderToDefinition.get(encoderId);
   if (!def) return defaults;
 
   // Filter color spaces

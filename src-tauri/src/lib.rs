@@ -89,6 +89,8 @@ pub fn run() {
             crate::commands::media_task_submit,
             crate::commands::media_task_has_running_by_type,
             crate::commands::media_task_clear_by_type,
+            crate::commands::media_task_clear_by_type_with_stop,
+            crate::commands::media_task_cancel_task,
             crate::commands::run_self_check,
             crate::commands::video_player_open,
             crate::commands::video_player_play,

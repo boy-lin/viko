@@ -192,6 +192,9 @@ impl<E: TaskEmitter> VideoProcessor<E> {
 
         let mut decoded = frame::Video::empty();
         while self.decoder.receive_frame(&mut decoded).is_ok() {
+            if crate::task::cancel::is_cancelled() {
+                return Err("Task cancelled".to_string());
+            }
             let mut scaled = frame::Video::empty();
             self.scaler
                 .run(&decoded, &mut scaled)
@@ -213,6 +216,9 @@ impl<E: TaskEmitter> VideoProcessor<E> {
 
     fn emit_progress(&mut self, pts: Option<i64>) {
         if self.frame_count % 30 == 0 || self.start_time.elapsed().as_secs_f64() >= 1.0 {
+            if crate::task::cancel::is_cancelled() {
+                return;
+            }
             let progress = if self.duration > 0.0 {
                 let current_time = pts.unwrap_or(0) as f64
                     * self.decoder.time_base().0 as f64
@@ -576,6 +582,9 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
         .map_err(|e| format!("Head Write Error: {}", e))?;
 
     for (stream, packet) in ictx.packets() {
+        if crate::task::cancel::is_cancelled() {
+            return Err("Task cancelled".to_string());
+        }
         if stream.index() == video_idx {
             video_proc.process_packet(&packet, &mut octx)?;
         } else if let Some(audio) = audio_proc.as_mut() {
