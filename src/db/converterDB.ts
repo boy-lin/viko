@@ -112,18 +112,6 @@ class ConverterDB {
     return db.get(SETTINGS_STORE, key);
   }
 
-  // My Files 表操作
-  async addToMyFiles(task: ConverterTask & { createdAt?: number; taskType?: "convert" | "compress"; isFavorite?: boolean }) {
-    const db = await this.dbPromise;
-    const fileRecord = {
-      ...task,
-      createdAt: task.createdAt || Date.now(),
-      taskType: task.taskType || "convert",
-      isFavorite: task.isFavorite || false,
-    };
-    return db.put(MY_FILES_STORE, fileRecord);
-  }
-
   async getAllMyFiles() {
     const db = await this.dbPromise;
     return db.getAll(MY_FILES_STORE);

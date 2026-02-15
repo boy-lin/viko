@@ -1,5 +1,4 @@
 ﻿import { useMemo } from "react";
-import { FileType } from "@/types/tasks";
 import { AUDIO_FORMATS } from "@/data/formats";
 import { MediaTaskType } from "@/types/tasks";
 

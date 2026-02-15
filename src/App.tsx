@@ -3,7 +3,9 @@ import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import RootLayout from "./layout/RootPage";
 import HomePage from "./pages/home";
 import TaskListPage from "./pages/tasks/TaskListPage";
-import CompressorPage from "./pages/compressor";
+import CompressorVideoPage from "./pages/compressor/videos";
+import CompressorAudioPage from "./pages/compressor/audios";
+import CompressorImagePage from "./pages/compressor/images";
 import ConverterVideoPage from "./pages/converter/videos";
 import ConverterAudioPage from "./pages/converter/audios";
 import ConverterImagePage from "./pages/converter/images";
@@ -29,7 +31,13 @@ const router = createBrowserRouter([
         element: <RootLayout />,
         children: [
           { index: true, element: <HomePage /> },
-          { path: "compressor", element: <CompressorPage /> },
+          {
+            path: "compressor", element: <Outlet />, children: [
+              { path: "videos", element: <CompressorVideoPage /> },
+              { path: "audios", element: <CompressorAudioPage /> },
+              { path: "images", element: <CompressorImagePage /> },
+            ]
+          },
           {
             path: "converter", element: <Outlet />, children: [
               { path: "videos", element: <ConverterVideoPage /> },

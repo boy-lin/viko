@@ -1,6 +1,4 @@
 import React from "react";
-import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -30,23 +28,17 @@ export const VideoFrameRateSelect: React.FC<VideoFrameRateSelectProps> = ({
   ];
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-muted-foreground">Frame Rate :</Label>
-        <Info className="w-4 h-4 text-muted-foreground" />
-      </div>
-      <Select value={value ?? "auto"} onValueChange={onValueChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Select frame rate" />
-        </SelectTrigger>
-        <SelectContent>
-          {frameRateOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={value ?? "auto"} onValueChange={onValueChange}>
+      <SelectTrigger>
+        <SelectValue placeholder="Select frame rate" />
+      </SelectTrigger>
+      <SelectContent>
+        {frameRateOptions.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };

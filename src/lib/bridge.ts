@@ -2,6 +2,7 @@ import { emit, listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  FileType,
   MediaDetails,
 } from "@/types/tasks";
 import { extractFilenameFromPath } from "./utils";
@@ -26,9 +27,6 @@ export type MediaTaskEvent = {
 };
 
 export type BridgeEvents = {
-  "ffmpeg-progress": string;
-  "ffmpeg-complete": string;
-  "ffmpeg-download-progress": DownloadProgress;
   "video-frame": { width: number; height: number; data: number[] | Uint8Array };
   "video-complete": string;
   "video-error": string;
@@ -152,7 +150,6 @@ export interface ConvertImageTaskArgs {
 }
 
 export interface CompressVideoTaskArgs {
-
   task_id: string;
   input_path: string;
   format: string;
@@ -160,6 +157,31 @@ export interface CompressVideoTaskArgs {
   resolution: string;
   video_bitrate: number;
   frame_rate: number;
+  /** 扩展待同步到rust */
+  output_path?: string;
+  keyframe_interval?: number;
+  color_depth?: number;
+  remove_audio?: boolean;
+  audio_bitrate?: number;
+  preset?: string;
+  use_hardware_acceleration?: boolean;
+  ratio: number;// only display 0-100，表示压缩到原文件的百分比
+}
+// 压缩配置类型
+export interface VideoCompressionConfig {
+  compressionRatio: number; // 0-100，表示压缩到原文件的百分比
+  format?: string;
+  width?: number;
+  height?: number;
+  bitrate?: number; // kbps
+  frameRate?: number;
+  codec?: string;
+  keyframeInterval?: number;
+  colorDepth?: number;
+  removeAudio?: boolean;
+  audioBitrate?: number; // kbps
+  preset?: string;
+  useHardwareAcceleration?: boolean;
 }
 
 export interface CompressAudioTaskArgs {
@@ -167,16 +189,64 @@ export interface CompressAudioTaskArgs {
   input_path: string;
   format: string;
   audio_encoder: string;
+  /** 扩展待同步到rust */
+  ratio: number
+  sample_rate?: number
+  bitrate?: number
+  remove_silence?: boolean;
+  volume_gain?: number;
+  silence_threshold?: number;
+  channels?: number;
+  bit_depth?: number;
+  output_path: string
+}
+export interface AudioCompressionConfig {
+  type: "audio";
+  compressionRatio: number; // 0-100
+  format?: string;
+  sampleRate?: number;
+  bitrate?: number; // kbps
+  codec?: string;
+  channels?: number;
+  bitDepth?: number;
+  removeSilence?: boolean;
+  silenceThreshold?: number;
+  volumeGain?: number;
 }
 
-interface CompressImageTaskArgs {
+export interface CompressImageTaskArgs {
   task_id: string;
   input_path: string;
   format: string;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
   quality: number;
+  /** 扩展待同步到rust */
+  output_path?: string;
+  color_mode?: string;
+  strip_metadata?: boolean;
+  keep_transparency?: boolean;
+  dpi?: number;
+  crop_whitespace?: boolean;
 }
+
+export interface ImageCompressionConfig {
+  type: "image";
+  quality: number; // 0-100，质量百分比
+  format?: string;
+  width?: number;
+  height?: number;
+  colorMode?: string;
+  stripMetadata?: boolean;
+  keepTransparency?: boolean;
+  dpi?: number;
+  cropWhitespace?: boolean;
+}
+
+
+export type CompressionConfig = VideoCompressionConfig
+  | AudioCompressionConfig
+  | ImageCompressionConfig;
 
 export interface ConvertAudioTaskArgs {
   task_id: string;
@@ -191,9 +261,10 @@ type ConvertTaskRequest = {
 }
 
 
-type CompressVideoTaskRequest = { kind: MediaTaskType.CompressVideo; args: CompressVideoTaskArgs };
-type CompressAudioTaskRequest = { kind: MediaTaskType.CompressAudio; args: CompressAudioTaskArgs };
-type CompressImageTaskRequest = { kind: MediaTaskType.CompressImage; args: CompressImageTaskArgs };
+type CompressTaskRequest = {
+  kind: MediaTaskType;
+  args: CompressVideoTaskArgs | CompressAudioTaskArgs | CompressImageTaskArgs
+};
 
 class Bridge {
   private static instance: Bridge | null = null;
@@ -383,7 +454,7 @@ class Bridge {
 export interface TaskHistoryItem {
   id: string;
   task_type: string;
-  media_type: string;
+  media_type: FileType;
   status: "finished" | "error" | "cancelled";
   input_path: string;
   output_path?: string;
@@ -446,12 +517,12 @@ class MediaTaskQueue {
     });
 
     this.ensureEventListener();
-    console.log("Adding convert tasks", tasks);
+    console.log("Adding convert tasks", JSON.stringify(tasks));
     await bridge.invoke("media_task_submit", { tasks, priority });
   }
 
-  async addCompressVideoTasks(
-    tasks: CompressVideoTaskRequest[],
+  async addCompressTasks(
+    tasks: CompressTaskRequest[],
     priority: TaskPriority = "normal"
   ): Promise<void> {
     tasks.forEach(task => {
@@ -460,32 +531,7 @@ class MediaTaskQueue {
       }
     });
     this.ensureEventListener();
-    await bridge.invoke("media_task_submit", { tasks, priority });
-  }
-
-  async addCompressAudioTasks(
-    tasks: CompressAudioTaskRequest[],
-    priority: TaskPriority = "normal"
-  ): Promise<void> {
-    tasks.forEach(task => {
-      if (task.args && task.args.task_id) {
-        this.pendingTaskIds.add(task.args.task_id);
-      }
-    });
-    this.ensureEventListener();
-    await bridge.invoke("media_task_submit", { tasks, priority });
-  }
-
-  async addCompressImageTasks(
-    tasks: CompressImageTaskRequest[],
-    priority: TaskPriority = "normal"
-  ): Promise<void> {
-    tasks.forEach(task => {
-      if (task.args && task.args.task_id) {
-        this.pendingTaskIds.add(task.args.task_id);
-      }
-    });
-    this.ensureEventListener();
+    console.log("Adding compress tasks", tasks);
     await bridge.invoke("media_task_submit", { tasks, priority });
   }
 
@@ -532,6 +578,7 @@ class MediaTaskQueue {
   }
 
   private handleMediaTaskEvent(payload: MediaTaskEvent): void {
+    // console.log("Media task event", !this.pendingTaskIds.has(payload.task_id), payload);
     if (!this.pendingTaskIds.has(payload.task_id)) return;
 
     // Notify all listeners

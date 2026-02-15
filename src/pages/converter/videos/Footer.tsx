@@ -45,7 +45,7 @@ export const ConverterFooter: React.FC<{}> = () => {
 
       if (event_type === "progress") {
         store.updateTaskById(task_id, {
-          status: "converting",
+          status: "processing",
           progress: Math.min(100, Math.max(0, progress || 0)),
         });
       } else if (event_type === "complete") {
@@ -71,6 +71,7 @@ export const ConverterFooter: React.FC<{}> = () => {
   const applyConfigToAllTasks = async (config: GlobalConverterConfig) => {
 
     const pendingTasks = convertingTasks;
+    console.log('pendingTasks config', config)
     // 为每个任务设置 config（浅拷贝 globalConfig）
     for (const task of pendingTasks) {
       updateTaskById(task.id, {
@@ -125,7 +126,7 @@ export const ConverterFooter: React.FC<{}> = () => {
           </span>
           <div className="flex items-center gap-2">
             <FormatSelector
-              className="w-[14em]"
+              className=""
               config={globalConfig}
               formatRecents={formatRecents}
               addToRecents={addToRecents}

@@ -1,6 +1,4 @@
 import React from "react";
-import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -25,7 +23,7 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
   const bitrateOptions = options ?? VIDEO_BITRATES;
   return (
     <Select value={value ?? "auto"} onValueChange={onValueChange}>
-      <SelectTrigger>
+      <SelectTrigger className="cursor-pointer">
         <SelectValue placeholder="Select bitrate" />
       </SelectTrigger>
       <SelectContent>

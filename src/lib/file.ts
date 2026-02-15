@@ -1,11 +1,14 @@
 import { readDir, stat } from "@tauri-apps/plugin-fs";
 
 // 文件相关工具函数
-export function formatFileSize(size: number): string {
-  if (size < 1024) return `${size} B`; // Cursor Write It
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`; // Cursor Write It
-  if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`; // Cursor Write It
-  return `${(size / 1024 / 1024 / 1024).toFixed(2)} GB`; // Cursor Write It
+export function formatFileSize(size?: number): string {
+  if (!size) return "0 B";
+  if (size === 0) return "0 B";
+
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
+  if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`;
+  return `${(size / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
 /**

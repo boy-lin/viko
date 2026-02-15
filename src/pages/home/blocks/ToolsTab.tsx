@@ -2,7 +2,6 @@ import { Search, Flame, Check, Clock } from "lucide-react"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { NewFeatures } from './NewFeatures'
-import { RecentFilesList } from "./RecentFilesList"
 import { useTranslation } from "react-i18next"
 import { CommonFeatures } from "./CommonFeatures"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -35,8 +34,6 @@ export function ToolsTab() {
         return <NewFeatures />
       case 'common':
         return <CommonFeatures />
-      case 'recent':
-        return <RecentFilesList />
       default:
         return <div className="grid grid-cols-3 gap-4 lg:grid-cols-4">
           <EmptyState />

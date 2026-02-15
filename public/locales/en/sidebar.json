@@ -12,8 +12,9 @@
     "converter_images": "Image Converter",
     "watermark": "Watermark Generator",
     "metadata": "Metadata Editor",
-    "compressor": "Compressor"
-  
+    "compressor_videos": "Video Compressor",
+    "compressor_audios": "Audio Compressor",
+    "compressor_images": "Image Compressor"
   },
   "pin": "Pin to top",
   "unpin": "Unpin",

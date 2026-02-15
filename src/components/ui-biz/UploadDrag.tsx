@@ -8,7 +8,6 @@ import {
   isVideoFormat,
 } from "@/data/formats";
 import { useDragDrop } from "@/lib/drag";
-import { MediaDetails, MediaTaskType } from "@/types/tasks";
 import { bridge } from "@/lib/bridge";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -34,11 +33,9 @@ export const getFileKind = (extension?: string): UploadKind => {
 
 export function UploadDrag({
   supportedExtensions,
-  mediaType,
   onUploadComplete
 }: {
   supportedExtensions: string[];
-  mediaType: MediaTaskType;
   onUploadComplete: (uploads: string[]) => void,
 }) {
   const [pending, setPending] = useState(false);

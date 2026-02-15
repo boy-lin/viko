@@ -86,19 +86,19 @@ export default function TaskItem({ task }: TaskItemProps) {
 
     const statusLabel = useMemo(() => {
         const errorMessage = (task as any).errorMessage || (task as any).error;
-    const map = {
-      idle: { text: t("status.idle", "等待中"), color: "text-gray-600", badge: "bg-gray-100" },
-      converting: { text: t("status.converting", "转换中"), color: "text-blue-600", badge: "bg-blue-100" },
-      finished: { text: t("status.finished", "已完成"), color: "text-green-600", badge: "bg-green-100" },
-      error: { text: t("status.error", "错误"), color: "text-red-600", badge: "bg-red-100" },
-      cancelled: { text: t("status.cancelled", "已取消"), color: "text-gray-600", badge: "bg-gray-100" },
-    } as const;
+        const map = {
+            idle: { text: t("status.idle", "等待中"), color: "text-gray-600", badge: "bg-gray-100" },
+            processing: { text: t("status.processing", "转换中"), color: "text-blue-600", badge: "bg-blue-100" },
+            finished: { text: t("status.finished", "已完成"), color: "text-green-600", badge: "bg-green-100" },
+            error: { text: t("status.error", "错误"), color: "text-red-600", badge: "bg-red-100" },
+            cancelled: { text: t("status.cancelled", "已取消"), color: "text-gray-600", badge: "bg-gray-100" },
+        } as const;
         const cfg = map[task.status] || map.idle;
 
         return (
             <div className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${cfg.badge} ${cfg.color}`}>
                 <span>{cfg.text}</span>
-                {task.status === "converting" && task.progress !== undefined && (
+                {task.status === "processing" && task.progress !== undefined && (
                     <span>{task.progress.toFixed(0)}%</span>
                 )}
                 {task.status === "error" && errorMessage && (

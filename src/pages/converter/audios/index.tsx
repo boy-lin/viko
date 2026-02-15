@@ -10,11 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { AUDIO_FORMATS } from "@/data/formats";
-import { FileType } from "@/types/tasks";
 import { bridge } from "@/lib/bridge";
 
 import { ConverterFooter } from "./Footer";
 import ConvertingTask from "./Task";
+import { useConverterStore } from "./store";
 
 export default function ConvertionImagePage() {
   const { init: initSettings } = useSettingsStore();
@@ -27,8 +27,7 @@ export default function ConvertionImagePage() {
   return (
     <Card className="h-full w-full py-0 gap-0 bg-transparent border-none shadow-none flex flex-col">
       <CardHeader className="rounded-none px-0 flex-shrink-0">
-        <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-          <div className="text-sm font-medium text-muted-foreground">待处理</div>
+        <div className="flex flex-col items-center gap-4 md:flex-row">
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -42,12 +41,15 @@ export default function ConvertionImagePage() {
             <Button
               className="flex items-center gap-3"
               size="sm"
-              onClick={() => bridge.addFilesOrFolders({
-                name: "Audios",
-                multiple: true,
-                extensions: AUDIO_FORMATS,
-                folder: true,
-              })}
+              onClick={async () => {
+                const paths = await bridge.addFilesOrFolders({
+                  name: "Audios",
+                  multiple: true,
+                  extensions: AUDIO_FORMATS,
+                  folder: true,
+                })
+                useConverterStore.getState().addTasksByPaths(paths)
+              }}
             >
               <UserPlus className="h-4 w-4" /> 添加文件
             </Button>

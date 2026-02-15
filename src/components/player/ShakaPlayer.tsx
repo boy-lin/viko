@@ -354,6 +354,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
     }
   }, [isFullscreen]);
 
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -533,6 +534,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
+                    disabled
                     className="bg-transparent hover:bg-background/20 text-background hover:text-background  ml-auto h-9 px-2"
                   >
                     {playbackRate}x
@@ -560,7 +562,8 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="bg-transparent hover:bg-background/20 text-background p-0 h-9 w-9 hover:text-background "
+                    disabled
+                    className=" bg-transparent hover:bg-background/20 text-background p-0 h-9 w-9 hover:text-background "
                     aria-label="设置"
                   >
                     <SettingsIcon className="w-5 h-5" />
@@ -583,6 +586,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
               <Button
                 variant="ghost"
                 size="icon"
+                disabled
                 className="bg-transparent hover:bg-background/20 text-background p-0 h-9 w-9 hover:text-background "
                 onClick={handleFullscreen}
                 aria-label={isFullscreen ? "退出全屏" : "全屏"}

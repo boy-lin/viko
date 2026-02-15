@@ -19,6 +19,8 @@ import { ConvertVideoTaskArgs } from "@/lib/bridge";
 import { VideoResolutionSelect } from "@/components/biz-form/VideoResolutionSelect";
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { VideoQualitySelect } from "@/components/biz-form/VideoQualitySelect";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 // Derived state from resolution prop
 const normalizeResolution = (value: string) => value.replace("×", "x");
@@ -63,13 +65,9 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
   const [activeDeviceGroup, setActiveDeviceGroup] = useState(RESOLUTION_GROUPS_DEVICES[0]?.id || "");
   const [activePlatformGroup, setActivePlatformGroup] = useState(RESOLUTION_GROUPS_PLATFORMS[0]?.id || "");
 
+  const [resolutionMode, setResolutionMode] = useState("preset");
+
   const applyResolution = (value: string) => {
-    if (value === "custom_16_9") {
-      setRatioLocked(true);
-      // Don't update config yet, just lock ratio and maybe reset to default aspect if needed? 
-      // Or maybe keep current W/H?
-      return;
-    }
     onChange({ resolution: value });
   };
 
@@ -78,7 +76,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
     if (ratioLocked) {
       nextH = Math.max(1, Math.round(next / resolutionInfo.ratio));
     }
-    onChange({ resolution: `${next}x${nextH}` });
+    onChange({ resolution: `${next}x${nextH}`, });
   };
 
   const handleHeightChange = (next: number) => {
@@ -104,7 +102,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">清晰度</span>
           <Select value={clarityMode} onValueChange={setClarityMode}>
-            <SelectTrigger className="h-10 rounded-lg bg-muted/30 border-muted-foreground/10">
+            <SelectTrigger className="cursor-pointer h-9 rounded-lg bg-muted/30 border-muted-foreground/10">
               <SelectValue placeholder="按码率区分" />
             </SelectTrigger>
             <SelectContent>
@@ -146,24 +144,74 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">分辨率</span>
           <div>
-            <VideoResolutionSelect
-              value={resolution}
-              onValueChange={applyResolution}
-              className="h-10 rounded-lg bg-muted/30 border-muted-foreground/10"
-              placeholder="自动"
-            />
+            <RadioGroup className="flex" value={resolutionMode} onValueChange={(val) => {
+              setResolutionMode(val)
+              if (val === "custom_size") {
+                onChange({ resolution: "1920x1080" });
+              }
+            }}>
+              {
+                [
+                  { value: "preset", label: "预设" },
+                  { value: "custom_size", label: "自定义" },
+                ].map((opt) => (
+                  <Label className="flex items-center gap-3 cursor-pointer" htmlFor={opt.value}>
+                    <RadioGroupItem className="cursor-pointer" value={opt.value} id={opt.value} />
+                    <span>{opt.label}</span>
+                  </Label>
+                ))
+              }
+            </RadioGroup>
+
           </div>
         </div>
+        {resolutionMode === "custom_size" ? (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">宽</span>
+            <CorrectNumberInput
+              value={resolutionInfo.width}
+              onChange={handleWidthChange}
+              className="w-24"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="cursor-pointer h-9 w-9 rounded-lg bg-muted/30"
+              onClick={() => {
+                setRatioLocked((v) => !v);
+              }}
+            >
+              <Link2
+                className={cn(
+                  "h-4 w-4",
+                  ratioLocked ? "text-primary" : "text-muted-foreground"
+                )}
+              />
+            </Button>
+            <CorrectNumberInput
+              value={resolutionInfo.height}
+              onChange={handleHeightChange}
+              className="w-24"
+            />
+            <span className="text-sm text-muted-foreground">高</span>
+          </div>
+        ) : <VideoResolutionSelect
+          value={resolution}
+          onValueChange={applyResolution}
+          className="h-9 rounded-lg bg-muted/30 border-muted-foreground/10"
+          placeholder="自动"
+        />}
         <div className="flex items-center gap-3">
           <Button
-            className="rounded-lg px-5 text-xs"
+            className="cursor-pointer rounded-lg px-5 text-xs"
             variant="default"
             onClick={() => setDeviceDialogOpen(true)}
           >
             根据设备设置
           </Button>
           <Button
-            className="rounded-lg px-5 text-xs"
+            className="cursor-pointer rounded-lg px-5 text-xs"
             variant="default"
             onClick={() => setPlatformDialogOpen(true)}
           >
@@ -172,41 +220,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
         </div>
       </div>
 
-      {!resolutionInfo.hideCustom && (
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">宽</span>
-          <CorrectNumberInput
-            value={resolutionInfo.width}
-            onChange={handleWidthChange}
-            className="w-24"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 rounded-lg bg-muted/30"
-            onClick={() => {
-              // Locking logic: just toggle. The ratio constant is purely derived now?
-              // Wait, if I lock, I need to know the *current* ratio to maintan. 
-              // The memo calculates ratio from resolution.
-              setRatioLocked((v) => !v);
-            }}
-          >
-            <Link2
-              className={cn(
-                "h-4 w-4",
-                ratioLocked ? "text-primary" : "text-muted-foreground"
-              )}
-            />
-          </Button>
-          <CorrectNumberInput
-            value={resolutionInfo.height}
-            onChange={handleHeightChange}
-            className="w-24"
-          />
-          <span className="text-sm text-muted-foreground">高</span>
-        </div>
-      )}
+
 
       <Dialog open={deviceDialogOpen} onOpenChange={setDeviceDialogOpen}>
         <DialogContent className="sm:max-w-[72vw] p-0 overflow-hidden">

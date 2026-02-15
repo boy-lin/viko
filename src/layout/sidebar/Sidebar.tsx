@@ -109,11 +109,25 @@ const QUICK_ACCESS_CONFIG: QuickAccessItem[] = [
     href: MenuItems.metadata,
   },
   {
-    label: "quick.compressor",
+    label: "quick.compressor_videos",
     icon: CompressionLinear,
     color: "bg-rose-50 text-rose-600",
     activeGradient: "from-[#F43F5E] to-[#F97316]",
-    href: MenuItems.compressor,
+    href: MenuItems.compressorVideos,
+  },
+  {
+    label: "quick.compressor_audios",
+    icon: CompressionLinear,
+    color: "bg-rose-50 text-rose-600",
+    activeGradient: "from-[#F43F5E] to-[#F97316]",
+    href: MenuItems.compressorAudios,
+  },
+  {
+    label: "quick.compressor_images",
+    icon: CompressionLinear,
+    color: "bg-rose-50 text-rose-600",
+    activeGradient: "from-[#F43F5E] to-[#F97316]",
+    href: MenuItems.compressorImages,
   },
   {
     label: "quick.watermark",

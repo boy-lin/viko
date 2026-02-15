@@ -11,20 +11,18 @@ pub struct WatermarkConfig {
 }
 
 impl WatermarkConfig {
-    pub fn build_filter_string(&self, width: u32, height: u32) -> Result<String, String> {
+    pub fn build_filter_string(&self, _width: u32, _height: u32) -> Result<String, String> {
         let mut filter = String::new();
-        let mut input_idx = "[in]".to_string();
-        let mut output_idx = "[out]".to_string(); // Final output name
-
-        // Keep track of current stream name
-        let mut current_stream = input_idx.clone();
+        let mut current_stream = "in".to_string();
+        let mut stage = 0;
         
         // Base scaling if needed (optional, provided by caller typically, but here we assume 'in' is ready)
         // If we needed to ensure pixel format, we might start with format=pix_fmts=...
 
         // Handle Image Watermark
         if let Some(img) = &self.image {
-            let next_stream = format!("[tmp_img_{}]", 0);
+            let next_stream = format!("wm_img_{}", stage);
+            stage += 1;
             
             // 1. Load image as overlay source
             // escape path for ffmpeg: \ -> \\, : -> \:
@@ -48,12 +46,19 @@ impl WatermarkConfig {
                 overlay_filters.push(format!("colorchannelmixer=aa={}", img.opacity));
             }
             
-            if !overlay_filters.is_empty() {
-                write!(overlay_pipeline, "[{}]{}[{}];", overlay_id, overlay_filters.join(","), overlay_scaled_id).unwrap();
+            let overlay_output = if !overlay_filters.is_empty() {
+                write!(
+                    overlay_pipeline,
+                    "[{}]{}[{}];",
+                    overlay_id,
+                    overlay_filters.join(","),
+                    overlay_scaled_id
+                )
+                .unwrap();
+                overlay_scaled_id
             } else {
-                 // point scaled_id to valid id if no filters
-                 write!(overlay_pipeline, "[{}]copy[{}];", overlay_id, overlay_scaled_id).unwrap();
-            }
+                overlay_id
+            };
             
             filter.push_str(&overlay_pipeline);
             
@@ -62,58 +67,58 @@ impl WatermarkConfig {
             // We need to resolve x/y expressions if possible or assume ffmpeg handles them.
             // FFmpeg handles "10", "main_w-overlay_w-10" etc.
             // So we pass string directly.
-            write!(filter, "{}[{}]overlay=x={}:y={}[{}];", current_stream, overlay_scaled_id, img.x, img.y, next_stream).unwrap();
+            write!(
+                filter,
+                "[{}][{}]overlay=x={}:y={}[{}];",
+                current_stream,
+                overlay_output,
+                img.x,
+                img.y,
+                next_stream
+            )
+            .unwrap();
             current_stream = next_stream;
         }
 
         // Handle Text Watermark
         if let Some(txt) = &self.text {
-            let next_stream = "[out_final]"; // Assume this is last for now, or use unique names
+            if txt.content.is_empty() {
+                return Err("Text watermark content is empty".to_string());
+            }
+            let next_stream = format!("wm_txt_{}", stage);
+            stage += 1;
             
             // escape text
             let safe_text = txt.content.replace("'", "'\\''").replace(":", "\\:");
             let safe_font = txt.font_path.replace("\\", "/").replace(":", "\\:");
+
+            let font_arg = if safe_font.is_empty() {
+                String::new()
+            } else {
+                format!("fontfile='{}':", safe_font)
+            };
             
             let drawtext_cmd = format!(
-                "drawtext=fontfile='{}':text='{}':fontsize={}:fontcolor={}:alpha={}:x={}:y={}",
-                safe_font, safe_text, txt.font_size, txt.color, txt.opacity, txt.x, txt.y
+                "drawtext={}text='{}':fontsize={}:fontcolor={}:alpha={}:x={}:y={}",
+                font_arg, safe_text, txt.font_size, txt.color, txt.opacity, txt.x, txt.y
             );
             
-            write!(filter, "{}{}[{}];", current_stream, drawtext_cmd, next_stream).unwrap();
+            write!(
+                filter,
+                "[{}]{}[{}];",
+                current_stream,
+                drawtext_cmd,
+                next_stream
+            )
+            .unwrap();
             current_stream = next_stream.to_string();
-        } else {
-            // No text, so current_stream is the last one.
-            // If we had image, current_stream is [tmp_img_0]
-            // If we had nothing, current_stream is [in]
         }
         
-        // Finalize naming
-        if current_stream != "[out]" {
-             if filter.is_empty() {
-                 return Ok("null".to_string());
-             }
-             // If we ended with something else, allow caller to handle or we alias?
-             // But my logic above used [out_final] for text.
-             // If image only: returns [tmp_img_0].
-             // The caller needs to know the OUTPUT pad name of this chain.
-             // OR we intentionally append a copy to [out].
-             
-             write!(filter, "{}[out];", current_stream).unwrap_or(()); 
-             // Note: copy filter is needed: [stream]copy[out]
-             // But simpler: just return the string.
-             // My caller (convert_video) handles replacements.
-             // So returning the string "as is" with the last output pad name being `current_stream` is preferred?
-             // No, caller expects [out] as final?
-             
-             // Let's make this function return the script where the LAST output pad is named [out].
-             if current_stream != "[out]" {
-                  write!(filter, "{}[out];", current_stream).unwrap(); // Implicit copy? No.
-                  // Need explicit filter for connection in ffmpeg graph syntax usually.
-                  // But wait, `[in]scale[out]` works.
-                  // `[in]scale[tmp];[tmp]copy[out]` works.
-                  // Simplest: `[previous]null[out]`
-                  write!(filter, "{}null[out];", current_stream).unwrap();
-             }
+        if filter.is_empty() {
+            return Ok("null".to_string());
+        }
+        if current_stream != "out" {
+            write!(filter, "[{}]null[out];", current_stream).unwrap();
         }
 
         Ok(filter)

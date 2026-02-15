@@ -1,6 +1,4 @@
 import React from "react";
-import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -31,23 +29,18 @@ export const ColorSpaceSelect: React.FC<ColorSpaceSelectProps> = ({
   const colorSpaceOptions = options ?? COLOR_SPACES;
 
   return (
-    <div className="space-y-2 w-1/2 pr-4">
-      <div className="flex items-center justify-between">
-        <Label className="text-muted-foreground">Color Space</Label>
-        <Info className="w-4 h-4 text-muted-foreground" />
-      </div>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Select color space" />
-        </SelectTrigger>
-        <SelectContent>
-          {colorSpaceOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger>
+        <SelectValue placeholder="Select color space" />
+      </SelectTrigger>
+      <SelectContent>
+        {colorSpaceOptions.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };

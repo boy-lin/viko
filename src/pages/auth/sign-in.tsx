@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { signIn } from '@/lib/auth-client';
@@ -19,7 +19,6 @@ import { Label } from '@/components/ui/label';
 import { SocialProviders } from '@/components/auth/social-providers';
 
 export default function SignInPage() {
-    const navigate = useNavigate();
     const { t } = useTranslation('auth');
     const [searchParams] = useSearchParams();
     const callbackUrl = searchParams.get('callbackUrl') || '/';

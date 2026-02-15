@@ -26,7 +26,7 @@ export default function FormatSelectorContent({
   applyConfigToAllTasks,
   onClose,
 }: FormatSelectorContentProps) {
-  const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  const [activeGroup, setActiveGroup] = useState<string | undefined>(config.activeCategory);
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredItems = React.useMemo(() => {
@@ -215,7 +215,7 @@ export default function FormatSelectorContent({
                   activeCategory: ActiveCategoryEnum.Recents,
                 });
                 setSearchQuery("");
-                setActiveGroup(null);
+                setActiveGroup(undefined);
               }}
             />
 
@@ -229,9 +229,10 @@ export default function FormatSelectorContent({
                 active={config.activeCategory === cat.id && !searchQuery}
                 onClick={() => {
                   const nextCategory = cat.id as any;
+                  console.log('category clicked', cat.id);
                   onValueChange({ ...config, activeCategory: nextCategory });
                   setSearchQuery("");
-                  setActiveGroup(null);
+                  setActiveGroup(undefined);
                 }}
               />
             ))}
@@ -277,7 +278,14 @@ export default function FormatSelectorContent({
           <Button
             className="cursor-pointer"
             onClick={() => {
-              applyConfigToAllTasks(config);
+              applyConfigToAllTasks({
+                ...config,
+                taskType: config.taskType,
+                args: {
+                  ...config.args,
+                  format: activeGroup,
+                },
+              });
               onClose();
             }}
           >

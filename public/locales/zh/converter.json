@@ -13,7 +13,7 @@
   "common": { "cancel": "取消", "save": "保存" },
   "status": {
     "idle": "等待中",
-    "converting": "转换中",
+    "processing": "处理中",
     "finished": "已完成",
     "error": "错误",
     "cancelled": "已取消"
@@ -21,6 +21,7 @@
   "targetInfo": "目标信息",
   "actions": {
     "delete": "删除",
-    "convertSingle": "转换"
+    "convertSingle": "开始转换",
+    "compressSingle": "开始压缩"
   }
 }

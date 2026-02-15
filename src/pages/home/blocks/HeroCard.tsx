@@ -36,17 +36,17 @@ const heroCards: HeroCardItem[] = [
     actions: [
       {
         id: "converter-video",
-        label: "视频",
+        label: "视频文件",
         icon: <Plus className="w-4 h-4 mr-1" />,
       },
       {
         id: "converter-audio",
-        label: "音频",
+        label: "音频文件",
         icon: <Plus className="w-4 h-4 mr-1" />,
       },
       {
         id: "converter-image",
-        label: "图片",
+        label: "图片文件",
         icon: <Plus className="w-4 h-4 mr-1" />,
       },
     ],
@@ -75,8 +75,18 @@ const heroCards: HeroCardItem[] = [
     description: "hero.compressor.desc",
     actions: [
       {
-        id: "compressor-add",
-        label: "hero.compressor.action",
+        id: "compressor-video-add",
+        label: "hero.compressor.videoAdd",
+        icon: <Plus className="w-4 h-4 mr-1" />,
+      },
+      {
+        id: "compressor-audio-add",
+        label: "hero.compressor.audioAdd",
+        icon: <Plus className="w-4 h-4 mr-1" />,
+      },
+      {
+        id: "compressor-image-add",
+        label: "hero.compressor.imageAdd",
         icon: <Plus className="w-4 h-4 mr-1" />,
       },
     ],
@@ -174,15 +184,41 @@ export function HeroCard() {
         useConverterStore.getState().addTasksByPaths(paths)
         navigate(MenuItems.converterImages);
       }
-    } else if (actionId === "compressor-add") {
+    } else if (actionId === "compressor-video-add") {
       const paths = await bridge.addFilesOrFolders({
         name: "Compressor",
         multiple: true,
-        extensions: [...VIDEO_FORMATS, ...AUDIO_FORMATS, ...IMAGE_FORMATS],
+        extensions: VIDEO_FORMATS,
         folder: true,
       });
       if (paths && paths.length > 0) {
-        navigate(MenuItems.compressor);
+        const { useCompressorStore } = await import("@/pages/compressor/videos/store")
+        useCompressorStore.getState().addTasksByPaths(paths)
+        navigate(MenuItems.compressorVideos);
+      }
+    } else if (actionId === "compressor-audio-add") {
+      const paths = await bridge.addFilesOrFolders({
+        name: "Compressor",
+        multiple: true,
+        extensions: AUDIO_FORMATS,
+        folder: true,
+      });
+      if (paths && paths.length > 0) {
+        const { useCompressorStore } = await import("@/pages/compressor/audios/store")
+        useCompressorStore.getState().addTasksByPaths(paths)
+        navigate(MenuItems.compressorAudios);
+      }
+    } else if (actionId === "compressor-image-add") {
+      const paths = await bridge.addFilesOrFolders({
+        name: "Compressor",
+        multiple: true,
+        extensions: IMAGE_FORMATS,
+        folder: true,
+      });
+      if (paths && paths.length > 0) {
+        const { useCompressorStore } = await import("@/pages/compressor/images/store")
+        useCompressorStore.getState().addTasksByPaths(paths)
+        navigate(MenuItems.compressorImages);
       }
     } else if (actionId === "watermark-add") {
       const videoAndImageFormats = [...VIDEO_FORMATS, ...IMAGE_FORMATS];

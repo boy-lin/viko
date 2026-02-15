@@ -20,7 +20,7 @@ import {
     FileVideo,
     X
 } from "lucide-react";
-import { FormatEnum } from "@/types/options";
+import { MediaTaskType } from "@/types/tasks";
 
 export default function WatermarkPage() {
     const [config, setConfig] = useState({
@@ -88,10 +88,7 @@ export default function WatermarkPage() {
         const finalPaths = await handleDirectoryToFiles({
             paths,
             depth: 1,
-            filterCallback: (path) => {
-                const ext = path.split(".").pop()?.toLowerCase() as FormatEnum
-                return !!(ext && SupportedFormats.includes(ext));
-            }
+            supportedExtensions: SupportedFormats
         });
         setFiles(prev => [...new Set([...prev, ...finalPaths])]);
     };
@@ -119,7 +116,7 @@ export default function WatermarkPage() {
             }
             watermarkConfig.text = {
                 content: config.text,
-                font_path: "C:/Windows/Fonts/arial.ttf", // Default for Windows
+                font_path: "",
                 font_size: config.size,
                 color: "#FFFFFF",
                 opacity: config.opacity / 100,
@@ -141,18 +138,18 @@ export default function WatermarkPage() {
         }
 
         const tasks = files.map(file => ({
-            kind: "convert-video" as const,
+            kind: MediaTaskType.ConvertVideo,
             args: {
                 task_id: crypto.randomUUID(),
                 input_path: file,
                 output_path: file.replace(".mp4", "_watermarked.mp4"),
-                // Inherit other settings or leave defaults
-                watermark: watermarkConfig
+
+                watermark: watermarkConfig,
             }
         }));
 
         try {
-            await getMediaTaskQueue().addConvertVideoTasks(tasks);
+            await getMediaTaskQueue().addConvertTasks(tasks);
             toast.success(`Submitted ${tasks.length} tasks!`);
             // Optional: navigate to tasks page
         } catch (e: any) {

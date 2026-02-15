@@ -5,7 +5,7 @@ import {
   MediaDetails,
 } from "@/types/tasks";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { FormatEnum, FormatOption, VideoEncoderEnum } from "@/types/options";
+import { AudioEncoderEnum, FormatEnum, FormatOption } from "@/types/options";
 import { formatToDefinition } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
 
@@ -17,15 +17,13 @@ export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | 
   activeCategory: FileType.Video | FileType.Audio | FileType.Image | ActiveCategoryEnum.Recents;
 }
 
-export const defaultVideoConfig: GlobalConverterConfig = {
-  taskType: MediaTaskType.ConvertVideo,
-  activeCategory: FileType.Video,
+export const defaultAudioConfig: GlobalConverterConfig = {
+  taskType: MediaTaskType.ConvertAudio,
+  activeCategory: FileType.Audio,
   args: {
-    task_id: '',
-    input_path: "",
-    format: FormatEnum.MP4,
-    video_encoder: VideoEncoderEnum.H264
-  },
+    format: FormatEnum.MP3,
+    audio_encoder: AudioEncoderEnum.AAC
+  } as ConverterTask["args"],
 };
 
 interface ConverterState {
@@ -45,7 +43,7 @@ interface ConverterState {
 export const useConverterStore = create<ConverterState>((set, get) => ({
   convertingTasks: [],
   isLoading: true,
-  globalConfig: defaultVideoConfig,
+  globalConfig: defaultAudioConfig,
   formatRecents: [],
 
   addTasksByMediaList: async (mediaList) => {
@@ -53,17 +51,17 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
     for (const mediaInfo of mediaList) {
       if (!mediaInfo.path) continue;
       const outputDir = useSettingsStore.getState().getOutputDir(mediaInfo.path);
-      let taskType = MediaTaskType.ConvertVideo
+      let taskType = MediaTaskType.ConvertAudio
       let outputArgs: any = {
         task_id: crypto.randomUUID(),
         title: mediaInfo.title,
         input_path: mediaInfo.path,
         output_path: '',
       }
-      outputArgs.format = FormatEnum.MP4
-      outputArgs.output_path = `${outputDir}/${mediaInfo.title}.${FormatEnum.MP4}`
-      const containerDefinition = formatToDefinition.get(FormatEnum.MP4);
-      outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder
+      outputArgs.format = FormatEnum.MP3
+      outputArgs.output_path = `${outputDir}/${mediaInfo.title}.${FormatEnum.MP3}`
+      const containerDefinition = formatToDefinition.get(FormatEnum.MP3);
+      outputArgs.audio_encoder = containerDefinition?.audio?.defaultEncoder
       outputArgs.audio_tracks = mediaInfo.streams.filter((stream) => stream.codec_type === "audio").map((stream) => {
         return {
           trackIndex: stream.index,
@@ -77,7 +75,7 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
         progress: 0,
         mediaDetails: mediaInfo,
         args: outputArgs,
-        fileType: FileType.Image,
+        fileType: FileType.Audio,
         taskType
       });
 
@@ -99,14 +97,14 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
         input_path: path,
         output_path: '',
       }
-      let taskType = MediaTaskType.ConvertImage;
-      outputArgs.format = FormatEnum.MP4
+      let taskType = MediaTaskType.ConvertAudio;
+      outputArgs.format = FormatEnum.MP3
       newTasks.push({
         id: outputArgs.task_id,
         status: "idle",
         progress: 0,
         args: outputArgs,
-        fileType: FileType.Image,
+        fileType: FileType.Audio,
         taskType
       });
 
@@ -126,45 +124,43 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       // 停止task任务
 
     } catch (error) {
-      console.error("Failed to clear converting tasks:", error);
+      console.error("Failed to clear processing tasks:", error);
     }
   },
   updateTaskById: async (id, updates) => {
-    try {
-      const { convertingTasks } = get();
-      const task =
-        convertingTasks.find((t) => t.id === id)
-      if (task) {
-        const updatedTask = { ...task, ...updates };
-        const isFinished = updatedTask.status === "finished";
-        const currentState = get();
-        if (isFinished) {
-          // Remove from converting tasks
-          set({
-            convertingTasks: currentState.convertingTasks.filter(
-              (t) => t.id !== id
-            ),
-          });
-        } else if (updatedTask.status === "error" || updatedTask.status === "cancelled") {
-          set({
-            convertingTasks: currentState.convertingTasks.filter(
-              (t) => t.id !== id
-            ),
-          });
-        } else {
-          set({
-            convertingTasks: currentState.convertingTasks.map((t) =>
-              t.id === id ? updatedTask : t
-            ),
-          });
+    const { convertingTasks } = get();
+    const task =
+      convertingTasks.find((t) => t.id === id)
+    if (task) {
+      const updatedTask = {
+        ...task,
+        ...updates,
+        args: {
+          ...task.args, ...updates.args
         }
+      };
+      const isFinished = updatedTask.status === "finished";
+      const currentState = get();
+      if (isFinished) {
+        // Remove from processing tasks
+        set({
+          convertingTasks: currentState.convertingTasks.filter(
+            (t) => t.id !== id
+          ),
+        });
+      } else if (updatedTask.status === "error" || updatedTask.status === "cancelled") {
+        set({
+          convertingTasks: currentState.convertingTasks.filter(
+            (t) => t.id !== id
+          ),
+        });
+      } else {
+        set({
+          convertingTasks: currentState.convertingTasks.map((t) =>
+            t.id === id ? updatedTask : t
+          ),
+        });
       }
-    } catch (error) {
-      console.error(
-        `Failed to update task ${id} with updates:`,
-        updates,
-        error
-      );
     }
   },
   removeTask: async (id: string) => {

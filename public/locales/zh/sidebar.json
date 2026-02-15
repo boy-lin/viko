@@ -12,7 +12,9 @@
     "converter_images": "图片转换器",
     "watermark": "水印生成器",
     "metadata": "元数据编辑器",
-    "compressor": "压缩器"
+    "compressor_videos": "视频压缩器",
+    "compressor_audios": "音频压缩器",
+    "compressor_images": "图片压缩器"
   },
   "pin": "固定到顶部",
   "unpin": "取消固定",

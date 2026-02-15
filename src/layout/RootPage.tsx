@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Outlet } from "react-router-dom";
-import { Toaster } from "sonner";
 import { bridge } from "@/lib/bridge";
 import Sidebar from "./sidebar/Sidebar";
 import Header from "./Header";

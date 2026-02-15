@@ -60,10 +60,12 @@ struct VideoProcessor<E: TaskEmitter> {
     ost_index: usize,
     ost_time_base: Rational,
     final_encoder_time_base: Rational,
+    stream_time_base: Rational,
+    fps: f64,
     frame_count: usize,
     last_progress_emitted: f64,
     duration: f64,
-    start_time: Instant,
+    last_emit_at: Instant,
     emitter: E,
 }
 
@@ -120,6 +122,27 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             .frame_rate
             .map(|f| Rational(f.round().max(1.0) as i32, 1))
             .or_else(|| decoder.frame_rate());
+        let fallback_fps = video_stream.avg_frame_rate();
+        let fps = target_frame_rate
+            .map(|r| {
+                let num = r.numerator() as f64;
+                let den = r.denominator() as f64;
+                if num > 0.0 && den > 0.0 {
+                    num / den
+                } else {
+                    30.0
+                }
+            })
+            .or_else(|| {
+                let num = fallback_fps.numerator() as f64;
+                let den = fallback_fps.denominator() as f64;
+                if num > 0.0 && den > 0.0 {
+                    Some(num / den)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(30.0);
         encoder.set_frame_rate(target_frame_rate);
 
         let encoder_time_base = target_frame_rate
@@ -173,10 +196,12 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             ost_index: video_ost.index(),
             ost_time_base: video_ost.time_base(),
             final_encoder_time_base,
+            stream_time_base: video_stream.time_base(),
+            fps,
             frame_count: 0,
-            last_progress_emitted: 0.0,
+            last_progress_emitted: -1.0,
             duration,
-            start_time: Instant::now(),
+            last_emit_at: Instant::now(),
             emitter,
         })
     }
@@ -209,28 +234,40 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             self.receive_and_write_packets(octx)?;
 
             self.frame_count += 1;
+
             self.emit_progress(decoded.pts());
         }
         Ok(())
     }
 
     fn emit_progress(&mut self, pts: Option<i64>) {
-        if self.frame_count % 30 == 0 || self.start_time.elapsed().as_secs_f64() >= 1.0 {
+        if self.frame_count % 30 == 0 || self.last_emit_at.elapsed().as_secs_f64() >= 1.0 {
             if crate::task::cancel::is_cancelled() {
                 return;
             }
             let progress = if self.duration > 0.0 {
-                let current_time = pts.unwrap_or(0) as f64
-                    * self.decoder.time_base().0 as f64
-                    / self.decoder.time_base().1 as f64;
+                let current_time = if let Some(pts_value) = pts {
+                    let (num, den) = if self.stream_time_base.denominator() > 0 {
+                        (self.stream_time_base.numerator(), self.stream_time_base.denominator())
+                    } else {
+                        (self.decoder.time_base().0, self.decoder.time_base().1)
+                    };
+                    if den > 0 {
+                        pts_value as f64 * num as f64 / den as f64
+                    } else {
+                        (self.frame_count as f64) / self.fps.max(1.0)
+                    }
+                } else {
+                    (self.frame_count as f64) / self.fps.max(1.0)
+                };
                 ((current_time / self.duration) * 100.0).min(100.0)
             } else {
                 0.0
             };
-
             if (progress - self.last_progress_emitted).abs() >= 1.0 {
                 self.emitter.emit("progress", Some(progress), None, None);
                 self.last_progress_emitted = progress;
+                self.last_emit_at = Instant::now();
             }
         }
     }

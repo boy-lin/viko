@@ -1,6 +1,5 @@
 ﻿import { useMemo } from "react";
 import { IMAGE_FORMATS } from "@/data/formats";
-import { MediaTaskType } from "@/types/tasks";
 
 import { UploadPanel } from "./UploadPanel";
 import { useConverterStore } from "./store";
@@ -30,7 +29,6 @@ export default function ConvertingTask({
         {filteredTasks.length === 0 ? (
           <div className="border border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
             <UploadPanel
-              mediaType={MediaTaskType.ConvertImage}
               supportedExtensions={IMAGE_FORMATS}
             />
           </div>

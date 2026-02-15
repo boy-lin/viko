@@ -37,7 +37,7 @@ export default function CorrectNumberInput({
             const val = e.target.value
             onChange(val === "" ? 0 : Number(val))
           }}
-          className="peer w-full h-10 pl-4 pr-10 text-foreground bg-muted/30 border border-muted-foreground/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 transition-all"
+          className="peer w-full h-9 pl-4 pr-10 text-foreground bg-muted/30 border border-muted-foreground/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 transition-all"
           placeholder={label ? " " : ""}
         />
 

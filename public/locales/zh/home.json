@@ -13,7 +13,10 @@
     "compressor": {
       "title": "压缩器",
       "desc": "自动压缩音视频，减小体积。",
-      "action": "添加文件"
+      "action": "添加文件",
+      "videoAdd": "视频文件",
+      "audioAdd": "音频文件",
+      "imageAdd": "图片文件"
     }
   },
   "comingSoon": "即将推出",

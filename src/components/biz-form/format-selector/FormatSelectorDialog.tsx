@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Settings } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -13,7 +13,7 @@ export default function FormatSelectorDialog(props: FormatSelectorProps) {
     config,
     formatRecents,
     addToRecents,
-    onValueChange = () => {},
+    onValueChange = () => { },
     className,
     applyConfigToAllTasks,
   } = props;

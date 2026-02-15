@@ -40,5 +40,13 @@
         "edit": "编辑",
         "add": "添加",
         "select_file": "选择文件"
+    },
+    "video_advance": {
+        "missing": "格式或编码器未设置",
+        "encoder": "编码器",
+        "resolution": "分辨率",
+        "frame_rate": "帧率",
+        "bitrate": "码率",
+        "color_space": "色彩空间"
     }
 }

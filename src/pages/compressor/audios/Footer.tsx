@@ -7,78 +7,51 @@ import {
   PopoverAnchor,
 } from "@/components/ui/popover";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
-import { useCompressorStore } from "@/pages/compressor/store";
-import { CompressionSettingsDialog } from "./CompressionSettingsDialog";
-import { getMediaTaskQueue } from "@/lib/bridge";
+import { CompressionSettingsPopover } from "./SettingsDialog";
+import { CompressAudioTaskArgs, getMediaTaskQueue } from "@/lib/bridge";
 import { Slider } from "@/components/ui/slider";
+import { useAppStore } from "@/stores/app";
+import { useCompressorStore } from './store'
 
 export const CompressionFooter: React.FC = () => {
-  const videoConfig = useCompressorStore((state) => state.videoConfig);
   const audioConfig = useCompressorStore((state) => state.audioConfig);
-  const imageConfig = useCompressorStore((state) => state.imageConfig);
-  const compressingTasks = useCompressorStore(
-    (state) => state.compressingTasks
-  );
+  const updateTaskById = useCompressorStore((state) => state.updateTaskById);
   const updateGlobalConfig = useCompressorStore(
     (state) => state.updateGlobalConfig
   );
   const clearCompressingTasks = useCompressorStore(
     (state) => state.clearCompressingTasks
   );
-  const updateUnfinishedTaskConfig = useCompressorStore(
-    (state) => state.updateUnfinishedTaskConfig
-  );
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
   const handleCompressionChange = (value: number[]) => {
     const newValue = value[0];
     updateGlobalConfig({
-      type: "video",
-      compressionRatio: newValue,
-    });
-    updateGlobalConfig({
-      type: "audio",
-      compressionRatio: newValue,
-    });
-    updateGlobalConfig({
-      type: "image",
-      quality: newValue,
+      ratio: newValue,
     });
   };
 
-  const handleCompressAll = async () => {
-    const activeTab = useCompressorStore.getState().activeTab;
-    if (activeTab === "finished") {
-      return;
+  const handleSaveConfig = (vals: CompressAudioTaskArgs) => {
+    const pendingTasks = useCompressorStore.getState().compressingTasks;
+    // 为每个任务设置 config（浅拷贝 globalConfig）
+    for (const task of pendingTasks) {
+      updateTaskById(task.id, {
+        args: {
+          ...task.args,
+          ...vals
+        },
+      });
     }
+  };
 
-    const getConfigByType = (type: "video" | "audio" | "image") => {
-      if (type === "video") return videoConfig;
-      if (type === "audio") return audioConfig;
-      return imageConfig;
-    };
-
-    const pendingTasks = compressingTasks.filter(
-      (task) => task.compressionConfig?.type
-    );
-
-    if (pendingTasks.length > 0) {
-      for (const task of pendingTasks) {
-        const targetType = task.compressionConfig?.type as
-          | "video"
-          | "audio"
-          | "image";
-        await updateUnfinishedTaskConfig(task.id, {
-          ...getConfigByType(targetType),
-          type: targetType,
-        });
-      }
-      const tasks = useCompressorStore
-        .getState()
-        .compressingTasks.filter((task) => task.compressionConfig?.type);
-      await getMediaTaskQueue().add(tasks, "compress");
+  const handleCompressAll = async () => {
+    const tasks = useCompressorStore.getState().compressingTasks;
+    if (tasks.length > 0) {
+      await getMediaTaskQueue().addCompressTasks(tasks.map((task) => ({
+        kind: task.taskType,
+        args: task.args
+      })));
     }
   };
 
@@ -104,6 +77,43 @@ export const CompressionFooter: React.FC = () => {
     setIsDeletePopoverOpen(false);
   };
 
+  React.useEffect(() => {
+    const queue = getMediaTaskQueue();
+    const handleEvent = (payload: any) => {
+      if (payload.task_type !== "compress") return;
+      const { task_id, event_type, progress, error_message } = payload;
+      const store = useCompressorStore.getState();
+
+      // Check if this task belongs to video converter store
+      // We might want to check if task exists in convertingTasks
+      const taskExists = store.compressingTasks.some(t => t.id === task_id);
+      if (!taskExists && event_type !== 'complete') {
+        // If complete, it might have been moved? No, complete moves it.
+        return;
+      }
+
+      if (event_type === "progress") {
+        store.updateTaskById(task_id, {
+          status: "processing",
+          progress: Math.min(100, Math.max(0, progress || 0)),
+        });
+      } else if (event_type === "complete") {
+        store.removeTask(task_id);
+        useAppStore.getState().incrementUnreadFinishedCount();
+      } else if (event_type === "error") {
+        store.updateTaskById(task_id, {
+          status: error_message === "Task cancelled" ? "cancelled" : "error",
+          errorMessage: error_message,
+        });
+      }
+    };
+
+    const unsubscribe = queue.on(handleEvent);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   return (
     <div className="w-full flex items-end justify-between bg-background mt-auto">
       <div className="flex items-center gap-6">
@@ -116,7 +126,7 @@ export const CompressionFooter: React.FC = () => {
             <div className="w-[10em]">
               <div className="space-y-2">
                 <Slider
-                  value={[videoConfig.compressionRatio]}
+                  value={[audioConfig.ratio]}
                   onValueChange={handleCompressionChange}
                   min={10}
                   max={100}
@@ -124,18 +134,24 @@ export const CompressionFooter: React.FC = () => {
                   className="w-full"
                 />
                 <span className="text-xs text-muted-foreground">
-                  {videoConfig.compressionRatio}%
+                  {audioConfig.ratio}%
                 </span>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              onClick={() => setIsSettingsOpen(true)}
-            >
-              <Settings className="w-4 h-4 text-muted-foreground" />
-            </Button>
+            <CompressionSettingsPopover
+              config={audioConfig}
+              onConfigChange={updateGlobalConfig}
+              onSave={handleSaveConfig}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                >
+                  <Settings className="w-4 h-4 text-muted-foreground" />
+                </Button>
+              }
+            />
           </div>
         </div>
 
@@ -203,10 +219,6 @@ export const CompressionFooter: React.FC = () => {
         </Button>
       </div>
 
-      <CompressionSettingsDialog
-        open={isSettingsOpen}
-        onOpenChange={setIsSettingsOpen}
-      />
     </div>
   );
 };

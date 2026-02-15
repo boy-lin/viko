@@ -11,7 +11,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ConverterFinishedTask from "./ConversionTask";
 import CompressorFinishedTask from "./CompressionTask";
 import { Button } from "@/components/ui/button";
-import { remove } from "@tauri-apps/plugin-fs";
 import { useAppStore } from "@/stores/app";
 
 const TABS = [
@@ -44,15 +43,14 @@ export default function TaskListPage() {
   };
 
   const removeFinishedTask = async (id: string) => {
-    const task = tasks.find((item) => item.id === id);
-    try {
-      if (task?.output_path) {
-        await remove(task.output_path);
-      }
-    } catch (error) {
-      console.error("Failed to delete output file:", error);
-    }
-
+    // const task = tasks.find((item) => item.id === id);
+    // try {
+    //   if (task?.output_path) {
+    //     await remove(task.output_path);
+    //   }
+    // } catch (error) {
+    //   console.error("Failed to delete output file:", error);
+    // }
     try {
       await bridge.deleteTaskHistory(id);
       setTasks((prev) => prev.filter((item) => item.id !== id));

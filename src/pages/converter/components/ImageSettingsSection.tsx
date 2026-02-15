@@ -27,6 +27,7 @@ export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
       resolution: "auto",
     });
   };
+  console.log('format, image_encoder', format, image_encoder)
   return (
     <div className={cn("flex-1 overflow-hidden p-2 space-y-4", className)}>
       <div className="flex items-center justify-between border-b bg-muted/10">

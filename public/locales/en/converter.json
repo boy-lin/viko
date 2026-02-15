@@ -10,5 +10,10 @@
     "audio": { "title": "Audio", "trackLabel": "Audio Track {{index}}" },
     "image": { "title": "Image", "quality": "Quality:", "resolution": "Resolution:" }
   },
-  "common": { "cancel": "Cancel", "save": "Save" }
+  "common": { "cancel": "Cancel", "save": "Save" },
+  "actions": {
+    "delete": "Delete",
+    "convertSingle": "Convert",
+    "compressSingle": "Compress"
+  }
 }

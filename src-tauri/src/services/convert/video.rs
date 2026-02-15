@@ -1,7 +1,7 @@
 ﻿use std::collections::HashMap;
 
 use ffmpeg::{
-    codec, decoder, encoder, format, frame, media, packet, picture, Dictionary, Rational,
+    codec, decoder, encoder, filter, format, frame, media, packet, picture, Dictionary, Rational,
 };
 use ffmpeg_next as ffmpeg;
 use ffmpeg::filter::context::Source as _;
@@ -205,6 +205,11 @@ struct Transcoder<E: TaskEmitter> {
     emitter: E,
     last_pts: i64,
     start_time: i64,
+    ist_index: usize,
+    input_avg_frame_rate: Rational,
+    logged_invalid_time_base: bool,
+    filter: Option<filter::Graph>,
+    filter_enabled: bool,
 }
 
 impl<E: TaskEmitter> Transcoder<E> {
@@ -220,12 +225,30 @@ impl<E: TaskEmitter> Transcoder<E> {
         let global_header = octx.format().flags().contains(format::Flags::GLOBAL_HEADER);
 
         // 1. 设置解码器
+        let ist_time_base = ist.time_base();
+        let ist_avg_frame_rate = ist.avg_frame_rate();
         let decoder_ctx = ffmpeg::codec::context::Context::from_parameters(ist.parameters())
             .map_err(|e| format!("无法创建解码器上下文: {}", e))?;
         let decoder = decoder_ctx
             .decoder()
             .video()
             .map_err(|e| format!("无法创建视频解码器: {}", e))?;
+        let decoder_time_base = decoder.time_base();
+        let decoder_frame_rate = decoder.frame_rate();
+        let codec_id = ist.parameters().id();
+        log::debug!(
+            "convert_video decoder init: ist_index={} codec_id={:?} codec_name={} ist_time_base={}/{} ist_avg_frame_rate={}/{} decoder_time_base={}/{} decoder_frame_rate={:?}",
+            ist.index(),
+            codec_id,
+            codec_id.name(),
+            ist_time_base.0,
+            ist_time_base.1,
+            ist_avg_frame_rate.0,
+            ist_avg_frame_rate.1,
+            decoder_time_base.0,
+            decoder_time_base.1,
+            decoder_frame_rate
+        );
 
         // 2. 选择编码器
         let codec = media_common::select_video_encoder(
@@ -381,14 +404,45 @@ impl<E: TaskEmitter> Transcoder<E> {
         )
         .map_err(|e| format!("无法创建Scaler: {}", e))?;
 
-        if params.watermark.is_some() {
-            eprintln!("Warning: Video watermark is not yet supported in this version. Watermark will be ignored.");
+        let mut filter_graph = None;
+        let mut filter_enabled = false;
+        if let Some(wm) = &params.watermark {
+            if let Some(txt) = &wm.text {
+                if txt.font_path.trim().is_empty() {
+                    log::warn!("convert_video watermark text has empty font_path; drawtext will rely on system defaults.");
+                }
+            }
+            if let Some(img) = &wm.image {
+                if !std::path::Path::new(&img.path).exists() {
+                    log::warn!(
+                        "convert_video watermark image not found: {}",
+                        img.path
+                    );
+                }
+            }
+            let filter_spec = wm
+                .build_filter_string(width, height)
+                .map_err(|e| format!("构建水印滤镜失败: {}", e))?;
+            let frame_rate = target_frame_rate;
+            let graph = build_video_filter_graph(
+                width,
+                height,
+                encoder.format(),
+                encoder_time_base,
+                frame_rate,
+                &filter_spec,
+            )?;
+            log::info!("convert_video watermark filter: {}", filter_spec);
+            log::debug!("convert_video watermark graph: {}", graph.dump());
+            filter_graph = Some(graph);
+            filter_enabled = true;
         }
 
         Ok(Self {
             ost_index: ost.index(),
             decoder,
             input_time_base: ist.time_base(),
+            input_avg_frame_rate: ist_avg_frame_rate,
             encoder,
             encoder_time_base,
             scaler,
@@ -397,6 +451,10 @@ impl<E: TaskEmitter> Transcoder<E> {
             emitter,
             start_time,
             last_pts: -1,
+            ist_index: ist.index(),
+            logged_invalid_time_base: false,
+            filter: filter_graph,
+            filter_enabled,
         })
     }
 
@@ -421,14 +479,19 @@ impl<E: TaskEmitter> Transcoder<E> {
                     return Err("Task cancelled".to_string());
                 }
                 let decoder_tb = self.decoder.time_base();
-                if decoder_tb.0 == 0 || decoder_tb.1 == 0 {
+                if (decoder_tb.0 == 0 || decoder_tb.1 == 0) && !self.logged_invalid_time_base {
                     log::warn!(
-                        "convert_video invalid decoder time_base: {}/{}; fallback to input time_base {}/{}",
+                        "convert_video invalid decoder time_base: {}/{}; fallback to input time_base {}/{} (ist_index={}, ist_avg_frame_rate={}/{}, decoder_frame_rate={:?})",
                         decoder_tb.0,
                         decoder_tb.1,
                         self.input_time_base.0,
-                        self.input_time_base.1
+                        self.input_time_base.1,
+                        self.ist_index,
+                        self.input_avg_frame_rate.0,
+                        self.input_avg_frame_rate.1,
+                        self.decoder.frame_rate()
                     );
+                    self.logged_invalid_time_base = true;
                 }
                 let (tb_num, tb_den) = if decoder_tb.0 > 0 && decoder_tb.1 > 0 {
                     (decoder_tb.0 as f64, decoder_tb.1 as f64)
@@ -441,7 +504,6 @@ impl<E: TaskEmitter> Transcoder<E> {
                     (0.0, 1.0)
                 };
                 let current_time = pts as f64 * tb_num / tb_den;
-                log::debug!("convert_video progress tick: pts={:?} current_time={} duration={}", pts, current_time, self.duration);
                 if self.duration > 0.0 {
                     let progress = (current_time / self.duration * 100.0).min(100.0);
                     self.emitter.emit(
@@ -479,8 +541,13 @@ impl<E: TaskEmitter> Transcoder<E> {
             scaled_frame.set_pts(Some(rescaled_pts));
             scaled_frame.set_kind(picture::Type::None);
 
-            self.send_frame_to_encoder(&scaled_frame)?;
-            self.receive_and_process_encoded_packets(octx, ost_time_base)?;
+            if self.filter_enabled {
+                self.add_frame_to_filter(&scaled_frame)?;
+                self.get_and_process_filtered_frames(octx, ost_time_base)?;
+            } else {
+                self.send_frame_to_encoder(&scaled_frame)?;
+                self.receive_and_process_encoded_packets(octx, ost_time_base)?;
+            }
             self.frame_count += 1;
         }
         Ok(())
@@ -492,6 +559,73 @@ impl<E: TaskEmitter> Transcoder<E> {
 
     fn send_eof_to_encoder(&mut self) -> Result<(), String> {
         self.encoder.send_eof().map_err(|e| e.to_string())
+    }
+
+    fn add_frame_to_filter(&mut self, frame: &frame::Video) -> Result<(), String> {
+        let filter = self
+            .filter
+            .as_mut()
+            .ok_or("Watermark filter not initialized")?;
+        filter
+            .get("in")
+            .ok_or("Watermark filter source not found")?
+            .source()
+            .add(frame)
+            .map_err(|e| e.to_string())
+    }
+
+    fn flush_filter(&mut self) -> Result<(), String> {
+        let filter = self
+            .filter
+            .as_mut()
+            .ok_or("Watermark filter not initialized")?;
+        filter
+            .get("in")
+            .ok_or("Watermark filter source not found")?
+            .source()
+            .flush()
+            .map_err(|e| e.to_string())
+    }
+
+    fn get_and_process_filtered_frames(
+        &mut self,
+        octx: &mut format::context::Output,
+        ost_time_base: Rational,
+    ) -> Result<(), String> {
+        let mut filtered = frame::Video::empty();
+        loop {
+            let got_frame = {
+                let filter = self
+                    .filter
+                    .as_mut()
+                    .ok_or("Watermark filter not initialized")?;
+                let res = filter
+                    .get("out")
+                    .ok_or("Watermark filter sink not found")?
+                    .sink()
+                    .frame(&mut filtered);
+                res.is_ok()
+            };
+            if !got_frame {
+                break;
+            }
+            self.send_frame_to_encoder(&filtered)?;
+            self.receive_and_process_encoded_packets(octx, ost_time_base)?;
+        }
+        Ok(())
+    }
+
+    fn flush_filter_and_drain(
+        &mut self,
+        octx: &mut format::context::Output,
+        ost_time_base: Rational,
+    ) -> Result<(), String> {
+        if !self.filter_enabled {
+            return Ok(());
+        }
+        self.flush_filter()?;
+        self.get_and_process_filtered_frames(octx, ost_time_base)?;
+        Ok(())
     }
 
     fn receive_and_process_encoded_packets(
@@ -507,6 +641,59 @@ impl<E: TaskEmitter> Transcoder<E> {
         }
         Ok(())
     }
+}
+
+fn build_video_filter_graph(
+    width: u32,
+    height: u32,
+    pix_fmt: format::Pixel,
+    time_base: Rational,
+    frame_rate: Rational,
+    filter_spec: &str,
+) -> Result<filter::Graph, String> {
+    let pix_fmt_name = pix_fmt
+        .descriptor()
+        .map(|desc| desc.name())
+        .unwrap_or("yuv420p");
+    let mut args = format!(
+        "video_size={}x{}:pix_fmt={}:time_base={}/{}:pixel_aspect=1/1",
+        width,
+        height,
+        pix_fmt_name,
+        time_base.numerator(),
+        time_base.denominator()
+    );
+    if frame_rate.numerator() > 0 && frame_rate.denominator() > 0 {
+        args.push_str(&format!(
+            ":frame_rate={}/{}",
+            frame_rate.numerator(),
+            frame_rate.denominator()
+        ));
+    }
+
+    let mut graph = filter::Graph::new();
+    graph
+        .add(&filter::find("buffer").unwrap(), "in", &args)
+        .map_err(|e| format!("创建视频 filter source 失败: {}", e))?;
+    graph
+        .add(&filter::find("buffersink").unwrap(), "out", "")
+        .map_err(|e| format!("创建视频 filter sink 失败: {}", e))?;
+    {
+        let mut out = graph
+            .get("out")
+            .ok_or("无法获取视频 filter sink")?;
+        out.set_pixel_format(pix_fmt);
+    }
+    graph
+        .output("in", 0)
+        .and_then(|p| p.input("out", 0))
+        .and_then(|p| p.parse(filter_spec))
+        .map_err(|e| format!("解析视频水印 filter 失败: {}", e))?;
+    graph
+        .validate()
+        .map_err(|e| format!("视频水印 filter 校验失败: {}", e))?;
+
+    Ok(graph)
 }
 
 pub fn convert_video<E: TaskEmitter + Clone>(
@@ -692,6 +879,7 @@ pub fn convert_video<E: TaskEmitter + Clone>(
 
         transcoder.send_eof_to_decoder()?;
         transcoder.receive_and_process_decoded_frames(&mut octx, ost_time_base)?;
+        transcoder.flush_filter_and_drain(&mut octx, ost_time_base)?;
         transcoder.send_eof_to_encoder()?;
         transcoder.receive_and_process_encoded_packets(&mut octx, ost_time_base)?;
     }

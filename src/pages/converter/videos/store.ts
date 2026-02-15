@@ -18,11 +18,9 @@ export const defaultVideoConfig: GlobalConverterConfig = {
   taskType: MediaTaskType.ConvertVideo,
   activeCategory: FileType.Video,
   args: {
-    task_id: '',
-    input_path: "",
     format: FormatEnum.MP4,
     video_encoder: VideoEncoderEnum.H264
-  },
+  } as ConverterTask["args"],
 };
 
 interface ConverterState {
@@ -79,31 +77,39 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       // 停止task任务
 
     } catch (error) {
-      console.error("Failed to clear converting tasks:", error);
+      console.error("Failed to clear processing tasks:", error);
     }
   },
   updateTaskById: async (id, updates) => {
     const { convertingTasks } = get();
     const task =
       convertingTasks.find((t) => t.id === id)
-    console.log('task', id, convertingTasks)
+    console.log('task', id, updates)
+
     if (task) {
-      const updatedTask = { ...task, ...updates };
-        const isFinished = updatedTask.status === "finished";
-        const currentState = get();
-        if (isFinished) {
-        // Remove from converting tasks
+      const updatedTask = {
+        ...task,
+        ...updates,
+        args: {
+          ...task.args, ...updates.args
+        }
+      };
+      console.log('task updatedTask', updatedTask)
+      const isFinished = updatedTask.status === "finished";
+      const currentState = get();
+      if (isFinished) {
+        // Remove from processing tasks
         set({
           convertingTasks: currentState.convertingTasks.filter(
             (t) => t.id !== id
           ),
         });
-        } else if (updatedTask.status === "error" || updatedTask.status === "cancelled") {
-          set({
-            convertingTasks: currentState.convertingTasks.filter(
-              (t) => t.id !== id
-            ),
-          });
+      } else if (updatedTask.status === "error" || updatedTask.status === "cancelled") {
+        set({
+          convertingTasks: currentState.convertingTasks.filter(
+            (t) => t.id !== id
+          ),
+        });
       } else {
         set({
           convertingTasks: currentState.convertingTasks.map((t) =>

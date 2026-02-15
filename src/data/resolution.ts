@@ -165,11 +165,5 @@ export const RESOLUTION_OPTIONS = [
       { value: "720x576", label: "576P (720x576)" },
       { value: "480x360", label: "360P (480x360)" },
     ]
-  },
-  {
-    label: "Custom",
-    options: [
-      { value: "custom_16_9", label: "自定义(16:9)" },
-    ]
   }
 ];

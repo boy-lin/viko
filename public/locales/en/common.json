@@ -1,41 +1,49 @@
 {
-    "app": {
-        "title": "FigureX",
-        "description": "Powerful Media Toolkit"
-    },
-    "nav": {
-        "home": "Home",
-        "tasks": "Tasks",
-        "my_files": "My Files",
-        "batch": "Batch",
-        "converter": "Converter",
-        "compressor": "Compressor",
-        "metadata": "Metadata",
-        "ai_tools": "AI Tools",
-        "downloader": "Downloader",
-        "audio_test": "Audio Test",
-        "home_v1": "Home V1",
-        "video_player": "Video Player"
-    },
     "acceleration": {
-        "badge_high": "High",
-        "title": "Acceleration Settings",
-        "description": "Configure hardware acceleration options.",
-        "ultra_fast_label": "Enable Ultra-fast Speed",
-        "ultra_fast_desc": "Optimizes conversion settings for maximum speed.",
-        "gpu_label": "Enable GPU Acceleration",
-        "checking": "Checking hardware support...",
-        "gpu_desc_available": "Uses hardware encoders (e.g., NVENC, QSV, VideoToolbox) when available.",
-        "gpu_desc_unavailable": "No supported hardware encoder detected."
-    },
+        "description": "Configure hardware acceleration options.", 
+        "title": "Acceleration Settings", 
+        "checking": "Checking hardware support...", 
+        "badge_high": "High", 
+        "ultra_fast_desc": "Optimizes conversion settings for maximum speed.", 
+        "gpu_label": "Enable GPU Acceleration", 
+        "ultra_fast_label": "Enable Ultra-fast Speed", 
+        "gpu_desc_unavailable": "No supported hardware encoder detected.", 
+        "gpu_desc_available": "Uses hardware encoders (e.g., NVENC, QSV, VideoToolbox) when available."
+    }, 
+    "app": {
+        "description": "Powerful Media Toolkit", 
+        "title": "FigureX"
+    }, 
+    "nav": {
+        "tasks": "Tasks", 
+        "converter": "Converter", 
+        "ai_tools": "AI Tools", 
+        "downloader": "Downloader", 
+        "batch": "Batch", 
+        "video_player": "Video Player", 
+        "compressor": "Compressor", 
+        "audio_test": "Audio Test", 
+        "home": "Home", 
+        "my_files": "My Files", 
+        "home_v1": "Home V1", 
+        "metadata": "Metadata"
+    }, 
     "common": {
-        "loading": "Loading...",
-        "save": "Save",
-        "cancel": "Cancel",
-        "confirm": "Confirm",
-        "delete": "Delete",
-        "edit": "Edit",
-        "add": "Add",
-        "select_file": "Select File"
+        "loading": "Loading...", 
+        "confirm": "Confirm", 
+        "edit": "Edit", 
+        "select_file": "Select File", 
+        "add": "Add", 
+        "cancel": "Cancel", 
+        "save": "Save", 
+        "delete": "Delete"
+    }, 
+    "video_advance": {
+        "color_space": "Color Space", 
+        "missing": "format or encoder is not set", 
+        "resolution": "Resolution", 
+        "encoder": "Encoder", 
+        "frame_rate": "Frame Rate", 
+        "bitrate": "Bitrate"
     }
 }

@@ -35,7 +35,6 @@ export const getFileKind = (extension?: string): UploadKind => {
 
 export function UploadDrag({
   supportedExtensions,
-  mediaType,
   onUploadComplete
 }: {
   supportedExtensions: string[];

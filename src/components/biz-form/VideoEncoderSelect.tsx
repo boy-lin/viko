@@ -1,6 +1,4 @@
 import React from "react";
-import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -48,23 +46,17 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
     : allEncoders.filter((e) => ["h264", "hevc", "vp9", "auto"].includes(e.value)); // default simplified list
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-muted-foreground">Encoder :</Label>
-        <Info className="w-4 h-4 text-muted-foreground" />
-      </div>
-      <Select value={value ?? "auto"} onValueChange={onValueChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Select encoder" />
-        </SelectTrigger>
-        <SelectContent>
-          {filteredEncoders.map((encoder) => (
-            <SelectItem key={encoder.value} value={encoder.value}>
-              {encoder.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={value ?? "auto"} onValueChange={onValueChange}>
+      <SelectTrigger>
+        <SelectValue placeholder="Select encoder" />
+      </SelectTrigger>
+      <SelectContent>
+        {filteredEncoders.map((encoder) => (
+          <SelectItem key={encoder.value} value={encoder.value}>
+            {encoder.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };

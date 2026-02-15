@@ -208,7 +208,6 @@ export default function MetadataEditorPage() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [details, setDetails] = useState<MediaDetails | null>(null);
-    const [thumbnail, setThumbnail] = useState<string | null>(null);
     const mediaType = useMemo(() => detectMediaType(details), [details]);
     const { t } = useTranslation("metadata");
 
@@ -238,9 +237,6 @@ export default function MetadataEditorPage() {
                     const tags = details.tags || {};
                     setMetadata(tags);
                     setStreamTags(details.stream_tags || []);
-
-                    // MediaThumbnail handles its own thumbnail fetching, keep legacy state null
-                    setThumbnail(null);
                 } catch (e: any) {
                     setMessage({ type: "error", text: t("loadError", { error: String(e) }) });
                 } finally {
@@ -385,7 +381,6 @@ export default function MetadataEditorPage() {
                                     <MediaThumbnail
                                         path={fileInfo.path}
                                         title={t("videoPreview")}
-                                        fileType="video"
                                         className="w-full h-48"
                                     />
                                 )}

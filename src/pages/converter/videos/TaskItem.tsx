@@ -6,30 +6,35 @@ import { ConverterTask, FileType } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { ConvertVideoTaskArgs, bridge, getMediaTaskQueue } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
-import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
-import { GlobalConverterConfig, useConverterStore } from "./store";
+import { useConverterStore } from "./store";
 import { FormatEnum } from "@/types/options";
 import { formatToDefinition } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
 import { useSettingsStore } from "@/stores/settingsStore";
+import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
+import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 
 interface TaskItemProps {
   task: ConverterTask;
-  globalConfig: GlobalConverterConfig;
 }
 
 const buildDefaultArgs = (taskId: string, path: string, mediaTitle: string, mediaDetails: any) => {
   const outputDir = useSettingsStore.getState().getOutputDir(path);
+  let format = FormatEnum.MP4;
+  if (mediaDetails.extension === format) {
+    format = FormatEnum.MOV
+  }
+
   const outputArgs: any = {
     task_id: taskId,
     title: mediaTitle,
+    format: format,
     input_path: path,
-    output_path: "",
+    output_path: ""
   };
-  outputArgs.format = FormatEnum.MP4;
-  outputArgs.output_path = `${outputDir}/${mediaTitle}.${FormatEnum.MP4}`;
-  const containerDefinition = formatToDefinition.get(FormatEnum.MP4);
+  outputArgs.output_path = `${outputDir}/${mediaTitle}.${outputArgs.format}`;
+  const containerDefinition = formatToDefinition.get(outputArgs.format);
   outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder;
   outputArgs.audio_tracks =
     mediaDetails?.streams
@@ -69,6 +74,7 @@ export default function TaskItem({ task }: TaskItemProps) {
           args: outputArgs,
           fileType: FileType.Video,
           taskType: MediaTaskType.ConvertVideo,
+          outputTitle: title,
         });
       } catch (error: any) {
         if (!active) return;
@@ -87,7 +93,7 @@ export default function TaskItem({ task }: TaskItemProps) {
     const errorMessage = (task as any).errorMessage || (task as any).error;
     const map = {
       idle: { text: t("status.idle", "等待中"), color: "text-gray-600", badge: "bg-gray-100" },
-      converting: { text: t("status.converting", "转换中"), color: "text-blue-600", badge: "bg-blue-100" },
+      processing: { text: t("status.processing", "转换中"), color: "text-blue-600", badge: "bg-blue-100" },
       finished: { text: t("status.finished", "已完成"), color: "text-green-600", badge: "bg-green-100" },
       error: { text: t("status.error", "错误"), color: "text-red-600", badge: "bg-red-100" },
       cancelled: { text: t("status.cancelled", "已取消"), color: "text-gray-600", badge: "bg-gray-100" },
@@ -96,7 +102,7 @@ export default function TaskItem({ task }: TaskItemProps) {
     return (
       <div className={`inline-flex flex-col items-center px-2 py-1 rounded-lg text-xs font-medium ${cfg.badge} ${cfg.color}`}>
         <span>{cfg.text}</span>
-        {task.status === "converting" && task.progress !== undefined && (
+        {task.status === "processing" && task.progress !== undefined && (
           <span>{task.progress.toFixed(0)}%</span>
         )}
         {task.status === "error" && errorMessage && (
@@ -199,6 +205,22 @@ export default function TaskItem({ task }: TaskItemProps) {
     convertVideoTaskArgs.frame_rate,
   ];
 
+  const handleOutputTitleChange = (nextTitle: string) => {
+    if (!task.mediaDetails?.path) {
+      console.error('mediaDetails.path is undefined');
+      return;
+    }
+    const outputDir = useSettingsStore.getState().getOutputDir(task.mediaDetails?.path);
+    const output_path = `${outputDir}/${nextTitle}.${task.args.format}`
+    updateTaskById(task.id, {
+      outputTitle: nextTitle,
+      args: {
+        ...task.args,
+        output_path,
+      },
+    });
+  };
+
   console.log('task', task);
 
   return (
@@ -228,7 +250,10 @@ export default function TaskItem({ task }: TaskItemProps) {
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="text-base font-semibold text-foreground">{t("targetInfo")}</div>
+        <OutputTitleEditor
+          value={task.outputTitle}
+          onChange={handleOutputTitleChange}
+        />
         <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground">
           {targetInfoParts.map((p, idx) => (
             <span key={idx}>{p || "auto"}</span>
@@ -246,7 +271,6 @@ export default function TaskItem({ task }: TaskItemProps) {
           formatRecents={formatRecents}
           addToRecents={addToRecents}
           onValueChange={(config) => {
-            console.log("onValueChange", config);
             updateTaskById(task.id, {
               taskType: config.taskType,
               args: config.args,

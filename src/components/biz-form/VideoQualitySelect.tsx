@@ -39,7 +39,7 @@ export const VideoQualitySelect: React.FC<VideoQualitySelectProps> = ({
         }
       }}
     >
-      <SelectTrigger>
+      <SelectTrigger className="cursor-pointer" >
         <SelectValue placeholder="Select quality" />
       </SelectTrigger>
       <SelectContent>

@@ -47,7 +47,7 @@ const FEATURE_MAP: FeatureItem[] = [
     titleKey: "common.compressor.title",
     descKey: "common.compressor.desc",
     icon: Gauge,
-    path: MenuItems.compressor,
+    path: MenuItems.compressorVideos,
   },
   {
     id: "metadata",

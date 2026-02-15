@@ -1,7 +1,5 @@
 import { useMemo } from "react";
-import { FileType } from "@/types/tasks";
 import { VIDEO_FORMATS } from "@/data/formats";
-import { MediaTaskType } from "@/types/tasks";
 
 import { UploadPanel } from "./UploadPanel";
 import { useConverterStore } from "./store";
@@ -15,7 +13,6 @@ export default function ConvertingTask({
   globalFilter = "",
 }: ConvertingTaskProps) {
   const { convertingTasks } = useConverterStore();
-  const globalConfig = useConverterStore((state) => state.globalConfig);
 
   const filteredTasks = useMemo(() => {
     const search = globalFilter?.trim().toLowerCase() || "";
@@ -36,7 +33,6 @@ export default function ConvertingTask({
         {filteredTasks.length === 0 ? (
           <div className="border border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
             <UploadPanel
-              mediaType={MediaTaskType.ConvertVideo}
               supportedExtensions={VIDEO_FORMATS}
             />
           </div>
@@ -46,7 +42,6 @@ export default function ConvertingTask({
               <TaskItem
                 key={task.id}
                 task={task}
-                globalConfig={globalConfig}
               />
             );
           })

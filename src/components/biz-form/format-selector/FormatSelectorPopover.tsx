@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
     config,
     formatRecents,
     addToRecents,
-    onValueChange = () => {},
+    onValueChange = () => { },
     className,
     applyConfigToAllTasks,
   } = props;
@@ -29,6 +29,7 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
     } else if (config.activeCategory === FileType.Audio) {
       const _args = config.args as ConvertAudioTaskArgs;
       label = "";
+      console.log('args', _args)
     }
     return {
       extension: config.args.format,
@@ -43,21 +44,21 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-[240px] justify-between", className)}
+          className={cn("justify-between", className)}
         >
           {selectedFormat ? (
-            <span className="flex items-center gap-2 truncate">
-              <span className="font-semibold">
+            <span className="flex items-center gap-1 truncate">
+              <span className="font-semibold w-[3em]">
                 {selectedFormat.extension?.toUpperCase()}
               </span>
-              <span className="text-muted-foreground text-xs">
+              <span className="text-muted-foreground text-xs w-[6em]">
                 {selectedFormat.label}
               </span>
             </span>
           ) : (
             "Select format..."
           )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[680px] p-0" align="start">

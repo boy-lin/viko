@@ -33,9 +33,8 @@ export const ConverterFooter: React.FC<{}> = () => {
   React.useEffect(() => {
     const queue = getMediaTaskQueue();
     const handleEvent = (payload: any) => {
-      // payload type is MediaTaskEvent but imported from bridge which might cause cycle if not careful, using any for now or import type
       if (payload.task_type !== "convert") return;
-      const { task_id, event_type, progress, output_path, output_size, error_message } = payload;
+      const { task_id, event_type, progress, error_message } = payload;
       const store = useConverterStore.getState();
 
       // Check if this task belongs to video converter store
@@ -127,7 +126,7 @@ export const ConverterFooter: React.FC<{}> = () => {
           </span>
           <div className="flex items-center gap-2">
             <FormatSelectorPopover
-              className="w-[14em]"
+              className=""
               config={globalConfig}
               formatRecents={formatRecents}
               addToRecents={addToRecents}

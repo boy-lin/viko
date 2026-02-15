@@ -2,12 +2,12 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "viko",
   "version": "0.1.0",
-  "identifier": "com.viko_kits",
+  "identifier": "com.viko",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
-    "frontendDist": "../dist"
+    "beforeBuildCommand": "",
+    "frontendDist": "https://app.2342342.xyz"
   },
   "app": {
     "windows": [
