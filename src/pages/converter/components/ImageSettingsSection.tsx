@@ -27,17 +27,16 @@ export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
       resolution: "auto",
     });
   };
-  console.log('format, image_encoder', format, image_encoder)
   return (
     <div className={cn("flex-1 overflow-hidden p-2 space-y-4", className)}>
-      <div className="flex items-center justify-between border-b bg-muted/10">
+      {/* <div className="flex items-center justify-between border-b bg-muted/10">
         <h3 className="font-bold text-lg">{t("settings.image.title")}</h3>
         {onReset && (
           <Button variant="ghost" size="icon" onClick={onReset}>
             <RefreshCw className="w-4 h-4" />
           </Button>
         )}
-      </div>
+      </div> */}
 
       <div className="grid grid-cols-2 gap-x-8 gap-y-4">
         <div className="space-y-2">

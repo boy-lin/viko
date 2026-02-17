@@ -129,9 +129,17 @@ fn resolve_audio_tracks(
                 .source_stream_index
                 .or_else(|| input_audio_indices.get(i).copied())
                 .unwrap_or(0);
+            let merged_encoding = AudioEncodingParams {
+                codec: cfg.encoding.codec.clone().or(default_encoding.codec.clone()),
+                bitrate: cfg.encoding.bitrate.or(default_encoding.bitrate),
+                sample_rate: cfg.encoding.sample_rate.or(default_encoding.sample_rate),
+                channels: cfg.encoding.channels.or(default_encoding.channels),
+                bit_depth: cfg.encoding.bit_depth.or(default_encoding.bit_depth),
+                quality: cfg.encoding.quality.or(default_encoding.quality),
+            };
             resolved.push(ResolvedAudioTrack {
                 source_stream_index: src_idx,
-                encoding: cfg.encoding.clone(),
+                encoding: merged_encoding,
             });
         }
         resolved
@@ -314,6 +322,11 @@ impl<E: TaskEmitter> Transcoder<E> {
         // 码率
         if let Some(bitrate) = params.video_bitrate {
             encoder.set_bit_rate((bitrate * 1000) as usize);
+        } else if decoder.bit_rate() > 0 {
+            encoder.set_bit_rate(decoder.bit_rate() as usize);
+        } else if codec.name() == "libtheora" {
+            // libtheora often requires an explicit bitrate/quality
+            encoder.set_bit_rate(1_000_000);
         }
 
         if global_header && codec.name() != "h264_mf" {
@@ -472,7 +485,16 @@ impl<E: TaskEmitter> Transcoder<E> {
         ost_time_base: Rational,
     ) -> Result<(), String> {
         let mut decoded = frame::Video::empty();
-        while self.decoder.receive_frame(&mut decoded).is_ok() {
+        loop {
+            match self.decoder.receive_frame(&mut decoded) {
+                Ok(()) => {}
+                Err(e) => {
+                    if is_ffmpeg_again(&e) || e == ffmpeg::Error::Eof {
+                        break;
+                    }
+                    return Err(format!("Decode receive failed: {}", e));
+                }
+            }
             // 进度报告
             if let Some(pts) = decoded.pts() {
                 if crate::task::cancel::is_cancelled() {
@@ -519,7 +541,19 @@ impl<E: TaskEmitter> Transcoder<E> {
             let mut scaled_frame = frame::Video::empty();
             self.scaler
                 .run(&decoded, &mut scaled_frame)
-                .map_err(|e| format!("Scaling failed: {}", e))?;
+                .map_err(|e| {
+                    format!(
+                        "Scaling failed: {} (decoded fmt={:?} {}x{} pts={:?} -> target fmt={:?} {}x{})",
+                        e,
+                        decoded.format(),
+                        decoded.width(),
+                        decoded.height(),
+                        decoded.pts(),
+                        self.encoder.format(),
+                        scaled_frame.width(),
+                        scaled_frame.height()
+                    )
+                })?;
 
             let mut pts = decoded.pts().unwrap_or(0);
             if pts >= self.start_time {
@@ -545,8 +579,24 @@ impl<E: TaskEmitter> Transcoder<E> {
                 self.add_frame_to_filter(&scaled_frame)?;
                 self.get_and_process_filtered_frames(octx, ost_time_base)?;
             } else {
-                self.send_frame_to_encoder(&scaled_frame)?;
-                self.receive_and_process_encoded_packets(octx, ost_time_base)?;
+            self.send_frame_to_encoder(&scaled_frame).map_err(|e| {
+                format!(
+                    "Encode send failed: {} (scaled fmt={:?} {}x{} pts={:?} rescaled_pts={} input_tb={}/{} encoder_fmt={:?} encoder_tb={}/{})",
+                    e,
+                    scaled_frame.format(),
+                    scaled_frame.width(),
+                    scaled_frame.height(),
+                    scaled_frame.pts(),
+                    rescaled_pts,
+                    self.input_time_base.0,
+                    self.input_time_base.1,
+                    self.encoder.format(),
+                    self.encoder_time_base.0,
+                    self.encoder_time_base.1
+                )
+            })?;
+                self.receive_and_process_encoded_packets(octx, ost_time_base)
+                    .map_err(|e| format!("Encode receive failed: {} (last pts={:?})", e, scaled_frame.pts()))?;
             }
             self.frame_count += 1;
         }
@@ -634,13 +684,49 @@ impl<E: TaskEmitter> Transcoder<E> {
         ost_time_base: Rational,
     ) -> Result<(), String> {
         let mut encoded = packet::Packet::empty();
-        while self.encoder.receive_packet(&mut encoded).is_ok() {
-            encoded.set_stream(self.ost_index);
-            encoded.rescale_ts(self.encoder_time_base, ost_time_base);
-            encoded.write_interleaved(octx).map_err(|e| e.to_string())?;
+        loop {
+            match self.encoder.receive_packet(&mut encoded) {
+                Ok(()) => {
+                    encoded.set_stream(self.ost_index);
+                    encoded.rescale_ts(self.encoder_time_base, ost_time_base);
+                    encoded.write_interleaved(octx).map_err(|e| e.to_string())?;
+                }
+                Err(e) => {
+                    if is_ffmpeg_again(&e) || e == ffmpeg::Error::Eof {
+                        break;
+                    }
+                    let codec_name = self
+                        .encoder
+                        .codec()
+                        .map(|c| c.name().to_string())
+                        .unwrap_or_else(|| "unknown".to_string());
+                    log::error!(
+                        "encode receive failed: err={} codec={} last_pts={} encoder_tb={}/{} ost_tb={}/{} frame_count={} input_tb={}/{}",
+                        e,
+                        codec_name,
+                        self.last_pts,
+                        self.encoder_time_base.0,
+                        self.encoder_time_base.1,
+                        ost_time_base.0,
+                        ost_time_base.1,
+                        self.frame_count,
+                        self.input_time_base.0,
+                        self.input_time_base.1
+                    );
+                    return Err(e.to_string());
+                }
+            }
         }
         Ok(())
     }
+}
+
+fn is_ffmpeg_again(err: &ffmpeg::Error) -> bool {
+    matches!(
+        err,
+        ffmpeg::Error::Other { errno }
+            if *errno == ffmpeg::util::error::EAGAIN || *errno == ffmpeg::util::error::EWOULDBLOCK
+    )
 }
 
 fn build_video_filter_graph(
@@ -859,8 +945,14 @@ pub fn convert_video<E: TaskEmitter + Clone>(
         let ost_time_base = ost_time_bases[ost_idx];
 
         if let Some(transcoder) = transcoders.get_mut(&ist_index) {
-            transcoder.send_packet_to_decoder(&packet).map_err(|e| format!("Video decode send failed: {}", e))?;
-            transcoder.receive_and_process_decoded_frames(&mut octx, ost_time_bases[mapping as usize]).map_err(|e| format!("Video process failed: {}", e))?;
+            if let Err(e) = transcoder.send_packet_to_decoder(&packet) {
+                log::error!("Video decode send failed: {}", e);
+                return Err(format!("Video decode send failed: {}", e));
+            }
+            if let Err(e) = transcoder.receive_and_process_decoded_frames(&mut octx, ost_time_bases[mapping as usize]) {
+                log::error!("Video process failed: {}", e);
+                return Err(format!("Video process failed: {}", e));
+            }
         } else {
             // Stream copy
             packet.rescale_ts(ist_time_bases[ist_index], ost_time_base);
@@ -877,11 +969,26 @@ pub fn convert_video<E: TaskEmitter + Clone>(
         let ost_idx = stream_mapping[*ist_index] as usize;
         let ost_time_base = ost_time_bases[ost_idx];
 
-        transcoder.send_eof_to_decoder()?;
-        transcoder.receive_and_process_decoded_frames(&mut octx, ost_time_base)?;
-        transcoder.flush_filter_and_drain(&mut octx, ost_time_base)?;
-        transcoder.send_eof_to_encoder()?;
-        transcoder.receive_and_process_encoded_packets(&mut octx, ost_time_base)?;
+        if let Err(e) = transcoder.send_eof_to_decoder() {
+            log::error!("Video decode eof failed: {}", e);
+            return Err(e);
+        }
+        if let Err(e) = transcoder.receive_and_process_decoded_frames(&mut octx, ost_time_base) {
+            log::error!("Video process failed (flush decode): {}", e);
+            return Err(e);
+        }
+        if let Err(e) = transcoder.flush_filter_and_drain(&mut octx, ost_time_base) {
+            log::error!("Video filter flush failed: {}", e);
+            return Err(e);
+        }
+        if let Err(e) = transcoder.send_eof_to_encoder() {
+            log::error!("Video encode eof failed: {}", e);
+            return Err(e);
+        }
+        if let Err(e) = transcoder.receive_and_process_encoded_packets(&mut octx, ost_time_base) {
+            log::error!("Video encode receive failed: {}", e);
+            return Err(e);
+        }
     }
 
     for proc in audio_processors.iter_mut() {

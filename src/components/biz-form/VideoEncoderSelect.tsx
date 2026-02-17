@@ -6,6 +6,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { VIDEO_ENCODERS } from "@/data/encoders";
+import { EncoderEnum } from "@/types/options";
 
 interface VideoEncoderSelectProps {
   value?: string;
@@ -18,36 +20,16 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
   onValueChange,
   allowedEncoders,
 }) => {
-  // 定义所有支持的编码器
-  const allEncoders = [
-    { value: "auto", label: "Auto" },
-    { value: "h264", label: "H.264" },
-    { value: "hevc", label: "HEVC (H.265)" },
-    { value: "vp9", label: "VP9" },
-    { value: "av1", label: "AV1" },
-    { value: "mpeg4", label: "MPEG-4" },
-    { value: "mpeg2video", label: "MPEG-2" },
-    { value: "wmv2", label: "WMV2" },
-    { value: "vpc", label: "VP8" },
-    { value: "theora", label: "Theora" },
-    { value: "flv1", label: "FLV1" },
-    { value: "h263", label: "H.263" },
-    { value: "prores", label: "ProRes" },
-    { value: "dnxhd", label: "DNxHD" },
-    { value: "mpeg1video", label: "MPEG-1" },
-    { value: "mpeg2video", label: "MPEG-2" },
-
-  ];
 
   const filteredEncoders = allowedEncoders
-    ? allEncoders.filter(
-      (e) => allowedEncoders.includes(e.value) || e.value === "auto"
+    ? VIDEO_ENCODERS.filter(
+      (e) => allowedEncoders.includes(e.value) || e.value === EncoderEnum.AUTO
     )
-    : allEncoders.filter((e) => ["h264", "hevc", "vp9", "auto"].includes(e.value)); // default simplified list
+    : VIDEO_ENCODERS.filter((e) => [EncoderEnum.H264, EncoderEnum.H265, EncoderEnum.AUTO].includes(e.value));
 
   return (
-    <Select value={value ?? "auto"} onValueChange={onValueChange}>
-      <SelectTrigger>
+    <Select value={value ?? EncoderEnum.AUTO} onValueChange={onValueChange}>
+      <SelectTrigger className="cursor-pointer">
         <SelectValue placeholder="Select encoder" />
       </SelectTrigger>
       <SelectContent>

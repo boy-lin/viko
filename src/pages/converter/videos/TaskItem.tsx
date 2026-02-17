@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { Trash2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -212,16 +212,16 @@ export default function TaskItem({ task }: TaskItemProps) {
     }
     const outputDir = useSettingsStore.getState().getOutputDir(task.mediaDetails?.path);
     const output_path = `${outputDir}/${nextTitle}.${task.args.format}`
-    updateTaskById(task.id, {
-      outputTitle: nextTitle,
-      args: {
-        ...task.args,
-        output_path,
-      },
+    startTransition(() => {
+      updateTaskById(task.id, {
+        outputTitle: nextTitle,
+        args: {
+          ...task.args,
+          output_path,
+        },
+      });
     });
   };
-
-  console.log('task', task);
 
   return (
     <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm">
@@ -266,20 +266,26 @@ export default function TaskItem({ task }: TaskItemProps) {
           config={{
             args: task.args,
             taskType: task.taskType,
-            activeCategory: FileType.Video,
+            activeCategory: task.activeCategory,
           }}
           formatRecents={formatRecents}
           addToRecents={addToRecents}
           onValueChange={(config) => {
-            updateTaskById(task.id, {
-              taskType: config.taskType,
-              args: config.args,
+            startTransition(() => {
+              updateTaskById(task.id, {
+                activeCategory: config.activeCategory,
+                taskType: config.taskType,
+                args: config.args,
+              });
             });
           }}
           applyConfigToAllTasks={(config) => {
-            updateTaskById(task.id, {
-              taskType: config.taskType,
-              args: config.args,
+            startTransition(() => {
+              updateTaskById(task.id, {
+                activeCategory: config.activeCategory,
+                taskType: config.taskType,
+                args: config.args,
+              });
             });
           }}
         />

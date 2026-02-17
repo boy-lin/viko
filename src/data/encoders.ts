@@ -151,19 +151,14 @@ export const VIDEO_ENCODERS: EncoderOption[] = [
     label: "H.265 / HEVC",
     description: "High efficiency, smaller file size",
   },
-  {
-    value: EncoderEnum.H264_HARDWARE,
-    label: "H.264 (Hardware)",
-    description: "Apple Silicon Hardware Acceleration",
-  },
-  {
-    value: EncoderEnum.HEVC_HARDWARE,
-    label: "H.265 (Hardware)",
-    description: "Apple Silicon Hardware Acceleration",
-  },
   { value: EncoderEnum.PRORES, label: "ProRes", description: "Apple ProRes" },
-  { value: EncoderEnum.VP9, label: "VP9", description: "Google VP9" },
   { value: EncoderEnum.AV1, label: "AV1", description: "AOMedia Video 1" },
+  { value: EncoderEnum.MJPEG, label: "MJPEG", description: "Motion JPEG" },
+  { value: EncoderEnum.VP8, label: "VP8", description: "Google VP8" },
+  { value: EncoderEnum.VP9, label: "VP9", description: "Google VP9" },
+  { value: EncoderEnum.MPEG4, label: "MPEG4", description: "MPEG4 Video" },
+  { value: EncoderEnum.MPEG2VIDEO, label: "MPEG2VIDEO", description: "MPEG2 Video" },
+  { value: EncoderEnum.THEORA, label: "THEORA", description: "Theora Video" },
 ];
 
 export const IMAGE_ENCODERS: EncoderOption[] = [

@@ -11,8 +11,8 @@ function forwardConsole(
   };
 }
 
-forwardConsole("log", trace);
+// forwardConsole("log", trace);
 forwardConsole("debug", debug);
-forwardConsole("info", info);
-forwardConsole("warn", warn);
+// forwardConsole("info", info);
+// forwardConsole("warn", warn);
 forwardConsole("error", error);

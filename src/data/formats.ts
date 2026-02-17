@@ -10,7 +10,7 @@ import { FileType } from "@/types/tasks";
 export const FORMAT_CATEGORIES: FormatCategory[] = [
   { id: FileType.Audio, label: "Audio", icon: Music },
   { id: FileType.Video, label: "Video", icon: FileVideo },
-  { id: FileType.Image, label: "Images", icon: ImageIcon },
+  { id: FileType.Image, label: "Image", icon: ImageIcon },
 ];
 
 export const FORMAT_GROUPS: FormatGroup[] = [
@@ -39,8 +39,7 @@ export const FORMAT_GROUPS: FormatGroup[] = [
   { id: "webm", label: "WebM", category: FileType.Video },
   { id: "flv", label: "FLV", category: FileType.Video },
   { id: "3gp", label: "3GP", category: FileType.Video },
-  { id: "mpeg1", label: "MPEG-1", category: FileType.Video },
-  { id: "mpeg2", label: "MPEG-2", category: FileType.Video },
+  { id: FormatEnum.MPG, label: "MPG", category: FileType.Video },
   { id: "vob", label: "VOB", category: FileType.Video },
   { id: "ogv", label: "OGV", category: FileType.Video },
 
@@ -59,7 +58,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp3-320",
     label: "High Quality",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "mp3",
     extension: FormatEnum.MP3,
     audioBitrate: "320k",
@@ -67,7 +66,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp3-256",
     label: "Medium Quality",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "mp3",
     extension: FormatEnum.MP3,
     audioBitrate: "256k",
@@ -75,7 +74,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp3-128",
     label: "Low Quality",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "mp3",
     extension: FormatEnum.MP3,
     audioBitrate: "128k",
@@ -85,7 +84,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "m4a-aac-320",
     label: "High Quality",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "m4a",
     extension: FormatEnum.M4A,
     audioBitrate: "320k",
@@ -93,7 +92,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "m4a-aac-256",
     label: "Medium Quality (256 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "m4a",
     extension: FormatEnum.M4A,
     audioBitrate: "256k",
@@ -101,7 +100,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "m4a-aac-128",
     label: "Low Quality (128 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "m4a",
     extension: FormatEnum.M4A,
     audioBitrate: "128k",
@@ -111,7 +110,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "wav-pcm",
     label: "Lossless Quality (Smart Fit)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "wav",
     extension: FormatEnum.WAV,
     audioBitrate: "lossless",
@@ -121,7 +120,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "m4r-aac-256",
     label: "High Quality (256 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "m4r",
     extension: FormatEnum.M4R,
     audioBitrate: "256k",
@@ -129,7 +128,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "m4r-aac-128",
     label: "Medium Quality (128 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "m4r",
     extension: FormatEnum.M4R,
     audioBitrate: "128k",
@@ -139,7 +138,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "aiff-pcm",
     label: "Lossless Quality (Smart Fit)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "aiff",
     extension: FormatEnum.AIFF,
     audioBitrate: "lossless",
@@ -149,7 +148,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "flac-lossless",
     label: "Lossless Quality (Smart Fit)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "flac",
     extension: FormatEnum.FLAC,
     audioBitrate: "lossless",
@@ -159,7 +158,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "ogg-320",
     label: "High Quality (320 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "ogg",
     extension: FormatEnum.OGG,
     audioBitrate: "320k",
@@ -167,7 +166,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "ogg-256",
     label: "Medium Quality (256 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "ogg",
     extension: FormatEnum.OGG,
     audioBitrate: "256k",
@@ -175,7 +174,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "ogg-128",
     label: "Low Quality (128 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "ogg",
     extension: FormatEnum.OGG,
     audioBitrate: "128k",
@@ -185,7 +184,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "aac-320",
     label: "High Quality (320 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "aac",
     extension: FormatEnum.AAC,
     audioBitrate: "320k",
@@ -193,7 +192,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "aac-256",
     label: "Medium Quality (256 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "aac",
     extension: FormatEnum.AAC,
     audioBitrate: "256k",
@@ -201,7 +200,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "aac-128",
     label: "Low Quality (128 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "aac",
     extension: FormatEnum.AAC,
     audioBitrate: "128k",
@@ -211,7 +210,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "ac3-640",
     label: "High Quality (640 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "ac3",
     extension: FormatEnum.AC3,
     audioBitrate: "640k",
@@ -219,7 +218,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "ac3-448",
     label: "Medium Quality (448 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "ac3",
     extension: FormatEnum.AC3,
     audioBitrate: "448k",
@@ -227,7 +226,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "ac3-192",
     label: "Low Quality (192 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "ac3",
     extension: FormatEnum.AC3,
     audioBitrate: "192k",
@@ -237,7 +236,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "amr-122",
     label: "High Quality (12.2 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "amr",
     extension: FormatEnum.AMR,
     audioBitrate: "12.2k",
@@ -245,7 +244,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "amr-795",
     label: "Medium Quality (7.95 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "amr",
     extension: FormatEnum.AMR,
     audioBitrate: "7.95k",
@@ -253,7 +252,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "amr-67",
     label: "Low Quality (6.7 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "amr",
     extension: FormatEnum.AMR,
     audioBitrate: "6.7k",
@@ -263,7 +262,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp2-256",
     label: "High Quality (256 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "mp2",
     extension: FormatEnum.MP2,
     audioBitrate: "256k",
@@ -271,7 +270,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp2-128",
     label: "Medium Quality (128 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "mp2",
     extension: FormatEnum.MP2,
     audioBitrate: "128k",
@@ -279,7 +278,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "mp2-96",
     label: "Low Quality (96 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "mp2",
     extension: FormatEnum.MP2,
     audioBitrate: "96k",
@@ -289,7 +288,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "m4b-256",
     label: "High Quality (256 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "m4b",
     extension: FormatEnum.M4B,
     audioBitrate: "256k",
@@ -297,7 +296,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "m4b-128",
     label: "Medium Quality (128 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "m4b",
     extension: FormatEnum.M4B,
     audioBitrate: "128k",
@@ -305,7 +304,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "m4b-96",
     label: "Low Quality (96 kbps)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "m4b",
     extension: FormatEnum.M4B,
     audioBitrate: "96k",
@@ -315,7 +314,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "ape-lossless",
     label: "Lossless Quality (Smart Fit)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "ape",
     extension: FormatEnum.APE,
     audioBitrate: "lossless",
@@ -325,7 +324,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "caf-lossless",
     label: "Lossless Quality (Smart Fit)",
-    category: "audio",
+    category: FileType.Audio,
     groupId: "caf",
     extension: FormatEnum.CAF,
     audioBitrate: "lossless",
@@ -734,7 +733,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "apple-4k",
     label: "4K Video (3840x2160)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "apple",
     extension: FormatEnum.MP4,
     videoResolution: "3840x2160",
@@ -743,7 +742,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "apple-ipad-pro",
     label: "iPad Pro (2732x2048)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "apple",
     extension: FormatEnum.MP4,
     videoResolution: "2732x2048",
@@ -752,7 +751,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "apple-1284",
     label: "Super Retina (2778x1284)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "apple",
     extension: FormatEnum.MP4,
     videoResolution: "2778x1284",
@@ -761,7 +760,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "apple-1080",
     label: "HD 1080P (1920x1080)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "apple",
     extension: FormatEnum.MP4,
     videoResolution: "1920x1080",
@@ -772,7 +771,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "samsung-qhd",
     label: "QHD+ (3120x1440)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "samsung",
     extension: FormatEnum.MP4,
     videoResolution: "3120x1440",
@@ -781,7 +780,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "samsung-1080",
     label: "FHD+ (2340x1080)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "samsung",
     extension: FormatEnum.MP4,
     videoResolution: "2340x1080",
@@ -792,7 +791,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "huawei-1.5k",
     label: "1.5K (2720x1260)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "huawei",
     extension: FormatEnum.MP4,
     videoResolution: "2720x1260",
@@ -801,7 +800,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "huawei-1080",
     label: "FHD+ (2400x1080)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "huawei",
     extension: FormatEnum.MP4,
     videoResolution: "2400x1080",
@@ -812,7 +811,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "xiaomi-2k",
     label: "2K (3200x1440)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "xiaomi",
     extension: FormatEnum.MP4,
     videoResolution: "3200x1440",
@@ -821,7 +820,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "xiaomi-1080",
     label: "FHD+ (2400x1080)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "xiaomi",
     extension: FormatEnum.MP4,
     videoResolution: "2400x1080",
@@ -832,7 +831,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "pixel-pro",
     label: "Super Res (2992x1344)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "google",
     extension: FormatEnum.MP4,
     videoResolution: "2992x1344",
@@ -841,7 +840,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "pixel-1080",
     label: "FHD+ (2400x1080)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "google",
     extension: FormatEnum.MP4,
     videoResolution: "2400x1080",
@@ -852,7 +851,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "sony-4k",
     label: "4K OLED (3840x1644)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "sony",
     extension: FormatEnum.MP4,
     videoResolution: "3840x1644",
@@ -861,7 +860,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "sony-1080",
     label: "FHD+ (2520x1080)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "sony",
     extension: FormatEnum.MP4,
     videoResolution: "2520x1080",
@@ -872,7 +871,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "console-4k",
     label: "4K UHD (3840x2160)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "games",
     extension: FormatEnum.MP4,
     videoResolution: "3840x2160",
@@ -881,7 +880,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "console-1080",
     label: "Full HD (1920x1080)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "games",
     extension: FormatEnum.MP4,
     videoResolution: "1920x1080",
@@ -890,7 +889,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "console-720",
     label: "HD 720P (1280x720)",
-    category: "video_device",
+    category: FileType.Video,
     groupId: "games",
     extension: FormatEnum.MP4,
     videoResolution: "1280x720",
@@ -902,7 +901,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "fcp-prores-422",
     label: "ProRes 422",
-    category: "video_editor",
+    category: FileType.Video,
     groupId: "final_cut",
     extension: FormatEnum.MP4,
     videoResolution: "auto",
@@ -910,7 +909,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "fcp-prores-hq",
     label: "ProRes 422 HQ",
-    category: "video_editor",
+    category: FileType.Video,
     groupId: "final_cut",
     extension: FormatEnum.MP4,
     videoResolution: "auto",
@@ -918,7 +917,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "fcp-prores-lt",
     label: "ProRes 422 LT",
-    category: "video_editor",
+    category: FileType.Video,
     groupId: "final_cut",
     extension: FormatEnum.MP4,
     videoResolution: "auto",
@@ -926,7 +925,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "fcp-prores-proxy",
     label: "ProRes 422 Proxy",
-    category: "video_editor",
+    category: FileType.Video,
     groupId: "final_cut",
     extension: FormatEnum.MP4,
     videoResolution: "auto",
@@ -934,7 +933,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "fcp-prores-4444",
     label: "ProRes 4444",
-    category: "video_editor",
+    category: FileType.Video,
     groupId: "final_cut",
     extension: FormatEnum.MP4,
     videoResolution: "auto",
@@ -944,7 +943,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "imovie-hd",
     label: "HD 1080p",
-    category: "video_editor",
+    category: FileType.Video,
     groupId: "imovie",
     extension: FormatEnum.MP4,
     videoResolution: "1920x1080",
@@ -954,7 +953,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "avid-dnxhd",
     label: "DNxHD",
-    category: "video_editor",
+    category: FileType.Video,
     groupId: "avid",
     extension: FormatEnum.MP4,
     videoResolution: "auto",
@@ -965,7 +964,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "yt-4k",
     label: "4K Ultra HD",
-    category: "video_social",
+    category: FileType.Video,
     groupId: "youtube",
     extension: FormatEnum.MP4,
     videoResolution: "3840x2160",
@@ -973,7 +972,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "yt-1080",
     label: "Full HD 1080p",
-    category: "video_social",
+    category: FileType.Video,
     groupId: "youtube",
     extension: FormatEnum.MP4,
     videoResolution: "1920x1080",
@@ -983,7 +982,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "fb-720",
     label: "HD 720p",
-    category: "video_social",
+    category: FileType.Video,
     groupId: "facebook",
     extension: FormatEnum.MP4,
     videoResolution: "1280x720",
@@ -993,7 +992,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "ig-story",
     label: "Story/Reel (Vertical)",
-    category: "video_social",
+    category: FileType.Video,
     groupId: "instagram",
     extension: FormatEnum.MP4,
     videoResolution: "1080x1920",
@@ -1001,7 +1000,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "ig-post",
     label: "Square Post",
-    category: "video_social",
+    category: FileType.Video,
     groupId: "instagram",
     extension: FormatEnum.MP4,
     videoResolution: "1080x1080",
@@ -1011,7 +1010,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "vimeo-1080",
     label: "HD 1080p",
-    category: "video_social",
+    category: FileType.Video,
     groupId: "vimeo",
     extension: FormatEnum.MP4,
     videoResolution: "1920x1080",
@@ -1021,7 +1020,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "jpeg-orig",
     label: "auto",
-    category: "image",
+    category: FileType.Image,
     groupId: "jpeg",
     extension: FormatEnum.JPG,
     imageResolution: "auto",
@@ -1029,7 +1028,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "png-orig",
     label: "auto",
-    category: "image",
+    category: FileType.Image,
     groupId: "png",
     extension: FormatEnum.PNG,
     imageResolution: "auto",
@@ -1037,7 +1036,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "webp-orig",
     label: "auto",
-    category: "image",
+    category: FileType.Image,
     groupId: "webp",
     extension: FormatEnum.WEBP,
     imageResolution: "auto",
@@ -1045,7 +1044,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "heic-orig",
     label: "auto",
-    category: "image",
+    category: FileType.Image,
     groupId: "heic",
     extension: FormatEnum.HEIC,
     imageResolution: "auto",
@@ -1053,7 +1052,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "gif-anim",
     label: "Standard",
-    category: "image",
+    category: FileType.Image,
     groupId: "gif",
     extension: FormatEnum.GIF,
     imageResolution: "auto",
@@ -1061,7 +1060,7 @@ export const FORMAT_DATA: FormatOption[] = [
   {
     id: "tiff-orig",
     label: "auto",
-    category: "image",
+    category: FileType.Image,
     groupId: "tiff",
     extension: FormatEnum.TIFF,
     imageResolution: "auto",

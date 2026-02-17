@@ -5,13 +5,13 @@ import {
 } from "@/types/tasks";
 import { FormatEnum, FormatOption, VideoEncoderEnum } from "@/types/options";
 import { MediaTaskType } from "@/types/tasks";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export enum ActiveCategoryEnum {
   Recents = "recents",
 }
 
-export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "args"> {
-  activeCategory: FileType.Video | FileType.Audio | FileType.Image | ActiveCategoryEnum.Recents;
+export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "args" | "activeCategory"> {
 }
 
 export const defaultVideoConfig: GlobalConverterConfig = {
@@ -20,7 +20,7 @@ export const defaultVideoConfig: GlobalConverterConfig = {
   args: {
     format: FormatEnum.MP4,
     video_encoder: VideoEncoderEnum.H264
-  } as ConverterTask["args"],
+  },
 };
 
 interface ConverterState {
@@ -58,7 +58,8 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
         progress: 0,
         args: outputArgs,
         fileType: FileType.Video,
-        taskType
+        taskType,
+        activeCategory: FileType.Video,
       });
 
     }
@@ -84,27 +85,30 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
     const { convertingTasks } = get();
     const task =
       convertingTasks.find((t) => t.id === id)
-    console.log('task', id, updates)
-
     if (task) {
-      const updatedTask = {
+      const updatedTask: ConverterTask = {
         ...task,
         ...updates,
         args: {
-          ...task.args, ...updates.args
+          ...task.args,
+          ...updates.args
         }
       };
-      console.log('task updatedTask', updatedTask)
-      const isFinished = updatedTask.status === "finished";
+
+      if (updatedTask.args?.format && updatedTask.outputTitle) {
+        const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path)
+
+        updatedTask.args.output_path = `${outputDir}/${updatedTask.outputTitle}.${updatedTask.args.format}`
+      }
+
+      if (updates.args?.audio_encoder && updatedTask.args.audio_tracks) {
+        updatedTask.args.audio_tracks.forEach((track: any) => {
+          track.encoder = updates.args?.audio_encoder
+        })
+      }
+
       const currentState = get();
-      if (isFinished) {
-        // Remove from processing tasks
-        set({
-          convertingTasks: currentState.convertingTasks.filter(
-            (t) => t.id !== id
-          ),
-        });
-      } else if (updatedTask.status === "error" || updatedTask.status === "cancelled") {
+      if (["finished", "cancelled"].includes(updatedTask.status)) {
         set({
           convertingTasks: currentState.convertingTasks.filter(
             (t) => t.id !== id

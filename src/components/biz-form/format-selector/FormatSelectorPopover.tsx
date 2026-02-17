@@ -44,7 +44,7 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("justify-between", className)}
+          className={cn("cursor-pointer justify-between", className)}
         >
           {selectedFormat ? (
             <span className="flex items-center gap-1 truncate">

@@ -23,21 +23,6 @@ export interface VideoEncoderOptions {
 }
 
 
-export interface ContainerDefinition {
-  video?: {
-    allowedEncoders: EncoderEnum[];
-    defaultEncoder: EncoderEnum;
-  };
-  audio?: {
-    allowedEncoders: EncoderEnum[];
-    defaultEncoder: EncoderEnum;
-    maxChannels?: number;
-  };
-  image?: {
-    allowedEncoders: EncoderEnum[];
-    defaultEncoder: EncoderEnum;
-  };
-}
 
 // ================= DATA: ENCODERS =================
 export interface EncoderDefinition {
@@ -61,21 +46,11 @@ export const ENCODER_DEFINITIONS: Record<string, EncoderDefinition> = {
     label: 'H.264 / AVC',
     maxResolution: "4096x2304", // 4K+
   },
-  [EncoderEnum.H264_HARDWARE]: {
-    id: EncoderEnum.H264_HARDWARE,
-    type: 'video',
-    label: 'H.264 (Hardware)',
-  },
   [EncoderEnum.H265]: {
     id: EncoderEnum.H265,
     type: 'video',
     label: 'H.265 / HEVC',
     maxResolution: "8192x4320", // 8K
-  },
-  [EncoderEnum.HEVC_HARDWARE]: {
-    id: EncoderEnum.HEVC_HARDWARE,
-    type: 'video',
-    label: 'H.265 (Hardware)',
   },
   [EncoderEnum.VP9]: {
     id: EncoderEnum.VP9,
@@ -146,14 +121,28 @@ export const ENCODER_DEFINITIONS: Record<string, EncoderDefinition> = {
 
 
 // ================= DATA: CONTAINER RULES =================
-// This replaces FORMAT_CAPABILITIES
+export interface ContainerDefinition {
+  video?: {
+    allowedEncoders: EncoderEnum[];
+    defaultEncoder: EncoderEnum;
+  };
+  audio?: {
+    allowedEncoders: EncoderEnum[];
+    defaultEncoder: EncoderEnum;
+    maxChannels?: number;
+  };
+  image?: {
+    allowedEncoders: EncoderEnum[];
+    defaultEncoder: EncoderEnum;
+  };
+}
 
 export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
   [FormatEnum.MP4]: {
     video: {
       allowedEncoders: [
-        EncoderEnum.H264, EncoderEnum.H264_HARDWARE,
-        EncoderEnum.H265, EncoderEnum.HEVC_HARDWARE,
+        EncoderEnum.H264,
+        EncoderEnum.H265,
         EncoderEnum.AV1, EncoderEnum.VP9, EncoderEnum.MPEG4
       ],
       defaultEncoder: EncoderEnum.H264
@@ -167,8 +156,8 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
   [FormatEnum.MOV]: {
     video: {
       allowedEncoders: [
-        EncoderEnum.H264, EncoderEnum.H264_HARDWARE,
-        EncoderEnum.H265, EncoderEnum.HEVC_HARDWARE,
+        EncoderEnum.H264,
+        EncoderEnum.H265,
         EncoderEnum.PRORES, EncoderEnum.PRORES_HARDWARE,
         EncoderEnum.MJPEG, EncoderEnum.MPEG4
       ],
@@ -222,7 +211,7 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
 
   [FormatEnum.FLV]: {
     video: {
-      allowedEncoders: [EncoderEnum.H264, EncoderEnum.MPEG4],
+      allowedEncoders: [EncoderEnum.H264],
       defaultEncoder: EncoderEnum.H264,
     },
     audio: {
@@ -258,7 +247,7 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
 
   [FormatEnum.MPG]: {
     video: {
-      allowedEncoders: [EncoderEnum.MPEG2VIDEO, EncoderEnum.MPEG4],
+      allowedEncoders: [EncoderEnum.MPEG2VIDEO],
       defaultEncoder: EncoderEnum.MPEG2VIDEO,
     },
     audio: {
@@ -476,61 +465,7 @@ export const videoEncoderToDefinition = new Map<string, VideoEncoderDefinition>(
     defaultBitrate: 5000, // kbps
     colorSpaces: COLOR_SPACES,
   },
-  [EncoderEnum.H264_HARDWARE]: {
-    maxResolution: "4096x2304",
-    defaultResolution: "1920x1080",
-    maxFrameRate: 60,
-    defaultFrameRate: 30,
-    maxBitrate: 50000,
-    defaultBitrate: 5000,
-    colorSpaces: COLOR_SPACES,
-  },
-  [EncoderEnum.H264_NVENC]: {
-    maxResolution: "4096x2304",
-    defaultResolution: "1920x1080",
-    maxFrameRate: 60,
-    defaultFrameRate: 30,
-    maxBitrate: 80000,
-    defaultBitrate: 6000,
-    colorSpaces: COLOR_SPACES,
-  },
-  [EncoderEnum.H264_QSV]: {
-    maxResolution: "4096x2304",
-    defaultResolution: "1920x1080",
-    maxFrameRate: 60,
-    defaultFrameRate: 30,
-    maxBitrate: 60000,
-    defaultBitrate: 5000,
-    colorSpaces: COLOR_SPACES,
-  },
   [EncoderEnum.H265]: {
-    maxResolution: "8192x4320",
-    defaultResolution: "1920x1080",
-    maxFrameRate: 60,
-    defaultFrameRate: 30,
-    maxBitrate: 80000,
-    defaultBitrate: 8000,
-    colorSpaces: COLOR_SPACES,
-  },
-  [EncoderEnum.HEVC_HARDWARE]: {
-    maxResolution: "8192x4320",
-    defaultResolution: "1920x1080",
-    maxFrameRate: 60,
-    defaultFrameRate: 30,
-    maxBitrate: 80000,
-    defaultBitrate: 8000,
-    colorSpaces: COLOR_SPACES,
-  },
-  [EncoderEnum.HEVC_NVENC]: {
-    maxResolution: "8192x4320",
-    defaultResolution: "1920x1080",
-    maxFrameRate: 60,
-    defaultFrameRate: 30,
-    maxBitrate: 100000,
-    defaultBitrate: 10000,
-    colorSpaces: COLOR_SPACES,
-  },
-  [EncoderEnum.HEVC_QSV]: {
     maxResolution: "8192x4320",
     defaultResolution: "1920x1080",
     maxFrameRate: 60,

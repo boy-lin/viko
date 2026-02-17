@@ -167,6 +167,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
         </div>
         {resolutionMode === "custom_size" ? (
           <div className="flex items-center gap-3">
+            <span className="text-sm invisible">分辨率</span>
             <span className="text-sm text-muted-foreground">宽</span>
             <CorrectNumberInput
               value={resolutionInfo.width}
@@ -196,13 +197,17 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
             />
             <span className="text-sm text-muted-foreground">高</span>
           </div>
-        ) : <VideoResolutionSelect
-          value={resolution}
-          onValueChange={applyResolution}
-          className="h-9 rounded-lg bg-muted/30 border-muted-foreground/10"
-          placeholder="自动"
-        />}
+        ) : <div className="flex items-center gap-3">
+          <span className="text-sm invisible">分辨率</span>
+          <VideoResolutionSelect
+            value={resolution}
+            onValueChange={applyResolution}
+            className="h-9 rounded-lg bg-muted/30 border-muted-foreground/10"
+            placeholder="自动"
+          />
+        </div>}
         <div className="flex items-center gap-3">
+          <span className="text-sm invisible">分辨率</span>
           <Button
             className="cursor-pointer rounded-lg px-5 text-xs"
             variant="default"

@@ -19,6 +19,7 @@ import CompressionLinear from "@/components/icons/CompressionLinear";
 import PinLinear from "@/components/icons/PinLinear";
 import PinCancelLinear from "@/components/icons/PinCancelLinear";
 import { useAppStore } from "@/stores/app";
+import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
 
 type NavItem = {
   label: string;
@@ -368,7 +369,7 @@ const SidebarQuickAccess = ({
 }) => {
   const { t } = useTranslation("sidebar");
   return (
-    <motion.div variants={itemVariants} className="">
+    <motion.div variants={itemVariants} className="flex-1 min-h-0 flex flex-col">
       <div className="flex items-center justify-between px-3 py-2">
         <SidebarLabel useVisible className="text-xs text-foreground/50 font-medium">
           {t("quick_access")}
@@ -377,32 +378,42 @@ const SidebarQuickAccess = ({
           <Plus className="w-4 h-4" />
         </SidebarLabel> */}
       </div>
-      <motion.div variants={listVariants} className="space-y-1 mt-1">
-        {fixedItems.length > 0 && (
-          <>
-            {fixedItems.map((item) => (
-              <SidebarQuickAccessItem
-                key={`fixed_${item.href}`}
-                isPinned
-                item={item}
-                onTogglePin={onTogglePin}
-              />
-            ))}
-          </>
-        )}
-        {recentItems.length > 0 && (
-          <>
-            {recentItems.map((item) => (
-              <SidebarQuickAccessItem
-                key={`recent_${item.href}`}
-                item={item}
-                isPinned={pinnedPaths.includes(item.href ?? "")}
-                onTogglePin={onTogglePin}
-              />
-            ))}
-          </>
-        )}
+      <motion.div variants={listVariants} className="relative flex-1 min-h-0 mt-1">
+        <ScrollHint >
+          {({ ref, showHint }) => (
+            <>
+              <div ref={ref} className="h-full overflow-y-auto hide-scrollbar space-y-1">
+                {fixedItems.length > 0 && (
+                  <>
+                    {fixedItems.map((item) => (
+                      <SidebarQuickAccessItem
+                        key={`fixed_${item.href}`}
+                        isPinned
+                        item={item}
+                        onTogglePin={onTogglePin}
+                      />
+                    ))}
+                  </>
+                )}
+                {recentItems.length > 0 && (
+                  <>
+                    {recentItems.map((item) => (
+                      <SidebarQuickAccessItem
+                        key={`recent_${item.href}`}
+                        item={item}
+                        isPinned={pinnedPaths.includes(item.href ?? "")}
+                        onTogglePin={onTogglePin}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+              {showHint && <ScrollHintIndicator className="" />}
+            </>
+          )}
+        </ScrollHint>
       </motion.div>
+
     </motion.div>
   );
 };
@@ -457,7 +468,7 @@ const SidebarNav = () => {
     .filter(Boolean) as QuickAccessItem[];
 
   return (
-    <motion.nav variants={listVariants} className="flex-1 p-3 space-y-2">
+    <motion.nav variants={listVariants} className="flex-1 min-h-0 p-3 space-y-2 flex flex-col">
       {sidebarNavItems.map((item, i) => (
         <SidebarNavItem
           key={`${item.href}_${i}`}

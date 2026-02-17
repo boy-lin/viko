@@ -1,4 +1,5 @@
 import { useState, useEffect, useTransition } from "react";
+import { remove } from "@tauri-apps/plugin-fs";
 import { bridge } from "@/lib/bridge";
 import { RefreshCw, Search } from "lucide-react";
 import {
@@ -8,10 +9,12 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import ConverterFinishedTask from "./ConversionTask";
 import CompressorFinishedTask from "./CompressionTask";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/stores/app";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 const TABS = [
   { label: "转码", value: "convert" },
@@ -24,6 +27,12 @@ export default function TaskListPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const deleteOutputOnRemove = useSettingsStore(
+    (state) => state.deleteOutputOnRemove
+  );
+  const setDeleteOutputOnRemove = useSettingsStore(
+    (state) => state.setDeleteOutputOnRemove
+  );
 
   const fetchData = async () => {
     setLoading(true);
@@ -43,14 +52,16 @@ export default function TaskListPage() {
   };
 
   const removeFinishedTask = async (id: string) => {
-    // const task = tasks.find((item) => item.id === id);
-    // try {
-    //   if (task?.output_path) {
-    //     await remove(task.output_path);
-    //   }
-    // } catch (error) {
-    //   console.error("Failed to delete output file:", error);
-    // }
+    const task = tasks.find((item) => item.id === id);
+    if (deleteOutputOnRemove) {
+      try {
+        if (task?.output_path) {
+          await remove(task.output_path);
+        }
+      } catch (error) {
+        console.error("Failed to delete output file:", error);
+      }
+    }
     try {
       await bridge.deleteTaskHistory(id);
       setTasks((prev) => prev.filter((item) => item.id !== id));
@@ -84,6 +95,13 @@ export default function TaskListPage() {
               ))}
             </TabsList>
           </Tabs>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={deleteOutputOnRemove}
+              onChange={(e) => setDeleteOutputOnRemove(e.target.checked)}
+            />
+            <span className="text-sm text-muted-foreground">删除源文件</span>
+          </div>
           <div className="flex items-center gap-2">
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

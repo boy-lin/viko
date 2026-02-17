@@ -15,7 +15,7 @@ export const COLOR_SPACES: ColorSpaceOption[] = [
     value: "rec709",
     label: "SDR-Rec.709",
     description: "Standard Dynamic Range (Rec. 709)",
-    supportedEncoders: [EncoderEnum.H264, EncoderEnum.H265, EncoderEnum.H264_HARDWARE, EncoderEnum.HEVC_HARDWARE],
+    supportedEncoders: [EncoderEnum.H264, EncoderEnum.H265],
   },
   {
     value: "rec2100hlg",

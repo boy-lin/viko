@@ -1,20 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-const PINNED_STORAGE_KEY = "sidebar_pinned_paths";
-const RECENT_STORAGE_KEY = "sidebar_recent_paths";
-
-const loadLegacyList = (key: string) => {
-  if (typeof localStorage === "undefined") return [] as string[];
-  try {
-    const stored = localStorage.getItem(key);
-    const parsed = stored ? JSON.parse(stored) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [] as string[];
-  }
-};
-
 type AppState = {
   pinnedPaths: string[];
   recentPaths: string[];
@@ -32,8 +18,8 @@ type AppState = {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      pinnedPaths: loadLegacyList(PINNED_STORAGE_KEY),
-      recentPaths: loadLegacyList(RECENT_STORAGE_KEY),
+      pinnedPaths: [],
+      recentPaths: [],
       usageCounts: {},
       unreadFinishedCount: 0,
       pinQuickAccess: (path: string) => {
@@ -83,22 +69,6 @@ export const useAppStore = create<AppState>()(
     {
       name: "app_store",
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        pinnedPaths: state.pinnedPaths,
-        recentPaths: state.recentPaths,
-        usageCounts: state.usageCounts,
-      }),
-      onRehydrateStorage: () => (state) => {
-        // Keep legacy values if they exist and persisted state is empty
-        if (!state) return;
-        const { pinnedPaths, recentPaths } = state;
-        if (pinnedPaths.length === 0) {
-          state.pinnedPaths = loadLegacyList(PINNED_STORAGE_KEY);
-        }
-        if (recentPaths.length === 0) {
-          state.recentPaths = loadLegacyList(RECENT_STORAGE_KEY);
-        }
-      },
     }
   )
 );

@@ -17,6 +17,9 @@ import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from
 import CategoryItem from "./CategoryItem";
 import { FormatSelectorContentProps } from "./types";
 import { ImageSettingsSection } from "@/pages/converter/components/ImageSettingsSection";
+import { FormatGroup } from "@/types/options";
+import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
+import { formatToDefinition } from "@/data/capabilities";
 
 export default function FormatSelectorContent({
   config,
@@ -26,7 +29,7 @@ export default function FormatSelectorContent({
   applyConfigToAllTasks,
   onClose,
 }: FormatSelectorContentProps) {
-  const [activeGroup, setActiveGroup] = useState<string | undefined>(config.activeCategory);
+  const [activeGroup, setActiveGroup] = useState<FormatGroup | undefined>();
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredItems = React.useMemo(() => {
@@ -39,9 +42,7 @@ export default function FormatSelectorContent({
     }
 
     if (config.activeCategory === ActiveCategoryEnum.Recents) {
-      return formatRecents
-        .map((f) => FORMAT_DATA.find((item) => item.id === f.id))
-        .filter(Boolean) as FormatOption[];
+      return FORMAT_DATA.filter((item) => formatRecents.some((f) => f.id === item.id));
     }
 
     if (config.activeCategory) {
@@ -52,10 +53,12 @@ export default function FormatSelectorContent({
   }, [searchQuery, config.activeCategory, formatRecents]);
 
   const activeCategory = useMemo(() => {
-    const formatOption = FORMAT_GROUPS.find((item) => item.id === activeGroup);
-    console.log('activeCategory', activeGroup, formatOption)
-    return formatOption?.category;
-  }, [activeGroup]);
+    let category = config.activeCategory
+    if (category === ActiveCategoryEnum.Recents && formatRecents) {
+      category = formatRecents[0].category
+    }
+    return FORMAT_CATEGORIES.find((item) => item.id === category);
+  }, [config.activeCategory, formatRecents]);
 
   const formatGroups = React.useMemo(() => {
     if (config.activeCategory === ActiveCategoryEnum.Recents) {
@@ -68,26 +71,26 @@ export default function FormatSelectorContent({
   }, [config.activeCategory, filteredItems]);
 
 
-
   useEffect(() => {
     if (formatGroups.length > 0) {
       setActiveGroup((val) => {
-        if (val && formatGroups.some((it) => it.id === val)) {
+        if (val && formatGroups.some((it) => it.id === val.id)) {
           return val;
         }
-        return formatGroups[0].id;
+        return formatGroups[0];
       });
     }
   }, [formatGroups]);
 
   useEffect(() => {
     if (activeGroup) {
-      const item = FORMAT_DATA.find((item) => item.groupId === activeGroup);
+      const item = FORMAT_DATA.find((item) => item.extension === activeGroup.id);
       if (item?.id) {
         applySelection(item, { close: false, addRecent: true });
       }
     }
   }, [activeGroup]);
+
 
   const applySelection = (
     formatOpt: FormatOption,
@@ -99,12 +102,16 @@ export default function FormatSelectorContent({
     if (resetSearch) setSearchQuery("");
 
     if (!formatOpt.extension) return;
+    const definition = formatToDefinition.get(formatOpt.extension);
 
     const updates = {
       ...config,
       args: {
         ...config.args,
         format: formatOpt.extension,
+        video_encoder: definition?.video?.defaultEncoder,
+        audio_encoder: definition?.audio?.defaultEncoder,
+        image_encoder: definition?.image?.defaultEncoder,
       },
     };
 
@@ -112,7 +119,7 @@ export default function FormatSelectorContent({
   };
 
   const renderCustomSettings = () => {
-    if (activeCategory === FileType.Audio) {
+    if (activeCategory?.id === FileType.Audio) {
       const audioArgs = config.args as ConvertAudioTaskArgs;
 
       return (
@@ -139,7 +146,7 @@ export default function FormatSelectorContent({
       );
     }
 
-    if (activeCategory === FileType.Video) {
+    if (activeCategory?.id === FileType.Video) {
       const videoArgs = config.args as ConvertVideoTaskArgs;
       return (
         <VideoSettingsSection
@@ -157,7 +164,7 @@ export default function FormatSelectorContent({
       );
     }
 
-    if (activeCategory === FileType.Image) {
+    if (activeCategory?.id === FileType.Image) {
       const imageArgs = config.args as ConvertImageTaskArgs;
       return (
         <ImageSettingsSection
@@ -215,7 +222,6 @@ export default function FormatSelectorContent({
                   activeCategory: ActiveCategoryEnum.Recents,
                 });
                 setSearchQuery("");
-                setActiveGroup(undefined);
               }}
             />
 
@@ -232,7 +238,6 @@ export default function FormatSelectorContent({
                   console.log('category clicked', cat.id);
                   onValueChange({ ...config, activeCategory: nextCategory });
                   setSearchQuery("");
-                  setActiveGroup(undefined);
                 }}
               />
             ))}
@@ -240,68 +245,90 @@ export default function FormatSelectorContent({
         </div>
       </div>
 
-      <div className="w-[120px] border-r bg-muted/10 flex flex-col">
-        <div className="flex-1 overflow-y-auto hide-scrollbar">
-          {formatGroups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <p className="text-xs">No groups</p>
+      <div className="flex-1 flex flex-col">
+        <div className="p-2 border-b">
+          <div>
+            {activeCategory?.label}-{activeGroup?.label}
+          </div>
+        </div>
+        <div className="flex-1 flex min-h-0">
+          {/* format groups */}
+          <div className="w-[120px] border-r bg-muted/10 relative">
+            <ScrollHint>
+              {({ ref, showHint }) => (
+                <>
+                  <div
+                    ref={ref}
+                    className="overflow-y-auto hide-scrollbar h-full"
+                  >
+                    {formatGroups.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                        <p className="text-xs">No groups</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 p-2">
+                        {formatGroups.map((group) => (
+                          <button
+                            key={group.id}
+                            onClick={() => {
+                              setActiveGroup(group);
+                            }}
+                            className={cn(
+                              "cursor-pointer w-full flex items-center justify-between p-2 rounded-md text-left transition-colors",
+                              activeGroup?.id === group.id
+                                ? "bg-accent text-accent-foreground"
+                                : "hover:bg-accent/50"
+                            )}
+                          >
+                            <span className="text-sm font-medium">{group.label}</span>
+                            {activeGroup?.id === group.id && (
+                              <Check className="w-4 h-4 text-primary" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {showHint && <ScrollHintIndicator />}
+                </>
+              )}
+            </ScrollHint>
+          </div>
+          {/* format options */}
+          <div className="flex-1 flex flex-col">
+            {renderCustomSettings()}
+            <div className="p-2 flex gap-2">
+              <Button
+                className="cursor-pointer"
+                onClick={() => {
+                  applyConfigToAllTasks({
+                    ...config,
+                    taskType: config.taskType,
+                    args: {
+                      ...config.args,
+                      format: activeGroup?.id,
+                    },
+                  });
+                  onClose();
+                }}
+              >
+                确定
+              </Button>
+              <Button
+                variant="outline"
+                className="cursor-pointer"
+                onClick={() => {
+                  onClose();
+                }}
+              >
+                取消
+              </Button>
             </div>
-          ) : (
-            <div className="space-y-1 p-2">
-              {formatGroups.map((group) => (
-                <button
-                  key={group.id}
-                  onClick={() => {
-                    setActiveGroup(group.id);
-                  }}
-                  className={cn(
-                    "cursor-pointer w-full flex items-center justify-between p-2 rounded-md text-left transition-colors",
-                    activeGroup === group.id
-                      ? "bg-accent text-accent-foreground"
-                      : "hover:bg-accent/50"
-                  )}
-                >
-                  <span className="text-sm font-medium">{group.label}</span>
-                  {activeGroup === group.id && (
-                    <Check className="w-4 h-4 text-primary" />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col">
-        {renderCustomSettings()}
-        <div className="p-2 flex gap-2">
-          <Button
-            className="cursor-pointer"
-            onClick={() => {
-              applyConfigToAllTasks({
-                ...config,
-                taskType: config.taskType,
-                args: {
-                  ...config.args,
-                  format: activeGroup,
-                },
-              });
-              onClose();
-            }}
-          >
-            确定
-          </Button>
-          <Button
-            variant="outline"
-            className="cursor-pointer"
-            onClick={() => {
-              onClose();
-            }}
-          >
-            取消
-          </Button>
-        </div>
-      </div>
+
     </div>
   );
 }

@@ -66,6 +66,10 @@ export enum FileType {
   Image = "image",
 }
 
+export enum ActiveCategoryEnum {
+  Recents = "recents",
+}
+
 export interface FFmpegTask {
   id: string;
   status: "idle" | "processing" | "finished" | "error" | "cancelled";
@@ -82,10 +86,11 @@ export interface ConverterTask {
   id: string;
   status: "idle" | "processing" | "finished" | "error" | "cancelled";
   progress: number;
-  args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs;
+  args: Record<string, any>;
   mediaDetails?: MediaDetails;
   fileType: FileType;
   taskType: MediaTaskType;
+  activeCategory?: FileType | ActiveCategoryEnum;
   errorMessage?: string;
   outputTitle?: string;
 }

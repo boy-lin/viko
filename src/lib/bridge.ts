@@ -129,12 +129,16 @@ export interface ConvertAudioTaskArgs {
   input_path: string;
   format: string;
   audio_encoder: string;
+  // 扩展待同步到rust
+  output_path?: string;
 }
 
 export interface ConvertGifTaskArgs {
   task_id: string;
   input_path: string;
   format: string;
+  // 扩展待同步到rust
+  output_path?: string;
 }
 
 export interface ConvertImageTaskArgs {
@@ -147,6 +151,7 @@ export interface ConvertImageTaskArgs {
   /** 扩展待同步到rust */
   image_encoder?: string;
   resolution?: string;
+  output_path?: string;
 }
 
 export interface CompressVideoTaskArgs {

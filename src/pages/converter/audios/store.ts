@@ -13,8 +13,7 @@ export enum ActiveCategoryEnum {
   Recents = "recents",
 }
 
-export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "args"> {
-  activeCategory: FileType.Video | FileType.Audio | FileType.Image | ActiveCategoryEnum.Recents;
+export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "args" | "activeCategory"> {
 }
 
 export const defaultAudioConfig: GlobalConverterConfig = {

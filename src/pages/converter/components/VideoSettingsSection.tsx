@@ -71,15 +71,15 @@ export default function VideoSettingsSection({
   };
 
   return <>
-    <div className="p-3 border-b bg-muted/10 font-medium text-sm flex gap-2 items-center">
-      <h3 className="font-bold text-lg">{t("settings.video.title")}</h3>
+    <div className="p-3 flex gap-2 items-center">
+      {/* <h3 className="font-bold text-lg">{t("settings.video.title")}</h3> */}
       <SettingsModeToggle
         openAdvanced={openAdvanced}
         onToggle={setOpenAdvanced}
       />
-      <Button className="cursor-pointer" variant="ghost" size="icon" onClick={onReset}>
+      {/* <Button className="cursor-pointer" variant="ghost" size="icon" onClick={onReset}>
         <RefreshCw className="w-4 h-4" />
-      </Button>
+      </Button> */}
     </div>
     {/*  custom settings body */}
     <div className="flex-1 overflow-hidden p-2">

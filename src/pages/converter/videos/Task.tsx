@@ -25,7 +25,7 @@ export default function ConvertingTask({
     });
   }, [convertingTasks, globalFilter]);
 
-  console.log('ConvertingTask')
+  console.log('ConvertingTask', convertingTasks)
 
   return (
     <>

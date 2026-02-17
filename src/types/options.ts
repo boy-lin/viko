@@ -1,8 +1,10 @@
+import { FileType } from "./tasks";
+
 /**
  * 通用选择项接口
  */
 export interface SelectOption {
-  value: string;
+  value: any;
   label: string;
   description?: string;
 }
@@ -39,7 +41,7 @@ export interface FormatCategory {
 export interface FormatOption {
   id: string;
   label: string;
-  category: string;
+  category: FileType;
   groupId: string;
   description?: string;
   extension?: string;
@@ -55,7 +57,7 @@ export interface FormatGroup {
   id: string;
   label: string;
   icon?: any;
-  category: string;
+  category: FileType;
 }
 
 /**
@@ -116,7 +118,7 @@ export enum AudioEncoderEnum {
   VORBIS = "libvorbis",           // Vorbis audio codec
   AC3 = "ac3",                    // Dolby Digital (AC-3)
   EAC3 = "eac3",                  // Dolby Digital Plus (E-AC-3)
-  MP2 = "libmp2lame",             // MP2 audio codec
+  MP2 = "mp2",             // MP2 audio codec
   WMAV2 = "wmav2",                // Windows Media Audio 2
   AMR_NB = "libopencore_amrnb",   // AMR Narrowband
   AMR_WB = "libopencore_amrwb",   // AMR Wideband
@@ -147,15 +149,9 @@ export enum AudioEncoderEnum {
 export enum VideoEncoderEnum {
   // H.264 / AVC
   H264 = "h264",                       // H.264 (generic)
-  H264_HARDWARE = "h264_videotoolbox", // H.264 (macOS hardware acceleration)
-  H264_NVENC = "h264_nvenc",           // H.264 (NVIDIA hardware acceleration)
-  H264_QSV = "h264_qsv",               // H.264 (Intel Quick Sync Video)
 
   // H.265 / HEVC
-  H265 = "hevc",                       // H.265/HEVC (generic)
-  HEVC_HARDWARE = "hevc_videotoolbox", // HEVC (macOS hardware acceleration)
-  HEVC_NVENC = "hevc_nvenc",           // HEVC (NVIDIA hardware acceleration)
-  HEVC_QSV = "hevc_qsv",               // HEVC (Intel Quick Sync Video)
+  H265 = "h265",                       // H.265/HEVC (generic)
 
   // VP8/VP9
   VP8 = "libvpx",                      // VP8 video codec
@@ -242,13 +238,7 @@ export enum EncoderEnum {
 
   // Video
   H264 = VideoEncoderEnum.H264,
-  H264_HARDWARE = VideoEncoderEnum.H264_HARDWARE,
-  H264_NVENC = VideoEncoderEnum.H264_NVENC,
-  H264_QSV = VideoEncoderEnum.H264_QSV,
   H265 = VideoEncoderEnum.H265,
-  HEVC_HARDWARE = VideoEncoderEnum.HEVC_HARDWARE,
-  HEVC_NVENC = VideoEncoderEnum.HEVC_NVENC,
-  HEVC_QSV = VideoEncoderEnum.HEVC_QSV,
   VP8 = VideoEncoderEnum.VP8,
   VP9 = VideoEncoderEnum.VP9,
   AV1 = VideoEncoderEnum.AV1,

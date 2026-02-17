@@ -62,14 +62,6 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
     const audioOptions = getAudioOptionsByEncoder(track.codec);
     return (
       <div className={cn("", className)}>
-        <div className=" p-2 flex items-center justify-between border-b bg-muted/10">
-          <h3 className="font-bold text-lg">{t("settings.audio.title")}</h3>
-          {onReset && (
-            <Button variant="ghost" size="icon" onClick={onReset}>
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
         <div className=" p-2 grid grid-cols-2 gap-x-8 gap-y-4">
           <AudioEncoderSelect
             format={format}
