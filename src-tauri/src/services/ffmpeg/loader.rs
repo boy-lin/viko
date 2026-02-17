@@ -91,6 +91,30 @@ pub fn load_ffmpeg_library(lib_dir: &Path) -> Result<(), FFmpegLoadError> {
     Ok(())
 }
 
+/// 获取打包资源中的 FFmpeg 目录
+pub fn bundled_ffmpeg_dir(resource_dir: &Path) -> PathBuf {
+    let mut dir = resource_dir.join("ffmpeg");
+    if cfg!(target_os = "macos") {
+        dir = dir.join("macos");
+        if cfg!(target_arch = "aarch64") {
+            dir = dir.join("aarch64");
+        } else if cfg!(target_arch = "x86_64") {
+            dir = dir.join("x86_64");
+        }
+    } else if cfg!(target_os = "windows") {
+        dir = dir.join("windows");
+    } else {
+        dir = dir.join("linux");
+    }
+    dir
+}
+
+/// 优先从打包资源目录加载 FFmpeg
+pub fn load_bundled_ffmpeg(resource_dir: &Path) -> Result<(), FFmpegLoadError> {
+    let dir = bundled_ffmpeg_dir(resource_dir);
+    load_ffmpeg_library(&dir)
+}
+
 /// 加载 FFprobe 动态库（通常与 FFmpeg 在同一目录）
 pub fn load_ffprobe_library(lib_dir: &Path) -> Result<(), FFmpegLoadError> {
     // FFprobe 通常使用相同的库，但我们可以单独加载
@@ -169,4 +193,3 @@ mod tests {
         assert_eq!(lib_dir, PathBuf::from("/usr/local/lib"));
     }
 }
-

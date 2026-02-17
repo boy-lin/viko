@@ -18,6 +18,7 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
     onValueChange = () => { },
     className,
     applyConfigToAllTasks,
+    btnLabelKey = 'common.apply_all'
   } = props;
   const [open, setOpen] = useState(false);
 
@@ -43,7 +44,6 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
         <Button
           variant="outline"
           role="combobox"
-          aria-expanded={open}
           className={cn("cursor-pointer justify-between", className)}
         >
           {selectedFormat ? (
@@ -69,6 +69,7 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
           onValueChange={onValueChange}
           applyConfigToAllTasks={applyConfigToAllTasks}
           onClose={() => setOpen(false)}
+          btnLabelKey={btnLabelKey}
         />
       </PopoverContent>
     </Popover>

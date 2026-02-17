@@ -39,7 +39,9 @@
         "delete": "删除",
         "edit": "编辑",
         "add": "添加",
-        "select_file": "选择文件"
+        "select_file": "选择文件",
+        "recents": "最近",
+        "apply_all": "应用到所有"
     },
     "video_advance": {
         "missing": "格式或编码器未设置",

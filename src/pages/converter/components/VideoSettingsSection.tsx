@@ -2,10 +2,6 @@ import { useState } from "react";
 import { VideoAdvanceSetting } from "./VideoAdvanceSetting";
 import { VideoSimpleSettings } from "./VideoSimpleSettings";
 import { ConvertVideoTaskArgs } from "@/lib/bridge";
-import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
-import { formatToDefinition } from "@/data/capabilities";
 
 interface SettingsModeToggleProps {
   openAdvanced: boolean;
@@ -45,30 +41,7 @@ export default function VideoSettingsSection({
   config: ConvertVideoTaskArgs;
   onChange: (next: Partial<ConvertVideoTaskArgs>) => void;
 }) {
-  const { t } = useTranslation("converter");
   const [openAdvanced, setOpenAdvanced] = useState(false);
-
-
-  const onReset = () => {
-    if (onChange) {
-      if (!config.format) {
-        console.error("No format found");
-        return;
-      }
-      const containerDefinition = formatToDefinition.get(config.format);
-      const video_encoder = containerDefinition?.video?.defaultEncoder;
-      if (!video_encoder) {
-        console.error("No default encoder found for container", containerDefinition);
-        return;
-      }
-      onChange({
-        video_encoder,
-        video_bitrate: undefined,
-        resolution: undefined,
-        frame_rate: undefined,
-      });
-    }
-  };
 
   return <>
     <div className="p-3 flex gap-2 items-center">

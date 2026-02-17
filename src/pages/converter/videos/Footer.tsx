@@ -126,7 +126,6 @@ export const ConverterFooter: React.FC<{}> = () => {
           </span>
           <div className="flex items-center gap-2">
             <FormatSelector
-              className=""
               config={globalConfig}
               formatRecents={formatRecents}
               addToRecents={addToRecents}

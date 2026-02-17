@@ -3,7 +3,10 @@
     "converter": {
       "title": "Converter",
       "desc": "Batch convert video, audio, and image files, supporting over 1,000 formats.",
-      "action": "Add Files"
+      "action": "Add Files",
+      "videoAdd": "Video Files",
+      "audioAdd": "Audio Files",
+      "imageAdd": "Image Files"
     },
     "downloader": {
       "title": "Downloader",
@@ -13,7 +16,15 @@
     "compressor": {
       "title": "Compressor",
       "desc": "Automatically compress audio and video to reduce file size.",
-      "action": "Add File(s)"
+      "action": "Add File(s)",
+      "videoAdd": "Video Files",
+      "audioAdd": "Audio Files",
+      "imageAdd": "Image Files"
+    },
+    "watermark": {
+      "title": "Video/Image Watermark",
+      "desc": "Generate watermarks for videos and images, with batch support.",
+      "add": "Add Files"
     }
   },
   "comingSoon": "Coming soon",

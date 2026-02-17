@@ -606,7 +606,7 @@ export const videoEncoderToDefinition = new Map<string, VideoEncoderDefinition>(
 // ================= HELPERS =================
 
 const VIDEO_FRAME_RATES: SelectOption[] = [
-  { value: "auto", label: "auto" },
+  { value: "auto", label: "Auto" },
   { value: "60", label: "60 FPS" },
   { value: "30", label: "30 FPS" },
   { value: "29.97", label: "29.97 FPS (NTSC)" },

@@ -56,6 +56,7 @@ export default function TaskListPage() {
     if (deleteOutputOnRemove) {
       try {
         if (task?.output_path) {
+          console.error("delete output file:", task.output_path);
           await remove(task.output_path);
         }
       } catch (error) {

@@ -32,7 +32,7 @@ export const COLOR_SPACES: ColorSpaceOption[] = [
 ];
 
 export const VIDEO_BITRATES: SelectOption[] = [
-  { value: "auto", label: "自动" },
+  { value: "auto", label: "Auto" },
   { value: "5000", label: "5000 kbps" },
   { value: "2000", label: "2000 kbps" },
   { value: "1000", label: "1000 kbps" },

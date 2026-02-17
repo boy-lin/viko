@@ -1,13 +1,10 @@
-﻿// FFmpeg FFI 缁戝畾
-// 瀹氫箟 FFmpeg C API 鐨勭粨鏋勪綋鍜屽嚱鏁扮鍚?
-
+﻿// FFmpeg FFI
 use libloading::{Library, Symbol};
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_void};
 
 use crate::services::ffmpeg::loader::{get_loaded_ffmpeg_path, is_ffmpeg_loaded, FFmpegLoadError};
 
-// FFmpeg 缁撴瀯浣撳畾涔夛紙绠€鍖栫増锛?
 #[repr(C)]
 pub struct AVFormatContext {
     _private: [u8; 0],

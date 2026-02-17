@@ -120,9 +120,9 @@ export interface ResolutionGroup {
 
 export const RESOLUTION_OPTIONS = [
   {
-    label: "Auto",
+    label: "",
     options: [
-      { value: "auto", label: "自动" },
+      { value: "auto", label: "Auto" },
     ]
   },
   {

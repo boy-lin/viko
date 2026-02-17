@@ -1,10 +1,10 @@
 import React from "react";
 import { FolderOpen } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { Button } from "@/components/ui/button";
+import { EllipsisName } from "../ui-lab/ellipsis-name";
 
 interface OutputLocationSelectProps {
   className?: string;
@@ -33,15 +33,16 @@ export const OutputLocationSelect: React.FC<OutputLocationSelectProps> = ({
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      <Input
-        value={outputPath}
-        readOnly
-        className="h-10 min-w-[140px] bg-background text-ellipsis"
-        title={outputPath}
-      />
-      <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleBrowse}>
+      <Button
+        variant="outline"
+        role="combobox"
+        className={cn("h-10 min-w-[140px] bg-background cursor-pointer justify-between", className)}
+        onClick={handleBrowse}
+      >
+        <EllipsisName name={outputPath} startCount={14} />
         <FolderOpen className="w-4 h-4 text-muted-foreground" />
       </Button>
+
     </div>
   );
 };

@@ -233,7 +233,6 @@ const SidebarNavItem = ({
   return (
     <motion.button
       variants={itemVariants}
-      whileHover={{ x: 4 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => {
         if (isDisabled) {
@@ -249,7 +248,7 @@ const SidebarNavItem = ({
       className={cn(
         "group relative w-full flex items-center gap-3 px-2 h-11 rounded-lg text-foreground transition-colors overflow-hidden",
         isActive
-          ? "bg-indigo-50 text-indigo-700 shadow-[0_10px_30px_-18px_rgba(99,102,241,0.8)]"
+          ? "bg-indigo-50 text-indigo-700"
           : "hover:bg-slate-100  cursor-pointer"
         ,
         isDisabled && "cursor-not-allowed"
@@ -301,9 +300,8 @@ const SidebarQuickAccessItem = ({
   const isActive = item.href ? location.pathname.startsWith(item.href) : false;
 
   return (
-    <motion.button
+    <motion.div
       variants={itemVariants}
-      whileHover={{ x: 3 }}
       whileTap={{ scale: 0.98 }}
       onClick={() =>
         item.href &&
@@ -314,20 +312,19 @@ const SidebarQuickAccessItem = ({
       className={cn(
         "w-full h-10 flex items-center gap-3 px-2 py-2 rounded-lg transition-colors overflow-hidden group cursor-pointer",
         isActive
-          ? cn("bg-gradient-to-r text-foreground shadow-md shadow-indigo-900/10", item.activeGradient)
-          : "text-foreground/80 hover:bg-slate-100"
+          ? "bg-indigo-50"
+          : "hover:bg-slate-100"
       )}
     >
       <div
         className={cn(
-          "flex flex-shrink-0 h-7 w-7 items-center justify-center rounded-lg transition-transform",
-          isActive ? "bg-white/20 text-white" : "group-hover:scale-105",
-          isActive ? "" : item.color
+          "flex flex-shrink-0 h-7 w-7 items-center justify-center rounded-lg transition-transform group-hover:scale-105",
+          item.color
         )}
       >
         <item.icon className="w-5 h-5" />
       </div>
-      <SidebarLabel className={cn("text-sm", isActive ? "text-background" : "text-foreground group-hover:text-slate-700")}>
+      <SidebarLabel className={cn("text-sm", isActive ? "text-foreground" : "text-foreground/90 group-hover:text-slate-700")}>
         {t(item.label)}
       </SidebarLabel>
       {item.href && (
@@ -352,7 +349,7 @@ const SidebarQuickAccessItem = ({
           )}
         </button>
       )}
-    </motion.button>
+    </motion.div>
   );
 };
 

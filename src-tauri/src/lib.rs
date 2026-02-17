@@ -153,6 +153,17 @@ pub fn run() {
                 crate::storage::favorites::init().await.expect("failed to init task_favorites");
             });
 
+            if let Ok(resource_dir) = app.path().resource_dir() {
+                if let Err(e) = crate::services::ffmpeg::loader::load_bundled_ffmpeg(&resource_dir)
+                {
+                    log::warn!("Failed to load bundled FFmpeg: {}", e);
+                } else {
+                    log::info!("Loaded bundled FFmpeg from: {}", resource_dir.display());
+                }
+            } else {
+                log::warn!("Failed to resolve resource_dir; FFmpeg will rely on system libs");
+            }
+
             app.manage(std::sync::Mutex::new(
                 None::<crate::services::player::video::VideoPlayer<crate::events::WindowEmitter>>,
             ));

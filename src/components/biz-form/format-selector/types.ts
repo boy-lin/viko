@@ -23,6 +23,7 @@ export interface FormatSelectorProps {
   formatRecents: FormatOption[];
   addToRecents: (format: FormatOption) => void;
   applyConfigToAllTasks: (config: GlobalConverterConfig) => void;
+  btnLabelKey?: string;
 }
 
 export interface FormatSelectorContentProps {
@@ -32,4 +33,5 @@ export interface FormatSelectorContentProps {
   onValueChange: (config: GlobalConverterConfig) => void;
   applyConfigToAllTasks: (config: GlobalConverterConfig) => void;
   onClose: () => void;
+  btnLabelKey?: string;
 }

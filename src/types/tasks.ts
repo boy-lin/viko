@@ -86,7 +86,7 @@ export interface ConverterTask {
   id: string;
   status: "idle" | "processing" | "finished" | "error" | "cancelled";
   progress: number;
-  args: Record<string, any>;
+  args: any;
   mediaDetails?: MediaDetails;
   fileType: FileType;
   taskType: MediaTaskType;

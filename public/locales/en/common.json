@@ -36,7 +36,9 @@
         "add": "Add", 
         "cancel": "Cancel", 
         "save": "Save", 
-        "delete": "Delete"
+        "delete": "Delete",
+        "recents": "Recents",
+        "apply_all": "Apply to all"
     }, 
     "video_advance": {
         "color_space": "Color Space", 

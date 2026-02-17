@@ -1,8 +1,6 @@
 import React from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConvertImageTaskArgs } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
@@ -22,11 +20,7 @@ export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
   className,
 }) => {
   const { t } = useTranslation("converter");
-  const onReset = () => {
-    onChange({
-      resolution: "auto",
-    });
-  };
+  console.log('format, image_encoder', { format, image_encoder })
   return (
     <div className={cn("flex-1 overflow-hidden p-2 space-y-4", className)}>
       {/* <div className="flex items-center justify-between border-b bg-muted/10">

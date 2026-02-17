@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 import { Search, UserPlus } from "lucide-react";
 import {
   Card,
@@ -37,7 +37,10 @@ export default function ConvertionVideoPage() {
               placeholder="搜索文件名..."
               className="pl-9"
               value={globalFilter ?? ""}
-              onChange={(e) => setGlobalFilter(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                startTransition(() => setGlobalFilter(value));
+              }}
             />
           </div>
           <div>

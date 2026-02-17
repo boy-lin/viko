@@ -264,7 +264,7 @@ export default function TaskItem({ task }: TaskItemProps) {
                     onClick={handleConvertSingle}
                     disabled={loadingDetails || !!loadError}
                 >
-                    {t("actions.convertSingle", "杞崲")}
+                    {t("actions.convertSingle")}
                 </Button>
             </div>
         </div>

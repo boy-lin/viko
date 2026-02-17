@@ -122,6 +122,12 @@ fn main() {
         }
     }
 
+    // 尝试将系统 FFmpeg 动态库拷贝到 bundle resources 中
+    // 这样可以避免将 libav* 提交到仓库
+    if let Err(err) = copy_bundled_ffmpeg_libs() {
+        println!("cargo:warning=Failed to bundle FFmpeg libs: {}", err);
+    }
+
     // 调用 tauri_build::build() - 这会触发所有依赖的 build script
     // 此时环境变量已经设置，子进程应该能看到
     tauri_build::build()
@@ -166,4 +172,153 @@ fn find_vcpkg_root() -> Option<String> {
     
     println!("cargo:warning=Could not find vcpkg.exe in any common location");
     None
+}
+
+fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(|e| e.to_string())?;
+    let target = std::env::var("TARGET").unwrap_or_default();
+    let arch = if target.contains("aarch64") {
+        "aarch64"
+    } else if target.contains("x86_64") {
+        "x86_64"
+    } else {
+        "unknown"
+    };
+
+    let platform_dir = if target.contains("apple-darwin") {
+        format!("macos/{}", arch)
+    } else if target.contains("windows") {
+        "windows".to_string()
+    } else {
+        "linux".to_string()
+    };
+
+    let dest_dir = std::path::Path::new(&manifest_dir)
+        .join("resources/ffmpeg")
+        .join(platform_dir);
+    std::fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
+
+    let src_dir = if let Ok(dir) = std::env::var("FFMPEG_BUNDLE_DIR") {
+        std::path::PathBuf::from(dir)
+    } else {
+        detect_ffmpeg_lib_dir()?
+    };
+
+    let lib_names = if target.contains("apple-darwin") {
+        vec![
+            "libavcodec.dylib",
+            "libavdevice.dylib",
+            "libavfilter.dylib",
+            "libavformat.dylib",
+            "libavutil.dylib",
+            "libpostproc.dylib",
+            "libswresample.dylib",
+            "libswscale.dylib",
+        ]
+    } else if target.contains("windows") {
+        vec![
+            "avcodec.dll",
+            "avdevice.dll",
+            "avfilter.dll",
+            "avformat.dll",
+            "avutil.dll",
+            "postproc.dll",
+            "swresample.dll",
+            "swscale.dll",
+        ]
+    } else {
+        vec![
+            "libavcodec.so",
+            "libavdevice.so",
+            "libavfilter.so",
+            "libavformat.so",
+            "libavutil.so",
+            "libpostproc.so",
+            "libswresample.so",
+            "libswscale.so",
+        ]
+    };
+
+    let mut copied_any = false;
+    for name in lib_names {
+        let src = src_dir.join(name);
+        if src.exists() {
+            let dest = dest_dir.join(name);
+            std::fs::copy(&src, &dest).map_err(|e| {
+                format!(
+                    "copy failed: {} -> {} ({})",
+                    src.display(),
+                    dest.display(),
+                    e
+                )
+            })?;
+            copied_any = true;
+        }
+    }
+
+    if !copied_any {
+        return Err(format!(
+            "no FFmpeg libs found in {}",
+            src_dir.display()
+        ));
+    }
+
+    println!("cargo:rerun-if-env-changed=FFMPEG_BUNDLE_DIR");
+    Ok(())
+}
+
+fn detect_ffmpeg_lib_dir() -> Result<std::path::PathBuf, String> {
+    // 1) try pkg-config
+    if let Ok(output) = std::process::Command::new("pkg-config")
+        .args(["--variable=libdir", "libavformat"])
+        .output()
+    {
+        if output.status.success() {
+            let dir = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !dir.is_empty() {
+                let path = std::path::PathBuf::from(dir);
+                if path.exists() {
+                    return Ok(path);
+                }
+            }
+        }
+    }
+
+    // 2) common paths (mac/linux)
+    let common_paths = vec![
+        "/opt/homebrew/opt/ffmpeg/lib",
+        "/usr/local/opt/ffmpeg/lib",
+        "/opt/homebrew/Cellar/ffmpeg@7",
+        "/opt/homebrew/Cellar/ffmpeg",
+        "/usr/local/Cellar/ffmpeg@7",
+        "/usr/local/Cellar/ffmpeg",
+    ];
+
+    for base in common_paths {
+        let base_path = std::path::Path::new(base);
+        if base_path.ends_with("lib") && base_path.exists() {
+            return Ok(base_path.to_path_buf());
+        }
+        if let Ok(entries) = std::fs::read_dir(base_path) {
+            for entry in entries.flatten() {
+                let lib_path = entry.path().join("lib");
+                if lib_path.exists() {
+                    return Ok(lib_path);
+                }
+            }
+        }
+    }
+
+    // 3) windows vcpkg (if set)
+    if let Ok(vcpkg_root) = std::env::var("VCPKG_ROOT") {
+        let candidate = std::path::Path::new(&vcpkg_root)
+            .join("installed")
+            .join("x64-windows")
+            .join("bin");
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+
+    Err("Unable to detect FFmpeg lib directory. Set FFMPEG_BUNDLE_DIR.".to_string())
 }

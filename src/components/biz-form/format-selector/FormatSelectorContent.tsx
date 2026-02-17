@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Clock, Search } from "lucide-react";
-
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -20,6 +19,7 @@ import { ImageSettingsSection } from "@/pages/converter/components/ImageSettings
 import { FormatGroup } from "@/types/options";
 import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
 import { formatToDefinition } from "@/data/capabilities";
+import { useTranslation } from "react-i18next";
 
 export default function FormatSelectorContent({
   config,
@@ -28,6 +28,7 @@ export default function FormatSelectorContent({
   onValueChange,
   applyConfigToAllTasks,
   onClose,
+  btnLabelKey
 }: FormatSelectorContentProps) {
   const [activeGroup, setActiveGroup] = useState<FormatGroup | undefined>();
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,10 +75,8 @@ export default function FormatSelectorContent({
   useEffect(() => {
     if (formatGroups.length > 0) {
       setActiveGroup((val) => {
-        if (val && formatGroups.some((it) => it.id === val.id)) {
-          return val;
-        }
-        return formatGroups[0];
+        const format = val?.id || config?.args?.format || formatGroups[0].id
+        return formatGroups.find((it) => it.id === format);
       });
     }
   }, [formatGroups]);
@@ -191,6 +190,7 @@ export default function FormatSelectorContent({
     );
   };
 
+  const { t } = useTranslation("common");
 
   return (
     <div className="flex bg-popover h-[400px] overflow-hidden rounded-md border text-popover-foreground">
@@ -207,47 +207,43 @@ export default function FormatSelectorContent({
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden py-2">
-          <ScrollArea className="h-full ">
+        <div className="flex-1 space-y-1 py-2">
+          <CategoryItem
+            label={t("common.recents")}
+            icon={Clock}
+            active={
+              config.activeCategory === ActiveCategoryEnum.Recents &&
+              !searchQuery
+            }
+            onClick={() => {
+              onValueChange({
+                ...config,
+                activeCategory: ActiveCategoryEnum.Recents,
+              });
+              setSearchQuery("");
+            }}
+          />
+          <div className="my-1 h-px bg-border mx-1" />
+          {FORMAT_CATEGORIES.map((cat) => (
             <CategoryItem
-              label="Recents"
-              icon={Clock}
-              active={
-                config.activeCategory === ActiveCategoryEnum.Recents &&
-                !searchQuery
-              }
+              key={cat.id}
+              label={cat.label}
+              icon={cat.icon}
+              active={config.activeCategory === cat.id && !searchQuery}
               onClick={() => {
-                onValueChange({
-                  ...config,
-                  activeCategory: ActiveCategoryEnum.Recents,
-                });
+                const nextCategory = cat.id as any;
+                console.log('category clicked', cat.id);
+                onValueChange({ ...config, activeCategory: nextCategory });
                 setSearchQuery("");
               }}
             />
-
-            <div className="my-2 h-px bg-border mx-2" />
-
-            {FORMAT_CATEGORIES.map((cat) => (
-              <CategoryItem
-                key={cat.id}
-                label={cat.label}
-                icon={cat.icon}
-                active={config.activeCategory === cat.id && !searchQuery}
-                onClick={() => {
-                  const nextCategory = cat.id as any;
-                  console.log('category clicked', cat.id);
-                  onValueChange({ ...config, activeCategory: nextCategory });
-                  setSearchQuery("");
-                }}
-              />
-            ))}
-          </ScrollArea>
+          ))}
         </div>
       </div>
 
       <div className="flex-1 flex flex-col">
         <div className="p-2 border-b">
-          <div>
+          <div className="py-1.5">
             {activeCategory?.label}-{activeGroup?.label}
           </div>
         </div>
@@ -312,7 +308,7 @@ export default function FormatSelectorContent({
                   onClose();
                 }}
               >
-                确定
+                {t(btnLabelKey || "common.confirm")}
               </Button>
               <Button
                 variant="outline"
@@ -321,14 +317,12 @@ export default function FormatSelectorContent({
                   onClose();
                 }}
               >
-                取消
+                {t("common.cancel")}
               </Button>
             </div>
           </div>
         </div>
       </div>
-
-
     </div>
   );
 }

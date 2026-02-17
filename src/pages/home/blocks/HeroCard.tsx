@@ -36,17 +36,17 @@ const heroCards: HeroCardItem[] = [
     actions: [
       {
         id: "converter-video",
-        label: "视频文件",
+        label: "hero.converter.videoAdd",
         icon: <Plus className="w-4 h-4 mr-1" />,
       },
       {
         id: "converter-audio",
-        label: "音频文件",
+        label: "hero.converter.audioAdd",
         icon: <Plus className="w-4 h-4 mr-1" />,
       },
       {
         id: "converter-image",
-        label: "图片文件",
+        label: "hero.converter.imageAdd",
         icon: <Plus className="w-4 h-4 mr-1" />,
       },
     ],
@@ -56,12 +56,12 @@ const heroCards: HeroCardItem[] = [
   },
   {
     id: "watermark",
-    title: "视频/图片水印",
-    description: "生成视频/图片水印，支持批量生成。",
+    title: "hero.watermark.title",
+    description: "hero.watermark.desc",
     actions: [
       {
         id: "watermark-add",
-        label: "添加文件",
+        label: "hero.watermark.add",
         icon: <Plus className="w-4 h-4 mr-1" />,
       },
     ],

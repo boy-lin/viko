@@ -37,8 +37,8 @@ jobs:
       - name: Install dependencies (macOS only)
         if: matrix.platform == 'macos-latest'
         run: |
-          brew install ffmpeg pkg-config
-          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/opt/ffmpeg/lib/pkgconfig" >> $GITHUB_ENV
+          brew install ffmpeg@7 pkg-config
+          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/opt/ffmpeg@7/lib/pkgconfig" >> $GITHUB_ENV
 
       - name: Install dependencies (Windows only)
         if: matrix.platform == 'windows-latest'
@@ -64,6 +64,12 @@ jobs:
           # Add pkgconf to PATH
           $pkgconfBin = Join-Path $vcpkgRoot "installed\x64-windows\tools\pkgconf"
           echo $pkgconfBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+          # Set BINDGEN_EXTRA_CLANG_ARGS for bindgen to find includes
+          $includePath = Join-Path $vcpkgRoot "installed\x64-windows\include"
+          # Important: use forward slashes or escape backslashes for clang args if needed, 
+          # but usually simple path works. bindgen expects -I<path>
+          echo "BINDGEN_EXTRA_CLANG_ARGS=-I$includePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
