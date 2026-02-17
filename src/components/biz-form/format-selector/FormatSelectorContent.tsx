@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Check, Clock, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { FORMAT_DATA, FORMAT_CATEGORIES, FORMAT_GROUPS } from "@/data/formats";
 import { FormatOption } from "@/types/options";
 import {
