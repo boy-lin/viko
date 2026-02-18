@@ -14,9 +14,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-latest"
+          - platform: "macos-latest" # ARM64 (M1/M2)
             args: "--target aarch64-apple-darwin"
-          - platform: "macos-latest"
+          - platform: "macos-13"     # Intel (x86_64)
             args: "--target x86_64-apple-darwin"
           - platform: "windows-latest"
             args: "--target x86_64-pc-windows-msvc"
@@ -32,10 +32,10 @@ jobs:
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf pkg-config libavutil-dev libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavdevice-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf pkg-config libavutil-dev libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavdevice-dev libasound2-dev
 
       - name: Install dependencies (macOS only)
-        if: matrix.platform == 'macos-latest'
+        if: startsWith(matrix.platform, 'macos')
         run: |
           brew install ffmpeg@7 pkg-config
           echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/opt/ffmpeg@7/lib/pkgconfig" >> $GITHUB_ENV
@@ -67,9 +67,18 @@ jobs:
 
           # Set BINDGEN_EXTRA_CLANG_ARGS for bindgen to find includes
           $includePath = Join-Path $vcpkgRoot "installed\x64-windows\include"
-          # Important: use forward slashes or escape backslashes for clang args if needed, 
-          # but usually simple path works. bindgen expects -I<path>
+          # Convert backslashes to forward slashes for clang compatibility
+          $includePath = $includePath -replace '\\', '/'
           echo "BINDGEN_EXTRA_CLANG_ARGS=-I$includePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          # Set LIBCLANG_PATH to ensure bindgen uses the correct clang
+          # GitHub Actions windows-latest has LLVM installed
+          $llvmPath = $env:LLVM_ROOT
+          if ($null -eq $llvmPath) {
+              $llvmPath = "C:\Program Files\LLVM"
+          }
+          $libClangPath = Join-Path $llvmPath "bin"
+          echo "LIBCLANG_PATH=$libClangPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
