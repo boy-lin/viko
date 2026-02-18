@@ -1,4 +1,4 @@
-﻿// Tauri 后端命令定义 - 使用 ffmpeg-next
+// Tauri 后端命令定义 - 使用 ffmpeg-next
 // 注意：ffmpeg-next 需要在编译时链接 FFmpeg 库
 // 如果需要在运行时使用动态加载的 FFmpeg，需要：
 // 1. 设置环境变量指向 FFmpeg 库路径
@@ -17,13 +17,13 @@ use tauri::State;
 
 use ffmpeg_next as ffmpeg;
 
-use crate::services::player::audio::AudioPlayer;
-use crate::services::convert::audio::{self, AudioConversionParams};
-use crate::media_common;
-use crate::services::ffmpeg::media_info::{self, MediaDetails};
-use crate::services::convert::gif;
-use crate::services::player::video::{PreviewSize, VideoPlayer};
 use crate::events::{TaskEmitter, WindowEmitter};
+use crate::media_common;
+use crate::services::convert::audio::{self, AudioConversionParams};
+use crate::services::convert::gif;
+use crate::services::ffmpeg::media_info::{self, MediaDetails};
+use crate::services::player::audio::AudioPlayer;
+use crate::services::player::video::{PreviewSize, VideoPlayer};
 use crate::task::queue;
 use crate::task::queue::MediaTaskRequest;
 
@@ -40,7 +40,6 @@ pub async fn media_task_submit(
 ) -> Result<usize, String> {
     queue::submit_tasks(app, tasks).await
 }
-
 
 #[command]
 pub async fn media_task_has_running_by_type(task_type: Option<String>) -> Result<bool, String> {
@@ -64,7 +63,6 @@ pub async fn media_task_clear_by_type_with_stop(
 pub async fn media_task_cancel_task(id: String) -> Result<(), String> {
     queue::cancel_task(id).await
 }
-
 
 #[derive(Serialize)]
 pub struct FileInfo {
@@ -180,7 +178,7 @@ pub fn get_device_id() -> Result<String, String> {
 #[command]
 pub fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
     // Check for hardware encoders on various platforms
-    
+
     // H.264 Encoders
     let h264_encoders = vec![
         "h264_videotoolbox", // macOS
@@ -189,7 +187,9 @@ pub fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
         "h264_amf",          // AMD AMF
         "h264_mf",           // Windows Media Foundation
     ];
-    let h264_hardware = h264_encoders.iter().any(|name| ffmpeg::encoder::find_by_name(name).is_some());
+    let h264_hardware = h264_encoders
+        .iter()
+        .any(|name| ffmpeg::encoder::find_by_name(name).is_some());
 
     // HEVC Encoders
     let hevc_encoders = vec![
@@ -199,13 +199,15 @@ pub fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
         "hevc_amf",          // AMD AMF
         "hevc_mf",           // Windows Media Foundation
     ];
-    let hevc_hardware = hevc_encoders.iter().any(|name| ffmpeg::encoder::find_by_name(name).is_some());
+    let hevc_hardware = hevc_encoders
+        .iter()
+        .any(|name| ffmpeg::encoder::find_by_name(name).is_some());
 
     // ProRes Encoders (Mainly macOS)
-    let prores_encoders = vec![
-        "prores_videotoolbox",
-    ];
-    let prores_hardware = prores_encoders.iter().any(|name| ffmpeg::encoder::find_by_name(name).is_some());
+    let prores_encoders = vec!["prores_videotoolbox"];
+    let prores_hardware = prores_encoders
+        .iter()
+        .any(|name| ffmpeg::encoder::find_by_name(name).is_some());
 
     log::info!(
         "Hardware Acceleration Check: H.264={}, HEVC={}, ProRes={}",
@@ -592,8 +594,8 @@ pub fn video_player_open(
     }
 
     // 创建新的播放器
-    let player =
-        VideoPlayer::new(&path, emitter, preview).map_err(|e| format!("打开视频文件失败: {}", e))?;
+    let player = VideoPlayer::new(&path, emitter, preview)
+        .map_err(|e| format!("打开视频文件失败: {}", e))?;
 
     // 保存播放器实例
     *player_state.lock().unwrap() = Some(player);
@@ -743,8 +745,10 @@ pub fn audio_player_seek(
 ) -> Result<(), String> {
     let player = audio_player_state.lock().unwrap();
     if let Some(ref p) = *player {
-        p.command(crate::services::player::video::PlayerCommand::Seek(position))
-            .map_err(|e| format!("跳转失败: {}", e))
+        p.command(crate::services::player::video::PlayerCommand::Seek(
+            position,
+        ))
+        .map_err(|e| format!("跳转失败: {}", e))
     } else {
         Err("音频播放器未初始化".to_string())
     }
@@ -810,7 +814,9 @@ pub struct AudioConversionArgs {
     pub task_id: String,
     pub input_path: String,
     pub output_path: Option<String>, // 如果未提供，自动生成
-    pub format: Option<String>,
+    pub format: String,
+    pub audio_tracks: Option<Vec<crate::services::convert::audio::AudioTrackConfig>>,
+    // 兼容旧字段（可不传）
     pub codec: Option<String>,
     pub bitrate: Option<f32>,
     pub sample_rate: Option<u32>,
@@ -853,16 +859,15 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
 
     // 如果没有提供输出路径，自动生成
-    let resolved_format = args
-        .format
-        .clone()
-        .or_else(|| {
-            Path::new(&args.input_path)
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(|s| s.to_lowercase())
-        })
-        .unwrap_or_else(|| "mp3".to_string());
+    let resolved_format = if args.format.trim().is_empty() {
+        Path::new(&args.input_path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|s| s.to_lowercase())
+            .unwrap_or_else(|| "mp3".to_string())
+    } else {
+        args.format.to_lowercase()
+    };
 
     let output_path = if let Some(path) = args.output_path {
         path
@@ -874,7 +879,7 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
     let params = AudioConversionParams {
         input_path: args.input_path,
         output_path: output_path.clone(),
-        format: args.format.or(Some(resolved_format)),
+        format: Some(resolved_format),
         codec: args.codec,
         bitrate: args.bitrate,
         sample_rate: args.sample_rate,
@@ -883,6 +888,7 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
         quality: args.quality,
         use_hardware_acceleration: args.use_hardware_acceleration,
         use_ultra_fast_speed: args.use_ultra_fast_speed,
+        audio_tracks: args.audio_tracks,
     };
 
     // 在新线程中执行转换
@@ -940,7 +946,8 @@ pub struct VideoConversionArgs {
     pub audio_bit_depth: Option<u32>,
     pub audio_quality: Option<u32>,
     pub audio_tracks: Option<Vec<crate::services::convert::video::AudioTrackConfig>>,
-    pub default_audio_params: Option<crate::services::convert::audio::AudioEncodingParams>,
+    pub default_audio_params:
+        Option<crate::services::convert::audio_transcode::AudioEncodingParams>,
     pub use_hardware_acceleration: Option<bool>,
     pub use_ultra_fast_speed: Option<bool>,
     pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
@@ -1024,12 +1031,8 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
             denoise: args.denoise,
         };
 
-        let emitter = WindowEmitter::new(
-            window,
-            task_id,
-            "convert".to_string(),
-            "image".to_string(),
-        );
+        let emitter =
+            WindowEmitter::new(window, task_id, "convert".to_string(), "image".to_string());
 
         if let Err(e) = gif::convert_video_to_gif(emitter.clone(), params) {
             emitter.emit("error", None, None, Some(e));
@@ -1054,18 +1057,18 @@ pub struct VideoCompressionArgs {
     pub task_id: String,
     pub input_path: String,
     pub output_path: String,
-    pub compression_ratio: Option<u32>,  // 0-100
+    pub compression_ratio: Option<u32>, // 0-100
     pub width: Option<u32>,
     pub height: Option<u32>,
-    pub bitrate: Option<u32>,            // 视频码率 kbps
-    pub frame_rate: Option<f32>,         // 目标帧率
-    pub codec: Option<String>,           // h264/h265/vp9/av1
-    pub keyframe_interval: Option<u32>,  // GOP 间隔
-    pub color_depth: Option<u32>,        // 8/10/12 bit
-    pub aspect_ratio: Option<String>,    // 16:9 等
-    pub remove_audio: Option<bool>,      // 去除音轨
-    pub audio_bitrate: Option<u32>,      // 音频码率 kbps
-    pub preset: Option<String>,          // ultrafast/fast/medium/slow
+    pub bitrate: Option<u32>,                    // 视频码率 kbps
+    pub frame_rate: Option<f32>,                 // 目标帧率
+    pub codec: Option<String>,                   // h264/h265/vp9/av1
+    pub keyframe_interval: Option<u32>,          // GOP 间隔
+    pub color_depth: Option<u32>,                // 8/10/12 bit
+    pub aspect_ratio: Option<String>,            // 16:9 等
+    pub remove_audio: Option<bool>,              // 去除音轨
+    pub audio_bitrate: Option<u32>,              // 音频码率 kbps
+    pub preset: Option<String>,                  // ultrafast/fast/medium/slow
     pub use_hardware_acceleration: Option<bool>, // 硬件编码
 }
 
@@ -1094,12 +1097,8 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
             use_hardware_acceleration: args.use_hardware_acceleration,
         };
 
-        let emitter = WindowEmitter::new(
-            window,
-            task_id,
-            "compress".to_string(),
-            "video".to_string(),
-        );
+        let emitter =
+            WindowEmitter::new(window, task_id, "compress".to_string(), "video".to_string());
 
         if let Err(e) =
             crate::services::compress::video::compress_video_file(emitter.clone(), params)
@@ -1149,12 +1148,8 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
             volume_gain: args.volume_gain,
         };
 
-        let emitter = WindowEmitter::new(
-            window,
-            task_id,
-            "compress".to_string(),
-            "audio".to_string(),
-        );
+        let emitter =
+            WindowEmitter::new(window, task_id, "compress".to_string(), "audio".to_string());
 
         if let Err(e) =
             crate::services::compress::audio::compress_audio_file(emitter.clone(), params)
@@ -1172,15 +1167,15 @@ pub struct ImageCompressionArgs {
     pub task_id: String,
     pub input_path: String,
     pub output_path: String,
-    pub quality: Option<u32>,        // 0-100
-    pub format: Option<String>,      // "jpg", "png", "webp" ...
-    pub width: Option<u32>,          // 目标宽度
-    pub height: Option<u32>,         // 目标高度
-    pub color_mode: Option<String>,  // "RGB", "RGBA", "Gray", "CMYK"
-    pub strip_metadata: Option<bool>,// 是否去除元数据
+    pub quality: Option<u32>,            // 0-100
+    pub format: Option<String>,          // "jpg", "png", "webp" ...
+    pub width: Option<u32>,              // 目标宽度
+    pub height: Option<u32>,             // 目标高度
+    pub color_mode: Option<String>,      // "RGB", "RGBA", "Gray", "CMYK"
+    pub strip_metadata: Option<bool>,    // 是否去除元数据
     pub keep_transparency: Option<bool>, // 是否保留透明通道
-    pub dpi: Option<f64>,            // DPI
-    pub crop_whitespace: Option<bool>, // 自动裁剪
+    pub dpi: Option<f64>,                // DPI
+    pub crop_whitespace: Option<bool>,   // 自动裁剪
 }
 
 #[command]
@@ -1204,12 +1199,8 @@ pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result
             crop_whitespace: args.crop_whitespace,
         };
 
-        let emitter = WindowEmitter::new(
-            window,
-            task_id,
-            "compress".to_string(),
-            "image".to_string(),
-        );
+        let emitter =
+            WindowEmitter::new(window, task_id, "compress".to_string(), "image".to_string());
 
         if let Err(e) =
             crate::services::compress::image::compress_image_file(emitter.clone(), params)
@@ -1232,9 +1223,12 @@ pub struct WriteMetadataArgs {
 
 #[command]
 pub fn write_media_metadata(args: WriteMetadataArgs) -> Result<(), String> {
-    crate::services::media_tools::metadata::write_metadata(&args.input_path, &args.output_path, args.metadata)
+    crate::services::media_tools::metadata::write_metadata(
+        &args.input_path,
+        &args.output_path,
+        args.metadata,
+    )
 }
-
 
 // ==================== Task History Commands ====================
 

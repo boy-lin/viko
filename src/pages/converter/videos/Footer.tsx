@@ -12,6 +12,7 @@ import { GlobalConverterConfig, useConverterStore } from "./store";
 import { getMediaTaskQueue } from "@/lib/bridge";
 import { useAppStore } from "@/stores/app";
 import { MediaTaskType } from "@/types/tasks";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export const ConverterFooter: React.FC<{}> = () => {
   const globalConfig = useConverterStore((state) => state.globalConfig);
@@ -25,8 +26,6 @@ export const ConverterFooter: React.FC<{}> = () => {
   const updateTaskById = useConverterStore(
     (state) => state.updateTaskById
   );
-
-  const { formatRecents, addToRecents } = useConverterStore();
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
@@ -84,10 +83,16 @@ export const ConverterFooter: React.FC<{}> = () => {
   const handleConvertAll = async () => {
     const tasks = useConverterStore.getState().convertingTasks
     if (tasks.length > 0 && globalConfig) {
-      await getMediaTaskQueue().addConvertTasks(tasks.map((task) => ({
-        kind: task.taskType,
-        args: task.args
-      })));
+      await getMediaTaskQueue().addConvertTasks(tasks.map((task) => {
+        const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
+        return {
+          kind: task.taskType,
+          args: {
+            ...task.args,
+            output_path: `${outputDir}/${task.args.title}.${task.args.format}`
+          }
+        }
+      }));
     }
   };
 
@@ -97,10 +102,7 @@ export const ConverterFooter: React.FC<{}> = () => {
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
       await clearConvertingTasks();
-      await getMediaTaskQueue().clearQueueByType(
-        MediaTaskType.ConvertVideo,
-        true
-      );
+      await getMediaTaskQueue().clearQueueByType(true);
     } else {
       // 有运行中的任务，打开确认弹窗
       setIsDeletePopoverOpen(true);
@@ -109,7 +111,7 @@ export const ConverterFooter: React.FC<{}> = () => {
 
   const handleConfirmDelete = async () => {
     // 清空队列
-    await getMediaTaskQueue().clearQueueByType(undefined, true);
+    await getMediaTaskQueue().clearQueueByType(true);
     // 清空转换中的任务
     await clearConvertingTasks();
     // 关闭弹窗
@@ -127,8 +129,7 @@ export const ConverterFooter: React.FC<{}> = () => {
           <div className="flex items-center gap-2">
             <FormatSelector
               config={globalConfig}
-              formatRecents={formatRecents}
-              addToRecents={addToRecents}
+              recentKey="converter-videos-footer"
               onValueChange={updateGlobalConfig}
               applyConfigToAllTasks={applyConfigToAllTasks}
             />

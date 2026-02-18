@@ -1,5 +1,6 @@
 import React from "react";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
+import i18n from "@/lib/i18n";
 import RootLayout from "./layout/RootPage";
 import HomePage from "./pages/home";
 import TaskListPage from "./pages/tasks/TaskListPage";
@@ -20,29 +21,35 @@ import MetadataEditorPage from "./pages/metadata";
 import WatermarkPage from "./pages/watermark";
 import ErrorPage from '@/components/error/ErrorPage';
 
+const preloadI18nNamespaces = (namespaces: string[]) => async () => {
+  await i18n.loadNamespaces(namespaces);
+  return null;
+};
+
 const router = createBrowserRouter([
   {
     path: "/",
     element: <AuthLayout />,
     errorElement: <ErrorPage />,
+    loader: preloadI18nNamespaces(["common"]),
     children: [
       {
         path: "/",
         element: <RootLayout />,
         children: [
-          { index: true, element: <HomePage /> },
+          { index: true, element: <HomePage />, loader: preloadI18nNamespaces(["home"]) },
           {
             path: "compressor", element: <Outlet />, children: [
-              { path: "videos", element: <CompressorVideoPage /> },
-              { path: "audios", element: <CompressorAudioPage /> },
-              { path: "images", element: <CompressorImagePage /> },
+              { path: "videos", element: <CompressorVideoPage />, loader: preloadI18nNamespaces(["converter", "common"]) },
+              { path: "audios", element: <CompressorAudioPage />, loader: preloadI18nNamespaces(["converter", "common"]) },
+              { path: "images", element: <CompressorImagePage />, loader: preloadI18nNamespaces(["converter", "common"]) },
             ]
           },
           {
             path: "converter", element: <Outlet />, children: [
-              { path: "videos", element: <ConverterVideoPage /> },
-              { path: "audios", element: <ConverterAudioPage /> },
-              { path: "images", element: <ConverterImagePage /> },
+              { path: "videos", element: <ConverterVideoPage />, loader: preloadI18nNamespaces(["converter", "common"]) },
+              { path: "audios", element: <ConverterAudioPage />, loader: preloadI18nNamespaces(["converter", "common"]) },
+              { path: "images", element: <ConverterImagePage />, loader: preloadI18nNamespaces(["converter", "common"]) },
             ]
           },
           {
@@ -71,11 +78,13 @@ const router = createBrowserRouter([
   },
   {
     path: "/sign-in", element: <SignInPage />,
-    errorElement: <ErrorPage />
+    errorElement: <ErrorPage />,
+    loader: preloadI18nNamespaces(["auth", "common"])
   },
   {
     path: "/sign-up", element: <SignUpPage />,
-    errorElement: <ErrorPage />
+    errorElement: <ErrorPage />,
+    loader: preloadI18nNamespaces(["auth", "common"])
   },
 ]);
 

@@ -7,7 +7,11 @@
     "titleLabel": "标题：",
     "targetFormatLabel": "目标",
     "video": { "title": "视频" },
-    "audio": { "title": "音频", "trackLabel": "音轨 {{index}}" },
+    "audio": {
+      "title": "音频",
+      "trackLabel": "音轨 {{index}}",
+      "noAudioTrackAvailable": "没有可用的音轨。"
+    },
     "image": { "title": "图片", "quality": "质量：", "resolution": "分辨率：" }
   },
   "common": { "cancel": "取消", "save": "保存" },

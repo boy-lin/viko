@@ -4,20 +4,27 @@ import { Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { FormatOption } from "@/types/options";
 
 import FormatSelectorContent from "./FormatSelectorContent";
 import { FormatSelectorProps } from "./types";
+import { useFormatSelectorStore } from "./store";
+
+const EMPTY_RECENTS: FormatOption[] = [];
 
 export default function FormatSelectorDialog(props: FormatSelectorProps) {
   const {
     config,
-    formatRecents,
-    addToRecents,
+    recentKey,
     onValueChange = () => { },
     className,
     applyConfigToAllTasks,
   } = props;
   const [open, setOpen] = useState(false);
+  const formatRecents = useFormatSelectorStore(
+    (state) => state.recentsByKey[recentKey] ?? EMPTY_RECENTS
+  );
+  const addToRecents = useFormatSelectorStore((state) => state.addToRecents);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -35,7 +42,7 @@ export default function FormatSelectorDialog(props: FormatSelectorProps) {
         <FormatSelectorContent
           config={config}
           formatRecents={formatRecents}
-          addToRecents={addToRecents}
+          addToRecents={(format) => addToRecents(recentKey, format)}
           onValueChange={onValueChange}
           applyConfigToAllTasks={applyConfigToAllTasks}
           onClose={() => setOpen(false)}

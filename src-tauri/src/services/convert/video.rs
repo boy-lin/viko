@@ -10,8 +10,7 @@ use serde::{Deserialize, Serialize};
 
 
 use crate::media_common;
-use crate::services::convert::audio::AudioEncodingParams;
-use crate::services::convert::video_audio::AudioTrackProcessor;
+use crate::services::convert::audio_transcode::{AudioEncodingParams, AudioTrackProcessor};
 use crate::events::TaskEmitter;
 
 /// 视频转换参数（全部可选，使用默认值兜底）

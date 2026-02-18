@@ -2,8 +2,19 @@
 use ffmpeg::{
     codec, decoder, encoder, format, frame, packet, software, Rational,
 };
-use crate::services::convert::audio::AudioEncodingParams;
 use crate::media_common::{self, AudioFifo};
+use serde::{Deserialize, Serialize};
+
+/// Shared audio encoding params used by both video/audio convert pipelines.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AudioEncodingParams {
+    pub codec: Option<String>,        // libmp3lame, aac, flac, pcm etc.
+    pub bitrate: Option<f32>,         // kbps
+    pub sample_rate: Option<u32>,     // Hz
+    pub channels: Option<u32>,        // channel count
+    pub bit_depth: Option<u32>,       // 16/24/32
+    pub quality: Option<u32>,         // VBR quality 0-10
+}
 
 pub struct AudioTrackProcessor {
     pub source_stream_index: usize,
@@ -308,4 +319,3 @@ impl AudioTrackProcessor {
         Ok(())
     }
 }
-

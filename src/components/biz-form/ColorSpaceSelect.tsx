@@ -32,7 +32,7 @@ export const ColorSpaceSelect: React.FC<ColorSpaceSelectProps> = ({
 
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger>
-        <SelectValue placeholder="Select color space" />
+        <SelectValue className="cursor-pointer" placeholder="Select color space" />
       </SelectTrigger>
       <SelectContent>
         {colorSpaceOptions.map((option) => (

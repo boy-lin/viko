@@ -36,12 +36,12 @@ export const AudioEncoderSelect: React.FC<AudioEncoderSelectProps> = ({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-muted-foreground">Encoder :</Label>
+      <div className="flex items-center gap-2">
         <Info className="w-4 h-4 text-muted-foreground" />
+        <Label className="text-muted-foreground">Encoder :</Label>
       </div>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger>
+        <SelectTrigger className="cursor-pointer">
           <SelectValue placeholder="Select encoder" />
         </SelectTrigger>
         <SelectContent>

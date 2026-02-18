@@ -9,16 +9,17 @@ import {
 } from "@/pages/converter/components/AudioSettingsSection";
 import VideoSettingsSection from "@/pages/converter/components/VideoSettingsSection";
 import { ActiveCategoryEnum } from "@/pages/converter/videos/store";
-import { FileType } from "@/types/tasks";
-import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/bridge";
+import { FileType, MediaTaskType } from "@/types/tasks";
+import { AudioTrackConfig, ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/bridge";
 
 import CategoryItem from "./CategoryItem";
 import { FormatSelectorContentProps } from "./types";
 import { ImageSettingsSection } from "@/pages/converter/components/ImageSettingsSection";
 import { FormatGroup } from "@/types/options";
 import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
-import { formatToDefinition } from "@/data/capabilities";
+import { encoderToDefinition, formatToDefinition } from "@/data/capabilities";
 import { useTranslation } from "react-i18next";
+import { use } from "i18next";
 
 export default function FormatSelectorContent({
   config,
@@ -54,7 +55,7 @@ export default function FormatSelectorContent({
 
   const activeCategory = useMemo(() => {
     let category = config.activeCategory
-    if (category === ActiveCategoryEnum.Recents && formatRecents) {
+    if (category === ActiveCategoryEnum.Recents && formatRecents && formatRecents[0]) {
       category = formatRecents[0].category
     }
     return FORMAT_CATEGORIES.find((item) => item.id === category);
@@ -72,22 +73,31 @@ export default function FormatSelectorContent({
 
 
   useEffect(() => {
-    if (formatGroups.length > 0) {
-      setActiveGroup((val) => {
-        const format = val?.id || config?.args?.format || formatGroups[0].id
-        return formatGroups.find((it) => it.id === format);
-      });
+    if (formatGroups.length === 0) {
+      setActiveGroup(undefined);
+      return;
     }
-  }, [formatGroups]);
+
+    setActiveGroup((prev) => {
+      if (prev && formatGroups.some((group) => group.id === prev.id)) {
+        return prev;
+      }
+      const targetId = config?.args?.format || formatGroups[0].id;
+      return formatGroups.find((group) => group.id === targetId) || formatGroups[0];
+    });
+  }, [formatGroups, config?.args?.format]);
 
   useEffect(() => {
-    if (activeGroup) {
-      const item = FORMAT_DATA.find((item) => item.extension === activeGroup.id);
-      if (item?.id) {
-        applySelection(item, { close: false, addRecent: true });
-      }
-    }
-  }, [activeGroup]);
+    const item = FORMAT_DATA.find((it) => it.extension === activeGroup?.id);
+    if (!item) return;
+
+    applySelection(item, {
+      close: false,
+      addRecent: true,
+      resetSearch: false,
+    });
+
+  }, [activeGroup])
 
 
   const applySelection = (
@@ -101,19 +111,43 @@ export default function FormatSelectorContent({
 
     if (!formatOpt.extension) return;
     const definition = formatToDefinition.get(formatOpt.extension);
+    const audioCodec = definition?.audio?.defaultEncoder;
+
+    let audioTracks = config.args?.audio_tracks as AudioTrackConfig[]
+    if (audioTracks) {
+      audioTracks = audioTracks.map((track) => {
+        return {
+          ...track,
+          codec: audioCodec,
+        };
+      });
+    }
 
     const updates = {
       ...config,
       args: {
         ...config.args,
         format: formatOpt.extension,
-        video_encoder: definition?.video?.defaultEncoder,
-        audio_encoder: definition?.audio?.defaultEncoder,
-        image_encoder: definition?.image?.defaultEncoder,
       },
     };
 
+    if (formatOpt.category === FileType.Audio) {
+      updates.taskType = MediaTaskType.ConvertAudio;
+      updates.args.audio_tracks = audioTracks;
+    } else if (formatOpt.category === FileType.Video) {
+      updates.taskType = MediaTaskType.ConvertVideo;
+      updates.args.video_encoder = definition?.video?.defaultEncoder;
+      updates.args.audio_tracks = audioTracks;
+    } else if (formatOpt.category === FileType.Image) {
+      updates.taskType = MediaTaskType.ConvertImage;
+      updates.args.image_encoder = definition?.image?.defaultEncoder;
+    }
+    console.log('updates22', updates)
     onValueChange(updates);
+  };
+
+  const handleGroupSelect = (group: FormatGroup) => {
+    setActiveGroup(group);
   };
 
   const renderCustomSettings = () => {
@@ -122,11 +156,7 @@ export default function FormatSelectorContent({
 
       return (
         <AudioSettingsSection
-          audio_tracks={[
-            {
-              codec: audioArgs.audio_encoder,
-            },
-          ]}
+          audio_tracks={audioArgs.audio_tracks}
           format={audioArgs.format}
           onAudioTracksChange={(tracks) => {
             const next = tracks[0];
@@ -135,7 +165,7 @@ export default function FormatSelectorContent({
               ...config,
               args: {
                 ...config.args,
-                audio_encoder: next.codec,
+                audio_tracks: tracks
               },
             });
           }}
@@ -231,7 +261,6 @@ export default function FormatSelectorContent({
               active={config.activeCategory === cat.id && !searchQuery}
               onClick={() => {
                 const nextCategory = cat.id as any;
-                console.log('category clicked', cat.id);
                 onValueChange({ ...config, activeCategory: nextCategory });
                 setSearchQuery("");
               }}
@@ -266,7 +295,7 @@ export default function FormatSelectorContent({
                           <button
                             key={group.id}
                             onClick={() => {
-                              setActiveGroup(group);
+                              handleGroupSelect(group);
                             }}
                             className={cn(
                               "cursor-pointer w-full flex items-center justify-between p-2 rounded-md text-left transition-colors",

@@ -71,7 +71,7 @@ export default function OutputTitleEditor({
     <div className={cn("flex items-center gap-2 min-w-0", className)}>
       <EllipsisName
         name={value || placeholder}
-        className="text-base font-semibold text-foreground"
+        className="text-base font-semibold text-foreground whitespace-nowrap"
       />
       <Button
         variant="ghost"

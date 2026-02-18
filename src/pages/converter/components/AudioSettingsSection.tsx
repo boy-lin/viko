@@ -51,7 +51,9 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
             </Button>
           )}
         </div>
-        <p className="text-muted-foreground">No audio track available.</p>
+        <p className="text-muted-foreground">
+          {t('settings.audio.noAudioTrackAvailable')}
+        </p>
       </div>
     );
   }
@@ -69,18 +71,18 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
             onValueChange={(v) => updateTrack(0, "codec", v)}
           />
           <AudioChannelSelect
-            value={String(track.channels)}
+            value={String(track.channels || 'auto')}
             onValueChange={(v) => updateTrack(0, "channels", parseInt(v))}
             options={audioOptions.channels}
           />
           <AudioSampleRateSelect
-            value={String(track.sample_rate)}
+            value={String(track.sample_rate || 'auto')}
             onValueChange={(v) => updateTrack(0, "sample_rate", parseInt(v))}
             options={audioOptions.sampleRates}
           />
           <AudioBitrateSelect
-            value={String(track.bitrate)}
-            onValueChange={(v) => updateTrack(0, "bitrate", v)}
+            value={String(track.bitrate || 'auto')}
+            onValueChange={(v) => updateTrack(0, "bitrate", parseInt(v))}
             options={audioOptions.bitrates}
           />
         </div>

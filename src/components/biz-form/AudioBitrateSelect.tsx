@@ -26,12 +26,12 @@ export const AudioBitrateSelect: React.FC<AudioBitrateSelectProps> = ({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-muted-foreground">Bit Rate :</Label>
+      <div className="flex items-center gap-2">
         <Info className="w-4 h-4 text-muted-foreground" />
+        <Label className="text-muted-foreground">Bit Rate :</Label>
       </div>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger>
+        <SelectTrigger className="cursor-pointer" >
           <SelectValue placeholder="Select bitrate" />
         </SelectTrigger>
         <SelectContent>

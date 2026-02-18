@@ -38,12 +38,12 @@ export const AudioBitDepthSelect: React.FC<AudioBitDepthSelectProps> = ({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-muted-foreground">{labelText}</Label>
+      <div className="flex items-center gap-2">
         <Info className="w-4 h-4 text-muted-foreground" />
+        <Label className="text-muted-foreground">{labelText}</Label>
       </div>
       <Select value={value ?? "auto"} onValueChange={onValueChange}>
-        <SelectTrigger>
+        <SelectTrigger className="cursor-pointer" >
           <SelectValue placeholder={placeholderText} />
         </SelectTrigger>
         <SelectContent>

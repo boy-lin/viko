@@ -1,5 +1,5 @@
 import { startTransition, useEffect, useState } from "react";
-import { Trash2, ShieldAlert } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { ConverterTask, FileType } from "@/types/tasks";
@@ -14,6 +14,11 @@ import { MediaTaskType } from "@/types/tasks";
 import { useSettingsStore } from "@/stores/settingsStore";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
+import TaskStatusLabel from "@/components/ui-biz/TaskStatusLabel";
+import TaskLoadingCard from "@/components/ui-biz/TaskLoadingCard";
+import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
+import MediaOriginalInfoGrid from "@/components/ui-biz/MediaOriginalInfoGrid";
+import MediaTargetInfoGrid from "@/components/ui-biz/MediaTargetInfoGrid";
 
 interface TaskItemProps {
   task: ConverterTask;
@@ -31,9 +36,7 @@ const buildDefaultArgs = (taskId: string, path: string, mediaTitle: string, medi
     title: mediaTitle,
     format: format,
     input_path: path,
-    output_path: ""
   };
-  outputArgs.output_path = `${outputDir}/${mediaTitle}.${outputArgs.format}`;
   const containerDefinition = formatToDefinition.get(outputArgs.format);
   outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder;
   outputArgs.audio_tracks =
@@ -41,7 +44,7 @@ const buildDefaultArgs = (taskId: string, path: string, mediaTitle: string, medi
       ?.filter((stream: any) => stream.codec_type === "audio")
       .map((stream: any) => ({
         trackIndex: stream.index,
-        encoder: containerDefinition?.audio?.defaultEncoder,
+        codec: containerDefinition?.audio?.defaultEncoder,
       })) || [];
 
   return outputArgs;
@@ -50,8 +53,6 @@ const buildDefaultArgs = (taskId: string, path: string, mediaTitle: string, medi
 export default function TaskItem({ task }: TaskItemProps) {
   const { t } = useTranslation("converter");
   const updateTaskById = useConverterStore((state) => state.updateTaskById);
-  const formatRecents = useConverterStore((state) => state.formatRecents);
-  const addToRecents = useConverterStore((state) => state.addToRecents);
   const [loading, setLoading] = useState(!task.mediaDetails);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -89,71 +90,22 @@ export default function TaskItem({ task }: TaskItemProps) {
     };
   }, [task.args?.input_path]);
 
-  const statusLabel = () => {
-    const errorMessage = (task as any).errorMessage || (task as any).error;
-    const map = {
-      idle: { text: t("status.idle", "等待中"), color: "text-gray-600", badge: "bg-gray-100" },
-      processing: { text: t("status.processing", "转换中"), color: "text-blue-600", badge: "bg-blue-100" },
-      finished: { text: t("status.finished", "已完成"), color: "text-green-600", badge: "bg-green-100" },
-      error: { text: t("status.error", "错误"), color: "text-red-600", badge: "bg-red-100" },
-      cancelled: { text: t("status.cancelled", "已取消"), color: "text-gray-600", badge: "bg-gray-100" },
-    } as const;
-    const cfg = map[task.status] || map.idle;
-    return (
-      <div className={`inline-flex flex-col items-center px-2 py-1 rounded-lg text-xs font-medium ${cfg.badge} ${cfg.color}`}>
-        <span>{cfg.text}</span>
-        {task.status === "processing" && task.progress !== undefined && (
-          <span>{task.progress.toFixed(0)}%</span>
-        )}
-        {task.status === "error" && errorMessage && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <ShieldAlert className="h-3 w-3" />
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              <p className="text-sm">{errorMessage}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </div>
-    );
-  };
-
   const handleConvertSingle = async () => {
+    const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
+    console.log('outputDir', outputDir, task.taskType)
     await getMediaTaskQueue().addConvertTasks([
       {
         kind: task.taskType,
-        args: task.args,
+        args: {
+          ...task.args,
+          output_path: `${outputDir}/${task.args.title}.${task.args.format}`
+        },
       },
     ]);
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm animate-pulse">
-        <div className="w-20 h-20 rounded-lg bg-muted flex-shrink-0" />
-        <div className="flex-1 min-w-0 space-y-2">
-          <div className="h-4 bg-muted rounded w-1/2" />
-          <div className="grid grid-cols-2 gap-2">
-            <div className="h-3 bg-muted rounded" />
-            <div className="h-3 bg-muted rounded" />
-          </div>
-        </div>
-        <div className="w-24 h-6 bg-muted rounded-full" />
-        <div className="flex-1 min-w-0 space-y-2">
-          <div className="h-4 bg-muted rounded w-1/3" />
-          <div className="grid grid-cols-2 gap-2">
-            <div className="h-3 bg-muted rounded" />
-            <div className="h-3 bg-muted rounded" />
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 bg-muted rounded" />
-          <div className="h-9 w-9 bg-muted rounded" />
-          <div className="h-9 w-20 bg-muted rounded" />
-        </div>
-      </div>
-    );
+    return <TaskLoadingCard />;
   }
 
   const removeTask = async () => {
@@ -162,48 +114,10 @@ export default function TaskItem({ task }: TaskItemProps) {
   };
 
   if (loadError) {
-    return (
-      <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-red-200 shadow-sm">
-        <div className="w-20 h-20 rounded-lg bg-red-50 flex items-center justify-center text-red-500 flex-shrink-0">
-          <ShieldAlert className="h-6 w-6" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-base font-semibold text-red-600">加载失败</div>
-          <div className="text-sm text-muted-foreground mt-1 truncate">
-            {loadError}
-          </div>
-        </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
-              onClick={removeTask}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("actions.delete")}</TooltipContent>
-        </Tooltip>
-      </div>
-    );
+    return <TaskLoadErrorCard loadError={loadError} onRemove={removeTask} />;
   }
 
   const convertVideoTaskArgs = task.args as ConvertVideoTaskArgs;
-  const firstVideoStream = task.mediaDetails?.streams.find((s) => s.codec_type === "video");
-  const originalInfoParts = [
-    task.mediaDetails?.extension?.toUpperCase?.(),
-    firstVideoStream?.codec_name?.toUpperCase?.(),
-    firstVideoStream?.width + "x" + firstVideoStream?.height,
-    firstVideoStream?.frame_rate,
-  ];
-  const targetInfoParts = [
-    convertVideoTaskArgs.format?.toUpperCase?.(),
-    convertVideoTaskArgs.video_encoder?.toUpperCase?.(),
-    convertVideoTaskArgs.resolution,
-    convertVideoTaskArgs.frame_rate,
-  ];
 
   const handleOutputTitleChange = (nextTitle: string) => {
     if (!task.mediaDetails?.path) {
@@ -238,15 +152,11 @@ export default function TaskItem({ task }: TaskItemProps) {
         <div className="flex items-center gap-3">
           <EllipsisName name={task.mediaDetails?.title} className="text-base font-semibold text-foreground" />
         </div>
-        <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground">
-          {originalInfoParts.map((p, idx) => (
-            <span key={idx}>{p || "-"}</span>
-          ))}
-        </div>
+        <MediaOriginalInfoGrid mediaDetails={task.mediaDetails} />
       </div>
 
       <div className="flex items-center gap-2">
-        {statusLabel()}
+        <TaskStatusLabel task={task} />
       </div>
 
       <div className="flex-1 min-w-0">
@@ -254,11 +164,7 @@ export default function TaskItem({ task }: TaskItemProps) {
           value={task.outputTitle}
           onChange={handleOutputTitleChange}
         />
-        <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground">
-          {targetInfoParts.map((p, idx) => (
-            <span key={idx}>{p || "auto"}</span>
-          ))}
-        </div>
+        <MediaTargetInfoGrid args={convertVideoTaskArgs} />
       </div>
 
       <div className="flex items-center gap-2">
@@ -268,24 +174,19 @@ export default function TaskItem({ task }: TaskItemProps) {
             taskType: task.taskType,
             activeCategory: task.activeCategory,
           }}
-          formatRecents={formatRecents}
-          addToRecents={addToRecents}
+          recentKey="converter-videos-task-item"
           onValueChange={(config) => {
-            startTransition(() => {
-              updateTaskById(task.id, {
-                activeCategory: config.activeCategory,
-                taskType: config.taskType,
-                args: config.args,
-              });
+            updateTaskById(task.id, {
+              activeCategory: config.activeCategory,
+              taskType: config.taskType,
+              args: config.args,
             });
           }}
           applyConfigToAllTasks={(config) => {
-            startTransition(() => {
-              updateTaskById(task.id, {
-                activeCategory: config.activeCategory,
-                taskType: config.taskType,
-                args: config.args,
-              });
+            updateTaskById(task.id, {
+              activeCategory: config.activeCategory,
+              taskType: config.taskType,
+              args: config.args,
             });
           }}
         />

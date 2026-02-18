@@ -20,8 +20,7 @@ export interface FormatSelectorProps {
   config: GlobalConverterConfig;
   onValueChange?: (config: GlobalConverterConfig) => void;
   className?: string;
-  formatRecents: FormatOption[];
-  addToRecents: (format: FormatOption) => void;
+  recentKey: string;
   applyConfigToAllTasks: (config: GlobalConverterConfig) => void;
   btnLabelKey?: string;
 }

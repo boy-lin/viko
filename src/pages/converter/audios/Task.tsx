@@ -30,7 +30,6 @@ export default function ConvertingTask({
         {filteredTasks.length === 0 ? (
           <div className="border border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
             <UploadPanel
-              mediaType={MediaTaskType.ConvertAudio}
               supportedExtensions={AUDIO_FORMATS}
             />
           </div>

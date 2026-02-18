@@ -11,7 +11,7 @@ import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect
 import { GlobalConverterConfig, useConverterStore } from "./store";
 import { getMediaTaskQueue } from "@/lib/bridge";
 import { useAppStore } from "@/stores/app";
-import { MediaTaskType } from "@/types/tasks";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export const ConverterFooter: React.FC<{}> = () => {
   const globalConfig = useConverterStore((state) => state.globalConfig);
@@ -26,8 +26,6 @@ export const ConverterFooter: React.FC<{}> = () => {
     (state) => state.updateTaskById
   );
 
-  const { formatRecents, addToRecents } = useConverterStore();
-
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
   React.useEffect(() => {
@@ -37,16 +35,14 @@ export const ConverterFooter: React.FC<{}> = () => {
       const { task_id, event_type, progress, error_message } = payload;
       const store = useConverterStore.getState();
 
-      // Check if this task belongs to video converter store
-      // We might want to check if task exists in convertingTasks
       const taskExists = store.convertingTasks.some(t => t.id === task_id);
       if (!taskExists && event_type !== 'complete') {
-        // If complete, it might have been moved? No, complete moves it.
         return;
       }
 
       if (event_type === "progress") {
         store.updateTaskById(task_id, {
+          status: "processing",
           progress: Math.min(100, Math.max(0, progress || 0)),
         });
       } else if (event_type === "complete") {
@@ -87,20 +83,27 @@ export const ConverterFooter: React.FC<{}> = () => {
   const handleConvertAll = async () => {
     const tasks = useConverterStore.getState().convertingTasks
     if (tasks.length > 0 && globalConfig) {
-      await getMediaTaskQueue().addConvertTasks(tasks.map((task) => ({
-        kind: task.taskType,
-        args: task.args
-      })));
+
+      await getMediaTaskQueue().addConvertTasks(tasks.map((task) => {
+        const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
+        return {
+          kind: task.taskType,
+          args: {
+            ...task.args,
+            output_path: `${outputDir}/${task.args.title}.${task.args.format}`
+          }
+        }
+      }));
     }
   };
 
   const handleDelete = async () => {
-    const hasRunningTasks = await getMediaTaskQueue().hasRunningTasksByType(MediaTaskType.ConvertImage);
+    const hasRunningTasks = await getMediaTaskQueue().hasRunningTasksByType();
 
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
       await clearConvertingTasks();
-      await getMediaTaskQueue().clearQueueByType(MediaTaskType.ConvertImage);
+      await getMediaTaskQueue().clearQueueByType();
     } else {
       // 有运行中的任务，打开确认弹窗
       setIsDeletePopoverOpen(true);
@@ -109,7 +112,7 @@ export const ConverterFooter: React.FC<{}> = () => {
 
   const handleConfirmDelete = async () => {
     // 清空队列
-    await getMediaTaskQueue().clearQueueByType(MediaTaskType.ConvertImage);
+    await getMediaTaskQueue().clearQueueByType();
     // 清空转换中的任务
     await clearConvertingTasks();
     // 关闭弹窗
@@ -128,8 +131,7 @@ export const ConverterFooter: React.FC<{}> = () => {
             <FormatSelectorPopover
               className=""
               config={globalConfig}
-              formatRecents={formatRecents}
-              addToRecents={addToRecents}
+              recentKey="converter-audios-footer"
               onValueChange={handleFormatChange}
               applyConfigToAllTasks={applyConfigToAllTasks}
             />

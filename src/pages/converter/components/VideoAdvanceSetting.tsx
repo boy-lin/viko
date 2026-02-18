@@ -113,12 +113,7 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
             options={videoOptions.colorSpaces}
           />
         </div>
-
       </div>
-
-
-
-      <div className="w-full h-px bg-border"></div>
     </div>
   );
 };

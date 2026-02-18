@@ -4,7 +4,6 @@ import {
   MediaTaskType,
   CompressingTask,
 } from "../../../types/tasks";
-import { FormatOption } from "@/types/options";
 import { CompressImageTaskArgs } from "@/lib/bridge";
 
 export const defaultImageCompressionConfig = {
@@ -20,13 +19,11 @@ export const defaultImageCompressionConfig = {
 interface CompressorState {
   compressingTasks: CompressingTask[];
   finishedTasks: CompressingTask[];
-  formatRecents: FormatOption[];
   isLoading: boolean;
   imageConfig: CompressImageTaskArgs;
   addTasksByPaths: (paths: string[]) => Promise<void>;
   clearCompressingTasks: () => Promise<void>;
   updateTaskById: (id: string, updates: Partial<CompressingTask>) => void;
-  addToRecents: (format: FormatOption) => void;
   removeTask: (id: string) => void;
   updateGlobalConfig: (config: Partial<CompressImageTaskArgs>) => void;
 }
@@ -34,7 +31,6 @@ interface CompressorState {
 export const useCompressorStore = create<CompressorState>((set, get) => ({
   compressingTasks: [],
   finishedTasks: [],
-  formatRecents: [],
   isLoading: true,
   imageConfig: defaultImageCompressionConfig,
   addTasksByPaths: async (paths) => {
@@ -92,24 +88,13 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
           ...task.args, ...updates.args
         }
       };
-      const isFinished = updatedTask.status === "finished";
       const currentState = get();
-      if (isFinished) {
-
+      if (["finished", "cancelled"].includes(updatedTask.status)) {
         set({
           compressingTasks: currentState.compressingTasks.filter(
             (t) => t.id !== id
           ),
         });
-
-      } else if (updatedTask.status === "error" || updatedTask.status === "cancelled") {
-
-        set({
-          compressingTasks: currentState.compressingTasks.filter(
-            (t) => t.id !== id
-          ),
-        });
-
       } else {
         set({
           compressingTasks: currentState.compressingTasks.map((t) =>
@@ -131,15 +116,6 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     const { compressingTasks } = get();
     set({
       compressingTasks: compressingTasks.filter((t) => t.id !== id),
-    });
-  },
-  addToRecents: (format) => {
-    set((state) => {
-      const recents = state.formatRecents;
-      if (recents.includes(format)) return state;
-      return {
-        formatRecents: [format, ...recents].slice(0, 10),
-      };
     });
   },
 }));

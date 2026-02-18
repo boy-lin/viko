@@ -12,6 +12,7 @@ import { CompressVideoTaskArgs, getMediaTaskQueue } from "@/lib/bridge";
 import { Slider } from "@/components/ui/slider";
 import { useAppStore } from "@/stores/app";
 import { useCompressorStore } from './store'
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export const CompressionFooter: React.FC = () => {
   const videoConfig = useCompressorStore((state) => state.videoConfig);
@@ -48,10 +49,16 @@ export const CompressionFooter: React.FC = () => {
   const handleCompressAll = async () => {
     const tasks = useCompressorStore.getState().compressingTasks;
     if (tasks.length > 0) {
-      await getMediaTaskQueue().addCompressTasks(tasks.map((task) => ({
-        kind: task.taskType,
-        args: task.args
-      })));
+      await getMediaTaskQueue().addCompressTasks(tasks.map((task) => {
+        const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
+        return {
+          kind: task.taskType,
+          args: {
+            ...task.args,
+            output_path: `${outputDir}/${task.outputTitle}.${task.args.format}`
+          }
+        }
+      }));
     }
   };
 

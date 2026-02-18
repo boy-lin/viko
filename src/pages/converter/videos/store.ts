@@ -3,9 +3,9 @@ import {
   ConverterTask,
   FileType,
 } from "@/types/tasks";
-import { FormatEnum, FormatOption, VideoEncoderEnum } from "@/types/options";
+import { FormatEnum, VideoEncoderEnum, AudioEncoderEnum } from "@/types/options";
 import { MediaTaskType } from "@/types/tasks";
-import { useSettingsStore } from "@/stores/settingsStore";
+
 
 export enum ActiveCategoryEnum {
   Recents = "recents",
@@ -19,7 +19,11 @@ export const defaultVideoConfig: GlobalConverterConfig = {
   activeCategory: FileType.Video,
   args: {
     format: FormatEnum.MP4,
-    video_encoder: VideoEncoderEnum.H264
+    video_encoder: VideoEncoderEnum.H264,
+    audio_tracks: [{
+      trackIndex: 0,
+      codec: AudioEncoderEnum.AAC
+    }]
   },
 };
 
@@ -27,20 +31,17 @@ interface ConverterState {
   convertingTasks: ConverterTask[];
   isLoading: boolean;
   globalConfig: GlobalConverterConfig;
-  formatRecents: FormatOption[];
   addTasksByPaths: (paths: string[]) => void;
   clearConvertingTasks: () => Promise<void>;
   updateTaskById: (id: string, updates: Partial<ConverterTask>) => void;
   removeTask: (id: string) => void;
   updateGlobalConfig: (config: Partial<GlobalConverterConfig>) => Promise<void>;
-  addToRecents: (format: FormatOption) => Promise<void>;
 }
 
 export const useConverterStore = create<ConverterState>((set, get) => ({
   convertingTasks: [],
   isLoading: true,
   globalConfig: defaultVideoConfig,
-  formatRecents: [],
   addTasksByPaths: async (paths) => {
     const newTasks: ConverterTask[] = [];
     for (const path of paths) {
@@ -94,19 +95,7 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
           ...updates.args
         }
       };
-
-      if (updatedTask.args?.format && updatedTask.outputTitle) {
-        const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path)
-
-        updatedTask.args.output_path = `${outputDir}/${updatedTask.outputTitle}.${updatedTask.args.format}`
-      }
-
-      if (updates.args?.audio_encoder && updatedTask.args.audio_tracks) {
-        updatedTask.args.audio_tracks.forEach((track: any) => {
-          track.encoder = updates.args?.audio_encoder
-        })
-      }
-
+      console.log('updatedTask', updatedTask)
       const currentState = get();
       if (["finished", "cancelled"].includes(updatedTask.status)) {
         set({
@@ -138,15 +127,5 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
         args: { ...args, ...config.args }
       }
     });
-  },
-  addToRecents: async (format: FormatOption) => {
-    const { formatRecents } = get();
-    // Keep only last 10, remove if exists to push to top
-    const newRecents = [
-      format,
-      ...formatRecents.filter((f) => f.id !== format.id),
-    ].slice(0, 10);
-
-    set({ formatRecents: newRecents });
   }
 }));

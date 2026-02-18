@@ -141,6 +141,12 @@ export enum AudioEncoderEnum {
   PCM_F64LE = "pcm_f64le",        // PCM 64-bit floating point little-endian
   PCM_F32BE = "pcm_f32be",        // PCM 32-bit floating point big-endian
   PCM_F64BE = "pcm_f64be",        // PCM 64-bit floating point big-endian
+  PCM_ALAW = "pcm_alaw",          // PCM A-law
+  PCM_MULAW = "pcm_mulaw",          // PCM μ-law
+
+  ADPCM_MS = "adpcm_ms",          // ADPCM Microsoft
+  ADPCM_IMA_WAV = "adpcm_ima_wav",  // ADPCM IMA WAV
+  GSM_MS = "gsm_ms",              // GSM Microsoft
 }
 
 /**
@@ -164,7 +170,6 @@ export enum VideoEncoderEnum {
 
   // Apple ProRes
   PRORES = "prores_ks",                // Apple ProRes (software)
-  PRORES_HARDWARE = "prores_videotoolbox", // Apple ProRes (macOS hardware)
 
   // MPEG
   MPEG4 = "mpeg4",                     // MPEG-4 Part 2
@@ -176,6 +181,17 @@ export enum VideoEncoderEnum {
   XVID = "libxvid",                    // Xvid MPEG-4 Part 2
   H263 = "h263",                       // H.263 video codec
   H261 = "h261",                       // H.261 video codec
+
+  PRORES_LT = "prores_lt",
+  PRORES_422 = "prores_422",
+  PRORES_HQ = "prores_hq",
+  PRORES_4444 = "prores_4444",
+  PRORES_4444_XQ = "prores_4444_xq",
+  DNXHD = "dnxhd",
+  DNXHR_LB = "dnxhr_lb",
+  DNXHR_SQ = "dnxhr_sq",
+  DNXHR_HQ = "dnxhr_hq",
+  DNXHR_444 = "dnxhr_444",
 }
 
 /**
@@ -230,11 +246,17 @@ export enum EncoderEnum {
   PCM_F64LE = AudioEncoderEnum.PCM_F64LE,
   PCM_F32BE = AudioEncoderEnum.PCM_F32BE,
   PCM_F64BE = AudioEncoderEnum.PCM_F64BE,
+  PCM_ALAW = AudioEncoderEnum.PCM_ALAW,
+  PCM_MULAW = AudioEncoderEnum.PCM_MULAW,
+  ADPCM_MS = AudioEncoderEnum.ADPCM_MS,
+  ADPCM_IMA_WAV = AudioEncoderEnum.ADPCM_IMA_WAV,
+  GSM_MS = AudioEncoderEnum.GSM_MS,
   MP2 = AudioEncoderEnum.MP2,
   WMAV2 = AudioEncoderEnum.WMAV2,
   AMR_NB = AudioEncoderEnum.AMR_NB,
   AMR_WB = AudioEncoderEnum.AMR_WB,
   APE = AudioEncoderEnum.APE,
+
 
   // Video
   H264 = VideoEncoderEnum.H264,
@@ -245,7 +267,16 @@ export enum EncoderEnum {
   AV1_SVTAV1 = VideoEncoderEnum.AV1_SVTAV1,
   AV1_RAV1E = VideoEncoderEnum.AV1_RAV1E,
   PRORES = VideoEncoderEnum.PRORES,
-  PRORES_HARDWARE = VideoEncoderEnum.PRORES_HARDWARE,
+  PRORES_LT = VideoEncoderEnum.PRORES_LT,
+  PRORES_422 = VideoEncoderEnum.PRORES_422,
+  PRORES_HQ = VideoEncoderEnum.PRORES_HQ,
+  PRORES_4444 = VideoEncoderEnum.PRORES_4444,
+  PRORES_4444_XQ = VideoEncoderEnum.PRORES_4444_XQ,
+  DNXHD = VideoEncoderEnum.DNXHD,
+  DNXHR_LB = VideoEncoderEnum.DNXHR_LB,
+  DNXHR_SQ = VideoEncoderEnum.DNXHR_SQ,
+  DNXHR_HQ = VideoEncoderEnum.DNXHR_HQ,
+  DNXHR_444 = VideoEncoderEnum.DNXHR_444,
   MPEG4 = VideoEncoderEnum.MPEG4,
   MPEG2VIDEO = VideoEncoderEnum.MPEG2VIDEO,
   MJPEG = VideoEncoderEnum.MJPEG,

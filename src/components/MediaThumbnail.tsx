@@ -87,8 +87,6 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   }, [isMissing]);
 
   const renderPlayer = () => {
-    console.log("fileType", fileType);
-    console.log("path", path);
     if (!fileType || !path) return null;
 
     switch (fileType) {

@@ -6,21 +6,28 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FileType } from "@/types/tasks";
 import { ConvertAudioTaskArgs, ConvertVideoTaskArgs } from "@/lib/bridge";
+import { FormatOption } from "@/types/options";
 
 import FormatSelectorContent from "./FormatSelectorContent";
 import { FormatSelectorProps } from "./types";
+import { useFormatSelectorStore } from "./store";
+
+const EMPTY_RECENTS: FormatOption[] = [];
 
 export default function FormatSelectorPopover(props: FormatSelectorProps) {
   const {
     config,
-    formatRecents,
-    addToRecents,
+    recentKey,
     onValueChange = () => { },
     className,
     applyConfigToAllTasks,
     btnLabelKey = 'common.apply_all'
   } = props;
   const [open, setOpen] = useState(false);
+  const formatRecents = useFormatSelectorStore(
+    (state) => state.recentsByKey[recentKey] ?? EMPTY_RECENTS
+  );
+  const addToRecents = useFormatSelectorStore((state) => state.addToRecents);
 
   const selectedFormat = useMemo(() => {
     let label;
@@ -65,7 +72,7 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
         <FormatSelectorContent
           config={config}
           formatRecents={formatRecents}
-          addToRecents={addToRecents}
+          addToRecents={(format) => addToRecents(recentKey, format)}
           onValueChange={onValueChange}
           applyConfigToAllTasks={applyConfigToAllTasks}
           onClose={() => setOpen(false)}

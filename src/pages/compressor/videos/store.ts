@@ -4,7 +4,6 @@ import {
   MediaTaskType,
   CompressingTask,
 } from "../../../types/tasks";
-import { FormatOption } from "@/types/options";
 import { CompressVideoTaskArgs } from "@/lib/bridge";
 
 export const defaultVideoCompressionConfig = {
@@ -19,13 +18,11 @@ export const defaultVideoCompressionConfig = {
 interface CompressorState {
   compressingTasks: CompressingTask[];
   finishedTasks: CompressingTask[];
-  formatRecents: FormatOption[];
   isLoading: boolean;
   videoConfig: CompressVideoTaskArgs;
   addTasksByPaths: (paths: string[]) => Promise<void>;
   clearCompressingTasks: () => Promise<void>;
   updateTaskById: (id: string, updates: Partial<CompressingTask>) => void;
-  addToRecents: (format: FormatOption) => void;
   removeTask: (id: string) => void;
   updateGlobalConfig: (config: Partial<CompressVideoTaskArgs>) => void;
 }
@@ -33,7 +30,6 @@ interface CompressorState {
 export const useCompressorStore = create<CompressorState>((set, get) => ({
   compressingTasks: [],
   finishedTasks: [],
-  formatRecents: [],
   isLoading: true,
   videoConfig: defaultVideoCompressionConfig,
   addTasksByPaths: async (paths) => {
@@ -72,52 +68,35 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     }
   },
   updateTaskById: async (id, updates) => {
-    try {
-      const { compressingTasks, finishedTasks } = get();
-      const task =
-        compressingTasks.find((t) => t.id === id) ||
-        finishedTasks.find((t) => t.id === id);
-      if (task) {
-        const updatedTask = {
-          ...task,
-          ...updates,
-          args: {
-            ...task.args, ...updates.args
-          }
-        };
-        const isFinished = updatedTask.status === "finished";
-        const currentState = get();
-        if (isFinished) {
-
-          set({
-            compressingTasks: currentState.compressingTasks.filter(
-              (t) => t.id !== id
-            ),
-          });
-
-        } else if (updatedTask.status === "error" || updatedTask.status === "cancelled") {
-
-          set({
-            compressingTasks: currentState.compressingTasks.filter(
-              (t) => t.id !== id
-            ),
-          });
-
-        } else {
-          set({
-            compressingTasks: currentState.compressingTasks.map((t) =>
-              t.id === id ? updatedTask : t
-            ),
-          });
+    const { compressingTasks, finishedTasks } = get();
+    const task =
+      compressingTasks.find((t) => t.id === id) ||
+      finishedTasks.find((t) => t.id === id);
+    if (task) {
+      const updatedTask = {
+        ...task,
+        ...updates,
+        args: {
+          ...task.args, ...updates.args
         }
+      };
+
+      const currentState = get();
+      if (["finished", "cancelled"].includes(updatedTask.status)) {
+        set({
+          compressingTasks: currentState.compressingTasks.filter(
+            (t) => t.id !== id
+          ),
+        });
+      } else {
+        set({
+          compressingTasks: currentState.compressingTasks.map((t) =>
+            t.id === id ? updatedTask : t
+          ),
+        });
       }
-    } catch (error) {
-      console.error(
-        `Failed to update task ${id} with updates:`,
-        updates,
-        error
-      );
     }
+
   },
   updateGlobalConfig: (config) => {
     const next = {
@@ -131,15 +110,6 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     const { compressingTasks } = get();
     set({
       compressingTasks: compressingTasks.filter((t) => t.id !== id),
-    });
-  },
-  addToRecents: (format) => {
-    set((state) => {
-      const recents = state.formatRecents;
-      if (recents.includes(format)) return state;
-      return {
-        formatRecents: [format, ...recents].slice(0, 10),
-      };
     });
   },
 }));

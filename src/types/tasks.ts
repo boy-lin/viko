@@ -74,35 +74,22 @@ export interface FFmpegTask {
   id: string;
   status: "idle" | "processing" | "finished" | "error" | "cancelled";
   progress: number;
-  args: any;
-  mediaDetails?: MediaDetails;
-  fileType: FileType;
-  taskType: MediaTaskType;
   errorMessage?: string;
   outputTitle?: string;
 }
 
-export interface ConverterTask {
-  id: string;
-  status: "idle" | "processing" | "finished" | "error" | "cancelled";
-  progress: number;
-  args: any;
+export interface ConverterTask extends FFmpegTask {
   mediaDetails?: MediaDetails;
   fileType: FileType;
   taskType: MediaTaskType;
+  args: any;
   activeCategory?: FileType | ActiveCategoryEnum;
-  errorMessage?: string;
-  outputTitle?: string;
 }
 
-export interface CompressingTask {
-  id: string;
-  status: "idle" | "processing" | "finished" | "error" | "cancelled";
-  progress: number;
-  args: CompressVideoTaskArgs | CompressAudioTaskArgs | CompressImageTaskArgs;
+export interface CompressingTask extends FFmpegTask {
   mediaDetails?: MediaDetails;
   fileType: FileType;
   taskType: MediaTaskType;
-  errorMessage?: string;
-  outputTitle?: string;
+  args: CompressVideoTaskArgs | CompressAudioTaskArgs | CompressImageTaskArgs;
+  activeCategory?: FileType | ActiveCategoryEnum;
 }

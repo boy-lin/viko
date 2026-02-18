@@ -58,8 +58,6 @@ export interface AudioTrackConfig {
   channels?: number;
   bit_depth?: number;
   quality?: number;
-  /** 扩展待同步到rust */
-
 }
 
 /** 与 Rust TextWatermark 对应 */
@@ -111,12 +109,6 @@ export interface ConvertVideoTaskArgs {
   color_space?: string;
   bit_depth?: number;
   crop?: string;
-  audio_encoder?: string;
-  audio_bitrate?: number;
-  audio_sample_rate?: number;
-  audio_channels?: number;
-  audio_bit_depth?: number;
-  audio_quality?: number;
   audio_tracks?: AudioTrackConfig[];
   default_audio_params?: AudioEncodingParams;
   use_hardware_acceleration?: boolean;
@@ -128,9 +120,11 @@ export interface ConvertAudioTaskArgs {
   task_id: string;
   input_path: string;
   format: string;
-  audio_encoder: string;
   // 扩展待同步到rust
   output_path?: string;
+  audio_tracks?: AudioTrackConfig[];
+  use_hardware_acceleration?: boolean;
+  use_ultra_fast_speed?: boolean;
 }
 
 export interface ConvertGifTaskArgs {
@@ -252,13 +246,6 @@ export interface ImageCompressionConfig {
 export type CompressionConfig = VideoCompressionConfig
   | AudioCompressionConfig
   | ImageCompressionConfig;
-
-export interface ConvertAudioTaskArgs {
-  task_id: string;
-  input_path: string;
-  format: string;
-  audio_encoder: string;
-}
 
 type ConvertTaskRequest = {
   kind: MediaTaskType;
@@ -516,13 +503,17 @@ class MediaTaskQueue {
     priority: TaskPriority = "normal"
   ): Promise<void> {
     tasks.forEach(task => {
-      if (task.args && task.args.task_id) {
-        this.pendingTaskIds.add(task.args.task_id);
+      if (!task.args.output_path) {
+        throw new Error("Task output_path is required");
       }
+      if (!task.args.task_id) {
+        throw new Error("Task ID is required");
+      }
+      this.pendingTaskIds.add(task.args.task_id);
     });
 
     this.ensureEventListener();
-    console.log("Adding convert tasks", JSON.stringify(tasks));
+    console.log("Adding convert tasks", tasks);
     await bridge.invoke("media_task_submit", { tasks, priority });
   }
 
@@ -548,8 +539,8 @@ class MediaTaskQueue {
   }
 
   async clearQueueByType(
+    stopRunning: boolean = false,
     taskType?: MediaTaskType,
-    stopRunning: boolean = false
   ): Promise<void> {
     const args: Record<string, unknown> = { stopRunning };
     if (taskType) args.taskType = taskType;
