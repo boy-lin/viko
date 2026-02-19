@@ -5,19 +5,14 @@ import {
   CompressingTask,
 } from "../../../types/tasks";
 import { CompressVideoTaskArgs } from "@/lib/bridge";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { getMediaTaskQueue } from "@/lib/bridge";
+import { getVideoCompressionPresetByRatio } from "./compressionPreset";
 
-export const defaultVideoCompressionConfig = {
-  format: "mp4",
-  video_encoder: "h264",
-  ratio: 50,
-  resolution: "",
-  video_bitrate: 0,
-  frame_rate: 0
-} as CompressVideoTaskArgs;
+export const defaultVideoCompressionConfig = getVideoCompressionPresetByRatio(50).patch as CompressVideoTaskArgs;
 
 interface CompressorState {
   compressingTasks: CompressingTask[];
-  finishedTasks: CompressingTask[];
   isLoading: boolean;
   videoConfig: CompressVideoTaskArgs;
   addTasksByPaths: (paths: string[]) => Promise<void>;
@@ -25,21 +20,21 @@ interface CompressorState {
   updateTaskById: (id: string, updates: Partial<CompressingTask>) => void;
   removeTask: (id: string) => void;
   updateGlobalConfig: (config: Partial<CompressVideoTaskArgs>) => void;
+  pushTasksToQueue: (tasks?: CompressingTask[]) => Promise<void>;
 }
 
 export const useCompressorStore = create<CompressorState>((set, get) => ({
   compressingTasks: [],
-  finishedTasks: [],
   isLoading: true,
   videoConfig: defaultVideoCompressionConfig,
   addTasksByPaths: async (paths) => {
     const newTasks: CompressingTask[] = [];
     for (const path of paths) {
       if (!path) continue;
-      let outputArgs: any = {
+      let outputArgs: CompressVideoTaskArgs = {
+        ...get().videoConfig,
         task_id: crypto.randomUUID(),
         input_path: path,
-        output_path: '',
       }
       let taskType = MediaTaskType.CompressVideo;
       newTasks.push({
@@ -68,10 +63,9 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     }
   },
   updateTaskById: async (id, updates) => {
-    const { compressingTasks, finishedTasks } = get();
+    const { compressingTasks } = get();
     const task =
-      compressingTasks.find((t) => t.id === id) ||
-      finishedTasks.find((t) => t.id === id);
+      compressingTasks.find((t) => t.id === id)
     if (task) {
       const updatedTask = {
         ...task,
@@ -80,7 +74,7 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
           ...task.args, ...updates.args
         }
       };
-
+      console.log("updateTaskById", id, updates);
       const currentState = get();
       if (["finished", "cancelled"].includes(updatedTask.status)) {
         set({
@@ -102,7 +96,6 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     const next = {
       ...get().videoConfig,
       ...config,
-      type: "video",
     } as CompressVideoTaskArgs;
     set({ videoConfig: next });
   },
@@ -112,4 +105,25 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
       compressingTasks: compressingTasks.filter((t) => t.id !== id),
     });
   },
+  pushTasksToQueue: async (tasks) => {
+    const { compressingTasks, videoConfig } = get()
+    const tasksToPush = tasks || compressingTasks
+    if (tasksToPush.length > 0 && videoConfig) {
+      const setting = useSettingsStore.getState()
+      const useHw = setting.useHardwareAcceleration
+      const useUFS = setting.useUltraFastSpeed
+      await getMediaTaskQueue().addCompressTasks(tasksToPush.map((task) => {
+        const outputDir = setting.getOutputDir(task.args.input_path);
+        return {
+          kind: task.taskType,
+          args: {
+            ...task.args,
+            output_path: `${outputDir}/${task.args.title}.${task.args.format}`,
+            use_hardware_acceleration: useHw,
+            use_ultra_fast_speed: useUFS
+          }
+        }
+      }));
+    }
+  }
 }));

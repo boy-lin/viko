@@ -1,28 +1,34 @@
-﻿
-use ffmpeg_next as ffmpeg;
+use ffmpeg::util::channel_layout::ChannelLayout;
 use ffmpeg::{codec, encoder, format, frame, media};
-use serde::Deserialize;
+use ffmpeg_next as ffmpeg;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::f32;
 use std::time::Instant;
-use ffmpeg::util::channel_layout::ChannelLayout;
 
-use crate::media_common::{self, AudioFifo};
 use crate::events::TaskEmitter;
+use crate::media_common::{self, AudioFifo};
+use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
 
 /// 音频压缩参数（全部可选）
 #[derive(Deserialize)]
 pub struct AudioCompressionParams {
     pub input_path: String,
     pub output_path: String,
-    pub compression_ratio: Option<u32>,  // 0-100 (兼容旧参数)
-    pub sample_rate: Option<u32>,        // 目标采样率
-    pub bitrate: Option<u32>,            // 目标码率（kbps）
-    pub codec: Option<String>,           // "aac", "mp3", "opus", "flac"
-    pub channels: Option<u32>,           // 1=mono, 2=stereo
-    pub bit_depth: Option<u32>,          // 16, 24, 32（优先匹配编码器支持的格式）
-    pub remove_silence: Option<bool>,    // 是否移除静音片段
-    pub silence_threshold: Option<f32>,  // 静音阈值 dB（默认 -50.0）
-    pub volume_gain: Option<f32>,        // 音量增益 dB（正增益，负衰减）
+    pub compression_ratio: Option<u32>, // 0-100 (兼容旧参数)
+    pub sample_rate: Option<u32>,       // 目标采样率
+    pub bitrate: Option<u32>,           // 目标码率（kbps）
+    pub codec: Option<String>,          // "aac", "mp3", "opus", "flac"
+    pub channels: Option<u32>,          // 1=mono, 2=stereo
+    pub bit_depth: Option<u32>,         // 16, 24, 32（优先匹配编码器支持的格式）
+    pub remove_silence: Option<bool>,   // 是否移除静音片段
+    pub silence_threshold: Option<f32>, // 静音阈值 dB（默认 -50.0）
+    pub volume_gain: Option<f32>,       // 音量增益 dB（正增益，负衰减）
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AudioCompressionReport {
+    pub output_media: MediaDetails,
 }
 
 fn apply_volume_and_silence(
@@ -80,13 +86,13 @@ fn apply_volume_and_silence(
 pub fn compress_audio_file<E: TaskEmitter>(
     emitter: E,
     params: AudioCompressionParams,
-) -> Result<(), String> {
+) -> Result<AudioCompressionReport, String> {
     media_common::ensure_ffmpeg_init()?;
 
-    let mut ictx = format::input(&params.input_path)
-        .map_err(|e| format!("无法打开输入文件: {}", e))?;
-    let mut octx = format::output(&params.output_path)
-        .map_err(|e| format!("无法创建输出文件: {}", e))?;
+    let mut ictx =
+        format::input(&params.input_path).map_err(|e| format!("无法打开输入文件: {}", e))?;
+    let mut octx =
+        format::output(&params.output_path).map_err(|e| format!("无法创建输出文件: {}", e))?;
 
     let audio_stream = ictx
         .streams()
@@ -122,8 +128,7 @@ pub fn compress_audio_file<E: TaskEmitter>(
         .add_stream(codec_id)
         .map_err(|e| format!("添加输出流失败: {}", e))?;
 
-    let preferred_sample =
-        media_common::preferred_sample_from_bit_depth(params.bit_depth, None);
+    let preferred_sample = media_common::preferred_sample_from_bit_depth(params.bit_depth, None);
     let target_format = media_common::pick_sample_format(&codec_id, preferred_sample);
 
     let desired_rate = params.sample_rate.unwrap_or_else(|| decoder.rate() as u32);
@@ -174,8 +179,8 @@ pub fn compress_audio_file<E: TaskEmitter>(
         target_format,
         target_layout,
         target_rate as u32,
-        )
-        .map_err(|e| format!("创建重采样器失败: {}", e))?;
+    )
+    .map_err(|e| format!("创建重采样器失败: {}", e))?;
 
     ost.set_parameters(&encoder);
     let ost_index = ost.index();
@@ -189,6 +194,7 @@ pub fn compress_audio_file<E: TaskEmitter>(
     let mut last_progress = 0.0;
     let start_time = Instant::now();
     let mut encoded = ffmpeg::Packet::empty();
+    let mut written_bytes: u64 = 0;
 
     for (stream, packet) in ictx.packets() {
         if crate::task::cancel::is_cancelled() {
@@ -243,6 +249,7 @@ pub fn compress_audio_file<E: TaskEmitter>(
                         encoded
                             .write_interleaved(&mut octx)
                             .map_err(|e| format!("写入数据包失败: {}", e))?;
+                        written_bytes = written_bytes.saturating_add(encoded.size() as u64);
                     }
                 }
             } else {
@@ -259,6 +266,7 @@ pub fn compress_audio_file<E: TaskEmitter>(
                     encoded
                         .write_interleaved(&mut octx)
                         .map_err(|e| format!("写入数据包失败: {}", e))?;
+                    written_bytes = written_bytes.saturating_add(encoded.size() as u64);
                 }
             }
 
@@ -295,6 +303,7 @@ pub fn compress_audio_file<E: TaskEmitter>(
                 encoded
                     .write_interleaved(&mut octx)
                     .map_err(|e| format!("写入尾部数据包失败: {}", e))?;
+                written_bytes = written_bytes.saturating_add(encoded.size() as u64);
             }
         }
     }
@@ -308,13 +317,52 @@ pub fn compress_audio_file<E: TaskEmitter>(
         encoded
             .write_interleaved(&mut octx)
             .map_err(|e| format!("写入数据包失败: {}", e))?;
+        written_bytes = written_bytes.saturating_add(encoded.size() as u64);
     }
 
     octx.write_trailer()
         .map_err(|e| format!("写入尾部失败: {}", e))?;
 
-    emitter.emit("complete", Some(100.0), Some(params.output_path), None);
+    let output_path = params.output_path.clone();
+    emitter.emit("complete", Some(100.0), Some(output_path.clone()), None);
 
     let _elapsed = start_time.elapsed();
-    Ok(())
+    let codec_name = encoder
+        .codec()
+        .map(|c| c.name().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+    let stream = StreamDetails {
+        index: ost_index,
+        codec_type: "audio".to_string(),
+        codec_name,
+        codec_long_name: None,
+        time_base: Some(format!(
+            "{}/{}",
+            ost_time_base.numerator(),
+            ost_time_base.denominator()
+        )),
+        pix_fmt: None,
+        width: None,
+        height: None,
+        frame_rate: None,
+        channels: Some(target_layout.channels() as u16),
+        sample_rate: Some(target_rate as u32),
+        bit_rate: Some(target_bitrate as i64),
+    };
+    let output_media = MediaDetails {
+        path: output_path.clone(),
+        extension: std::path::Path::new(&output_path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|s| s.to_lowercase())
+            .unwrap_or_default(),
+        format_names: params.codec.clone().unwrap_or_else(|| "audio".to_string()),
+        format_long_name: None,
+        duration,
+        size: written_bytes,
+        streams: vec![stream],
+        tags: HashMap::new(),
+        stream_tags: Vec::new(),
+    };
+    Ok(AudioCompressionReport { output_media })
 }

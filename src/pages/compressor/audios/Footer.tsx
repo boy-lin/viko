@@ -9,10 +9,8 @@ import {
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
 import { CompressionSettingsPopover } from "./SettingsDialog";
 import { CompressAudioTaskArgs, getMediaTaskQueue } from "@/lib/bridge";
-import { Slider } from "@/components/ui/slider";
 import { useAppStore } from "@/stores/app";
 import { useCompressorStore } from './store'
-import { useSettingsStore } from "@/stores/settingsStore";
 
 export const CompressionFooter: React.FC = () => {
   const audioConfig = useCompressorStore((state) => state.audioConfig);
@@ -47,19 +45,7 @@ export const CompressionFooter: React.FC = () => {
   };
 
   const handleCompressAll = async () => {
-    const tasks = useCompressorStore.getState().compressingTasks;
-    if (tasks.length > 0) {
-      await getMediaTaskQueue().addCompressTasks(tasks.map((task) => {
-        const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
-        return {
-          kind: task.taskType,
-          args: {
-            ...task.args,
-            output_path: `${outputDir}/${task.outputTitle}.${task.args.format}`
-          }
-        }
-      }));
-    }
+    await useCompressorStore.getState().pushTasksToQueue()
   };
 
   const handleDelete = async () => {
@@ -132,33 +118,23 @@ export const CompressionFooter: React.FC = () => {
           <div className="flex items-center gap-2">
             <div className="w-[10em]">
               <div className="space-y-2">
-                <Slider
-                  value={[audioConfig.ratio]}
-                  onValueChange={handleCompressionChange}
-                  min={10}
-                  max={100}
-                  step={5}
-                  className="w-full"
+                <CompressionSettingsPopover
+                  config={audioConfig}
+                  onConfigChange={updateGlobalConfig}
+                  onSave={handleSaveConfig}
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9"
+                    >
+                      <Settings className="w-4 h-4 text-muted-foreground" />
+                    </Button>
+                  }
                 />
-                <span className="text-xs text-muted-foreground">
-                  {audioConfig.ratio}%
-                </span>
               </div>
             </div>
-            <CompressionSettingsPopover
-              config={audioConfig}
-              onConfigChange={updateGlobalConfig}
-              onSave={handleSaveConfig}
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9"
-                >
-                  <Settings className="w-4 h-4 text-muted-foreground" />
-                </Button>
-              }
-            />
+
           </div>
         </div>
 
@@ -168,7 +144,7 @@ export const CompressionFooter: React.FC = () => {
             保存到
           </span>
           <div className="flex items-center gap-2">
-            <OutputLocationSelect className="w-[10em]" />
+            <OutputLocationSelect className="" />
           </div>
         </div>
       </div>
@@ -219,7 +195,7 @@ export const CompressionFooter: React.FC = () => {
         </div>
 
         <Button
-          className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20"
+          className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20 cursor-pointer"
           onClick={handleCompressAll}
         >
           压缩全部

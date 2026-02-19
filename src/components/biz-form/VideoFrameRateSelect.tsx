@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { SelectOption } from "@/types/options";
+import { VIDEO_FRAME_RATES } from "@/data/capabilities";
 
 interface VideoFrameRateSelectProps {
   value?: string;
@@ -19,13 +20,7 @@ export const VideoFrameRateSelect: React.FC<VideoFrameRateSelectProps> = ({
   onValueChange,
   options,
 }) => {
-  const frameRateOptions = options ?? [
-    { value: "auto", label: "auto" },
-    { value: "60", label: "60 FPS" },
-    { value: "30", label: "30 FPS" },
-    { value: "24", label: "24 FPS" },
-    { value: "auto", label: "Smart Fit" },
-  ];
+  const frameRateOptions = options ?? VIDEO_FRAME_RATES
 
   return (
     <Select value={value ?? "auto"} onValueChange={onValueChange}>

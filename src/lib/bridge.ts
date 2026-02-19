@@ -152,11 +152,10 @@ export interface CompressVideoTaskArgs {
   task_id: string;
   input_path: string;
   format: string;
-  video_encoder: string;
+  codec: string;
   resolution: string;
-  video_bitrate: number;
+  bitrate: number;
   frame_rate: number;
-  /** 扩展待同步到rust */
   output_path?: string;
   keyframe_interval?: number;
   color_depth?: number;
@@ -164,6 +163,7 @@ export interface CompressVideoTaskArgs {
   audio_bitrate?: number;
   preset?: string;
   use_hardware_acceleration?: boolean;
+  /** 扩展待同步到rust */
   ratio: number;// only display 0-100，表示压缩到原文件的百分比
 }
 // 压缩配置类型
@@ -451,13 +451,15 @@ export interface TaskHistoryItem {
   input_path: string;
   output_path?: string;
   output_size?: number;
-  duration?: number;
+  output_duration?: string;
   title?: string;
   thumbnail?: string;
   created_at: number;
   finished_at: number;
   error_message?: string;
-  task_data: string;
+  // Deprecated: backend no longer returns these fields in history payload.
+  task_data?: string;
+  effective_params?: string;
 }
 
 export interface MyFileItem extends TaskHistoryItem {

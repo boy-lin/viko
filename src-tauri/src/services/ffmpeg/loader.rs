@@ -64,15 +64,15 @@ pub fn load_ffmpeg_library(lib_dir: &Path) -> Result<(), FFmpegLoadError> {
     let lib_path = config.get_library_path();
 
     if !lib_path.exists() {
-        return Err(FFmpegLoadError::LibraryNotFound(
-            format!("FFmpeg library not found at: {}", lib_path.display()),
-        ));
+        return Err(FFmpegLoadError::LibraryNotFound(format!(
+            "FFmpeg library not found at: {}",
+            lib_path.display()
+        )));
     }
 
     unsafe {
-        let library = Library::new(&lib_path).map_err(|e| {
-            FFmpegLoadError::LoadError(format!("Failed to load library: {}", e))
-        })?;
+        let library = Library::new(&lib_path)
+            .map_err(|e| FFmpegLoadError::LoadError(format!("Failed to load library: {}", e)))?;
 
         // 尝试获取一个符号来验证库是否可用
         let _: Symbol<unsafe extern "C" fn() -> c_int> = library
@@ -162,9 +162,9 @@ pub fn infer_lib_dir_from_executable(executable_path: &Path) -> PathBuf {
 pub fn get_ffmpeg_version() -> Result<String, FFmpegLoadError> {
     unsafe {
         let lib_guard = FFMPEG_LIB.lock().unwrap();
-        let lib = lib_guard.as_ref().ok_or_else(|| {
-            FFmpegLoadError::InitError("FFmpeg library not loaded".to_string())
-        })?;
+        let lib = lib_guard
+            .as_ref()
+            .ok_or_else(|| FFmpegLoadError::InitError("FFmpeg library not loaded".to_string()))?;
 
         let version_fn: Symbol<unsafe extern "C" fn() -> *const c_char> = lib
             .get(b"av_version_info\0")

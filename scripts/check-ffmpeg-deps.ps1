@@ -177,11 +177,26 @@ function Install-Vcpkg {
 
   try {
     if (-not (Test-Path $targetDir)) {
-      New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-    }
+      # Clone vcpkg repo to get specific version
+      Write-Info "克隆 vcpkg 仓库..."
+      git clone https://github.com/microsoft/vcpkg.git $targetDir
+      if ($LASTEXITCODE -ne 0) {
+        throw "git clone failed"
+      }
+      
+      # Checkout specific commit for FFmpeg 7.1 (Dec 2024)
+      Push-Location $targetDir
+      try {
+        Write-Info "切换到指定 commit (5c64372)..."
+        git checkout 5c64372
+      } finally {
+        Pop-Location
+      }
 
-    Write-Info "从官方发布下载 vcpkg.exe..."
-    Invoke-WebRequest -Uri $vcpkgUrl -OutFile $targetExe -UseBasicParsing
+      Write-Info "运行 bootstrap-vcpkg..."
+      $bootstrap = Join-Path $targetDir "bootstrap-vcpkg.bat"
+      & $bootstrap
+    }
 
     if (Test-Path $targetExe) {
       Write-Info "vcpkg.exe 下载完成: $targetExe"

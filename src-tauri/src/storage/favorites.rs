@@ -1,12 +1,11 @@
 use anyhow::Result;
 use sea_query::{
-    ColumnDef, Expr, Iden, OnConflict, Query, SqliteQueryBuilder, Table,
-    TableCreateStatement,
+    ColumnDef, Expr, Iden, OnConflict, Query, SqliteQueryBuilder, Table, TableCreateStatement,
 };
 use sea_query_binder::SqlxBinder;
 
-use crate::shared::get_millis;
 use super::db::{get_db, TableSpec};
+use crate::shared::get_millis;
 
 #[derive(Iden)]
 pub enum TaskFavorite {
@@ -23,7 +22,12 @@ impl TableSpec for TaskFavoriteTable {
     fn create_stmt() -> TableCreateStatement {
         Table::create()
             .table(TaskFavorite::Table)
-            .col(ColumnDef::new(TaskFavorite::Id).string().not_null().primary_key())
+            .col(
+                ColumnDef::new(TaskFavorite::Id)
+                    .string()
+                    .not_null()
+                    .primary_key(),
+            )
             .col(ColumnDef::new(TaskFavorite::CreatedAt).integer().not_null())
             .to_owned()
     }
@@ -62,11 +66,9 @@ pub async fn remove_favorite(id: &str) -> Result<()> {
 
 pub async fn cleanup_orphans() -> Result<()> {
     let pool = get_db().await?;
-    sqlx::query(
-        "DELETE FROM task_favorites WHERE id NOT IN (SELECT id FROM task_history);",
-    )
-    .execute(&pool)
-    .await?;
+    sqlx::query("DELETE FROM task_favorites WHERE id NOT IN (SELECT id FROM task_history);")
+        .execute(&pool)
+        .await?;
     Ok(())
 }
 

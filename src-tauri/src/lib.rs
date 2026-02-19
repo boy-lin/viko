@@ -1,10 +1,10 @@
-﻿pub mod commands;
+pub mod commands;
 pub mod events;
 pub mod media_common;
 pub mod services;
-pub mod task;
 pub mod shared;
 pub mod storage;
+pub mod task;
 
 #[derive(Clone, Copy)]
 pub enum ControlCommand {
@@ -147,10 +147,18 @@ pub fn run() {
 
             // Init database
             tauri::async_runtime::block_on(async {
-                crate::storage::db::init_db().await.expect("failed to init db");
-                crate::storage::media_queue::init().await.expect("failed to init media_queue");
-                crate::storage::task_history::init().await.expect("failed to init task_history");
-                crate::storage::favorites::init().await.expect("failed to init task_favorites");
+                crate::storage::db::init_db()
+                    .await
+                    .expect("failed to init db");
+                crate::storage::media_queue::init()
+                    .await
+                    .expect("failed to init media_queue");
+                crate::storage::task_history::init()
+                    .await
+                    .expect("failed to init task_history");
+                crate::storage::favorites::init()
+                    .await
+                    .expect("failed to init task_favorites");
             });
 
             if let Ok(resource_dir) = app.path().resource_dir() {
@@ -167,7 +175,9 @@ pub fn run() {
             app.manage(std::sync::Mutex::new(
                 None::<crate::services::player::video::VideoPlayer<crate::events::WindowEmitter>>,
             ));
-            app.manage(std::sync::Mutex::new(None::<crate::services::player::audio::AudioPlayer<crate::events::WindowEmitter>>));
+            app.manage(std::sync::Mutex::new(
+                None::<crate::services::player::audio::AudioPlayer<crate::events::WindowEmitter>>,
+            ));
 
             log::info!("Tauri application setup completed");
             Ok(())

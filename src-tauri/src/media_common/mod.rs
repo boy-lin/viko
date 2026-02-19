@@ -1,5 +1,5 @@
-use ffmpeg_next as ffmpeg;
 use ffmpeg::{format, Rational};
+use ffmpeg_next as ffmpeg;
 use std::sync::Once;
 
 pub mod codec;
@@ -116,7 +116,7 @@ pub fn frame_to_rgb_image(frame: &ffmpeg::frame::Video) -> Result<image::RgbImag
     let height = frame.height();
     let data = frame.data(0);
     let stride = frame.stride(0);
-    
+
     // Safety check
     if data.len() < (stride * height as usize) {
         return Err("Frame buffer size mismatch".to_string());
@@ -138,7 +138,7 @@ pub fn frame_to_rgb_image(frame: &ffmpeg::frame::Video) -> Result<image::RgbImag
 }
 
 /// Rescale a 64-bit integer timestamp from one time base to another.
-/// 
+///
 /// Corresponds to `av_rescale_q` logic: `a * bq / cq`.
 /// Calculation: `val * src.num * dst.den / (src.den * dst.num)`
 pub fn rescale_ts(val: i64, src: Rational, dst: Rational) -> i64 {
@@ -160,6 +160,6 @@ pub fn rescale_ts(val: i64, src: Rational, dst: Rational) -> i64 {
 
     // integer division (floor)
     let result = a * b / c;
-    
+
     result as i64
 }

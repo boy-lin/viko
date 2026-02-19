@@ -1,28 +1,35 @@
-﻿use ffmpeg::{codec, encoder, format, frame, media, packet, software, Rational};
-use ffmpeg_next as ffmpeg;
-use serde::Deserialize;
-use std::time::Instant;
 use crate::events::TaskEmitter;
 use crate::media_common;
+use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
+use ffmpeg::{codec, encoder, format, frame, media, packet, software, Rational};
+use ffmpeg_next as ffmpeg;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::Instant;
 
 /// GIF 转换参数（全部可选）
 #[derive(Deserialize, Clone)]
 pub struct GifConversionParams {
     pub input_path: String,
     pub output_path: String,
-    pub width: Option<u32>,              // 目标宽度
-    pub height: Option<u32>,             // 目标高度
-    pub quality: Option<u32>,            // 画质 0-100
+    pub width: Option<u32>,                  // 目标宽度
+    pub height: Option<u32>,                 // 目标高度
+    pub quality: Option<u32>,                // 画质 0-100
     pub preserve_transparency: Option<bool>, // 保留透明通道
-    pub color_mode: Option<String>,      // "rgb" | "grayscale"
-    pub dpi: Option<f64>,                // 元数据记录 DPI
-    pub frame_rate: Option<f32>,         // 帧率 (fps)
-    pub loop_count: Option<i32>,         // 0=无限, -1=不循环
-    pub frame_delay: Option<u32>,        // 每帧延迟 ms，优先生效
-    pub colors: Option<u32>,             // 色彩数 2-256
-    pub preserve_extensions: Option<bool>, // 预留（当前未改写扩展块）
-    pub sharpen: Option<bool>,           // 锐化
-    pub denoise: Option<bool>,           // 降噪
+    pub color_mode: Option<String>,          // "rgb" | "grayscale"
+    pub dpi: Option<f64>,                    // 元数据记录 DPI
+    pub frame_rate: Option<f32>,             // 帧率 (fps)
+    pub loop_count: Option<i32>,             // 0=无限, -1=不循环
+    pub frame_delay: Option<u32>,            // 每帧延迟 ms，优先生效
+    pub colors: Option<u32>,                 // 色彩数 2-256
+    pub preserve_extensions: Option<bool>,   // 预留（当前未改写扩展块）
+    pub sharpen: Option<bool>,               // 锐化
+    pub denoise: Option<bool>,               // 降噪
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GifConversionReport {
+    pub output_media: MediaDetails,
 }
 
 fn pick_pixel_format(color_mode: Option<&str>) -> format::Pixel {
@@ -63,13 +70,13 @@ fn dither_from_quality(quality: u32) -> (&'static str, &'static str) {
 pub fn convert_video_to_gif<E: TaskEmitter>(
     emitter: E,
     params: GifConversionParams,
-) -> Result<(), String> {
+) -> Result<GifConversionReport, String> {
     media_common::init_ffmpeg()?;
 
     let mut ictx = media_common::open_input(&params.input_path)?;
 
-    let mut octx = format::output(&params.output_path)
-        .map_err(|e| format!("无法打开输出文件: {}", e))?;
+    let mut octx =
+        format::output(&params.output_path).map_err(|e| format!("无法打开输出文件: {}", e))?;
 
     let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
 
@@ -173,6 +180,7 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
     let mut decoded_index: i64 = 0;
     let mut last_progress_emitted = 0.0;
     let mut next_pts: i64 = 0;
+    let mut written_bytes: u64 = 0;
     let frame_step = if source_fps > 0.0 && target_fps > 0.0 {
         (source_fps / target_fps as f64).max(1.0)
     } else {
@@ -236,6 +244,7 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
                     encoded
                         .write_interleaved(&mut octx)
                         .map_err(|e| format!("写入数据包失败: {}", e))?;
+                    written_bytes = written_bytes.saturating_add(encoded.size() as u64);
                 }
 
                 frame_count += 1;
@@ -244,8 +253,7 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
                 if frame_count % 10 == 0 || start_time.elapsed().as_secs_f64() >= 1.0 {
                     let progress = if duration > 0.0 {
                         let current_time = if let Some(pts) = decoded.pts() {
-                            pts as f64 * decoder.time_base().0 as f64
-                                / decoder.time_base().1 as f64
+                            pts as f64 * decoder.time_base().0 as f64 / decoder.time_base().1 as f64
                         } else if source_fps > 0.0 {
                             decoded_index as f64 / source_fps
                         } else {
@@ -276,12 +284,50 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
         encoded
             .write_interleaved(&mut octx)
             .map_err(|e| format!("写入尾部数据包失败: {}", e))?;
+        written_bytes = written_bytes.saturating_add(encoded.size() as u64);
     }
 
     octx.write_trailer()
         .map_err(|e| format!("写入文件尾失败: {}", e))?;
 
+    let stream = StreamDetails {
+        index: ost_index,
+        codec_type: "video".to_string(),
+        codec_name: "gif".to_string(),
+        codec_long_name: None,
+        time_base: Some(format!(
+            "{}/{}",
+            encoder.time_base().numerator(),
+            encoder.time_base().denominator()
+        )),
+        pix_fmt: pixel_format
+            .descriptor()
+            .map(|desc| desc.name().to_string())
+            .or_else(|| Some(format!("{:?}", pixel_format))),
+        width: Some(target_width),
+        height: Some(target_height),
+        frame_rate: Some(format!("{:.2}", target_fps)),
+        channels: None,
+        sample_rate: None,
+        bit_rate: None,
+    };
+    let output_media = MediaDetails {
+        path: params.output_path.clone(),
+        extension: std::path::Path::new(&params.output_path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|s| s.to_lowercase())
+            .unwrap_or_else(|| "gif".to_string()),
+        format_names: "gif".to_string(),
+        format_long_name: None,
+        duration,
+        size: written_bytes,
+        streams: vec![stream],
+        tags: HashMap::new(),
+        stream_tags: Vec::new(),
+    };
+
     emitter.emit("complete", Some(100.0), Some(params.output_path), None);
 
-    Ok(())
+    Ok(GifConversionReport { output_media })
 }

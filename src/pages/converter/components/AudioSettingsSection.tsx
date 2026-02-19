@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AudioTrackConfig, ConvertVideoTaskArgs } from "@/lib/bridge";
-import { RefreshCw } from "lucide-react";
+import { Info, RefreshCw } from "lucide-react";
 import { AudioEncoderSelect } from "@/components/biz-form/AudioEncoderSelect";
 import { AudioChannelSelect } from "@/components/biz-form/AudioChannelSelect";
 import { AudioSampleRateSelect } from "@/components/biz-form/AudioSampleRateSelect";
@@ -30,6 +30,12 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
   className,
 }) => {
   const { t } = useTranslation("converter");
+  const renderAudioFieldLabel = (text: string) => (
+    <div className="flex items-center gap-2">
+      <Info className="w-4 h-4 text-muted-foreground" />
+      <Label className="text-muted-foreground">{text}</Label>
+    </div>
+  );
 
   const updateTrack = (index: number, field: keyof AudioTrackConfig, value: string | number) => {
     const newTracks = [...audio_tracks];
@@ -65,26 +71,42 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
     return (
       <div className={cn("", className)}>
         <div className=" p-2 grid grid-cols-2 gap-x-8 gap-y-4">
-          <AudioEncoderSelect
-            format={format}
-            value={track.codec}
-            onValueChange={(v) => updateTrack(0, "codec", v)}
-          />
-          <AudioChannelSelect
-            value={String(track.channels || 'auto')}
-            onValueChange={(v) => updateTrack(0, "channels", parseInt(v))}
-            options={audioOptions.channels}
-          />
-          <AudioSampleRateSelect
-            value={String(track.sample_rate || 'auto')}
-            onValueChange={(v) => updateTrack(0, "sample_rate", parseInt(v))}
-            options={audioOptions.sampleRates}
-          />
-          <AudioBitrateSelect
-            value={String(track.bitrate || 'auto')}
-            onValueChange={(v) => updateTrack(0, "bitrate", parseInt(v))}
-            options={audioOptions.bitrates}
-          />
+          <div className="space-y-2">
+            {renderAudioFieldLabel(t("settings.audio.fields.encoder"))}
+            <AudioEncoderSelect
+              format={format}
+              value={track.codec}
+              onValueChange={(v) => updateTrack(0, "codec", v)}
+              placeholder={t("settings.audio.fields.encoderPlaceholder")}
+            />
+          </div>
+          <div className="space-y-2">
+            {renderAudioFieldLabel(t("settings.audio.fields.channel"))}
+            <AudioChannelSelect
+              value={String(track.channels || 'auto')}
+              onValueChange={(v) => updateTrack(0, "channels", parseInt(v))}
+              options={audioOptions.channels}
+              placeholder={t("settings.audio.fields.channelPlaceholder")}
+            />
+          </div>
+          <div className="space-y-2">
+            {renderAudioFieldLabel(t("settings.audio.fields.sampleRate"))}
+            <AudioSampleRateSelect
+              value={String(track.sample_rate || 'auto')}
+              onValueChange={(v) => updateTrack(0, "sample_rate", parseInt(v))}
+              options={audioOptions.sampleRates}
+              placeholder={t("settings.audio.fields.sampleRatePlaceholder")}
+            />
+          </div>
+          <div className="space-y-2">
+            {renderAudioFieldLabel(t("settings.audio.fields.bitrate"))}
+            <AudioBitrateSelect
+              value={String(track.bitrate || 'auto')}
+              onValueChange={(v) => updateTrack(0, "bitrate", parseInt(v))}
+              options={audioOptions.bitrates}
+              placeholder={t("settings.audio.fields.bitratePlaceholder")}
+            />
+          </div>
         </div>
       </div>
     );
@@ -120,26 +142,42 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-            <AudioEncoderSelect
-              format={format}
-              value={track.codec}
-              onValueChange={(v) => updateTrack(index, "codec", v)}
-            />
-            <AudioChannelSelect
-              value={String(track.channels)}
-              onValueChange={(v) => updateTrack(index, "channels", parseInt(v))}
-              options={audioOptions.channels}
-            />
-            <AudioSampleRateSelect
-              value={String(track.sample_rate)}
-              onValueChange={(v) => updateTrack(index, "sample_rate", parseInt(v))}
-              options={audioOptions.sampleRates}
-            />
-            <AudioBitrateSelect
-              value={String(track.bitrate)}
-              onValueChange={(v) => updateTrack(index, "bitrate", parseInt(v))}
-              options={audioOptions.bitrates}
-            />
+            <div className="space-y-2">
+              {renderAudioFieldLabel(t("settings.audio.fields.encoder"))}
+              <AudioEncoderSelect
+                format={format}
+                value={track.codec}
+                onValueChange={(v) => updateTrack(index, "codec", v)}
+                placeholder={t("settings.audio.fields.encoderPlaceholder")}
+              />
+            </div>
+            <div className="space-y-2">
+              {renderAudioFieldLabel(t("settings.audio.fields.channel"))}
+              <AudioChannelSelect
+                value={String(track.channels)}
+                onValueChange={(v) => updateTrack(index, "channels", parseInt(v))}
+                options={audioOptions.channels}
+                placeholder={t("settings.audio.fields.channelPlaceholder")}
+              />
+            </div>
+            <div className="space-y-2">
+              {renderAudioFieldLabel(t("settings.audio.fields.sampleRate"))}
+              <AudioSampleRateSelect
+                value={String(track.sample_rate)}
+                onValueChange={(v) => updateTrack(index, "sample_rate", parseInt(v))}
+                options={audioOptions.sampleRates}
+                placeholder={t("settings.audio.fields.sampleRatePlaceholder")}
+              />
+            </div>
+            <div className="space-y-2">
+              {renderAudioFieldLabel(t("settings.audio.fields.bitrate"))}
+              <AudioBitrateSelect
+                value={String(track.bitrate)}
+                onValueChange={(v) => updateTrack(index, "bitrate", parseInt(v))}
+                options={audioOptions.bitrates}
+                placeholder={t("settings.audio.fields.bitratePlaceholder")}
+              />
+            </div>
           </div>
         </div>
       })}

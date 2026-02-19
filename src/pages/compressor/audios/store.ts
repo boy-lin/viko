@@ -6,16 +6,16 @@ import {
 } from "../../../types/tasks";
 import { CompressAudioTaskArgs } from "@/lib/bridge";
 import { EncoderEnum } from "@/types/options";
+import { getMediaTaskQueue } from "@/lib/bridge";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 
 export const defaultAudioCompressionConfig = {
-  format: "mp3",
-  ratio: 50,
-  audio_encoder: EncoderEnum.MP3,
+  ...getAudioCompressionPresetByRatio(50, EncoderEnum.MP3).patch,
 } as CompressAudioTaskArgs;
 
 interface CompressorState {
   compressingTasks: CompressingTask[];
-  finishedTasks: CompressingTask[];
   isLoading: boolean;
   audioConfig: CompressAudioTaskArgs;
   addTasksByPaths: (paths: string[]) => Promise<void>;
@@ -23,11 +23,11 @@ interface CompressorState {
   updateTaskById: (id: string, updates: Partial<CompressingTask>) => void;
   removeTask: (id: string) => void;
   updateGlobalConfig: (config: Partial<CompressAudioTaskArgs>) => void;
+  pushTasksToQueue: (tasks?: CompressingTask[]) => Promise<void>;
 }
 
 export const useCompressorStore = create<CompressorState>((set, get) => ({
   compressingTasks: [],
-  finishedTasks: [],
   isLoading: true,
   audioConfig: defaultAudioCompressionConfig,
   addTasksByPaths: async (paths) => {
@@ -35,18 +35,17 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     for (const path of paths) {
       if (!path) continue;
       let outputArgs: any = {
+        ...get().audioConfig,
         task_id: crypto.randomUUID(),
         input_path: path,
-        output_path: '',
       }
-      let taskType = MediaTaskType.CompressAudio;
       newTasks.push({
         id: outputArgs.task_id,
         status: "idle",
         progress: 0,
         args: outputArgs,
         fileType: FileType.Audio,
-        taskType
+        taskType: MediaTaskType.CompressAudio
       });
 
     }
@@ -66,10 +65,9 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     }
   },
   updateTaskById: async (id, updates) => {
-    const { compressingTasks, finishedTasks } = get();
+    const { compressingTasks } = get();
     const task =
-      compressingTasks.find((t) => t.id === id) ||
-      finishedTasks.find((t) => t.id === id);
+      compressingTasks.find((t) => t.id === id)
     if (task) {
       const updatedTask = {
         ...task,
@@ -95,8 +93,20 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     }
   },
   updateGlobalConfig: (config) => {
+    const current = get().audioConfig;
+    const merged = {
+      ...current,
+      ...config,
+    } as CompressAudioTaskArgs;
+
+    const presetPatch =
+      config.ratio !== undefined
+        ? getAudioCompressionPresetByRatio(config.ratio, merged.format).patch
+        : {};
+
     const next = {
-      ...get().audioConfig,
+      ...current,
+      ...presetPatch,
       ...config,
     } as CompressAudioTaskArgs;
     set({ audioConfig: next });
@@ -107,4 +117,25 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
       compressingTasks: compressingTasks.filter((t) => t.id !== id),
     });
   },
+  pushTasksToQueue: async (tasks) => {
+    const { compressingTasks, audioConfig } = get()
+    const tasksToPush = tasks || compressingTasks
+    if (tasksToPush.length > 0 && audioConfig) {
+      const setting = useSettingsStore.getState()
+      const useHw = setting.useHardwareAcceleration
+      const useUFS = setting.useUltraFastSpeed
+      await getMediaTaskQueue().addCompressTasks(tasksToPush.map((task) => {
+        const outputDir = setting.getOutputDir(task.args.input_path);
+        return {
+          kind: task.taskType,
+          args: {
+            ...task.args,
+            output_path: `${outputDir}/${task.args.title}.${task.args.format}`,
+            use_hardware_acceleration: useHw,
+            use_ultra_fast_speed: useUFS
+          }
+        }
+      }));
+    }
+  }
 }));

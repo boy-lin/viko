@@ -31,7 +31,7 @@ mod tests {
         // Try multiple common locations for test assets
         let paths = vec![
             //  PathBuf::from("/Users/haolin/Downloads/Funvideo/[twitter] NoContextHumans—2023.09.20—1704860883099193465—6DF4Gs7d1zwial2Y.mp4"),
-             PathBuf::from("D:\\temp\\test_video\\4.mp4"),
+            PathBuf::from("D:\\temp\\test_video\\4.mp4"),
         ];
         println!("Paths: {:#?}", paths);
         for path in paths {
@@ -58,11 +58,19 @@ mod tests {
         );
         let output_dir = get_test_output_dir();
         // Create unique output filename: format_name.ext
-        let safe_name = config.name.replace(" ", "_").replace("/", "-").to_lowercase();
+        let safe_name = config
+            .name
+            .replace(" ", "_")
+            .replace("/", "-")
+            .to_lowercase();
         let output_filename = format!("{}.{}", safe_name, config.format);
         let output_path = output_dir.join(output_filename);
 
-        println!("Testing conversion: {} -> {}", config.name, output_path.display());
+        println!(
+            "Testing conversion: {} -> {}",
+            config.name,
+            output_path.display()
+        );
 
         let params = VideoConversionParams {
             input_path: input_path.to_string_lossy().to_string(),
@@ -75,16 +83,19 @@ mod tests {
                 if s.ends_with("k") {
                     s.trim_end_matches("k").parse::<u32>().ok()
                 } else if s.ends_with("m") {
-                    s.trim_end_matches("m").parse::<u32>().ok().map(|v| v * 1000)
+                    s.trim_end_matches("m")
+                        .parse::<u32>()
+                        .ok()
+                        .map(|v| v * 1000)
                 } else {
                     s.parse::<u32>().ok()
                 }
             }),
-            
+
             // Audio params
             audio_encoder: config.audio_encoder.map(|s| s.to_string()),
             default_audio_params: None, // Could construct this if needed for specific bitrate/sample_rate
-            
+
             // Defaults/None for others
             min_bitrate: None,
             max_bitrate: None,
@@ -110,9 +121,17 @@ mod tests {
 
         match result {
             Ok(_) => {
-                assert!(output_path.exists(), "Output file should exist: {:?}", output_path);
+                assert!(
+                    output_path.exists(),
+                    "Output file should exist: {:?}",
+                    output_path
+                );
                 let metadata = fs::metadata(&output_path).unwrap();
-                assert!(metadata.len() > 0, "Output file should not be empty: {:?}", output_path);
+                assert!(
+                    metadata.len() > 0,
+                    "Output file should not be empty: {:?}",
+                    output_path
+                );
                 println!("  [PASS] {}", config.name);
             }
             Err(e) => {
@@ -138,21 +157,32 @@ mod tests {
             // TestConfig { name: "MP4 libx264 720p", format: "mp4", video_encoder: Some("libx264"), audio_encoder: Some("aac"), resolution: Some("1280x720"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
             // TestConfig { name: "MP4 h264 720p", format: "mp4", video_encoder: Some("h264"), audio_encoder: Some("aac"), resolution: Some("1280x720"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: true },
             // TestConfig { name: "MP4 libx264 1080p", format: "mp4", video_encoder: Some("libx264"), audio_encoder: Some("aac"), resolution: Some("1920x1080"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: true },
-            
+
             // Mp4 H265
-            TestConfig { name: "MP4 libx265 720p", format: "mp4", video_encoder: Some("h265"), audio_encoder: Some("aac"), resolution: Some("1280x720"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
+            TestConfig {
+                name: "MP4 libx265 720p",
+                format: "mp4",
+                video_encoder: Some("h265"),
+                audio_encoder: Some("aac"),
+                resolution: Some("1280x720"),
+                bitrate: Some("1000k"),
+                audio_bitrate: None,
+                sample_rate: None,
+                frame_rate: None,
+                use_hardware_acceleration: false,
+            },
             // TestConfig { name: "MP4 h265 720p", format: "mp4", video_encoder: Some("h265"), audio_encoder: Some("aac"), resolution: Some("1280x720"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: true },
             // TestConfig { name: "MP4 libx265 1080p", format: "mp4", video_encoder: Some("libx265"), audio_encoder: Some("aac"), resolution: Some("1920x1080"), bitrate: Some("1000k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: true },
 
             // MOV
             // TestConfig { name: "MOV H264", format: "mov", video_encoder: Some("h264"), audio_encoder: Some("aac"), resolution: Some("1920x1080"), bitrate: None, audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
-            
+
             // MKV
             // TestConfig { name: "MKV H264", format: "mkv", video_encoder: Some("h264"), audio_encoder: Some("aac"), resolution: Some("1920x1080"), bitrate: None, audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
-            
+
             // WEBM (VP9) - Note: libvpx-vp9 might be slow or missing, treating as optional in logic
             // TestConfig { name: "WEBM VP9", format: "webm", video_encoder: Some("libvpx-vp9"), audio_encoder: Some("libopus"), resolution: Some("1280x720"), bitrate: None, audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
-            
+
             // AVI
             // TestConfig { name: "AVI Mpeg4", format: "avi", video_encoder: Some("mpeg4"), audio_encoder: Some("ac3"), resolution: Some("640x480"), bitrate: Some("800k"), audio_bitrate: None, sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
 
@@ -182,11 +212,10 @@ mod tests {
         let device_tests = vec![
             // Apple iPhone (MP4 H264)
             // TestConfig { name: "iPhone 1080p", format: "mp4", video_encoder: Some("libx264"), audio_encoder: Some("aac"), resolution: Some("1920x1080"), bitrate: Some("4000k"), audio_bitrate: Some("160k"), sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
-            
+
             // Android / Generic (MP4 H264)
             // TestConfig { name: "Android 720p", format: "mp4", video_encoder: Some("libx264"), audio_encoder: Some("aac"), resolution: Some("1280x720"), bitrate: Some("2500k"), audio_bitrate: Some("128k"), sample_rate: None, frame_rate: None, use_hardware_acceleration: false },
         ];
-
 
         // Run Video Tests
         println!("\n--- Running Video Generic Tests ---");
@@ -200,26 +229,27 @@ mod tests {
             run_conversion_test(config, &input_path);
         }
     }
-    
+
     // #[test]
     fn list_all_encoders() {
         audio_video_kit_lib::media_common::init_ffmpeg().unwrap();
         println!("--- Video Encoders ---");
-		unsafe {
-			let mut opaque: *mut std::ffi::c_void = std::ptr::null_mut();
-			loop {
-				let codec = ffmpeg::ffi::av_codec_iterate(&mut opaque);
-				if codec.is_null() {
-					break;
-				}
-				if (*codec).type_ == ffmpeg::ffi::AVMediaType::AVMEDIA_TYPE_VIDEO 
-				   && ffmpeg::ffi::av_codec_is_encoder(codec) != 0 {
-						let name = std::ffi::CStr::from_ptr((*codec).name).to_string_lossy();
-						let desc = std::ffi::CStr::from_ptr((*codec).long_name).to_string_lossy();
-						println!("Name: {}, Description: {}", name, desc);
-				}
-			}
-		}
+        unsafe {
+            let mut opaque: *mut std::ffi::c_void = std::ptr::null_mut();
+            loop {
+                let codec = ffmpeg::ffi::av_codec_iterate(&mut opaque);
+                if codec.is_null() {
+                    break;
+                }
+                if (*codec).type_ == ffmpeg::ffi::AVMediaType::AVMEDIA_TYPE_VIDEO
+                    && ffmpeg::ffi::av_codec_is_encoder(codec) != 0
+                {
+                    let name = std::ffi::CStr::from_ptr((*codec).name).to_string_lossy();
+                    let desc = std::ffi::CStr::from_ptr((*codec).long_name).to_string_lossy();
+                    println!("Name: {}, Description: {}", name, desc);
+                }
+            }
+        }
     }
 
     // #[test]
@@ -243,7 +273,4 @@ mod tests {
             }
         }
     }
-
-    
-    
 }

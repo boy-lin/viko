@@ -1,6 +1,4 @@
 import React from "react";
-import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -15,33 +13,29 @@ interface AudioBitrateSelectProps {
   value: string;
   onValueChange: (value: string) => void;
   options?: SelectOption[];
+  placeholder?: string;
 }
 
 export const AudioBitrateSelect: React.FC<AudioBitrateSelectProps> = ({
   value,
   onValueChange,
   options,
+  placeholder,
 }) => {
   const bitrateOptions = options ?? AUDIO_BITRATES;
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Info className="w-4 h-4 text-muted-foreground" />
-        <Label className="text-muted-foreground">Bit Rate :</Label>
-      </div>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer" >
-          <SelectValue placeholder="Select bitrate" />
-        </SelectTrigger>
-        <SelectContent>
-          {bitrateOptions.map((rate) => (
-            <SelectItem key={rate.value} value={rate.value}>
-              {rate.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className="cursor-pointer">
+        <SelectValue placeholder={placeholder ?? "Select bitrate"} />
+      </SelectTrigger>
+      <SelectContent>
+        {bitrateOptions.map((rate) => (
+          <SelectItem key={rate.value} value={rate.value}>
+            {rate.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };

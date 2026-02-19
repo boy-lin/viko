@@ -67,9 +67,7 @@ export const ConverterFooter: React.FC<{}> = () => {
   }, []);
 
   const applyConfigToAllTasks = async (config: GlobalConverterConfig) => {
-
     const pendingTasks = convertingTasks;
-    console.log('pendingTasks config', config)
     // 为每个任务设置 config（浅拷贝 globalConfig）
     for (const task of pendingTasks) {
       updateTaskById(task.id, {
@@ -80,19 +78,7 @@ export const ConverterFooter: React.FC<{}> = () => {
   };
 
   const handleConvertAll = async () => {
-    const tasks = useConverterStore.getState().convertingTasks
-    if (tasks.length > 0 && globalConfig) {
-      await getMediaTaskQueue().addConvertTasks(tasks.map((task) => {
-        const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
-        return {
-          kind: task.taskType,
-          args: {
-            ...task.args,
-            output_path: `${outputDir}/${task.args.title}.${task.args.format}`
-          }
-        }
-      }));
-    }
+    useConverterStore.getState().pushTasksToQueue()
   };
 
   const handleDelete = async () => {
@@ -192,7 +178,7 @@ export const ConverterFooter: React.FC<{}> = () => {
         </div>
 
         <Button
-          className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20"
+          className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20 cursor-pointer"
           onClick={handleConvertAll}
         >
           转换全部

@@ -1,6 +1,4 @@
 import React from "react";
-import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -21,7 +19,6 @@ interface AudioBitDepthSelectProps {
   value?: string;
   onValueChange: (value: string) => void;
   options?: SelectOption[];
-  label?: string;
   placeholder?: string;
 }
 
@@ -29,31 +26,23 @@ export const AudioBitDepthSelect: React.FC<AudioBitDepthSelectProps> = ({
   value,
   onValueChange,
   options,
-  label,
   placeholder,
 }) => {
   const bitDepthOptions = options ?? DEFAULT_BIT_DEPTH_OPTIONS;
-  const labelText = label ?? "Bit Depth:";
   const placeholderText = placeholder ?? "Select bit depth";
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Info className="w-4 h-4 text-muted-foreground" />
-        <Label className="text-muted-foreground">{labelText}</Label>
-      </div>
-      <Select value={value ?? "auto"} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer" >
-          <SelectValue placeholder={placeholderText} />
-        </SelectTrigger>
-        <SelectContent>
-          {bitDepthOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={value ?? "auto"} onValueChange={onValueChange}>
+      <SelectTrigger className="cursor-pointer">
+        <SelectValue placeholder={placeholderText} />
+      </SelectTrigger>
+      <SelectContent>
+        {bitDepthOptions.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };

@@ -24,6 +24,8 @@ pub struct StreamDetails {
     pub codec_type: String, // "video", "audio", "subtitle", "data", "attachment"
     pub codec_name: String,
     pub codec_long_name: Option<String>,
+    pub time_base: Option<String>,
+    pub pix_fmt: Option<String>,
     // Video specific
     pub width: Option<u32>,
     pub height: Option<u32>,
@@ -79,6 +81,12 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
             codec_type: format!("{:?}", medium).to_lowercase(),
             codec_name,
             codec_long_name,
+            time_base: Some(format!(
+                "{}/{}",
+                stream.time_base().numerator(),
+                stream.time_base().denominator()
+            )),
+            pix_fmt: None,
             width: None,
             height: None,
             frame_rate: None,
@@ -92,6 +100,11 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
                 if let Ok(video) = codec_context.decoder().video() {
                     stream_details.width = Some(video.width());
                     stream_details.height = Some(video.height());
+                    stream_details.pix_fmt = video
+                        .format()
+                        .descriptor()
+                        .map(|d| d.name().to_string())
+                        .or_else(|| Some(format!("{:?}", video.format())));
 
                     let fps = stream.avg_frame_rate();
                     if fps.denominator() > 0 {

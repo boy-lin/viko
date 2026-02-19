@@ -55,11 +55,19 @@ mod tests {
         );
 
         let output_dir = get_test_output_dir();
-        let safe_name = config.name.replace(" ", "_").replace("/", "-").to_lowercase();
+        let safe_name = config
+            .name
+            .replace(" ", "_")
+            .replace("/", "-")
+            .to_lowercase();
         let output_filename = format!("{}.gif", safe_name);
         let output_path = output_dir.join(output_filename);
 
-        println!("Testing gif conversion: {} -> {}", config.name, output_path.display());
+        println!(
+            "Testing gif conversion: {} -> {}",
+            config.name,
+            output_path.display()
+        );
 
         let params = GifConversionParams {
             input_path: input_path.to_string_lossy().to_string(),
@@ -83,9 +91,17 @@ mod tests {
         let result = convert_video_to_gif(emitter, params);
         match result {
             Ok(_) => {
-                assert!(output_path.exists(), "Output file should exist: {:?}", output_path);
+                assert!(
+                    output_path.exists(),
+                    "Output file should exist: {:?}",
+                    output_path
+                );
                 let metadata = fs::metadata(&output_path).unwrap();
-                assert!(metadata.len() > 0, "Output file should not be empty: {:?}", output_path);
+                assert!(
+                    metadata.len() > 0,
+                    "Output file should not be empty: {:?}",
+                    output_path
+                );
                 println!("  [PASS] {}", config.name);
             }
             Err(e) => {

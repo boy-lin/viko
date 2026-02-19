@@ -5,6 +5,8 @@ import {
 } from "@/types/tasks";
 import { AudioEncoderEnum, FormatEnum } from "@/types/options";
 import { MediaTaskType } from "@/types/tasks";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { getMediaTaskQueue } from "@/lib/bridge";
 
 export enum ActiveCategoryEnum {
   Recents = "recents",
@@ -34,6 +36,7 @@ interface ConverterState {
   updateTaskById: (id: string, updates: Partial<ConverterTask>) => void;
   removeTask: (id: string) => void;
   updateGlobalConfig: (config: Partial<GlobalConverterConfig>) => Promise<void>;
+  pushTasksToQueue: (tasks?: ConverterTask[]) => Promise<void>;
 }
 
 export const useConverterStore = create<ConverterState>((set, get) => ({
@@ -46,18 +49,17 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
     for (const path of paths) {
       if (!path) continue;
       let outputArgs: any = {
-        ...defaultAudioConfig.args,
+        ...get().globalConfig.args,
         task_id: crypto.randomUUID(),
         input_path: path,
       }
       newTasks.push({
+        ...get().globalConfig,
         id: outputArgs.task_id,
         status: "idle",
         progress: 0,
         args: outputArgs,
         fileType: FileType.Audio,
-        taskType: defaultAudioConfig.taskType,
-        activeCategory: defaultAudioConfig.activeCategory,
       });
 
     }
@@ -123,5 +125,26 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
         args: { ...args, ...config.args }
       }
     });
+  },
+  pushTasksToQueue: async (tasks) => {
+    const { convertingTasks, globalConfig } = get()
+    const tasksToPush = tasks || convertingTasks
+    if (tasksToPush.length > 0 && globalConfig) {
+      const setting = useSettingsStore.getState()
+      const useHw = setting.useHardwareAcceleration
+      const useUFS = setting.useUltraFastSpeed
+      await getMediaTaskQueue().addConvertTasks(tasksToPush.map((task) => {
+        const outputDir = setting.getOutputDir(task.args.input_path);
+        return {
+          kind: task.taskType,
+          args: {
+            ...task.args,
+            output_path: `${outputDir}/${task.args.title}.${task.args.format}`,
+            use_hardware_acceleration: useHw,
+            use_ultra_fast_speed: useUFS
+          }
+        }
+      }));
+    }
   }
 }));

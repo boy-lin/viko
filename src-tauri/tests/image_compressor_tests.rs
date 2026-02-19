@@ -61,10 +61,18 @@ mod tests {
         );
 
         let output_dir = get_test_output_dir();
-        let safe_name = config.name.replace(" ", "_").replace("/", "-").to_lowercase();
+        let safe_name = config
+            .name
+            .replace(" ", "_")
+            .replace("/", "-")
+            .to_lowercase();
         let output_path = output_dir.join(format!("{}.{}", safe_name, config.format));
 
-        println!("Testing image compression: {} -> {}", config.name, output_path.display());
+        println!(
+            "Testing image compression: {} -> {}",
+            config.name,
+            output_path.display()
+        );
 
         let params = ImageCompressionParams {
             input_path: input_path.to_string_lossy().to_string(),
@@ -84,9 +92,17 @@ mod tests {
         let result = compress_image_file(emitter, params);
         match result {
             Ok(_) => {
-                assert!(output_path.exists(), "Output file should exist: {:?}", output_path);
+                assert!(
+                    output_path.exists(),
+                    "Output file should exist: {:?}",
+                    output_path
+                );
                 let metadata = fs::metadata(&output_path).unwrap();
-                assert!(metadata.len() > 0, "Output file should not be empty: {:?}", output_path);
+                assert!(
+                    metadata.len() > 0,
+                    "Output file should not be empty: {:?}",
+                    output_path
+                );
                 println!("  [PASS] {}", config.name);
             }
             Err(e) => {

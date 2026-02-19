@@ -1034,7 +1034,7 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
         let emitter =
             WindowEmitter::new(window, task_id, "convert".to_string(), "image".to_string());
 
-        if let Err(e) = gif::convert_video_to_gif(emitter.clone(), params) {
+        if let Err(e) = gif::convert_video_to_gif(emitter.clone(), params).map(|_| ()) {
             emitter.emit("error", None, None, Some(e));
         }
     });
@@ -1082,7 +1082,6 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
         let params = crate::services::compress::video::VideoCompressionParams {
             input_path: args.input_path,
             output_path: args.output_path.clone(),
-            compression_ratio: args.compression_ratio,
             width: args.width,
             height: args.height,
             bitrate: args.bitrate,
@@ -1102,6 +1101,7 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
 
         if let Err(e) =
             crate::services::compress::video::compress_video_file(emitter.clone(), params)
+                .map(|_| ())
         {
             emitter.emit("error", None, None, Some(e));
         }
@@ -1153,6 +1153,7 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
 
         if let Err(e) =
             crate::services::compress::audio::compress_audio_file(emitter.clone(), params)
+                .map(|_| ())
         {
             emitter.emit("error", None, None, Some(e));
         }
@@ -1204,6 +1205,7 @@ pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result
 
         if let Err(e) =
             crate::services::compress::image::compress_image_file(emitter.clone(), params)
+                .map(|_| ())
         {
             emitter.emit("error", None, None, Some(e));
         }

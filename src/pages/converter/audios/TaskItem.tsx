@@ -10,8 +10,7 @@ import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
-
-import { bridge, ConvertAudioTaskArgs, getMediaTaskQueue } from "@/lib/bridge";
+import { bridge, ConvertAudioTaskArgs } from "@/lib/bridge";
 import { formatToDefinition } from "@/data/capabilities";
 import { FormatEnum } from "@/types/options";
 import { ConverterTask, FileType, MediaDetails, MediaTaskType } from "@/types/tasks";
@@ -89,16 +88,7 @@ export default function TaskItem({ task }: TaskItemProps) {
     }, [inputPath]);
 
     const handleConvertSingle = async () => {
-        const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
-        await getMediaTaskQueue().addConvertTasks([
-            {
-                kind: task.taskType,
-                args: {
-                    ...task.args,
-                    output_path: `${outputDir}/${task.args.title}.${task.args.format}`
-                }
-            },
-        ]);
+        await useConverterStore.getState().pushTasksToQueue([task])
     };
 
 

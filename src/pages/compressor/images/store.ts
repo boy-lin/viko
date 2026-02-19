@@ -5,6 +5,8 @@ import {
   CompressingTask,
 } from "../../../types/tasks";
 import { CompressImageTaskArgs } from "@/lib/bridge";
+import { getMediaTaskQueue } from "@/lib/bridge";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export const defaultImageCompressionConfig = {
   format: "jpg",
@@ -26,6 +28,7 @@ interface CompressorState {
   updateTaskById: (id: string, updates: Partial<CompressingTask>) => void;
   removeTask: (id: string) => void;
   updateGlobalConfig: (config: Partial<CompressImageTaskArgs>) => void;
+  pushTasksToQueue: (tasks?: CompressingTask[]) => Promise<void>;
 }
 
 export const useCompressorStore = create<CompressorState>((set, get) => ({
@@ -38,6 +41,7 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
     for (const path of paths) {
       if (!path) continue;
       let outputArgs: any = {
+        ...get().imageConfig,
         task_id: crypto.randomUUID(),
         input_path: path,
         output_path: '',
@@ -118,4 +122,25 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
       compressingTasks: compressingTasks.filter((t) => t.id !== id),
     });
   },
+  pushTasksToQueue: async (tasks) => {
+    const { compressingTasks, imageConfig } = get()
+    const tasksToPush = tasks || compressingTasks
+    if (tasksToPush.length > 0 && imageConfig) {
+      const setting = useSettingsStore.getState()
+      const useHw = setting.useHardwareAcceleration
+      const useUFS = setting.useUltraFastSpeed
+      await getMediaTaskQueue().addCompressTasks(tasksToPush.map((task) => {
+        const outputDir = setting.getOutputDir(task.args.input_path);
+        return {
+          kind: task.taskType,
+          args: {
+            ...task.args,
+            output_path: `${outputDir}/${task.args.title}.${task.args.format}`,
+            use_hardware_acceleration: useHw,
+            use_ultra_fast_speed: useUFS
+          }
+        }
+      }));
+    }
+  }
 }));

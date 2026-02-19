@@ -50,7 +50,7 @@
     "compressor": { "title": "高效压缩", "desc": "压缩体积同时保持质量" },
     "batch": { "title": "批量处理", "desc": "批量转码/压缩更高效" },
     "metadata": { "title": "元数据编辑", "desc": "快速编辑媒体信息" },
-    "tasks": { "title": "任务列表", "desc": "查看进行中/完成任务" },
+    "tasks": { "title": "任务记录", "desc": "查看进行中/完成任务" },
     "myfiles": { "title": "我的文件", "desc": "管理导出的媒体文件" }
   },
   "recent": {

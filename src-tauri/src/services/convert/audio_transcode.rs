@@ -1,19 +1,17 @@
-﻿use ffmpeg_next as ffmpeg;
-use ffmpeg::{
-    codec, decoder, encoder, format, frame, packet, software, Rational,
-};
 use crate::media_common::{self, AudioFifo};
+use ffmpeg::{codec, decoder, encoder, format, frame, packet, software, Rational};
+use ffmpeg_next as ffmpeg;
 use serde::{Deserialize, Serialize};
 
 /// Shared audio encoding params used by both video/audio convert pipelines.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AudioEncodingParams {
-    pub codec: Option<String>,        // libmp3lame, aac, flac, pcm etc.
-    pub bitrate: Option<f32>,         // kbps
-    pub sample_rate: Option<u32>,     // Hz
-    pub channels: Option<u32>,        // channel count
-    pub bit_depth: Option<u32>,       // 16/24/32
-    pub quality: Option<u32>,         // VBR quality 0-10
+    pub codec: Option<String>,    // libmp3lame, aac, flac, pcm etc.
+    pub bitrate: Option<f32>,     // kbps
+    pub sample_rate: Option<u32>, // Hz
+    pub channels: Option<u32>,    // channel count
+    pub bit_depth: Option<u32>,   // 16/24/32
+    pub quality: Option<u32>,     // VBR quality 0-10
 }
 
 pub struct AudioTrackProcessor {
@@ -31,6 +29,18 @@ pub struct AudioTrackProcessor {
     next_pts: i64,
     start_time: i64,
     first_pts_set: bool,
+    written_bytes: u64,
+    configured_bit_rate: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AudioOutputSummary {
+    pub ost_index: usize,
+    pub codec_name: String,
+    pub time_base: Option<String>,
+    pub channels: Option<u16>,
+    pub sample_rate: Option<u32>,
+    pub bit_rate: Option<i64>,
 }
 
 impl AudioTrackProcessor {
@@ -61,7 +71,10 @@ impl AudioTrackProcessor {
         }
         .ok_or_else(|| "No suitable audio encoder found".to_string())?;
 
-        let global_header = octx.format().flags().contains(format::flag::Flags::GLOBAL_HEADER);
+        let global_header = octx
+            .format()
+            .flags()
+            .contains(format::flag::Flags::GLOBAL_HEADER);
         let mut ost = octx
             .add_stream(codec)
             .map_err(|e| format!("Operation failed: {}", e))?;
@@ -101,14 +114,18 @@ impl AudioTrackProcessor {
             .audio()
             .map_err(|e| format!("Operation failed: {}", e))?;
 
-        if let Some(br) = params.bitrate {
+        let configured_bit_rate = if let Some(br) = params.bitrate {
             let kbps = br.max(1.0);
-            enc.set_bit_rate((kbps * 1000.0).round() as usize);
+            let bits = (kbps * 1000.0).round() as i64;
+            enc.set_bit_rate(bits as usize);
+            Some(bits)
         } else if decoder.bit_rate() > 0 {
             enc.set_bit_rate(decoder.bit_rate() as usize);
+            Some(decoder.bit_rate() as i64)
         } else {
             enc.set_bit_rate(128_000);
-        }
+            Some(128_000)
+        };
 
         enc.set_rate(target_rate as i32);
         enc.set_channel_layout(target_layout);
@@ -187,6 +204,8 @@ impl AudioTrackProcessor {
             next_pts: 0,
             start_time,
             first_pts_set: false,
+            written_bytes: 0,
+            configured_bit_rate,
         })
     }
 
@@ -236,11 +255,8 @@ impl AudioTrackProcessor {
                     fifo.push_frame(&resampled);
                 }
                 loop {
-                    let mut output_frame = frame::Audio::new(
-                        self.target_format,
-                        self.frame_size,
-                        self.target_layout,
-                    );
+                    let mut output_frame =
+                        frame::Audio::new(self.target_format, self.frame_size, self.target_layout);
                     output_frame.set_rate(self.target_rate);
                     let popped = {
                         let fifo = self.fifo.as_mut().unwrap();
@@ -295,6 +311,7 @@ impl AudioTrackProcessor {
             encoded
                 .write_interleaved(octx)
                 .map_err(|e| format!("Operation failed: {}", e))?;
+            self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
         }
         Ok(())
     }
@@ -315,7 +332,42 @@ impl AudioTrackProcessor {
             encoded
                 .write_interleaved(octx)
                 .map_err(|e| format!("Operation failed: {}", e))?;
+            self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
         }
         Ok(())
+    }
+
+    pub fn written_bytes(&self) -> u64 {
+        self.written_bytes
+    }
+
+    pub fn output_summary(&self) -> AudioOutputSummary {
+        let codec_name = self
+            .encoder
+            .codec()
+            .map(|c| c.name().to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        let channels = if self.encoder.channels() > 0 {
+            Some(self.encoder.channels() as u16)
+        } else {
+            None
+        };
+        let sample_rate = if self.encoder.rate() > 0 {
+            Some(self.encoder.rate())
+        } else {
+            None
+        };
+        AudioOutputSummary {
+            ost_index: self.ost_index,
+            codec_name,
+            time_base: Some(format!(
+                "{}/{}",
+                self.encoder_time_base.numerator(),
+                self.encoder_time_base.denominator()
+            )),
+            channels,
+            sample_rate,
+            bit_rate: self.configured_bit_rate,
+        }
     }
 }

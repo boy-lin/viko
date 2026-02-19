@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use audio_video_kit_lib::events::MockEmitter;
     use audio_video_kit_lib::services::compress::audio::{
         compress_audio_file, AudioCompressionParams,
     };
-    use audio_video_kit_lib::events::MockEmitter;
     use std::fs;
     use std::path::PathBuf;
 
@@ -25,9 +25,9 @@ mod tests {
     }
 
     fn get_test_source_file() -> Option<PathBuf> {
-        let paths = vec![
-            PathBuf::from("/Users/haolin/Downloads/Audio/pitch1.00_tempo1.00.mp3"),
-        ];
+        let paths = vec![PathBuf::from(
+            "/Users/haolin/Downloads/Audio/pitch1.00_tempo1.00.mp3",
+        )];
         for path in paths {
             if path.exists() {
                 return Some(fs::canonicalize(path).unwrap());
@@ -39,14 +39,27 @@ mod tests {
     fn run_audio_compress_test(config: &AudioCompressTestConfig, input_path: &PathBuf) {
         println!(
             "Config: name={}, format={}, codec={:?}, bitrate={:?}, sample_rate={:?}, channels={:?}",
-            config.name, config.format, config.codec, config.bitrate, config.sample_rate, config.channels
+            config.name,
+            config.format,
+            config.codec,
+            config.bitrate,
+            config.sample_rate,
+            config.channels
         );
 
         let output_dir = get_test_output_dir();
-        let safe_name = config.name.replace(" ", "_").replace("/", "-").to_lowercase();
+        let safe_name = config
+            .name
+            .replace(" ", "_")
+            .replace("/", "-")
+            .to_lowercase();
         let output_path = output_dir.join(format!("{}.{}", safe_name, config.format));
 
-        println!("Testing audio compression: {} -> {}", config.name, output_path.display());
+        println!(
+            "Testing audio compression: {} -> {}",
+            config.name,
+            output_path.display()
+        );
 
         let params = AudioCompressionParams {
             input_path: input_path.to_string_lossy().to_string(),
@@ -66,9 +79,17 @@ mod tests {
         let result = compress_audio_file(emitter, params);
         match result {
             Ok(_) => {
-                assert!(output_path.exists(), "Output file should exist: {:?}", output_path);
+                assert!(
+                    output_path.exists(),
+                    "Output file should exist: {:?}",
+                    output_path
+                );
                 let metadata = fs::metadata(&output_path).unwrap();
-                assert!(metadata.len() > 0, "Output file should not be empty: {:?}", output_path);
+                assert!(
+                    metadata.len() > 0,
+                    "Output file should not be empty: {:?}",
+                    output_path
+                );
                 println!("  [PASS] {}", config.name);
             }
             Err(e) => {

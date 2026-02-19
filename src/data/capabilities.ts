@@ -143,7 +143,9 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
       allowedEncoders: [
         EncoderEnum.H264,
         EncoderEnum.H265,
-        EncoderEnum.AV1, EncoderEnum.VP9, EncoderEnum.MPEG4
+        EncoderEnum.AV1,
+        EncoderEnum.VP9,
+        EncoderEnum.MPEG4
       ],
       defaultEncoder: EncoderEnum.H264
     },
@@ -732,9 +734,11 @@ export const videoEncoderToDefinition = new Map<string, VideoEncoderDefinition>(
 
 // ================= HELPERS =================
 
-const VIDEO_FRAME_RATES: SelectOption[] = [
+export const VIDEO_FRAME_RATES: SelectOption[] = [
   { value: "auto", label: "Auto" },
+  { value: "120", label: "120 FPS" },
   { value: "60", label: "60 FPS" },
+  { value: "50", label: "50 FPS" },
   { value: "30", label: "30 FPS" },
   { value: "29.97", label: "29.97 FPS (NTSC)" },
   { value: "25", label: "25 FPS (PAL)" },

@@ -11,7 +11,6 @@ import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect
 import { GlobalConverterConfig, useConverterStore } from "./store";
 import { getMediaTaskQueue } from "@/lib/bridge";
 import { useAppStore } from "@/stores/app";
-import { useSettingsStore } from "@/stores/settingsStore";
 
 export const ConverterFooter: React.FC<{}> = () => {
   const globalConfig = useConverterStore((state) => state.globalConfig);
@@ -81,20 +80,7 @@ export const ConverterFooter: React.FC<{}> = () => {
   };
 
   const handleConvertAll = async () => {
-    const tasks = useConverterStore.getState().convertingTasks
-    if (tasks.length > 0 && globalConfig) {
-
-      await getMediaTaskQueue().addConvertTasks(tasks.map((task) => {
-        const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
-        return {
-          kind: task.taskType,
-          args: {
-            ...task.args,
-            output_path: `${outputDir}/${task.args.title}.${task.args.format}`
-          }
-        }
-      }));
-    }
+    await useConverterStore.getState().pushTasksToQueue()
   };
 
   const handleDelete = async () => {

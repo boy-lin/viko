@@ -48,7 +48,11 @@ jobs:
           if (-not (Get-Command vcpkg -ErrorAction SilentlyContinue)) {
             Write-Host "Installing vcpkg..."
             git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
-            C:\vcpkg\bootstrap-vcpkg.bat
+            # Checkout a specific commit to ensure FFmpeg 7.1 is installed (avoid 8.x mismatch)
+            # Commit from Dec 2024 which likely has FFmpeg 7.1
+            cd C:\vcpkg
+            git checkout 5c64372
+            .\bootstrap-vcpkg.bat
             echo "C:\vcpkg" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           }
           
@@ -82,6 +86,17 @@ jobs:
           }
           $libClangPath = Join-Path $llvmPath "bin"
           echo "LIBCLANG_PATH=$libClangPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          # Workaround for ffmpeg-sys-next 7.1.3 build failure with FFmpeg 7.0+ on Windows
+          # Create dummy avfft.h as it was removed but bindgen still looks for it
+          $avcodecInclude = Join-Path $vcpkgRoot "installed\x64-windows\include\libavcodec"
+          if (Test-Path $avcodecInclude) {
+            $avfftPath = Join-Path $avcodecInclude "avfft.h"
+            if (-not (Test-Path $avfftPath)) {
+              Write-Host "Creating dummy avfft.h at $avfftPath"
+              New-Item -ItemType File -Path $avfftPath -Force
+            }
+          }
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

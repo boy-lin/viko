@@ -1,5 +1,5 @@
-use ffmpeg_next as ffmpeg;
 use ffmpeg::{format, frame};
+use ffmpeg_next as ffmpeg;
 use ringbuf::{Consumer, HeapRb, Producer};
 use std::sync::Arc;
 

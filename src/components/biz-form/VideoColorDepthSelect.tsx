@@ -6,31 +6,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AUDIO_CHANNELS } from "@/data/audio_options";
 import type { SelectOption } from "@/types/options";
 
-interface AudioChannelSelectProps {
+const DEFAULT_COLOR_DEPTH_OPTIONS: SelectOption[] = [
+  { value: "auto", label: "自动" },
+  { value: "8", label: "8-bit" },
+  { value: "10", label: "10-bit" },
+  { value: "12", label: "12-bit" },
+];
+
+interface VideoColorDepthSelectProps {
   value?: string;
   onValueChange: (value: string) => void;
   options?: SelectOption[];
   placeholder?: string;
 }
 
-export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
+export const VideoColorDepthSelect: React.FC<VideoColorDepthSelectProps> = ({
   value,
   onValueChange,
   options,
   placeholder,
 }) => {
-  const channelOptions = options ?? AUDIO_CHANNELS;
+  const colorDepthOptions = options ?? DEFAULT_COLOR_DEPTH_OPTIONS;
 
   return (
     <Select value={value ?? "auto"} onValueChange={onValueChange}>
       <SelectTrigger className="cursor-pointer">
-        <SelectValue placeholder={placeholder ?? "Select channels"} />
+        <SelectValue placeholder={placeholder ?? "选择色深"} />
       </SelectTrigger>
       <SelectContent>
-        {channelOptions.map((option) => (
+        {colorDepthOptions.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
           </SelectItem>
@@ -39,3 +45,4 @@ export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
     </Select>
   );
 };
+

@@ -1,10 +1,9 @@
 use std::path::PathBuf;
-use std::sync::LazyLock;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
-pub static WORKING_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-});
+pub static WORKING_PATH: LazyLock<PathBuf> =
+    LazyLock::new(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
 
 pub static STORAGE_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     let mut path = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));

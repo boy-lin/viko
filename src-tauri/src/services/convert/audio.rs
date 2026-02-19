@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 
 use ffmpeg::format;
@@ -7,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use crate::events::TaskEmitter;
 use crate::media_common;
 pub use crate::services::convert::audio_transcode::AudioEncodingParams;
-use crate::services::convert::audio_transcode::AudioTrackProcessor;
+use crate::services::convert::audio_transcode::{AudioOutputSummary, AudioTrackProcessor};
+use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AudioTrackConfig {
@@ -20,6 +22,28 @@ pub struct AudioTrackConfig {
 struct ResolvedAudioTrack {
     source_stream_index: usize,
     encoding: AudioEncodingParams,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AudioConversionReport {
+    pub output_media: MediaDetails,
+}
+
+fn audio_summary_to_stream_details(summary: AudioOutputSummary) -> StreamDetails {
+    StreamDetails {
+        index: summary.ost_index,
+        codec_type: "audio".to_string(),
+        codec_name: summary.codec_name,
+        codec_long_name: None,
+        time_base: summary.time_base,
+        pix_fmt: None,
+        width: None,
+        height: None,
+        frame_rate: None,
+        channels: summary.channels,
+        sample_rate: summary.sample_rate,
+        bit_rate: summary.bit_rate,
+    }
 }
 
 /// 音频转换参数（全部可选，提供默认或沿用原始值）
@@ -158,7 +182,7 @@ fn resolve_audio_tracks(
 pub fn convert_audio<E: TaskEmitter>(
     emitter: E,
     params: AudioConversionParams,
-) -> Result<(), String> {
+) -> Result<AudioConversionReport, String> {
     media_common::ensure_ffmpeg_init()?;
 
     let use_hw = params.use_hardware_acceleration.unwrap_or(false);
@@ -282,12 +306,36 @@ pub fn convert_audio<E: TaskEmitter>(
         return Err(format!("转换完成但输出文件不存在: {}", params.output_path));
     }
 
+    let mut total_written_bytes: u64 = 0;
+    let mut streams: Vec<StreamDetails> = Vec::new();
+    for processor in &processors {
+        total_written_bytes = total_written_bytes.saturating_add(processor.written_bytes());
+        streams.push(audio_summary_to_stream_details(processor.output_summary()));
+    }
+    streams.sort_by_key(|s| s.index);
+
+    let output_media = MediaDetails {
+        path: params.output_path.clone(),
+        extension: Path::new(&params.output_path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|s| s.to_lowercase())
+            .unwrap_or_default(),
+        format_names: output_format.clone(),
+        format_long_name: None,
+        duration,
+        size: total_written_bytes,
+        streams,
+        tags: HashMap::new(),
+        stream_tags: Vec::new(),
+    };
+
     log::info!(
         "音频转换完成: {} (数据包={})",
         params.output_path,
         packets_processed
     );
-    Ok(())
+    Ok(AudioConversionReport { output_media })
 }
 
 /// 生成输出文件路径

@@ -1,8 +1,8 @@
+use ab_glyph::{FontRef, PxScale};
+use image::{imageops, GenericImageView, RgbaImage};
+use imageproc::drawing::draw_text_mut;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
-use image::{RgbaImage, GenericImageView, imageops};
-use imageproc::drawing::draw_text_mut;
-use ab_glyph::{FontRef, PxScale};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WatermarkConfig {
@@ -15,7 +15,7 @@ impl WatermarkConfig {
         let mut filter = String::new();
         let mut current_stream = "in".to_string();
         let mut stage = 0;
-        
+
         // Base scaling if needed (optional, provided by caller typically, but here we assume 'in' is ready)
         // If we needed to ensure pixel format, we might start with format=pix_fmts=...
 
@@ -23,19 +23,19 @@ impl WatermarkConfig {
         if let Some(img) = &self.image {
             let next_stream = format!("wm_img_{}", stage);
             stage += 1;
-            
+
             // 1. Load image as overlay source
             // escape path for ffmpeg: \ -> \\, : -> \:
             let safe_path = img.path.replace("\\", "/").replace(":", "\\:");
-            
+
             // Prepare overlay input
             // movie=filename [logo]; [logo] scale=... [logo_scaled]
             // We append this to the start of the filter string
             let overlay_id = "wm_overlay";
             let overlay_scaled_id = "wm_overlay_scaled";
-            
+
             let mut overlay_pipeline = format!("movie={}[{}];", safe_path, overlay_id);
-            
+
             // Scale and Opacity for overlay
             let mut overlay_filters = Vec::new();
             if (img.scale - 1.0).abs() > 0.001 {
@@ -45,7 +45,7 @@ impl WatermarkConfig {
                 overlay_filters.push("format=rgba".to_string());
                 overlay_filters.push(format!("colorchannelmixer=aa={}", img.opacity));
             }
-            
+
             let overlay_output = if !overlay_filters.is_empty() {
                 write!(
                     overlay_pipeline,
@@ -59,9 +59,9 @@ impl WatermarkConfig {
             } else {
                 overlay_id
             };
-            
+
             filter.push_str(&overlay_pipeline);
-            
+
             // Apply overlay
             // [current][overlay_scaled] overlay=x=...:y=... [next]
             // We need to resolve x/y expressions if possible or assume ffmpeg handles them.
@@ -70,11 +70,7 @@ impl WatermarkConfig {
             write!(
                 filter,
                 "[{}][{}]overlay=x={}:y={}[{}];",
-                current_stream,
-                overlay_output,
-                img.x,
-                img.y,
-                next_stream
+                current_stream, overlay_output, img.x, img.y, next_stream
             )
             .unwrap();
             current_stream = next_stream;
@@ -87,7 +83,7 @@ impl WatermarkConfig {
             }
             let next_stream = format!("wm_txt_{}", stage);
             stage += 1;
-            
+
             // escape text
             let safe_text = txt.content.replace("'", "'\\''").replace(":", "\\:");
             let safe_font = txt.font_path.replace("\\", "/").replace(":", "\\:");
@@ -97,23 +93,21 @@ impl WatermarkConfig {
             } else {
                 format!("fontfile='{}':", safe_font)
             };
-            
+
             let drawtext_cmd = format!(
                 "drawtext={}text='{}':fontsize={}:fontcolor={}:alpha={}:x={}:y={}",
                 font_arg, safe_text, txt.font_size, txt.color, txt.opacity, txt.x, txt.y
             );
-            
+
             write!(
                 filter,
                 "[{}]{}[{}];",
-                current_stream,
-                drawtext_cmd,
-                next_stream
+                current_stream, drawtext_cmd, next_stream
             )
             .unwrap();
             current_stream = next_stream.to_string();
         }
-        
+
         if filter.is_empty() {
             return Ok("null".to_string());
         }
@@ -129,54 +123,64 @@ impl WatermarkConfig {
 
         // 1. Image Watermark
         if let Some(img_wm) = &self.image {
-             // Load watermark image
-             let wm_img = image::open(&img_wm.path).map_err(|e| format!("Failed to open watermark image: {}", e))?;
-             let mut wm_rgba = wm_img.to_rgba8();
-             
-             // Scale
-             if (img_wm.scale - 1.0).abs() > 0.001 {
-                 let new_w = (wm_rgba.width() as f32 * img_wm.scale) as u32;
-                 let new_h = (wm_rgba.height() as f32 * img_wm.scale) as u32;
-                 wm_rgba = image::imageops::resize(&wm_rgba, new_w, new_h, image::imageops::FilterType::Lanczos3);
-             }
-             
-             // Opacity
-             if img_wm.opacity < 1.0 {
-                 for pixel in wm_rgba.pixels_mut() {
-                     pixel[3] = (pixel[3] as f32 * img_wm.opacity) as u8;
-                 }
-             }
-             
-             // Position
-             // Parse x/y strings. For Image, standard is generic expressions, but here we only support simple integers or "center" logic maybe?
-             // Let's support simple parsing: integer, or "W-w-10" via simple eval?
-             // For now: try parse as integer. If fails, default to 0.
-             // A real eval engine is heavy. Let's support "10" and negative "-10" (from right?)
-             // TODO: robust expression parser.
-             
-             let x = parse_position(&img_wm.x, width, wm_rgba.width());
-             let y = parse_position(&img_wm.y, height, wm_rgba.height());
-             
-             imageops::overlay(image, &wm_rgba, x.into(), y.into());
+            // Load watermark image
+            let wm_img = image::open(&img_wm.path)
+                .map_err(|e| format!("Failed to open watermark image: {}", e))?;
+            let mut wm_rgba = wm_img.to_rgba8();
+
+            // Scale
+            if (img_wm.scale - 1.0).abs() > 0.001 {
+                let new_w = (wm_rgba.width() as f32 * img_wm.scale) as u32;
+                let new_h = (wm_rgba.height() as f32 * img_wm.scale) as u32;
+                wm_rgba = image::imageops::resize(
+                    &wm_rgba,
+                    new_w,
+                    new_h,
+                    image::imageops::FilterType::Lanczos3,
+                );
+            }
+
+            // Opacity
+            if img_wm.opacity < 1.0 {
+                for pixel in wm_rgba.pixels_mut() {
+                    pixel[3] = (pixel[3] as f32 * img_wm.opacity) as u8;
+                }
+            }
+
+            // Position
+            // Parse x/y strings. For Image, standard is generic expressions, but here we only support simple integers or "center" logic maybe?
+            // Let's support simple parsing: integer, or "W-w-10" via simple eval?
+            // For now: try parse as integer. If fails, default to 0.
+            // A real eval engine is heavy. Let's support "10" and negative "-10" (from right?)
+            // TODO: robust expression parser.
+
+            let x = parse_position(&img_wm.x, width, wm_rgba.width());
+            let y = parse_position(&img_wm.y, height, wm_rgba.height());
+
+            imageops::overlay(image, &wm_rgba, x.into(), y.into());
         }
 
         // 2. Text Watermark
         if let Some(txt_wm) = &self.text {
             // Load Font
-            let font_bytes = std::fs::read(&txt_wm.font_path).map_err(|e| format!("Failed to read font: {}", e))?;
+            let font_bytes = std::fs::read(&txt_wm.font_path)
+                .map_err(|e| format!("Failed to read font: {}", e))?;
             let font = FontRef::try_from_slice(&font_bytes).map_err(|_| "Invalid font file")?;
-            
+
             // Color parsing
             let color = parse_color(&txt_wm.color, txt_wm.opacity);
-            
-            let scale = PxScale { x: txt_wm.font_size, y: txt_wm.font_size };
-            
+
+            let scale = PxScale {
+                x: txt_wm.font_size,
+                y: txt_wm.font_size,
+            };
+
             // Measure text for position calculation
             let (text_w, text_h) = imageproc::drawing::text_size(scale, &font, &txt_wm.content);
-            
+
             let x = parse_position(&txt_wm.x, width, text_w);
             let y = parse_position(&txt_wm.y, height, text_h);
-            
+
             draw_text_mut(image, color, x, y, scale, &font, &txt_wm.content);
         }
 
@@ -210,7 +214,7 @@ fn parse_position(pos_str: &str, container_dim: u32, object_dim: u32) -> i32 {
                       // But usually x uses W/w, y uses H/h.
                       // Simplification: We assume user provides computed value or simple int mostly.
                       ;
-    
+
     // Evaluate is hard without crate.
     // Fallback: 0
     0
@@ -237,15 +241,14 @@ fn parse_color(color_str: &str, opacity: f32) -> image::Rgba<u8> {
     }
 }
 
-
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TextWatermark {
     pub content: String,
     pub font_path: String, // Absolute path to .ttf/.otf
     pub font_size: f32,
-    pub color: String,     // Hex "#FFFFFF" or "white"
-    pub opacity: f32,      // 0.0 - 1.0
-    pub x: String,         // "10" or "W-w-10"
+    pub color: String, // Hex "#FFFFFF" or "white"
+    pub opacity: f32,  // 0.0 - 1.0
+    pub x: String,     // "10" or "W-w-10"
     pub y: String,
 }
 

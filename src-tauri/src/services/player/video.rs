@@ -1,4 +1,4 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
@@ -59,11 +59,7 @@ pub struct PreviewSize {
 }
 
 impl<E: EventEmitter> VideoPlayer<E> {
-    pub fn new(
-        path: &str,
-        emitter: E,
-        preview: Option<PreviewSize>,
-    ) -> Result<Self, String> {
+    pub fn new(path: &str, emitter: E, preview: Option<PreviewSize>) -> Result<Self, String> {
         video_rs::init().map_err(|e| format!("FFmpeg init failed: {}", e))?;
 
         let decoder_builder = DecoderBuilder::new(Path::new(path));
@@ -257,12 +253,12 @@ impl<E: EventEmitter> VideoPlayer<E> {
                                                     None
                                                 }
                                             })
-                                    .unwrap_or_else(|| {
-                                        Resize::FitEven(frame_width, frame_height)
-                                    }),
-                            )
-                            .build()
-                        {
+                                            .unwrap_or_else(|| {
+                                                Resize::FitEven(frame_width, frame_height)
+                                            }),
+                                    )
+                                    .build()
+                                {
                                     Ok(new_decoder) => {
                                         decoder = new_decoder;
                                         time_base = decoder.time_base();
@@ -416,7 +412,10 @@ impl<E: EventEmitter> VideoPlayer<E> {
                         } else if diff < -0.03 {
                             // Video behind > 30ms, drop frames.
                             if !last_frame_skipped {
-                                log::debug!("Video behind audio by {:.2}ms, dropping frame", diff * 1000.0);
+                                log::debug!(
+                                    "Video behind audio by {:.2}ms, dropping frame",
+                                    diff * 1000.0
+                                );
                             }
                             last_frame_skipped = true;
                             continue; // skip current frame
@@ -512,4 +511,3 @@ fn frame_to_rgba(frame: &RawFrame, width: u32, height: u32) -> Vec<u8> {
 
     rgba
 }
-

@@ -10,7 +10,19 @@
     "audio": {
       "title": "Audio",
       "trackLabel": "Audio Track {{index}}",
-      "noAudioTrackAvailable": "No audio track available."
+      "noAudioTrackAvailable": "No audio track available.",
+      "fields": {
+        "encoder": "Encoder",
+        "encoderPlaceholder": "Select encoder",
+        "channel": "Channels",
+        "channelPlaceholder": "Select channels",
+        "sampleRate": "Sample Rate",
+        "sampleRatePlaceholder": "Select sample rate",
+        "bitrate": "Bitrate",
+        "bitratePlaceholder": "Select bitrate",
+        "bitDepth": "Bit Depth",
+        "bitDepthPlaceholder": "Select bit depth"
+      }
     },
     "image": { "title": "Image", "quality": "Quality:", "resolution": "Resolution:" }
   },

@@ -3,7 +3,7 @@ fn main() {
     // 这对于 macOS Homebrew 安装的 FFmpeg 和 Windows vcpkg 安装的 FFmpeg 很重要
     // 注意：std::env::set_var 是 unsafe 的，因为修改全局环境变量
     // 必须在 tauri_build::build() 之前设置，以便子进程（如 ffmpeg-sys-next 的 build script）能看到
-    
+
     #[cfg(target_os = "windows")]
     {
         // Windows 平台：查找并设置 vcpkg
@@ -15,7 +15,7 @@ fn main() {
             }
             println!("cargo:rerun-if-env-changed=VCPKG_ROOT");
             println!("cargo:warning=VCPKG_ROOT set to: {}", root);
-            
+
             // 设置 Windows 上的 PKG_CONFIG_PATH（使用分号分隔）
             let pkg_config_path = format!("{}\\installed\\x64-windows\\lib\\pkgconfig", root);
             if std::path::Path::new(&pkg_config_path).exists() {
@@ -25,26 +25,29 @@ fn main() {
                 } else {
                     format!("{};{}", pkg_config_path, existing)
                 };
-                
+
                 unsafe {
                     std::env::set_var("PKG_CONFIG_PATH", &combined_path);
                 }
                 println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
                 println!("cargo:warning=PKG_CONFIG_PATH set to: {}", combined_path);
             } else {
-                println!("cargo:warning=PKG_CONFIG_PATH directory not found: {}", pkg_config_path);
+                println!(
+                    "cargo:warning=PKG_CONFIG_PATH directory not found: {}",
+                    pkg_config_path
+                );
             }
         } else {
             println!("cargo:warning=Could not find vcpkg, ffmpeg-sys-next may fail to find FFmpeg");
             println!("cargo:warning=Please install vcpkg or set VCPKG_ROOT environment variable");
         }
     }
-    
+
     #[cfg(not(target_os = "windows"))]
     {
         // macOS/Linux 平台：查找 Homebrew 或其他包管理器安装的 FFmpeg
         let mut pkg_config_paths = Vec::new();
-        
+
         // 1. 检查 HOMEBREW_PREFIX 环境变量
         if let Ok(brew_prefix) = std::env::var("HOMEBREW_PREFIX") {
             let path = format!("{}/lib/pkgconfig", brew_prefix);
@@ -57,7 +60,7 @@ fn main() {
                 pkg_config_paths.push(ffmpeg_opt_path);
             }
         }
-        
+
         // 2. 尝试默认 Homebrew 路径
         let default_paths = vec![
             "/opt/homebrew/lib/pkgconfig",
@@ -65,7 +68,7 @@ fn main() {
             "/usr/local/lib/pkgconfig",
             "/usr/local/opt/ffmpeg/lib/pkgconfig",
         ];
-        
+
         for path in default_paths {
             if std::path::Path::new(path).exists() {
                 if !pkg_config_paths.contains(&path.to_string()) {
@@ -73,7 +76,7 @@ fn main() {
                 }
             }
         }
-        
+
         // 3. 查找 FFmpeg Cellar 路径（版本化安装）
         let cellar_paths = vec![
             "/opt/homebrew/Cellar/ffmpeg@7",
@@ -81,7 +84,7 @@ fn main() {
             "/usr/local/Cellar/ffmpeg@7",
             "/usr/local/Cellar/ffmpeg",
         ];
-        
+
         for cellar_base in cellar_paths {
             if let Ok(entries) = std::fs::read_dir(cellar_base) {
                 for entry in entries.flatten() {
@@ -96,11 +99,11 @@ fn main() {
                 }
             }
         }
-        
+
         // 4. 设置 PKG_CONFIG_PATH（使用冒号分隔，Unix 风格）
         if !pkg_config_paths.is_empty() {
             let final_path = pkg_config_paths.join(":");
-            
+
             // 获取现有的 PKG_CONFIG_PATH（如果有）
             let existing = std::env::var("PKG_CONFIG_PATH").unwrap_or_default();
             let combined_path = if existing.is_empty() {
@@ -108,12 +111,12 @@ fn main() {
             } else {
                 format!("{}:{}", final_path, existing)
             };
-            
+
             // 设置环境变量（对当前进程和子进程都有效）
             unsafe {
                 std::env::set_var("PKG_CONFIG_PATH", &combined_path);
             }
-            
+
             // 告诉 Cargo 如果 PKG_CONFIG_PATH 改变，重新运行 build script
             println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
             println!("cargo:warning=PKG_CONFIG_PATH set to: {}", combined_path);
@@ -144,7 +147,7 @@ fn find_vcpkg_root() -> Option<String> {
             return Some(root);
         }
     }
-    
+
     // 2. 检查常见安装路径
     let user_profile = match std::env::var("USERPROFILE") {
         Ok(profile) => profile,
@@ -153,13 +156,13 @@ fn find_vcpkg_root() -> Option<String> {
             return None;
         }
     };
-    
+
     let common_paths = vec![
         format!("{}\\vcpkg", user_profile),
         "C:\\vcpkg".to_string(),
         "C:\\tools\\vcpkg".to_string(),
     ];
-    
+
     println!("cargo:warning=Searching for vcpkg in common paths...");
     for path in &common_paths {
         let vcpkg_exe = format!("{}\\vcpkg.exe", path);
@@ -169,7 +172,7 @@ fn find_vcpkg_root() -> Option<String> {
             return Some(path.clone());
         }
     }
-    
+
     println!("cargo:warning=Could not find vcpkg.exe in any common location");
     None
 }
@@ -257,10 +260,7 @@ fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
     }
 
     if !copied_any {
-        return Err(format!(
-            "no FFmpeg libs found in {}",
-            src_dir.display()
-        ));
+        return Err(format!("no FFmpeg libs found in {}", src_dir.display()));
     }
 
     println!("cargo:rerun-if-env-changed=FFMPEG_BUNDLE_DIR");

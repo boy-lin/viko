@@ -4,6 +4,7 @@ import i18n from "@/lib/i18n";
 import RootLayout from "./layout/RootPage";
 import HomePage from "./pages/home";
 import TaskListPage from "./pages/tasks/TaskListPage";
+import TaskHistoryPage from "./pages/tasks";
 import CompressorVideoPage from "./pages/compressor/videos";
 import CompressorAudioPage from "./pages/compressor/audios";
 import CompressorImagePage from "./pages/compressor/images";
@@ -56,7 +57,15 @@ const router = createBrowserRouter([
             path: "my",
             children: [{ path: "files", element: <MyFilesPage /> }],
           },
-          { path: "tasks", element: <TaskListPage /> },
+          {
+            path: "tasks",
+            element: <Outlet />,
+            children: [
+              { index: true, element: <TaskHistoryPage /> },
+              { path: "convert", element: <TaskListPage mode="convert" /> },
+              { path: "compress", element: <TaskListPage mode="compress" /> },
+            ],
+          },
           {
             path: "demo",
             children: [

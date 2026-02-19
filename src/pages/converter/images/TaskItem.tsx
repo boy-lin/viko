@@ -87,16 +87,7 @@ export default function TaskItem({ task }: TaskItemProps) {
     }, [inputPath, task.id, task.mediaDetails, updateTaskById]);
 
     const handleConvertSingle = async () => {
-        const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
-        await getMediaTaskQueue().addConvertTasks([
-            {
-                kind: task.taskType,
-                args: {
-                    ...task.args,
-                    output_path: `${outputDir}/${task.args.title}.${task.args.format}`
-                },
-            },
-        ]);
+        await useConverterStore.getState().pushTasksToQueue([task])
     };
 
     const convertVideoTaskArgs = task.args as ConvertVideoTaskArgs;

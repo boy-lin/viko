@@ -1,13 +1,12 @@
+use super::db::{get_db, TableSpec};
+use crate::shared::get_millis;
+use crate::task::queue::MediaTaskRequest;
 use anyhow::Result;
 use sea_query::{
-    ColumnDef, Expr, Iden, Order, Query, SqliteQueryBuilder, Table,
-    TableCreateStatement,
+    ColumnDef, Expr, Iden, Order, Query, SqliteQueryBuilder, Table, TableCreateStatement,
 };
 use sea_query_binder::SqlxBinder;
 use sqlx::Row;
-use crate::task::queue::MediaTaskRequest;
-use crate::shared::get_millis;
-use super::db::{get_db, TableSpec};
 
 #[derive(Iden)]
 pub enum MediaQueue {
@@ -25,7 +24,13 @@ impl TableSpec for MediaQueueTable {
     fn create_stmt() -> TableCreateStatement {
         Table::create()
             .table(MediaQueue::Table)
-            .col(ColumnDef::new(MediaQueue::Id).integer().not_null().auto_increment().primary_key())
+            .col(
+                ColumnDef::new(MediaQueue::Id)
+                    .integer()
+                    .not_null()
+                    .auto_increment()
+                    .primary_key(),
+            )
             .col(ColumnDef::new(MediaQueue::TaskData).text().not_null())
             .col(ColumnDef::new(MediaQueue::CreatedAt).integer().not_null())
             .to_owned()
@@ -49,7 +54,7 @@ pub async fn enqueue(task: &MediaTaskRequest) -> Result<()> {
 
 pub async fn dequeue() -> Result<Option<MediaTaskRequest>> {
     let pool = get_db().await?;
-    
+
     // Find the oldest task
     let (sql, values) = Query::select()
         .columns([MediaQueue::Id, MediaQueue::TaskData])
@@ -70,9 +75,11 @@ pub async fn dequeue() -> Result<Option<MediaTaskRequest>> {
             .from_table(MediaQueue::Table)
             .and_where(Expr::col(MediaQueue::Id).eq(id))
             .build_sqlx(SqliteQueryBuilder);
-            
-        sqlx::query_with(&del_sql, del_values).execute(&pool).await?;
-        
+
+        sqlx::query_with(&del_sql, del_values)
+            .execute(&pool)
+            .await?;
+
         Ok(Some(task))
     } else {
         Ok(None)
@@ -161,7 +168,7 @@ pub async fn clear() -> Result<()> {
     let (sql, values) = Query::delete()
         .from_table(MediaQueue::Table)
         .build_sqlx(SqliteQueryBuilder);
-    
+
     sqlx::query_with(&sql, values).execute(&pool).await?;
     Ok(())
 }
@@ -194,7 +201,9 @@ pub async fn clear_by_type(task_type: &str) -> Result<usize> {
         .and_where(Expr::col(MediaQueue::Id).is_in(ids.clone()))
         .build_sqlx(SqliteQueryBuilder);
 
-    sqlx::query_with(&del_sql, del_values).execute(&pool).await?;
+    sqlx::query_with(&del_sql, del_values)
+        .execute(&pool)
+        .await?;
     Ok(ids.len())
 }
 
@@ -226,6 +235,8 @@ pub async fn remove_by_task_id(target_task_id: &str) -> Result<usize> {
         .and_where(Expr::col(MediaQueue::Id).is_in(ids.clone()))
         .build_sqlx(SqliteQueryBuilder);
 
-    sqlx::query_with(&del_sql, del_values).execute(&pool).await?;
+    sqlx::query_with(&del_sql, del_values)
+        .execute(&pool)
+        .await?;
     Ok(ids.len())
 }

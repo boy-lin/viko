@@ -152,6 +152,7 @@ export const VIDEO_ENCODERS: EncoderOption[] = [
     description: "High efficiency, smaller file size",
   },
   { value: EncoderEnum.PRORES, label: "ProRes", description: "Apple ProRes" },
+
   { value: EncoderEnum.AV1, label: "AV1", description: "AOMedia Video 1" },
   { value: EncoderEnum.MJPEG, label: "MJPEG", description: "Motion JPEG" },
   { value: EncoderEnum.VP8, label: "VP8", description: "Google VP8" },

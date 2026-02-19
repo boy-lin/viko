@@ -6,31 +6,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AUDIO_CHANNELS } from "@/data/audio_options";
 import type { SelectOption } from "@/types/options";
 
-interface AudioChannelSelectProps {
+const DEFAULT_PRESET_OPTIONS: SelectOption[] = [
+  { value: "auto", label: "默认" },
+  { value: "ultrafast", label: "ultrafast" },
+  { value: "fast", label: "fast" },
+  { value: "medium", label: "medium" },
+  { value: "slow", label: "slow" },
+];
+
+interface VideoPresetSelectProps {
   value?: string;
   onValueChange: (value: string) => void;
   options?: SelectOption[];
   placeholder?: string;
 }
 
-export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
+export const VideoPresetSelect: React.FC<VideoPresetSelectProps> = ({
   value,
   onValueChange,
   options,
   placeholder,
 }) => {
-  const channelOptions = options ?? AUDIO_CHANNELS;
+  const presetOptions = options ?? DEFAULT_PRESET_OPTIONS;
 
   return (
     <Select value={value ?? "auto"} onValueChange={onValueChange}>
       <SelectTrigger className="cursor-pointer">
-        <SelectValue placeholder={placeholder ?? "Select channels"} />
+        <SelectValue placeholder={placeholder ?? "选择压缩模式"} />
       </SelectTrigger>
       <SelectContent>
-        {channelOptions.map((option) => (
+        {presetOptions.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
           </SelectItem>
@@ -39,3 +46,4 @@ export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
     </Select>
   );
 };
+

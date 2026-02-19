@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FileType } from "@/types/tasks";
-import { ConvertAudioTaskArgs, ConvertVideoTaskArgs } from "@/lib/bridge";
+import { ConvertVideoTaskArgs } from "@/lib/bridge";
 import { FormatOption } from "@/types/options";
 
 import FormatSelectorContent from "./FormatSelectorContent";
@@ -35,9 +35,8 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
       const args = config.args as ConvertVideoTaskArgs;
       label = `${args?.resolution ? `(${args?.resolution})` : "Auto"}`;
     } else if (config.activeCategory === FileType.Audio) {
-      const _args = config.args as ConvertAudioTaskArgs;
-      label = "";
-      console.log('args', _args)
+      // const _args = config.args as ConvertAudioTaskArgs;
+      // label = "";
     }
     return {
       extension: config.args.format,

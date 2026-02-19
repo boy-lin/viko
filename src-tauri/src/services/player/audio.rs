@@ -1,4 +1,4 @@
-﻿use std::collections::VecDeque;
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
@@ -40,11 +40,7 @@ pub struct AudioPlayer<E: EventEmitter> {
 }
 
 impl<E: EventEmitter> AudioPlayer<E> {
-    pub fn new(
-        path: String,
-        emit_state_events: bool,
-        emitter: Option<E>,
-    ) -> Result<Self, String> {
+    pub fn new(path: String, emit_state_events: bool, emitter: Option<E>) -> Result<Self, String> {
         let duration = Self::probe_duration(&path)?;
         let (command_tx, command_rx) = mpsc::channel();
         let volume = Arc::new(AtomicU32::new(f32::to_bits(1.0)));
@@ -100,8 +96,8 @@ impl<E: EventEmitter> AudioPlayer<E> {
 
     fn probe_duration(path: &str) -> Result<f64, String> {
         ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {e}"))?;
-        let ictx = ffmpeg::format::input(path)
-            .map_err(|e| format!("Failed to open audio file: {e}"))?;
+        let ictx =
+            ffmpeg::format::input(path).map_err(|e| format!("Failed to open audio file: {e}"))?;
 
         let mut stream_duration = None;
         let mut format_duration = None;
@@ -457,8 +453,8 @@ impl<E: EventEmitter> AudioPlayer<E> {
 
     fn open_input(path: &str) -> Result<(ffmpeg::format::context::Input, f64), String> {
         ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {e}"))?;
-        let ictx = ffmpeg::format::input(path)
-            .map_err(|e| format!("Failed to open audio file: {e}"))?;
+        let ictx =
+            ffmpeg::format::input(path).map_err(|e| format!("Failed to open audio file: {e}"))?;
         let duration = Self::probe_duration(path)?;
         Ok((ictx, duration))
     }
@@ -673,7 +669,7 @@ impl<E: EventEmitter> AudioPlayer<E> {
                     None,
                 )
                 .map_err(|e| format!("Operation failed: {e}")),
-        f => Err(format!("Unsupported audio sample format: {f:?}")),
+            f => Err(format!("Unsupported audio sample format: {f:?}")),
         }
     }
 
@@ -756,4 +752,3 @@ impl<E: EventEmitter> Drop for AudioPlayer<E> {
         }
     }
 }
-

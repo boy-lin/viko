@@ -1,27 +1,30 @@
 #[cfg(test)]
 mod tests {
+    use audio_video_kit_lib::commands::AudioConversionArgs;
     use audio_video_kit_lib::storage::{db, media_queue};
     use audio_video_kit_lib::task::queue::MediaTaskRequest;
-    use audio_video_kit_lib::commands::AudioConversionArgs;
     use std::env;
     use std::fs;
     use std::path::PathBuf;
 
     async fn setup_test_db() -> PathBuf {
         let mut path = std::env::temp_dir();
-        let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         path.push(format!("test_db_{}.sqlite", timestamp));
-        
+
         let url = format!("sqlite://{}", path.to_string_lossy());
         env::set_var("DATABASE_URL", &url);
-        
+
         // Ensure creation
         let _ = fs::File::create(&path);
-        
+
         db::init_db().await.expect("Failed to init DB");
         db::init_meta().await.expect("Failed to init meta");
-        
-        // Manually create media_queue table as it might not be auto-created by init_db 
+
+        // Manually create media_queue table as it might not be auto-created by init_db
         // (depending on how it's wired, usually tables verify themselves on access or migration)
         // Check implementation of MediaQueueTable::check_latest() or similar?
         // In storage/media_queue.rs we implemented TableSpec.
@@ -31,8 +34,10 @@ mod tests {
         // Let's call it via generic mechanism if possible, or just exact SQL.
         // Actually `MediaQueueTable` implements `TableSpec`.
         use audio_video_kit_lib::storage::db::TableSpec;
-        audio_video_kit_lib::storage::media_queue::MediaQueueTable::check_latest().await.expect("Failed to init table");
-        
+        audio_video_kit_lib::storage::media_queue::MediaQueueTable::check_latest()
+            .await
+            .expect("Failed to init table");
+
         path
     }
 
@@ -69,7 +74,7 @@ mod tests {
 
         let fetched = media_queue::dequeue().await.expect("Dequeue failed");
         assert!(fetched.is_some());
-        
+
         if let Some(MediaTaskRequest::ConvertAudio(args)) = fetched {
             assert_eq!(args.task_id, "task-1");
         } else {

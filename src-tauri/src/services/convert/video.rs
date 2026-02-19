@@ -1,32 +1,34 @@
-﻿use std::collections::HashMap;
+use std::collections::HashMap;
 
+use ffmpeg::filter::context::Sink as _;
+use ffmpeg::filter::context::Source as _;
 use ffmpeg::{
     codec, decoder, encoder, filter, format, frame, media, packet, picture, Dictionary, Rational,
 };
 use ffmpeg_next as ffmpeg;
-use ffmpeg::filter::context::Source as _;
-use ffmpeg::filter::context::Sink as _;
 use serde::{Deserialize, Serialize};
 
-
-use crate::media_common;
-use crate::services::convert::audio_transcode::{AudioEncodingParams, AudioTrackProcessor};
 use crate::events::TaskEmitter;
+use crate::media_common;
+use crate::services::convert::audio_transcode::{
+    AudioEncodingParams, AudioOutputSummary, AudioTrackProcessor,
+};
+use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
 
 /// 视频转换参数（全部可选，使用默认值兜底）
 #[derive(Debug, Clone)]
 pub struct VideoConversionParams {
     pub input_path: String,
     pub output_path: String,
-    pub format: Option<String>,             // mp4, mov, mkv, etc.
-    pub video_encoder: Option<String>,      // h264, hevc, etc.
-    pub video_bitrate: Option<u32>,         // kbps, auto if None
+    pub format: Option<String>,        // mp4, mov, mkv, etc.
+    pub video_encoder: Option<String>, // h264, hevc, etc.
+    pub video_bitrate: Option<u32>,    // kbps, auto if None
     pub min_bitrate: Option<u32>,
     pub max_bitrate: Option<u32>,
-    pub rc_mode: Option<String>,            // cbr/vbr/crf
+    pub rc_mode: Option<String>, // cbr/vbr/crf
     pub crf: Option<u32>,
-    pub resolution: Option<String>,         // "1920x1080", "original", etc.
-    pub frame_rate: Option<String>,         // "30", "60", "original"
+    pub resolution: Option<String>, // "1920x1080", "original", etc.
+    pub frame_rate: Option<String>, // "30", "60", "original"
     pub aspect_ratio: Option<String>,
     pub scaling_mode: Option<String>,
     pub gop_size: Option<u32>,
@@ -88,6 +90,38 @@ struct ResolvedVideoParams {
     pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VideoConversionReport {
+    pub output_media: MediaDetails,
+}
+
+fn rational_to_rate_string(rate: Rational) -> Option<String> {
+    if rate.denominator() == 0 {
+        return None;
+    }
+    Some(format!(
+        "{:.2}",
+        rate.numerator() as f64 / rate.denominator() as f64
+    ))
+}
+
+fn audio_summary_to_stream_details(summary: AudioOutputSummary) -> StreamDetails {
+    StreamDetails {
+        index: summary.ost_index,
+        codec_type: "audio".to_string(),
+        codec_name: summary.codec_name,
+        codec_long_name: None,
+        time_base: summary.time_base,
+        pix_fmt: None,
+        width: None,
+        height: None,
+        frame_rate: None,
+        channels: summary.channels,
+        sample_rate: summary.sample_rate,
+        bit_rate: summary.bit_rate,
+    }
+}
+
 fn resolve_audio_tracks(
     params: &VideoConversionParams,
     input_audio_indices: &[usize],
@@ -129,7 +163,11 @@ fn resolve_audio_tracks(
                 .or_else(|| input_audio_indices.get(i).copied())
                 .unwrap_or(0);
             let merged_encoding = AudioEncodingParams {
-                codec: cfg.encoding.codec.clone().or(default_encoding.codec.clone()),
+                codec: cfg
+                    .encoding
+                    .codec
+                    .clone()
+                    .or(default_encoding.codec.clone()),
                 bitrate: cfg.encoding.bitrate.or(default_encoding.bitrate),
                 sample_rate: cfg.encoding.sample_rate.or(default_encoding.sample_rate),
                 channels: cfg.encoding.channels.or(default_encoding.channels),
@@ -153,7 +191,10 @@ fn resolve_audio_tracks(
     }
 }
 
-fn resolve_video_params(params: VideoConversionParams, input_audio_indices: &[usize]) -> ResolvedVideoParams {
+fn resolve_video_params(
+    params: VideoConversionParams,
+    input_audio_indices: &[usize],
+) -> ResolvedVideoParams {
     let fmt = params
         .format
         .clone()
@@ -217,6 +258,8 @@ struct Transcoder<E: TaskEmitter> {
     logged_invalid_time_base: bool,
     filter: Option<filter::Graph>,
     filter_enabled: bool,
+    written_bytes: u64,
+    configured_bit_rate: Option<i64>,
 }
 
 impl<E: TaskEmitter> Transcoder<E> {
@@ -264,6 +307,7 @@ impl<E: TaskEmitter> Transcoder<E> {
         )
         .or_else(|| ffmpeg::encoder::find(codec::Id::H264))
         .ok_or("未找到合适的视频编码器")?;
+        let codec_name = codec.name().to_string();
 
         let mut ost = octx
             .add_stream(codec)
@@ -276,12 +320,15 @@ impl<E: TaskEmitter> Transcoder<E> {
 
         // 3. 配置编码器参数
         // 分辨率处理
-        let (width, height) =
-            media_common::resolve_resolution(decoder.width(), decoder.height(), params.resolution.as_deref());
+        let (width, height) = media_common::resolve_resolution(
+            decoder.width(),
+            decoder.height(),
+            params.resolution.as_deref(),
+        );
 
         encoder.set_width(width);
         encoder.set_height(height);
-        
+
         let chosen_format = media_common::pick_pixel_format_for_codec(
             params.bit_depth,
             params.use_hardware_acceleration,
@@ -305,28 +352,65 @@ impl<E: TaskEmitter> Transcoder<E> {
         // Guard against bogus fps (e.g. 90000/1 from stream timebase)
         let fps_num = target_frame_rate.numerator() as i64;
         let fps_den = target_frame_rate.denominator() as i64;
-        let fps_value = if fps_den > 0 { fps_num as f64 / fps_den as f64 } else { 0.0 };
+        let fps_value = if fps_den > 0 {
+            fps_num as f64 / fps_den as f64
+        } else {
+            0.0
+        };
         if fps_value <= 0.0 || fps_value > 240.0 {
             target_frame_rate = Rational(30, 1);
         }
-        encoder.set_frame_rate(Some((target_frame_rate.numerator(), target_frame_rate.denominator())));
+        encoder.set_frame_rate(Some((
+            target_frame_rate.numerator(),
+            target_frame_rate.denominator(),
+        )));
 
-        let encoder_time_base = if target_frame_rate.numerator() > 0 && target_frame_rate.denominator() > 0 {
-            Rational(target_frame_rate.denominator(), target_frame_rate.numerator())
-        } else {
-            Rational(1, 30)
-        };
+        let encoder_time_base =
+            if target_frame_rate.numerator() > 0 && target_frame_rate.denominator() > 0 {
+                Rational(
+                    target_frame_rate.denominator(),
+                    target_frame_rate.numerator(),
+                )
+            } else {
+                Rational(1, 30)
+            };
         encoder.set_time_base(encoder_time_base);
 
-        // 码率
-        if let Some(bitrate) = params.video_bitrate {
-            encoder.set_bit_rate((bitrate * 1000) as usize);
+        // 码率/质量控制策略
+        let supports_crf = matches!(codec_name.as_str(), "libx264" | "libx265");
+        let requested_rc_mode = params.rc_mode.as_deref().map(|s| s.to_lowercase());
+        let auto_crf_mode = requested_rc_mode.is_none()
+            && params.video_bitrate.is_none()
+            && !params.use_hardware_acceleration
+            && supports_crf;
+        let effective_rc_mode = if auto_crf_mode {
+            "crf".to_string()
+        } else {
+            requested_rc_mode.unwrap_or_else(|| "bitrate".to_string())
+        };
+        let effective_crf = if effective_rc_mode == "crf" && supports_crf {
+            Some(params.crf.unwrap_or(if codec_name == "libx265" { 28 } else { 23 }))
+        } else {
+            None
+        };
+
+        let configured_bit_rate = if effective_rc_mode == "crf" {
+            // CRF mode: let encoder target perceptual quality; no fixed bitrate.
+            None
+        } else if let Some(bitrate) = params.video_bitrate {
+            let bits = (bitrate as i64) * 1000;
+            encoder.set_bit_rate(bits as usize);
+            Some(bits)
         } else if decoder.bit_rate() > 0 {
             encoder.set_bit_rate(decoder.bit_rate() as usize);
-        } else if codec.name() == "libtheora" {
+            Some(decoder.bit_rate() as i64)
+        } else if codec_name == "libtheora" {
             // libtheora often requires an explicit bitrate/quality
             encoder.set_bit_rate(1_000_000);
-        }
+            Some(1_000_000)
+        } else {
+            None
+        };
 
         if global_header && codec.name() != "h264_mf" {
             encoder.set_flags(codec::Flags::GLOBAL_HEADER);
@@ -334,13 +418,17 @@ impl<E: TaskEmitter> Transcoder<E> {
 
         // 极速模式设置
         let mut opts = Dictionary::new();
-        if codec.name() != "h264_mf" {
+        if codec_name != "h264_mf" {
             if !params.use_hardware_acceleration {
-                if params.use_ultra_fast_speed {
-                    opts.set("preset", "ultrafast");
+                let preset = if params.use_ultra_fast_speed {
+                    "ultrafast".to_string()
+                } else if let Some(p) = params.preset.clone() {
+                    p
                 } else {
-                    opts.set("preset", "medium");
-                }
+                    // Keep visual quality while reducing output size.
+                    "slow".to_string()
+                };
+                opts.set("preset", preset.as_str());
             } else if cfg!(target_os = "macos") {
                 // Videotoolbox specific options if needed
                 if params.use_ultra_fast_speed {
@@ -376,9 +464,26 @@ impl<E: TaskEmitter> Transcoder<E> {
             opts.set("bufsize", bufsize_str);
         }
 
+        if let Some(g) = params.gop_size {
+            opts.set("g", g.to_string().as_str());
+        }
+        if let Some(profile) = &params.profile {
+            if !profile.trim().is_empty() {
+                opts.set("profile", profile);
+            }
+        }
+        if let Some(tune) = &params.tune {
+            if !tune.trim().is_empty() {
+                opts.set("tune", tune);
+            }
+        }
+        if let Some(crf) = effective_crf {
+            opts.set("crf", crf.to_string().as_str());
+        }
+
         eprintln!(
-            "DEBUG: Encoder params: codec={}, width={}, height={}, pix_fmt={:?}, frame_rate={:?}, time_base={}/{} bitrate_kbps={:?}, hw_accel={}",
-            codec.name(),
+            "DEBUG: Encoder params: codec={}, width={}, height={}, pix_fmt={:?}, frame_rate={:?}, time_base={}/{} bitrate_kbps={:?}, hw_accel={}, rc_mode={}, crf={:?}, preset={:?}, profile={:?}, tune={:?}",
+            codec_name,
             width,
             height,
             chosen_format,
@@ -386,7 +491,12 @@ impl<E: TaskEmitter> Transcoder<E> {
             encoder_time_base.numerator(),
             encoder_time_base.denominator(),
             params.video_bitrate,
-            params.use_hardware_acceleration
+            params.use_hardware_acceleration,
+            effective_rc_mode,
+            effective_crf,
+            params.preset,
+            params.profile,
+            params.tune
         );
 
         let encoder = encoder
@@ -426,10 +536,7 @@ impl<E: TaskEmitter> Transcoder<E> {
             }
             if let Some(img) = &wm.image {
                 if !std::path::Path::new(&img.path).exists() {
-                    log::warn!(
-                        "convert_video watermark image not found: {}",
-                        img.path
-                    );
+                    log::warn!("convert_video watermark image not found: {}", img.path);
                 }
             }
             let filter_spec = wm
@@ -467,6 +574,8 @@ impl<E: TaskEmitter> Transcoder<E> {
             logged_invalid_time_base: false,
             filter: filter_graph,
             filter_enabled,
+            written_bytes: 0,
+            configured_bit_rate,
         })
     }
 
@@ -517,54 +626,41 @@ impl<E: TaskEmitter> Transcoder<E> {
                 let (tb_num, tb_den) = if decoder_tb.0 > 0 && decoder_tb.1 > 0 {
                     (decoder_tb.0 as f64, decoder_tb.1 as f64)
                 } else if self.input_time_base.0 > 0 && self.input_time_base.1 > 0 {
-                    (
-                        self.input_time_base.0 as f64,
-                        self.input_time_base.1 as f64,
-                    )
+                    (self.input_time_base.0 as f64, self.input_time_base.1 as f64)
                 } else {
                     (0.0, 1.0)
                 };
                 let current_time = pts as f64 * tb_num / tb_den;
                 if self.duration > 0.0 {
                     let progress = (current_time / self.duration * 100.0).min(100.0);
-                    self.emitter.emit(
-                        "progress",
-                        Some(progress),
-                        None,
-                        None,
-                    );
+                    self.emitter.emit("progress", Some(progress), None, None);
                 }
             }
 
             // Scale frame
             let mut scaled_frame = frame::Video::empty();
-            self.scaler
-                .run(&decoded, &mut scaled_frame)
-                .map_err(|e| {
-                    format!(
-                        "Scaling failed: {} (decoded fmt={:?} {}x{} pts={:?} -> target fmt={:?} {}x{})",
-                        e,
-                        decoded.format(),
-                        decoded.width(),
-                        decoded.height(),
-                        decoded.pts(),
-                        self.encoder.format(),
-                        scaled_frame.width(),
-                        scaled_frame.height()
-                    )
-                })?;
+            self.scaler.run(&decoded, &mut scaled_frame).map_err(|e| {
+                format!(
+                    "Scaling failed: {} (decoded fmt={:?} {}x{} pts={:?} -> target fmt={:?} {}x{})",
+                    e,
+                    decoded.format(),
+                    decoded.width(),
+                    decoded.height(),
+                    decoded.pts(),
+                    self.encoder.format(),
+                    scaled_frame.width(),
+                    scaled_frame.height()
+                )
+            })?;
 
             let mut pts = decoded.pts().unwrap_or(0);
             if pts >= self.start_time {
                 pts -= self.start_time;
             }
-            
+
             // Rescale PTS from Decoder TB to Encoder TB
-            let mut rescaled_pts = media_common::rescale_ts(
-                pts,
-                self.input_time_base,
-                self.encoder_time_base,
-            );
+            let mut rescaled_pts =
+                media_common::rescale_ts(pts, self.input_time_base, self.encoder_time_base);
             if rescaled_pts <= self.last_pts {
                 rescaled_pts = self.last_pts + 1;
             }
@@ -578,7 +674,7 @@ impl<E: TaskEmitter> Transcoder<E> {
                 self.add_frame_to_filter(&scaled_frame)?;
                 self.get_and_process_filtered_frames(octx, ost_time_base)?;
             } else {
-            self.send_frame_to_encoder(&scaled_frame).map_err(|e| {
+                self.send_frame_to_encoder(&scaled_frame).map_err(|e| {
                 format!(
                     "Encode send failed: {} (scaled fmt={:?} {}x{} pts={:?} rescaled_pts={} input_tb={}/{} encoder_fmt={:?} encoder_tb={}/{})",
                     e,
@@ -595,7 +691,13 @@ impl<E: TaskEmitter> Transcoder<E> {
                 )
             })?;
                 self.receive_and_process_encoded_packets(octx, ost_time_base)
-                    .map_err(|e| format!("Encode receive failed: {} (last pts={:?})", e, scaled_frame.pts()))?;
+                    .map_err(|e| {
+                        format!(
+                            "Encode receive failed: {} (last pts={:?})",
+                            e,
+                            scaled_frame.pts()
+                        )
+                    })?;
             }
             self.frame_count += 1;
         }
@@ -689,6 +791,7 @@ impl<E: TaskEmitter> Transcoder<E> {
                     encoded.set_stream(self.ost_index);
                     encoded.rescale_ts(self.encoder_time_base, ost_time_base);
                     encoded.write_interleaved(octx).map_err(|e| e.to_string())?;
+                    self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
                 }
                 Err(e) => {
                     if is_ffmpeg_again(&e) || e == ffmpeg::Error::Eof {
@@ -717,6 +820,44 @@ impl<E: TaskEmitter> Transcoder<E> {
             }
         }
         Ok(())
+    }
+
+    fn written_bytes(&self) -> u64 {
+        self.written_bytes
+    }
+
+    fn output_stream_details(&self) -> StreamDetails {
+        let codec_name = self
+            .encoder
+            .codec()
+            .map(|c| c.name().to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        StreamDetails {
+            index: self.ost_index,
+            codec_type: "video".to_string(),
+            codec_name: codec_name.clone(),
+            codec_long_name: None,
+            time_base: Some(format!(
+                "{}/{}",
+                self.encoder_time_base.numerator(),
+                self.encoder_time_base.denominator()
+            )),
+            pix_fmt: self
+                .encoder
+                .format()
+                .descriptor()
+                .map(|desc| desc.name().to_string())
+                .or_else(|| Some(format!("{:?}", self.encoder.format()))),
+            width: Some(self.encoder.width()),
+            height: Some(self.encoder.height()),
+            frame_rate: rational_to_rate_string(Rational(
+                self.encoder_time_base.denominator(),
+                self.encoder_time_base.numerator(),
+            )),
+            channels: None,
+            sample_rate: None,
+            bit_rate: self.configured_bit_rate,
+        }
     }
 }
 
@@ -764,9 +905,7 @@ fn build_video_filter_graph(
         .add(&filter::find("buffersink").unwrap(), "out", "")
         .map_err(|e| format!("创建视频 filter sink 失败: {}", e))?;
     {
-        let mut out = graph
-            .get("out")
-            .ok_or("无法获取视频 filter sink")?;
+        let mut out = graph.get("out").ok_or("无法获取视频 filter sink")?;
         out.set_pixel_format(pix_fmt);
     }
     graph
@@ -784,7 +923,7 @@ fn build_video_filter_graph(
 pub fn convert_video<E: TaskEmitter + Clone>(
     emitter: E,
     params: VideoConversionParams,
-) -> Result<(), String> {
+) -> Result<VideoConversionReport, String> {
     ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {}", e))?;
 
     let mut ictx =
@@ -794,7 +933,13 @@ pub fn convert_video<E: TaskEmitter + Clone>(
     let input_audio_indices: Vec<usize> = ictx
         .streams()
         .enumerate()
-        .filter_map(|(i, s)| if s.parameters().medium() == media::Type::Audio { Some(i) } else { None })
+        .filter_map(|(i, s)| {
+            if s.parameters().medium() == media::Type::Audio {
+                Some(i)
+            } else {
+                None
+            }
+        })
         .collect();
 
     let resolved = resolve_video_params(params, &input_audio_indices);
@@ -804,7 +949,6 @@ pub fn convert_video<E: TaskEmitter + Clone>(
 
     // 获取时长和起始时间
     let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
-    log::info!("convert_video duration: raw={} seconds={}", ictx.duration(), duration);
     // 由于 ictx.start_time() 可能不可用，遍历流获取最早的其实时间
     let start_time = ictx
         .streams()
@@ -820,7 +964,8 @@ pub fn convert_video<E: TaskEmitter + Clone>(
     let mut audio_map: HashMap<usize, Vec<usize>> = HashMap::new();
     for track in &resolved.audio_tracks {
         if let Some(ist) = ictx.stream(track.source_stream_index) {
-            let proc = AudioTrackProcessor::new(&ist, &mut octx, &track.encoding, global_start_time)?;
+            let proc =
+                AudioTrackProcessor::new(&ist, &mut octx, &track.encoding, global_start_time)?;
             let idx = audio_processors.len();
             audio_map
                 .entry(track.source_stream_index)
@@ -843,10 +988,13 @@ pub fn convert_video<E: TaskEmitter + Clone>(
     let mut ost_time_bases: Vec<Rational> = Vec::new();
     let mut transcoders = HashMap::new();
     let mut ost_index = octx.nb_streams() as usize;
+    let mut stream_copy_bytes: u64 = 0;
 
     // 如果没有视频流，需要创建黑屏视频流
     let mut black_video_encoder: Option<(encoder::Video, usize, Rational, u32, u32, Rational)> =
         None;
+    let mut black_video_stream_details: Option<StreamDetails> = None;
+    let mut black_video_written_bytes: u64 = 0;
 
     for (ist_index, ist) in ictx.streams().enumerate() {
         let ist_medium = ist.parameters().medium();
@@ -869,7 +1017,11 @@ pub fn convert_video<E: TaskEmitter + Clone>(
                     )?;
                     transcoders.insert(ist_index, transcoder);
                     ost_index += 1;
-                    eprintln!("Info: Mapped Video Input {} to Output {}", ist_index, ost_index - 1);
+                    eprintln!(
+                        "Info: Mapped Video Input {} to Output {}",
+                        ist_index,
+                        ost_index - 1
+                    );
                 } else {
                     stream_mapping[ist_index] = -1; // Ignore
                     eprintln!("Info: Ignored Video Input {} (Not best)", ist_index);
@@ -894,6 +1046,37 @@ pub fn convert_video<E: TaskEmitter + Clone>(
     if !has_video {
         let (encoder, ost_idx, time_base, width, height, frame_rate) =
             create_black_video_encoder(&mut octx, &resolved, duration)?;
+        let codec_name = encoder
+            .codec()
+            .map(|c| c.name().to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        let bit_rate = if resolved.rc_mode.as_deref() == Some("crf") {
+            Some(500_000)
+        } else {
+            resolved.video_bitrate.map(|v| (v as i64) * 1000)
+        };
+        black_video_stream_details = Some(StreamDetails {
+            index: ost_idx,
+            codec_type: "video".to_string(),
+            codec_name,
+            codec_long_name: None,
+            time_base: Some(format!(
+                "{}/{}",
+                time_base.numerator(),
+                time_base.denominator()
+            )),
+            pix_fmt: encoder
+                .format()
+                .descriptor()
+                .map(|desc| desc.name().to_string())
+                .or_else(|| Some(format!("{:?}", encoder.format()))),
+            width: Some(width),
+            height: Some(height),
+            frame_rate: rational_to_rate_string(frame_rate),
+            channels: None,
+            sample_rate: None,
+            bit_rate,
+        });
         black_video_encoder = Some((encoder, ost_idx, time_base, width, height, frame_rate));
         ost_index += 1;
     }
@@ -925,13 +1108,18 @@ pub fn convert_video<E: TaskEmitter + Clone>(
                     let proc = audio_processors
                         .get_mut(proc_idx)
                         .ok_or("音频处理器索引无效")?;
-                     // Get the correct output stream time base for this processor
-                     let ost_index = proc.ost_index;
-                     if ost_index >= ost_time_bases.len() {
-                         return Err(format!("Invalid audio output stream index: {}", ost_index));
-                     }
-                     let ost_time_base = ost_time_bases[ost_index];
-                    proc.process_packet(pkt_ref, ist_time_bases[ist_index], ost_time_base, &mut octx)?;
+                    // Get the correct output stream time base for this processor
+                    let ost_index = proc.ost_index;
+                    if ost_index >= ost_time_bases.len() {
+                        return Err(format!("Invalid audio output stream index: {}", ost_index));
+                    }
+                    let ost_time_base = ost_time_bases[ost_index];
+                    proc.process_packet(
+                        pkt_ref,
+                        ist_time_bases[ist_index],
+                        ost_time_base,
+                        &mut octx,
+                    )?;
                 }
             }
             continue;
@@ -948,7 +1136,9 @@ pub fn convert_video<E: TaskEmitter + Clone>(
                 log::error!("Video decode send failed: {}", e);
                 return Err(format!("Video decode send failed: {}", e));
             }
-            if let Err(e) = transcoder.receive_and_process_decoded_frames(&mut octx, ost_time_bases[mapping as usize]) {
+            if let Err(e) = transcoder
+                .receive_and_process_decoded_frames(&mut octx, ost_time_bases[mapping as usize])
+            {
                 log::error!("Video process failed: {}", e);
                 return Err(format!("Video process failed: {}", e));
             }
@@ -960,6 +1150,7 @@ pub fn convert_video<E: TaskEmitter + Clone>(
             packet
                 .write_interleaved(&mut octx)
                 .map_err(|e| format!("Write packet failed: {}", e))?;
+            stream_copy_bytes = stream_copy_bytes.saturating_add(packet.size() as u64);
         }
     }
 
@@ -993,8 +1184,8 @@ pub fn convert_video<E: TaskEmitter + Clone>(
     for proc in audio_processors.iter_mut() {
         let ost_index = proc.ost_index;
         if ost_index < ost_time_bases.len() {
-             let ost_time_base = ost_time_bases[ost_index];
-             proc.finish(ost_time_base, &mut octx)?;
+            let ost_time_base = ost_time_bases[ost_index];
+            proc.finish(ost_time_base, &mut octx)?;
         }
     }
 
@@ -1003,7 +1194,7 @@ pub fn convert_video<E: TaskEmitter + Clone>(
         black_video_encoder
     {
         let ost_time_base = ost_time_bases[ost_idx];
-        generate_black_video_frames(
+        black_video_written_bytes = generate_black_video_frames(
             &mut encoder,
             &mut octx,
             ost_idx,
@@ -1020,9 +1211,45 @@ pub fn convert_video<E: TaskEmitter + Clone>(
     octx.write_trailer()
         .map_err(|e| format!("Write trailer failed: {}", e))?;
 
-    emitter.emit("complete", Some(100.0), Some(resolved.output_path), None);
+    let mut total_written_bytes = stream_copy_bytes.saturating_add(black_video_written_bytes);
+    let mut output_streams: Vec<StreamDetails> = Vec::new();
 
-    Ok(())
+    for transcoder in transcoders.values() {
+        total_written_bytes = total_written_bytes.saturating_add(transcoder.written_bytes());
+        output_streams.push(transcoder.output_stream_details());
+    }
+
+    for proc in &audio_processors {
+        total_written_bytes = total_written_bytes.saturating_add(proc.written_bytes());
+        output_streams.push(audio_summary_to_stream_details(proc.output_summary()));
+    }
+
+    if let Some(black_stream) = black_video_stream_details.clone() {
+        output_streams.push(black_stream);
+    }
+
+    output_streams.sort_by_key(|s| s.index);
+
+    let output_path = resolved.output_path.clone();
+    let output_media = MediaDetails {
+        path: output_path.clone(),
+        extension: std::path::Path::new(&output_path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|s| s.to_lowercase())
+            .unwrap_or_default(),
+        format_names: resolved.format.clone(),
+        format_long_name: None,
+        duration,
+        size: total_written_bytes,
+        streams: output_streams,
+        tags: HashMap::new(),
+        stream_tags: Vec::new(),
+    };
+
+    emitter.emit("complete", Some(100.0), Some(output_path), None);
+
+    Ok(VideoConversionReport { output_media })
 }
 
 /// 创建黑屏视频编码器（用于音频转视频）
@@ -1137,7 +1364,7 @@ fn generate_black_video_frames(
     frame_rate: Rational,
     duration: f64,
     emitter: impl TaskEmitter,
-) -> Result<(), String> {
+) -> Result<u64, String> {
     let fps = frame_rate.numerator() as f64 / frame_rate.denominator() as f64;
     let total_frames = (duration * fps).ceil() as i64;
 
@@ -1221,6 +1448,7 @@ fn generate_black_video_frames(
 
     let mut frame_count = 0i64;
     let mut last_progress_emitted = 0.0;
+    let mut written_bytes = 0u64;
 
     // 生成并编码帧
     for frame_num in 0..total_frames {
@@ -1240,6 +1468,7 @@ fn generate_black_video_frames(
             encoded
                 .write_interleaved(octx)
                 .map_err(|e| format!("写入黑屏数据包失败: {}", e))?;
+            written_bytes = written_bytes.saturating_add(encoded.size() as u64);
         }
 
         frame_count += 1;
@@ -1275,9 +1504,8 @@ fn generate_black_video_frames(
         encoded
             .write_interleaved(octx)
             .map_err(|e| format!("写入最终黑屏数据包失败: {}", e))?;
+        written_bytes = written_bytes.saturating_add(encoded.size() as u64);
     }
 
-
-
-    Ok(())
+    Ok(written_bytes)
 }

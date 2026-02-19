@@ -1,13 +1,16 @@
-use ffmpeg_next as ffmpeg;
-use ffmpeg::Codec;
 use ffmpeg::format;
+use ffmpeg::Codec;
 use ffmpeg::Rational;
+use ffmpeg_next as ffmpeg;
 
 /// 解析 "1920x1080" 文本为 (w,h)
 pub fn parse_resolution(res: &str) -> Option<(u32, u32)> {
     let parts: Vec<&str> = res.split('x').collect();
     if parts.len() == 2 {
-        if let (Ok(w), Ok(h)) = (parts[0].trim().parse::<u32>(), parts[1].trim().parse::<u32>()) {
+        if let (Ok(w), Ok(h)) = (
+            parts[0].trim().parse::<u32>(),
+            parts[1].trim().parse::<u32>(),
+        ) {
             if w > 0 && h > 0 {
                 return Some((w, h));
             }
@@ -17,7 +20,12 @@ pub fn parse_resolution(res: &str) -> Option<(u32, u32)> {
 }
 
 /// 根据给定宽高或原始尺寸按比例计算目标分辨率。
-pub fn scale_dimensions(src_w: u32, src_h: u32, target_w: Option<u32>, target_h: Option<u32>) -> (u32, u32) {
+pub fn scale_dimensions(
+    src_w: u32,
+    src_h: u32,
+    target_w: Option<u32>,
+    target_h: Option<u32>,
+) -> (u32, u32) {
     match (target_w, target_h) {
         (Some(w), Some(h)) => (w.max(1), h.max(1)),
         (Some(w), None) => {
@@ -50,7 +58,10 @@ pub fn parse_aspect_ratio(ar: Option<&str>) -> Option<Rational> {
     ar.and_then(|s| {
         let parts: Vec<&str> = s.split(':').collect();
         if parts.len() == 2 {
-            if let (Ok(w), Ok(h)) = (parts[0].trim().parse::<i32>(), parts[1].trim().parse::<i32>()) {
+            if let (Ok(w), Ok(h)) = (
+                parts[0].trim().parse::<i32>(),
+                parts[1].trim().parse::<i32>(),
+            ) {
                 if w > 0 && h > 0 {
                     return Some(Rational(w, h));
                 }
@@ -110,12 +121,21 @@ pub fn pick_pixel_format_for_codec(
         return preferred;
     }
 
-    let fallbacks = [
-        format::Pixel::YUV420P,
-        format::Pixel::NV12,
-        format::Pixel::YUV422P,
-        format::Pixel::YUV444P,
-    ];
+    let fallbacks = if use_hw {
+        [
+            format::Pixel::NV12,
+            format::Pixel::YUV420P,
+            format::Pixel::YUV422P,
+            format::Pixel::YUV444P,
+        ]
+    } else {
+        [
+            format::Pixel::YUV420P,
+            format::Pixel::NV12,
+            format::Pixel::YUV422P,
+            format::Pixel::YUV444P,
+        ]
+    };
     for candidate in fallbacks {
         if supported.iter().any(|fmt| *fmt == candidate) {
             return candidate;

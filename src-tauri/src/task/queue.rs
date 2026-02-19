@@ -258,11 +258,16 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
 
     let start_time = get_millis();
     let result = audio::convert_audio(emitter.clone(), params);
-    let error = if let Err(ref e) = result {
-        emitter.emit("error", None, None, Some(e.clone()));
-        Some(e.clone())
-    } else {
-        None
+    let (error, effective_params, output_size_hint) = match result {
+        Ok(report) => (
+            None,
+            serde_json::to_value(&report).ok(),
+            Some(report.output_media.size as i64),
+        ),
+        Err(e) => {
+            emitter.emit("error", None, None, Some(e.clone()));
+            (Some(e), serde_json::to_value(&args).ok(), None)
+        }
     };
 
     record_history(
@@ -274,6 +279,8 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
         start_time,
         error,
         args,
+        effective_params,
+        output_size_hint,
     );
 
     Ok(())
@@ -341,11 +348,16 @@ fn run_convert_video(app: &AppHandle, args: VideoConversionArgs) -> Result<(), S
 
     let start_time = get_millis();
     let result = video::convert_video(emitter.clone(), params);
-    let error = if let Err(ref e) = result {
-        emitter.emit("error", None, None, Some(e.clone()));
-        Some(e.clone())
-    } else {
-        None
+    let (error, effective_params, output_size_hint) = match result {
+        Ok(report) => (
+            None,
+            serde_json::to_value(&report).ok(),
+            Some(report.output_media.size as i64),
+        ),
+        Err(e) => {
+            emitter.emit("error", None, None, Some(e.clone()));
+            (Some(e), serde_json::to_value(&args).ok(), None)
+        }
     };
 
     record_history(
@@ -357,6 +369,8 @@ fn run_convert_video(app: &AppHandle, args: VideoConversionArgs) -> Result<(), S
         start_time,
         error,
         args,
+        effective_params,
+        output_size_hint,
     );
 
     Ok(())
@@ -401,11 +415,16 @@ fn run_convert_gif(app: &AppHandle, args: GifConversionArgs) -> Result<(), Strin
 
     let start_time = get_millis();
     let result = gif::convert_video_to_gif(emitter.clone(), params);
-    let error = if let Err(ref e) = result {
-        emitter.emit("error", None, None, Some(e.clone()));
-        Some(e.clone())
-    } else {
-        None
+    let (error, effective_params, output_size_hint) = match result {
+        Ok(report) => (
+            None,
+            serde_json::to_value(&report).ok(),
+            Some(report.output_media.size as i64),
+        ),
+        Err(e) => {
+            emitter.emit("error", None, None, Some(e.clone()));
+            (Some(e), serde_json::to_value(&args).ok(), None)
+        }
     };
 
     record_history(
@@ -417,6 +436,8 @@ fn run_convert_gif(app: &AppHandle, args: GifConversionArgs) -> Result<(), Strin
         start_time,
         error,
         args,
+        effective_params,
+        output_size_hint,
     );
 
     Ok(())
@@ -452,16 +473,25 @@ fn run_convert_image(app: &AppHandle, mut args: ImageConversionParams) -> Result
     let emitter = events::window_emitter(app, task_id.clone(), "convert".into(), "image".into())?;
 
     let start_time = get_millis();
-    let result = tauri::async_runtime::block_on(image::convert_image_file(args.clone()));
+    let result =
+        tauri::async_runtime::block_on(image::convert_image_file_with_report(args.clone()));
 
-    let (error, final_output_path) = match result {
-        Ok(path) => {
+    let (error, final_output_path, effective_params, output_size_hint) = match result {
+        Ok(report) => {
+            let path = report.output_media.path.clone();
+            let size = report.output_media.size as i64;
+            let effective = serde_json::to_value(&report).ok();
             emitter.emit("complete", Some(100.0), Some(path.clone()), None);
-            (None, path)
+            (None, path, effective, Some(size))
         }
         Err(e) => {
             emitter.emit("error", None, None, Some(e.clone()));
-            (Some(e), args.output_path.clone())
+            (
+                Some(e),
+                args.output_path.clone(),
+                serde_json::to_value(&args).ok(),
+                None,
+            )
         }
     };
 
@@ -474,6 +504,8 @@ fn run_convert_image(app: &AppHandle, mut args: ImageConversionParams) -> Result
         start_time,
         error,
         args,
+        effective_params,
+        output_size_hint,
     );
 
     Ok(())
@@ -483,7 +515,6 @@ fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(),
     let params = crate::services::compress::video::VideoCompressionParams {
         input_path: args.input_path.clone(),
         output_path: args.output_path.clone(),
-        compression_ratio: args.compression_ratio,
         width: args.width,
         height: args.height,
         bitrate: args.bitrate,
@@ -503,11 +534,16 @@ fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(),
 
     let start_time = get_millis();
     let result = crate::services::compress::video::compress_video_file(emitter.clone(), params);
-    let error = if let Err(ref e) = result {
-        emitter.emit("error", None, None, Some(e.clone()));
-        Some(e.clone())
-    } else {
-        None
+    let (error, effective_params, output_size_hint) = match result {
+        Ok(report) => (
+            None,
+            serde_json::to_value(&report).ok(),
+            Some(report.output_media.size as i64),
+        ),
+        Err(e) => {
+            emitter.emit("error", None, None, Some(e.clone()));
+            (Some(e), serde_json::to_value(&args).ok(), None)
+        }
     };
 
     record_history(
@@ -519,6 +555,8 @@ fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(),
         start_time,
         error,
         args,
+        effective_params,
+        output_size_hint,
     );
 
     Ok(())
@@ -544,11 +582,16 @@ fn run_compress_audio(app: &AppHandle, args: AudioCompressionArgs) -> Result<(),
 
     let start_time = get_millis();
     let result = crate::services::compress::audio::compress_audio_file(emitter.clone(), params);
-    let error = if let Err(ref e) = result {
-        emitter.emit("error", None, None, Some(e.clone()));
-        Some(e.clone())
-    } else {
-        None
+    let (error, effective_params, output_size_hint) = match result {
+        Ok(report) => (
+            None,
+            serde_json::to_value(&report).ok(),
+            Some(report.output_media.size as i64),
+        ),
+        Err(e) => {
+            emitter.emit("error", None, None, Some(e.clone()));
+            (Some(e), serde_json::to_value(&args).ok(), None)
+        }
     };
 
     record_history(
@@ -560,6 +603,8 @@ fn run_compress_audio(app: &AppHandle, args: AudioCompressionArgs) -> Result<(),
         start_time,
         error,
         args,
+        effective_params,
+        output_size_hint,
     );
 
     Ok(())
@@ -585,11 +630,16 @@ fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(),
 
     let start_time = get_millis();
     let result = crate::services::compress::image::compress_image_file(emitter.clone(), params);
-    let error = if let Err(ref e) = result {
-        emitter.emit("error", None, None, Some(e.clone()));
-        Some(e.clone())
-    } else {
-        None
+    let (error, effective_params, output_size_hint) = match result {
+        Ok(report) => (
+            None,
+            serde_json::to_value(&report).ok(),
+            Some(report.output_media.size as i64),
+        ),
+        Err(e) => {
+            emitter.emit("error", None, None, Some(e.clone()));
+            (Some(e), serde_json::to_value(&args).ok(), None)
+        }
     };
 
     record_history(
@@ -601,6 +651,8 @@ fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(),
         start_time,
         error,
         args,
+        effective_params,
+        output_size_hint,
     );
 
     Ok(())
@@ -615,10 +667,12 @@ fn record_history<T: Serialize + Send + Sync + 'static>(
     start_time: i64,
     error: Option<String>,
     args: T,
+    effective_params: Option<serde_json::Value>,
+    _output_size_hint: Option<i64>,
 ) {
     tauri::async_runtime::spawn(async move {
         let finished_at = get_millis();
-        let duration = finished_at - start_time;
+        let _duration = finished_at - start_time;
 
         let result_status = if let Some(ref msg) = error {
             if msg == "Task cancelled" {
@@ -630,12 +684,26 @@ fn record_history<T: Serialize + Send + Sync + 'static>(
             "finished"
         };
 
-        // Only try to read file size if successful and path exists
-        let output_size = if error.is_none() {
-            std::fs::metadata(&output_path).ok().map(|m| m.len() as i64)
-        } else {
-            None
-        };
+        let output_media = effective_params
+            .as_ref()
+            .and_then(|v| v.get("output_media"));
+        let output_size = Some(
+            output_media
+                .and_then(|m| m.get("size"))
+                .and_then(|v| v.as_i64().or_else(|| v.as_u64().map(|u| u as i64)))
+                .unwrap_or(0),
+        );
+        let output_duration = Some(
+            output_media
+                .and_then(|m| m.get("duration"))
+                .and_then(|v| {
+                    v.as_f64()
+                        .or_else(|| v.as_i64().map(|i| i as f64))
+                        .or_else(|| v.as_u64().map(|u| u as f64))
+                })
+                .map(|v| format!("{:.3}", v.max(0.0)))
+                .unwrap_or_else(|| "0".to_string()),
+        );
 
         let title = Path::new(&output_path)
             .file_name()
@@ -649,13 +717,15 @@ fn record_history<T: Serialize + Send + Sync + 'static>(
             input_path,
             output_path: Some(output_path),
             output_size,
-            duration: Some(duration),
+            output_duration,
+            duration: None,
             title,
             thumbnail: None,
             created_at: start_time,
             finished_at,
             error_message: error,
             task_data: serde_json::to_string(&args).unwrap_or_default(),
+            effective_params: effective_params.and_then(|v| serde_json::to_string(&v).ok()),
         };
 
         if let Err(e) = task_history::add_history(&item).await {

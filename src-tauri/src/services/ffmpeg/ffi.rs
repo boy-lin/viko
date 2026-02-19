@@ -1,4 +1,4 @@
-﻿// FFmpeg FFI
+// FFmpeg FFI
 use libloading::{Library, Symbol};
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_void};
@@ -204,4 +204,3 @@ where
 
 // 娉ㄦ剰锛氳幏鍙?FFmpeg 鍑芥暟绗﹀彿闇€瑕佸湪 with_ffmpeg_lib 鍥炶皟鍐呴儴杩涜
 // 鍥犱负 Library 鐨勭敓鍛藉懆鏈熼渶瑕佽姝ｇ‘绠＄悊
-

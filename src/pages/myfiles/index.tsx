@@ -90,7 +90,10 @@ const mapHistoryToRecord = (item: MyFileItem): MyFileRecord => {
     path,
     outputPath,
     size: item.output_size ?? undefined,
-    duration: item.duration ?? undefined,
+    duration:
+      item.output_duration !== undefined
+        ? Number(item.output_duration) || undefined
+        : undefined,
     extension,
     displayFormat: extension,
     createdAt: item.created_at,
@@ -431,15 +434,6 @@ export default function MyFilesPage() {
             onValueChange={(v) => setActiveTab(v as FilterType)}
           >
             <TabsList className="bg-transparent p-0 h-auto border-b border-transparent">
-              <TabsTrigger
-                value="favorite"
-                className={cn(
-                  "px-4 py-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
-                  activeTab === "favorite" && "border-primary"
-                )}
-              >
-                我的收藏
-              </TabsTrigger>
               <TabsTrigger
                 value="all"
                 className={cn(

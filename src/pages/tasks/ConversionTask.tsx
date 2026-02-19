@@ -86,28 +86,6 @@ export default function FinishedTask({
         enableSorting: false,
       },
       {
-        accessorKey: "size",
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() =>
-                column.toggleSorting(column.getIsSorted() === "asc")
-              }
-              className="h-auto p-0 hover:bg-transparent"
-            >
-              文件大小
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
-        cell: ({ row }) => (
-          <span className="text-sm font-normal text-foreground">
-            {formatFileSize(row.original.output_size || 0)}
-          </span>
-        ),
-      },
-      {
         accessorKey: "duration",
         header: ({ column }) => {
           return (
@@ -125,7 +103,7 @@ export default function FinishedTask({
         },
         cell: ({ row }) => (
           <span className="text-sm font-normal text-foreground">
-            {formatDuration((row.original.duration || 0) / 1000)}
+            {formatDuration(Number(row.original.output_duration || 0))}
           </span>
         ),
       },
@@ -135,12 +113,9 @@ export default function FinishedTask({
         cell: ({ row }) => {
           const task = row.original;
           let quality = "";
-          let args
+          let args: Record<string, any> = {};
           try {
             args = JSON.parse(task.task_data || "{}");
-            // Determine quality based on task type (inferred from args or an explicit type field if available)
-            // Assuming task.task_type exists based on usage in line 155
-            console.log('args', task.media_type, args);
             switch (task.media_type) {
               case "video":
                 quality = args.resolution;
@@ -160,9 +135,13 @@ export default function FinishedTask({
           } catch (e) {
             console.error("Failed to parse task data", e);
           }
+          const format =
+            typeof args.format === "string" && args.format
+              ? args.format.toUpperCase()
+              : (task.output_path?.split(".").pop() || "-").toUpperCase();
           return (
             <div className="flex flex-col">
-              <span className="text-sm">{args.format.toUpperCase()}</span>
+              <span className="text-sm">{format}</span>
               {quality && (
                 <span className="text-xs text-muted-foreground">{quality}</span>
               )}

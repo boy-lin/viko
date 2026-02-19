@@ -1,40 +1,43 @@
-﻿use std::sync::Arc;
-use std::time::Instant;
-use ffmpeg::{
-    codec, encoder, format, frame, media, packet, software, Rational,
-};
-use ffmpeg_next as ffmpeg;
-use serde::Deserialize;
-use ringbuf::{HeapRb, Producer, Consumer};
-use crate::media_common;
 use crate::events::TaskEmitter;
+use crate::media_common;
+use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
+use ffmpeg::{codec, encoder, format, frame, media, packet, software, Rational};
+use ffmpeg_next as ffmpeg;
+use ringbuf::{Consumer, HeapRb, Producer};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Instant;
 
 /// 视频压缩参数（全部可选，使用默认值兜底）
 #[derive(Deserialize, Clone)]
 pub struct VideoCompressionParams {
     pub input_path: String,
     pub output_path: String,
-    pub compression_ratio: Option<u32>,  // 0-100 (兼容旧参数)
-    pub width: Option<u32>,              // 目标宽度
-    pub height: Option<u32>,             // 目标高度
-    pub bitrate: Option<u32>,            // 视频码率 kbps
-    pub frame_rate: Option<f32>,         // 目标帧率
-    pub codec: Option<String>,           // h264/h265/vp9/av1
-    pub keyframe_interval: Option<u32>,  // GOP 间隔
-    pub color_depth: Option<u32>,        // 8/10/12 bit
-    pub aspect_ratio: Option<String>,    // 16:9 等
-    pub remove_audio: Option<bool>,      // 去除音轨
-    pub audio_bitrate: Option<u32>,      // 音频码率 kbps
-    pub preset: Option<String>,          // ultrafast/fast/medium/slow
+    pub width: Option<u32>,             // 目标宽度
+    pub height: Option<u32>,            // 目标高度
+    pub bitrate: Option<u32>,           // 视频码率 kbps
+    pub frame_rate: Option<f32>,        // 目标帧率
+    pub codec: Option<String>,          // h264/h265/vp9/av1
+    pub keyframe_interval: Option<u32>, // GOP 间隔
+    pub color_depth: Option<u32>,       // 8/10/12 bit
+    pub aspect_ratio: Option<String>,   // 16:9 等
+    pub remove_audio: Option<bool>,     // 去除音轨
+    pub audio_bitrate: Option<u32>,     // 音频码率 kbps
+    pub preset: Option<String>,         // ultrafast/fast/medium/slow
     pub use_hardware_acceleration: Option<bool>, // 是否启用硬件编码（如可用）
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VideoCompressionReport {
+    pub output_media: MediaDetails,
 }
 
 fn calc_video_bitrate(decoder_bitrate: i64, params: &VideoCompressionParams) -> usize {
     let base = if let Some(br) = params.bitrate {
         (br as i64) * 1000
-    } else if let Some(ratio) = params.compression_ratio {
-        let ref_bitrate = if decoder_bitrate > 0 { decoder_bitrate } else { 2_000_000 };
-        (ref_bitrate as f64 * ratio as f64 / 100.0) as i64
+    } else if decoder_bitrate > 0 {
+        decoder_bitrate
     } else {
         2_000_000
     };
@@ -44,9 +47,8 @@ fn calc_video_bitrate(decoder_bitrate: i64, params: &VideoCompressionParams) -> 
 fn calc_audio_bitrate(decoder_bitrate: i64, params: &VideoCompressionParams) -> usize {
     let base = if let Some(br) = params.audio_bitrate {
         (br as i64) * 1000
-    } else if let Some(ratio) = params.compression_ratio {
-        let ref_bitrate = if decoder_bitrate > 0 { decoder_bitrate } else { 128_000 };
-        (ref_bitrate as f64 * ratio as f64 / 100.0) as i64
+    } else if decoder_bitrate > 0 {
+        decoder_bitrate
     } else {
         128_000
     };
@@ -67,6 +69,8 @@ struct VideoProcessor<E: TaskEmitter> {
     duration: f64,
     last_emit_at: Instant,
     emitter: E,
+    written_bytes: u64,
+    target_bitrate: usize,
 }
 
 impl<E: TaskEmitter> VideoProcessor<E> {
@@ -91,6 +95,7 @@ impl<E: TaskEmitter> VideoProcessor<E> {
                 encoder::find(cid).or_else(|| encoder::find_by_name(cid.name()))
             })
             .ok_or_else(|| "未找到匹配的视频编码器".to_string())?;
+        let selected_codec_name = codec.name().to_string();
 
         let mut video_ost = octx
             .add_stream(codec)
@@ -163,10 +168,38 @@ impl<E: TaskEmitter> VideoProcessor<E> {
         opts.set("preset", params.preset.as_deref().unwrap_or("medium"));
         let g_value = params.keyframe_interval.unwrap_or(250).to_string();
         opts.set("g", g_value.as_str());
+        // Enforce explicit bitrate control to avoid encoder drifting to visually lossless output.
+        let target_kbps = (target_bitrate / 1000).max(1);
+        let maxrate_kbps = target_kbps;
+        let bufsize_kbps = (target_kbps * 2).max(1);
+        let target_kbps_s = format!("{}k", target_kbps);
+        let maxrate_kbps_s = format!("{}k", maxrate_kbps);
+        let bufsize_kbps_s = format!("{}k", bufsize_kbps);
+        opts.set("b:v", &target_kbps_s);
+        opts.set("maxrate", &maxrate_kbps_s);
+        opts.set("bufsize", &bufsize_kbps_s);
 
         let encoder = encoder
             .open_with(opts)
             .map_err(|e| format!("无法打开视频编码器: {}", e))?;
+
+        log::info!(
+            "compress_video video init: codec={} hw={} src={}x{} src_pix_fmt={:?} dst={}x{} dst_pix_fmt={:?} target_bitrate={} frame_rate={:?} gop={} b:v={} maxrate={} bufsize={}",
+            selected_codec_name,
+            use_hw,
+            decoder.width(),
+            decoder.height(),
+            decoder.format(),
+            target_w,
+            target_h,
+            target_pixel_format,
+            target_bitrate,
+            target_frame_rate,
+            params.keyframe_interval.unwrap_or(250),
+            target_kbps_s,
+            maxrate_kbps_s,
+            bufsize_kbps_s
+        );
 
         video_ost.set_parameters(&encoder);
         let encoder_time_base_after = encoder.time_base();
@@ -203,6 +236,8 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             duration,
             last_emit_at: Instant::now(),
             emitter,
+            written_bytes: 0,
+            target_bitrate,
         })
     }
 
@@ -248,7 +283,10 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             let progress = if self.duration > 0.0 {
                 let current_time = if let Some(pts_value) = pts {
                     let (num, den) = if self.stream_time_base.denominator() > 0 {
-                        (self.stream_time_base.numerator(), self.stream_time_base.denominator())
+                        (
+                            self.stream_time_base.numerator(),
+                            self.stream_time_base.denominator(),
+                        )
                     } else {
                         (self.decoder.time_base().0, self.decoder.time_base().1)
                     };
@@ -272,7 +310,10 @@ impl<E: TaskEmitter> VideoProcessor<E> {
         }
     }
 
-    fn receive_and_write_packets(&mut self, octx: &mut format::context::Output) -> Result<(), String> {
+    fn receive_and_write_packets(
+        &mut self,
+        octx: &mut format::context::Output,
+    ) -> Result<(), String> {
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             encoded.set_stream(self.ost_index);
@@ -280,6 +321,7 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             encoded
                 .write_interleaved(octx)
                 .map_err(|e| format!("写入视频数据包失败: {}", e))?;
+            self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
         }
         Ok(())
     }
@@ -290,6 +332,37 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             .map_err(|e| format!("发送视频 EOF 失败: {}", e))?;
         self.receive_and_write_packets(octx)?;
         Ok(())
+    }
+
+    fn output_stream_details(&self) -> StreamDetails {
+        let codec_name = self
+            .encoder
+            .codec()
+            .map(|c| c.name().to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        StreamDetails {
+            index: self.ost_index,
+            codec_type: "video".to_string(),
+            codec_name,
+            codec_long_name: None,
+            time_base: Some(format!(
+                "{}/{}",
+                self.final_encoder_time_base.numerator(),
+                self.final_encoder_time_base.denominator()
+            )),
+            pix_fmt: self
+                .encoder
+                .format()
+                .descriptor()
+                .map(|desc| desc.name().to_string())
+                .or_else(|| Some(format!("{:?}", self.encoder.format()))),
+            width: Some(self.encoder.width()),
+            height: Some(self.encoder.height()),
+            frame_rate: Some(format!("{:.2}", self.fps.max(1.0))),
+            channels: None,
+            sample_rate: None,
+            bit_rate: Some(self.target_bitrate as i64),
+        }
     }
 }
 
@@ -308,6 +381,8 @@ struct AudioProcessor {
     target_format: format::Sample,
     target_rate: u32,
     stream_index: usize,
+    written_bytes: u64,
+    target_bitrate: usize,
 }
 
 impl AudioProcessor {
@@ -373,6 +448,17 @@ impl AudioProcessor {
             .open_as(codec)
             .map_err(|e| format!("无法打开音频编码器: {}", e))?;
 
+        let selected_codec_name = codec.name().to_string();
+        log::info!(
+            "compress_video audio init: codec={} src_rate={} src_channels={} dst_rate={} dst_channels={} target_bitrate={}",
+            selected_codec_name,
+            decoder.rate(),
+            decoder.channel_layout().channels(),
+            target_rate,
+            target_layout.channels(),
+            target_bitrate
+        );
+
         audio_ost_stream.set_parameters(&encoder);
 
         let encoder_time_base_after = encoder.time_base();
@@ -421,19 +507,36 @@ impl AudioProcessor {
             target_format,
             target_rate,
             stream_index,
+            written_bytes: 0,
+            target_bitrate,
         })
     }
 
-    fn pick_best_format(supported: &[format::Sample], current: format::Sample) -> Result<format::Sample, String> {
+    fn pick_best_format(
+        supported: &[format::Sample],
+        current: format::Sample,
+    ) -> Result<format::Sample, String> {
         if supported.contains(&current) {
             return Ok(current);
         }
         supported
             .iter()
             .find(|&&fmt| fmt == format::Sample::F32(format::sample::Type::Planar))
-            .or_else(|| supported.iter().find(|&&fmt| fmt == format::Sample::F32(format::sample::Type::Packed)))
-            .or_else(|| supported.iter().find(|&&fmt| fmt == format::Sample::I16(format::sample::Type::Planar)))
-            .or_else(|| supported.iter().find(|&&fmt| fmt == format::Sample::I16(format::sample::Type::Packed)))
+            .or_else(|| {
+                supported
+                    .iter()
+                    .find(|&&fmt| fmt == format::Sample::F32(format::sample::Type::Packed))
+            })
+            .or_else(|| {
+                supported
+                    .iter()
+                    .find(|&&fmt| fmt == format::Sample::I16(format::sample::Type::Planar))
+            })
+            .or_else(|| {
+                supported
+                    .iter()
+                    .find(|&&fmt| fmt == format::Sample::I16(format::sample::Type::Packed))
+            })
             .or_else(|| supported.first())
             .cloned()
             .ok_or_else(|| "编码器没有支持的采样格式".to_string())
@@ -548,7 +651,10 @@ impl AudioProcessor {
         }
     }
 
-    fn receive_and_write_packets(&mut self, octx: &mut format::context::Output) -> Result<(), String> {
+    fn receive_and_write_packets(
+        &mut self,
+        octx: &mut format::context::Output,
+    ) -> Result<(), String> {
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             encoded.set_stream(self.ost_index);
@@ -568,6 +674,7 @@ impl AudioProcessor {
             encoded
                 .write_interleaved(octx)
                 .map_err(|e| format!("写入音频数据包失败: {}", e))?;
+            self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
         }
         Ok(())
     }
@@ -586,17 +693,56 @@ impl AudioProcessor {
         self.receive_and_write_packets(octx)?;
         Ok(())
     }
+
+    fn output_stream_details(&self) -> StreamDetails {
+        let codec_name = self
+            .encoder
+            .codec()
+            .map(|c| c.name().to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        StreamDetails {
+            index: self.ost_index,
+            codec_type: "audio".to_string(),
+            codec_name,
+            codec_long_name: None,
+            time_base: Some(format!(
+                "{}/{}",
+                self.encoder_time_base.numerator(),
+                self.encoder_time_base.denominator()
+            )),
+            pix_fmt: None,
+            width: None,
+            height: None,
+            frame_rate: None,
+            channels: Some(self.target_layout.channels() as u16),
+            sample_rate: Some(self.target_rate),
+            bit_rate: Some(self.target_bitrate as i64),
+        }
+    }
 }
 
 /// Main entry point
 pub fn compress_video_file<E: TaskEmitter + Clone>(
     emitter: E,
     params: VideoCompressionParams,
-) -> Result<(), String> {
+) -> Result<VideoCompressionReport, String> {
     ffmpeg::init().map_err(|e| format!("FFmpeg init: {}", e))?;
+    log::info!(
+        "compress_video start: input={} output={} codec={:?} bitrate={:?} frame_rate={:?} preset={:?} gop={:?} use_hw={:?}",
+        params.input_path,
+        params.output_path,
+        params.codec,
+        params.bitrate,
+        params.frame_rate,
+        params.preset,
+        params.keyframe_interval,
+        params.use_hardware_acceleration
+    );
 
-    let mut ictx = format::input(&params.input_path).map_err(|e| format!("IO Input Error: {}", e))?;
-    let mut octx = format::output(&params.output_path).map_err(|e| format!("IO Output Error: {}", e))?;
+    let mut ictx =
+        format::input(&params.input_path).map_err(|e| format!("IO Input Error: {}", e))?;
+    let mut octx =
+        format::output(&params.output_path).map_err(|e| format!("IO Output Error: {}", e))?;
 
     let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
 
@@ -604,7 +750,8 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
         .streams()
         .best(media::Type::Video)
         .ok_or("No Video Stream")?;
-    let mut video_proc = VideoProcessor::new(&video_stream, &mut octx, &params, duration, emitter.clone())?;
+    let mut video_proc =
+        VideoProcessor::new(&video_stream, &mut octx, &params, duration, emitter.clone())?;
     let video_idx = video_stream.index();
 
     let mut audio_proc = None;
@@ -614,8 +761,7 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
         }
     }
 
-    octx
-        .write_header()
+    octx.write_header()
         .map_err(|e| format!("Head Write Error: {}", e))?;
 
     for (stream, packet) in ictx.packets() {
@@ -636,9 +782,43 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
         audio.finish(&mut octx)?;
     }
 
-    octx
-        .write_trailer()
+    octx.write_trailer()
         .map_err(|e| format!("Trailer Error: {}", e))?;
-    emitter.emit("complete", Some(100.0), Some(params.output_path), None);
-    Ok(())
+    let output_path = params.output_path.clone();
+    emitter.emit("complete", Some(100.0), Some(output_path.clone()), None);
+    let mut total_written_bytes = video_proc.written_bytes;
+    let mut streams = vec![video_proc.output_stream_details()];
+    if let Some(audio) = audio_proc.as_ref() {
+        total_written_bytes = total_written_bytes.saturating_add(audio.written_bytes);
+        streams.push(audio.output_stream_details());
+    }
+    streams.sort_by_key(|s| s.index);
+    let estimated_avg_bitrate = if duration > 0.0 {
+        Some(((total_written_bytes as f64 * 8.0) / duration) as i64)
+    } else {
+        None
+    };
+    log::info!(
+        "compress_video done: output={} duration={:.3}s written_bytes={} estimated_avg_bitrate_bps={:?}",
+        output_path,
+        duration,
+        total_written_bytes,
+        estimated_avg_bitrate
+    );
+    let output_media = MediaDetails {
+        path: output_path.clone(),
+        extension: std::path::Path::new(&output_path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|s| s.to_lowercase())
+            .unwrap_or_default(),
+        format_names: "video".to_string(),
+        format_long_name: None,
+        duration,
+        size: total_written_bytes,
+        streams,
+        tags: HashMap::new(),
+        stream_tags: Vec::new(),
+    };
+    Ok(VideoCompressionReport { output_media })
 }

@@ -39,11 +39,19 @@ mod tests {
         );
 
         let output_dir = get_test_output_dir();
-        let safe_name = config.name.replace(" ", "_").replace("/", "-").to_lowercase();
+        let safe_name = config
+            .name
+            .replace(" ", "_")
+            .replace("/", "-")
+            .to_lowercase();
         let output_filename = format!("{}.{}", safe_name, config.format);
         let output_path = output_dir.join(output_filename);
 
-        println!("Testing image conversion: {} -> {}", config.name, output_path.display());
+        println!(
+            "Testing image conversion: {} -> {}",
+            config.name,
+            output_path.display()
+        );
 
         let params = ImageConversionParams {
             input_path: input_path.to_string_lossy().to_string(),
@@ -56,9 +64,17 @@ mod tests {
         let result = tauri::async_runtime::block_on(convert_image_file(params));
         match result {
             Ok(_) => {
-                assert!(output_path.exists(), "Output file should exist: {:?}", output_path);
+                assert!(
+                    output_path.exists(),
+                    "Output file should exist: {:?}",
+                    output_path
+                );
                 let metadata = fs::metadata(&output_path).unwrap();
-                assert!(metadata.len() > 0, "Output file should not be empty: {:?}", output_path);
+                assert!(
+                    metadata.len() > 0,
+                    "Output file should not be empty: {:?}",
+                    output_path
+                );
                 println!("  [PASS] {}", config.name);
             }
             Err(e) => {
@@ -77,13 +93,48 @@ mod tests {
         let input_path = input_opt.unwrap();
 
         let image_tests = vec![
-            ImageTestConfig { name: "JPEG", format: "jpg", width: Some(640), height: None },
-            ImageTestConfig { name: "PNG", format: "png", width: Some(640), height: None },
-            ImageTestConfig { name: "WEBP", format: "webp", width: Some(640), height: None },
-            ImageTestConfig { name: "GIF", format: "gif", width: Some(320), height: None },
-            ImageTestConfig { name: "BMP", format: "bmp", width: Some(640), height: None },
-            ImageTestConfig { name: "TIFF", format: "tiff", width: Some(640), height: None },
-            ImageTestConfig { name: "ICO", format: "ico", width: Some(256), height: Some(256) },
+            ImageTestConfig {
+                name: "JPEG",
+                format: "jpg",
+                width: Some(640),
+                height: None,
+            },
+            ImageTestConfig {
+                name: "PNG",
+                format: "png",
+                width: Some(640),
+                height: None,
+            },
+            ImageTestConfig {
+                name: "WEBP",
+                format: "webp",
+                width: Some(640),
+                height: None,
+            },
+            ImageTestConfig {
+                name: "GIF",
+                format: "gif",
+                width: Some(320),
+                height: None,
+            },
+            ImageTestConfig {
+                name: "BMP",
+                format: "bmp",
+                width: Some(640),
+                height: None,
+            },
+            ImageTestConfig {
+                name: "TIFF",
+                format: "tiff",
+                width: Some(640),
+                height: None,
+            },
+            ImageTestConfig {
+                name: "ICO",
+                format: "ico",
+                width: Some(256),
+                height: Some(256),
+            },
         ];
 
         println!("\n--- Running Image Format Tests ---");

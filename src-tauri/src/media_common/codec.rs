@@ -1,5 +1,5 @@
-use ffmpeg_next as ffmpeg;
 use ffmpeg::{codec, format};
+use ffmpeg_next as ffmpeg;
 
 /// 选择视频编码器，支持软编码/简单硬件映射。
 /// 返回 ffmpeg 编码器句柄，若未找到则返回 None。
@@ -21,7 +21,7 @@ pub fn select_video_encoder(name: Option<&str>, use_hw: bool) -> Option<ffmpeg::
             }
         }
         ("h264", false) | ("avc", false) => vec!["libx264"],
-        
+
         ("h265", true) | ("hevc", true) => {
             if cfg!(target_os = "macos") {
                 vec!["hevc_videotoolbox", "libx265"]
@@ -35,7 +35,7 @@ pub fn select_video_encoder(name: Option<&str>, use_hw: bool) -> Option<ffmpeg::
 
         ("vp9", _) => vec!["libvpx-vp9"],
         ("av1", _) => vec!["libaom-av1", "libsvtav1", "av1_nvenc", "av1_qsv"],
-        
+
         // 直接传 ffmpeg codec 名称 (e.g. "mpeg4", "libx264")
         (other, _) => vec![other],
     };
@@ -101,10 +101,7 @@ pub fn pick_channel_layout(
     desired.unwrap_or(input)
 }
 
-pub fn pick_sample_format(
-    codec: &ffmpeg::Codec,
-    preferred: format::Sample,
-) -> format::Sample {
+pub fn pick_sample_format(codec: &ffmpeg::Codec, preferred: format::Sample) -> format::Sample {
     if let Ok(audio) = codec.audio() {
         if let Some(formats) = audio.formats() {
             for fmt in formats {

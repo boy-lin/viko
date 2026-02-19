@@ -79,16 +79,7 @@ export default function TaskItem({ task }: TaskItemProps) {
   }, [task.args?.input_path]);
 
   const handleConvertSingle = async () => {
-    const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
-    await getMediaTaskQueue().addCompressTasks([
-      {
-        kind: task.taskType,
-        args: {
-          ...task.args,
-          output_path: `${outputDir}/${task.outputTitle}.${task.args.format}`
-        },
-      },
-    ]);
+    await useCompressorStore.getState().pushTasksToQueue([task])
   };
 
   if (loading) {

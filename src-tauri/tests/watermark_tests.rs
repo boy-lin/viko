@@ -1,12 +1,13 @@
-
 #[cfg(test)]
 mod tests {
     use audio_video_kit_lib::events::MockEmitter;
     use audio_video_kit_lib::services::convert::video::{convert_video, VideoConversionParams};
-    use audio_video_kit_lib::services::media_tools::watermark::{WatermarkConfig, TextWatermark, ImageWatermark};
+    use audio_video_kit_lib::services::media_tools::watermark::{
+        ImageWatermark, TextWatermark, WatermarkConfig,
+    };
+    use image::{Rgba, RgbaImage};
     use std::fs;
     use std::path::PathBuf;
-    use image::{RgbaImage, Rgba};
 
     fn get_test_output_dir() -> PathBuf {
         let dir = std::env::temp_dir().join("watermark_tests");
@@ -18,9 +19,9 @@ mod tests {
 
     fn get_test_video_file() -> Option<PathBuf> {
         // Use the same logic as video_converter_tests
-         let paths = vec![
-             PathBuf::from("D:\\temp\\test_video\\4.mp4"),
-             // Add a reliable relative path if possible, or create a dummy video via ffmpeg if needed
+        let paths = vec![
+            PathBuf::from("D:\\temp\\test_video\\4.mp4"),
+            // Add a reliable relative path if possible, or create a dummy video via ffmpeg if needed
         ];
         for path in paths {
             if path.exists() {
@@ -48,7 +49,7 @@ mod tests {
         if path.exists() {
             return path.to_string_lossy().to_string();
         }
-        // Fallback or skip if not found? 
+        // Fallback or skip if not found?
         // Try generic linux path just in case
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf".to_string()
     }
@@ -66,8 +67,8 @@ mod tests {
 
         let font_path = get_system_font();
         if !std::path::Path::new(&font_path).exists() {
-             println!("SKIPPING: Font not found at {}", font_path);
-             return;
+            println!("SKIPPING: Font not found at {}", font_path);
+            return;
         }
 
         let watermark = WatermarkConfig {
@@ -89,20 +90,33 @@ mod tests {
             format: Some("mp4".to_string()),
             video_encoder: Some("libx264".to_string()),
             watermark: Some(watermark),
-            
+
             // Defaults
             video_bitrate: Some(1000),
-            min_bitrate: None, max_bitrate: None, rc_mode: None,
-            resolution: Some("640x360".to_string()), frame_rate: None,
-            aspect_ratio: None, scaling_mode: None, gop_size: None, preset: Some("ultrafast".to_string()),
-            profile: None, tune: None, color_space: None, bit_depth: None, crop: None,
-            audio_tracks: None, default_audio_params: None, audio_encoder: None,
-            use_hardware_acceleration: false, use_ultra_fast_speed: true,
+            min_bitrate: None,
+            max_bitrate: None,
+            rc_mode: None,
+            resolution: Some("640x360".to_string()),
+            frame_rate: None,
+            aspect_ratio: None,
+            scaling_mode: None,
+            gop_size: None,
+            preset: Some("ultrafast".to_string()),
+            profile: None,
+            tune: None,
+            color_space: None,
+            bit_depth: None,
+            crop: None,
+            audio_tracks: None,
+            default_audio_params: None,
+            audio_encoder: None,
+            use_hardware_acceleration: false,
+            use_ultra_fast_speed: true,
         };
 
         let emitter = MockEmitter::new();
         let result = convert_video(emitter, params);
-        
+
         match result {
             Ok(_) => {
                 assert!(output_path.exists());
@@ -117,7 +131,9 @@ mod tests {
     #[test]
     fn test_video_watermark_image() {
         let input_opt = get_test_video_file();
-        if input_opt.is_none() { return; }
+        if input_opt.is_none() {
+            return;
+        }
         let input_path = input_opt.unwrap();
         let output_dir = get_test_output_dir();
         let output_path = output_dir.join("video_image_wm.mp4");
@@ -140,21 +156,33 @@ mod tests {
             format: Some("mp4".to_string()),
             video_encoder: Some("libx264".to_string()),
             watermark: Some(watermark),
-            
+
             // Defaults
             video_bitrate: Some(1000),
             resolution: Some("640x360".to_string()),
             preset: Some("ultrafast".to_string()),
-            min_bitrate: None, max_bitrate: None, rc_mode: None, frame_rate: None,
-            aspect_ratio: None, scaling_mode: None, gop_size: None,
-            profile: None, tune: None, color_space: None, bit_depth: None, crop: None,
-            audio_tracks: None, default_audio_params: None, audio_encoder: None,
-            use_hardware_acceleration: false, use_ultra_fast_speed: true,
+            min_bitrate: None,
+            max_bitrate: None,
+            rc_mode: None,
+            frame_rate: None,
+            aspect_ratio: None,
+            scaling_mode: None,
+            gop_size: None,
+            profile: None,
+            tune: None,
+            color_space: None,
+            bit_depth: None,
+            crop: None,
+            audio_tracks: None,
+            default_audio_params: None,
+            audio_encoder: None,
+            use_hardware_acceleration: false,
+            use_ultra_fast_speed: true,
         };
 
         let emitter = MockEmitter::new();
         let result = convert_video(emitter, params);
-        
+
         match result {
             Ok(_) => {
                 assert!(output_path.exists());

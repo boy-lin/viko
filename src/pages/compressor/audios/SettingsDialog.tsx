@@ -23,8 +23,10 @@ import { AudioEncoderSelect } from "@/components/biz-form/AudioEncoderSelect";
 import { AudioBitDepthSelect } from "@/components/biz-form/AudioBitDepthSelect";
 import { CompressAudioTaskArgs } from "@/lib/bridge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Settings } from "lucide-react";
+import { Info, Settings } from "lucide-react";
 import type { SelectOption } from "@/types/options";
+import { useTranslation } from "react-i18next";
+import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 const AUDIO_BITRATES = [64, 96, 128, 160, 192, 256, 320];
 const AUDIO_BITRATE_OPTIONS: SelectOption[] = [
   { value: "auto", label: "自动" },
@@ -53,6 +55,13 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   config,
   onConfigChange,
 }) => {
+  const { t } = useTranslation("converter");
+  const renderAudioFieldLabel = (text: string) => (
+    <div className="flex items-center gap-2">
+      <Info className="w-4 h-4 text-muted-foreground" />
+      <Label className="text-muted-foreground">{text}</Label>
+    </div>
+  );
 
   const parseOptionalInt = (value: string) => {
     if (!value.trim()) return undefined;
@@ -70,27 +79,17 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
     <div className="flex flex-col space-y-4">
       <div className="space-y-4">
         <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              压缩百分比: {config.ratio}%
-            </label>
-            <Slider
-              value={[config.ratio]}
-              onValueChange={(ratio: number[]) => {
-                onConfigChange({
-                  ratio: ratio[0],
-                });
-              }}
-              min={10}
-              max={100}
-              step={5}
-              className="w-full"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              压缩到原文件大小的 {config.ratio}%（通过调整比特率实现）
-            </p>
-          </div>
+
           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              {renderAudioFieldLabel(t("settings.audio.fields.encoder"))}
+              <AudioEncoderSelect
+                format={config.format}
+                value={config.audio_encoder}
+                placeholder={t("settings.audio.fields.encoderPlaceholder")}
+                onValueChange={(val) => onConfigChange({ audio_encoder: val })}
+              />
+            </div>
             <div className="space-y-2">
               <Label>采样率</Label>
               <Input
@@ -104,44 +103,51 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
                 }
               />
             </div>
-            <AudioBitrateSelect
-              value={config.bitrate === undefined ? "auto" : String(config.bitrate)}
-              options={AUDIO_BITRATE_OPTIONS}
-              onValueChange={(val) => {
-                if (val === "auto") {
-                  onConfigChange({ bitrate: undefined });
-                  return;
-                }
-                onConfigChange({ bitrate: parseOptionalInt(val) });
-              }}
-            />
-            <AudioEncoderSelect
-              format={config.format}
-              value={config.audio_encoder}
-              onValueChange={(val) => onConfigChange({ audio_encoder: val })}
-            />
-            <AudioChannelSelect
-              value={config.channels === undefined ? "auto" : String(config.channels)}
-              options={AUDIO_CHANNEL_OPTIONS}
-              onValueChange={(val) => {
-                if (val === "auto") {
-                  onConfigChange({ channels: undefined });
-                  return;
-                }
-                onConfigChange({ channels: parseOptionalInt(val) });
-              }}
-            />
-            <AudioBitDepthSelect
-              label="位深"
-              value={config.bit_depth === undefined ? "auto" : String(config.bit_depth)}
-              onValueChange={(val) => {
-                if (val === "auto") {
-                  onConfigChange({ bit_depth: undefined });
-                  return;
-                }
-                onConfigChange({ bit_depth: parseOptionalInt(val) });
-              }}
-            />
+            <div className="space-y-2">
+              {renderAudioFieldLabel(t("settings.audio.fields.bitrate"))}
+              <AudioBitrateSelect
+                value={config.bitrate === undefined ? "auto" : String(config.bitrate)}
+                options={AUDIO_BITRATE_OPTIONS}
+                placeholder={t("settings.audio.fields.bitratePlaceholder")}
+                onValueChange={(val) => {
+                  if (val === "auto") {
+                    onConfigChange({ bitrate: undefined });
+                    return;
+                  }
+                  onConfigChange({ bitrate: parseOptionalInt(val) });
+                }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              {renderAudioFieldLabel(t("settings.audio.fields.channel"))}
+              <AudioChannelSelect
+                value={config.channels === undefined ? "auto" : String(config.channels)}
+                options={AUDIO_CHANNEL_OPTIONS}
+                placeholder={t("settings.audio.fields.channelPlaceholder")}
+                onValueChange={(val) => {
+                  if (val === "auto") {
+                    onConfigChange({ channels: undefined });
+                    return;
+                  }
+                  onConfigChange({ channels: parseOptionalInt(val) });
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              {renderAudioFieldLabel(t("settings.audio.fields.bitDepth"))}
+              <AudioBitDepthSelect
+                value={config.bit_depth === undefined ? "auto" : String(config.bit_depth)}
+                placeholder={t("settings.audio.fields.bitDepthPlaceholder")}
+                onValueChange={(val) => {
+                  if (val === "auto") {
+                    onConfigChange({ bit_depth: undefined });
+                    return;
+                  }
+                  onConfigChange({ bit_depth: parseOptionalInt(val) });
+                }}
+              />
+            </div>
             <div className="space-y-2">
               <Label>静音阈值 (dB)</Label>
               <Input
@@ -205,6 +211,23 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
           </DialogHeader>
           <div className="flex overflow-hidden flex-col px-4">
             <ScrollArea className="flex-1">
+              <div className="py-4">
+                <Slider
+                  value={[config.ratio]}
+                  onValueChange={(ratio: number[]) => {
+                    const next = getAudioCompressionPresetByRatio(
+                      ratio[0],
+                      config.format
+                    );
+                    onConfigChange(next.patch);
+                  }}
+                  min={10}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                />
+              </div>
+
               <CompressionSettingsForm
                 config={config}
                 onConfigChange={onConfigChange}
@@ -230,37 +253,54 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
-    <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent className="w-[28rem] h-[72vh] p-0">
-        <div className="flex flex-col h-full">
-          <div className="space-y-1 pb-3 p-4">
-            <div className="text-sm font-semibold">压缩设置</div>
-            <div className="text-xs text-muted-foreground">
-              修改全局压缩参数
+    <div className="flex">
+      <Slider
+        value={[config.ratio]}
+        onValueChange={(ratio: number[]) => {
+          const next = getAudioCompressionPresetByRatio(
+            ratio[0],
+            config.format
+          );
+          onConfigChange(next.patch);
+        }}
+        min={10}
+        max={100}
+        step={5}
+        className="w-full"
+      />
+      <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent className="w-[28rem] h-[72vh] p-0">
+          <div className="flex flex-col h-full">
+            <div className="space-y-1 pb-3 p-4">
+              <div className="text-sm font-semibold">压缩设置</div>
+              <div className="text-xs text-muted-foreground">
+                修改全局压缩参数
+              </div>
+            </div>
+            <ScrollArea className="flex-1 overflow-hidden min-h-0 px-4">
+              <CompressionSettingsForm
+                config={config}
+                onConfigChange={onConfigChange}
+              />
+            </ScrollArea>
+            <div
+              className={` p-4 flex justify-end gap-2 border-t sticky bottom-0 bg-popover/95 backdrop-blur`}
+            >
+              <Button className="cursor-pointer" variant="outline" onClick={() => setIsSettingsOpen(false)}>
+                取消
+              </Button>
+              <Button className="cursor-pointer" onClick={() => {
+                onSave && onSave(config);
+                setIsSettingsOpen(false);
+              }}>保存</Button>
             </div>
           </div>
-          <ScrollArea className="flex-1 overflow-hidden min-h-0 px-4">
-            <CompressionSettingsForm
-              config={config}
-              onConfigChange={onConfigChange}
-            />
-          </ScrollArea>
-          <div
-            className={` p-4 flex justify-end gap-2 border-t sticky bottom-0 bg-popover/95 backdrop-blur`}
-          >
-            <Button className="cursor-pointer" variant="outline" onClick={() => setIsSettingsOpen(false)}>
-              取消
-            </Button>
-            <Button className="cursor-pointer" onClick={() => {
-              onSave && onSave(config);
-              setIsSettingsOpen(false);
-            }}>保存</Button>
-          </div>
-        </div>
 
-      </PopoverContent>
+        </PopoverContent>
 
-    </Popover>
+      </Popover>
+    </div>
+
   );
 };

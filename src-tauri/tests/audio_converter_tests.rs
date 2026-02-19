@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use audio_video_kit_lib::events::MockEmitter;
     use audio_video_kit_lib::audio_converter::{convert_audio, AudioConversionParams};
+    use audio_video_kit_lib::events::MockEmitter;
     use ffmpeg_next as ffmpeg;
     use std::fs;
     use std::path::PathBuf;
@@ -32,7 +32,7 @@ mod tests {
              PathBuf::from("/Users/haolin/Downloads/Funvideo/[twitter] NoContextHumans—2023.09.20—1704860883099193465—6DF4Gs7d1zwial2Y.mp4"),
             //  PathBuf::from("D:\\temp\\test_video\\4.mp4"),
         ];
-        
+
         for path in paths {
             if path.exists() {
                 return Some(fs::canonicalize(path).unwrap());
@@ -44,15 +44,28 @@ mod tests {
     fn run_audio_test(config: &AudioTestConfig, input_path: &PathBuf) {
         println!(
             "Config: name={}, format={}, codec={:?}, bitrate={:?}, rate={:?}, ch={:?}",
-            config.name, config.format, config.codec, config.bitrate, config.sample_rate, config.channels
+            config.name,
+            config.format,
+            config.codec,
+            config.bitrate,
+            config.sample_rate,
+            config.channels
         );
 
         let output_dir = get_test_output_dir();
-        let safe_name = config.name.replace(" ", "_").replace("/", "-").to_lowercase();
+        let safe_name = config
+            .name
+            .replace(" ", "_")
+            .replace("/", "-")
+            .to_lowercase();
         let output_filename = format!("{}.{}", safe_name, config.format);
         let output_path = output_dir.join(output_filename);
 
-        println!("Testing audio conversion: {} -> {}", config.name, output_path.display());
+        println!(
+            "Testing audio conversion: {} -> {}",
+            config.name,
+            output_path.display()
+        );
 
         // Parse bitrate string to f32 (kbps)
         let bitrate_val = config.bitrate.and_then(|s| {
@@ -82,9 +95,17 @@ mod tests {
 
         match result {
             Ok(_) => {
-                assert!(output_path.exists(), "Output file should exist: {:?}", output_path);
+                assert!(
+                    output_path.exists(),
+                    "Output file should exist: {:?}",
+                    output_path
+                );
                 let metadata = fs::metadata(&output_path).unwrap();
-                assert!(metadata.len() > 0, "Output file should not be empty: {:?}", output_path);
+                assert!(
+                    metadata.len() > 0,
+                    "Output file should not be empty: {:?}",
+                    output_path
+                );
                 println!("  [PASS] {}", config.name);
             }
             Err(e) => {
@@ -150,13 +171,45 @@ mod tests {
             // OGG
             // AudioTestConfig { name: "OGG Opus", format: "ogg", codec: Some("libopus"), bitrate: Some("192k"), sample_rate: None, channels: None, use_hardware_acceleration: false },
             // CAF
-            AudioTestConfig { name: "CAF ALAC", format: "caf", codec: Some("alac"), bitrate: None, sample_rate: Some(44100), channels: Some(2), use_hardware_acceleration: false },
+            AudioTestConfig {
+                name: "CAF ALAC",
+                format: "caf",
+                codec: Some("alac"),
+                bitrate: None,
+                sample_rate: Some(44100),
+                channels: Some(2),
+                use_hardware_acceleration: false,
+            },
             // AMR
-            AudioTestConfig { name: "AMR-NB", format: "amr", codec: Some("libopencore_amrnb"), bitrate: Some("12.2k"), sample_rate: Some(8000), channels: Some(1), use_hardware_acceleration: false },
+            AudioTestConfig {
+                name: "AMR-NB",
+                format: "amr",
+                codec: Some("libopencore_amrnb"),
+                bitrate: Some("12.2k"),
+                sample_rate: Some(8000),
+                channels: Some(1),
+                use_hardware_acceleration: false,
+            },
             // MP2
-            AudioTestConfig { name: "MP2", format: "mp2", codec: Some("mp2"), bitrate: Some("192k"), sample_rate: Some(44100), channels: Some(2), use_hardware_acceleration: false },
-            // M4B 
-            AudioTestConfig { name: "M4B AAC", format: "m4b", codec: Some("aac"), bitrate: Some("128k"), sample_rate: Some(44100), channels: Some(2), use_hardware_acceleration: false },
+            AudioTestConfig {
+                name: "MP2",
+                format: "mp2",
+                codec: Some("mp2"),
+                bitrate: Some("192k"),
+                sample_rate: Some(44100),
+                channels: Some(2),
+                use_hardware_acceleration: false,
+            },
+            // M4B
+            AudioTestConfig {
+                name: "M4B AAC",
+                format: "m4b",
+                codec: Some("aac"),
+                bitrate: Some("128k"),
+                sample_rate: Some(44100),
+                channels: Some(2),
+                use_hardware_acceleration: false,
+            },
         ];
 
         println!("\n--- Running Audio Format Tests ---");

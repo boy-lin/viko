@@ -1,5 +1,6 @@
 import { useState, useEffect, useTransition } from "react";
 import { remove } from "@tauri-apps/plugin-fs";
+import { useNavigate } from "react-router-dom";
 import { bridge } from "@/lib/bridge";
 import { RefreshCw, Search } from "lucide-react";
 import {
@@ -21,12 +22,16 @@ const TABS = [
   { label: "压缩", value: "compress" },
 ];
 
-export default function TaskListPage() {
-  const [activeTab, setActiveTab] = useState<"convert" | "compress">("convert");
+interface TaskListPageProps {
+  mode: "convert" | "compress";
+}
+
+export default function TaskListPage({ mode }: TaskListPageProps) {
   const [globalFilter, setGlobalFilter] = useState("");
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const navigate = useNavigate();
   const deleteOutputOnRemove = useSettingsStore(
     (state) => state.deleteOutputOnRemove
   );
@@ -37,10 +42,8 @@ export default function TaskListPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Assuming bridge.getTaskHistory takes limit, offset, and taskType
-      const type = activeTab === "convert" ? "convert" : "compress";
       const keyword = globalFilter.trim();
-      const history = await bridge.getTaskHistory(100, 0, type, keyword || undefined);
+      const history = await bridge.getTaskHistory(10, 0, mode, keyword || undefined);
       startTransition(() => {
         setTasks(history);
       });
@@ -73,7 +76,7 @@ export default function TaskListPage() {
 
   useEffect(() => {
     fetchData();
-  }, [activeTab]);
+  }, [mode]);
 
   useEffect(() => {
     useAppStore.getState().resetUnreadFinishedCount();
@@ -84,8 +87,8 @@ export default function TaskListPage() {
       <CardHeader className="rounded-none px-0 flex-shrink-0">
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
           <Tabs
-            value={activeTab}
-            onValueChange={(v) => setActiveTab(v as any)}
+            value={mode}
+            onValueChange={(v) => navigate(`/tasks/${v}`)}
             className="w-full md:w-max"
           >
             <TabsList>
@@ -122,7 +125,7 @@ export default function TaskListPage() {
       </CardHeader>
       <CardContent className="px-0 flex flex-col flex-1 min-h-0">
         <div className="relative flex-1 overflow-auto">
-          {activeTab === "convert" ? (
+          {mode === "convert" ? (
             <ConverterFinishedTask
               tasks={tasks}
               loading={loading}

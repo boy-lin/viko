@@ -1,7 +1,5 @@
 import React from "react";
 import { AUDIO_ENCODERS } from "@/data/encoders";
-import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -16,12 +14,14 @@ interface AudioEncoderSelectProps {
   format?: string;
   value?: string;
   onValueChange: (value: string) => void;
+  placeholder?: string;
 }
 
 export const AudioEncoderSelect: React.FC<AudioEncoderSelectProps> = ({
   format,
   value,
   onValueChange,
+  placeholder,
 }) => {
   const filteredEncoders = React.useMemo(() => {
     if (!format) return AUDIO_ENCODERS;
@@ -35,23 +35,17 @@ export const AudioEncoderSelect: React.FC<AudioEncoderSelectProps> = ({
   }, [format]);
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Info className="w-4 h-4 text-muted-foreground" />
-        <Label className="text-muted-foreground">Encoder :</Label>
-      </div>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer">
-          <SelectValue placeholder="Select encoder" />
-        </SelectTrigger>
-        <SelectContent>
-          {filteredEncoders.map((encoder) => (
-            <SelectItem key={encoder.value} value={encoder.value}>
-              {encoder.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className="cursor-pointer">
+        <SelectValue placeholder={placeholder ?? "Select encoder"} />
+      </SelectTrigger>
+      <SelectContent>
+        {filteredEncoders.map((encoder) => (
+          <SelectItem key={encoder.value} value={encoder.value}>
+            {encoder.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };
