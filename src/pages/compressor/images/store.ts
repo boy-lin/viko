@@ -20,7 +20,10 @@ const baseDefaultImageCompressionConfig = {
 } as CompressImageTaskArgs;
 export const defaultImageCompressionConfig = {
   ...baseDefaultImageCompressionConfig,
-  ...getImageCompressionPresetByQuality(baseDefaultImageCompressionConfig.quality).patch,
+  ...getImageCompressionPresetByQuality(
+    baseDefaultImageCompressionConfig.quality,
+    baseDefaultImageCompressionConfig.format
+  ).patch,
 } as CompressImageTaskArgs;
 
 interface CompressorState {
@@ -116,9 +119,13 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
   },
   updateGlobalConfig: (config) => {
     const current = get().imageConfig;
+    const merged = {
+      ...current,
+      ...config,
+    } as CompressImageTaskArgs;
     const presetPatch =
       config.quality !== undefined
-        ? getImageCompressionPresetByQuality(config.quality).patch
+        ? getImageCompressionPresetByQuality(config.quality, merged.format).patch
         : {};
     const next = {
       ...current,

@@ -10,6 +10,12 @@ import {
 } from "@tanstack/react-table";
 import { ArrowUpDown, FolderOpen, RefreshCw, Search, Trash2 } from "lucide-react";
 import { bridge, type TaskHistoryItem } from "@/lib/bridge";
+import { useSession } from "@/lib/auth-client";
+import {
+  deleteRemoteTaskHistory,
+  getRemoteTaskHistory,
+  syncLocalTaskHistoryToRemote,
+} from "@/services/task-history-api";
 import { formatDuration } from "@/lib/time";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { Button } from "@/components/ui/button";
@@ -57,6 +63,7 @@ const getFileFormat = (item: TaskHistoryItem) => {
 };
 
 export default function TaskHistoryPage() {
+  const { data: session } = useSession();
   const [globalFilter, setGlobalFilter] = useState("");
   const [tasks, setTasks] = useState<TaskHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,16 +75,40 @@ export default function TaskHistoryPage() {
     setLoading(true);
     try {
       const keyword = globalFilter.trim();
-      const history = await bridge.getTaskHistory(
-        PAGE_SIZE + 1,
-        targetPage * PAGE_SIZE,
-        undefined,
-        keyword || undefined
-      );
-      setHasNextPage(history.length > PAGE_SIZE);
-      setTasks(history.slice(0, PAGE_SIZE));
+      if (session?.user) {
+        await syncLocalTaskHistoryToRemote();
+        const remote = await getRemoteTaskHistory({
+          page: targetPage + 1,
+          limit: PAGE_SIZE,
+          keyword: keyword || undefined,
+        });
+        setHasNextPage(Boolean(remote.hasMore));
+        setTasks(remote.list || []);
+      } else {
+        const history = await bridge.getTaskHistory(
+          PAGE_SIZE + 1,
+          targetPage * PAGE_SIZE,
+          undefined,
+          keyword || undefined
+        );
+        setHasNextPage(history.length > PAGE_SIZE);
+        setTasks(history.slice(0, PAGE_SIZE));
+      }
     } catch (error) {
       console.error("Failed to fetch task history:", error);
+      try {
+        const keyword = globalFilter.trim();
+        const history = await bridge.getTaskHistory(
+          PAGE_SIZE + 1,
+          targetPage * PAGE_SIZE,
+          undefined,
+          keyword || undefined
+        );
+        setHasNextPage(history.length > PAGE_SIZE);
+        setTasks(history.slice(0, PAGE_SIZE));
+      } catch (localError) {
+        console.error("Failed to fetch local task history fallback:", localError);
+      }
     } finally {
       setLoading(false);
     }
@@ -85,7 +116,7 @@ export default function TaskHistoryPage() {
 
   useEffect(() => {
     fetchData(page);
-  }, [page]);
+  }, [page, session?.user?.id]);
 
   useEffect(() => {
     useAppStore.getState().resetUnreadFinishedCount();
@@ -102,7 +133,11 @@ export default function TaskHistoryPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await bridge.deleteTaskHistory(id);
+      if (session?.user) {
+        await deleteRemoteTaskHistory(id);
+      } else {
+        await bridge.deleteTaskHistory(id);
+      }
       setTasks((prev) => prev.filter((item) => item.id !== id));
     } catch (error) {
       console.error("Failed to delete task history:", error);

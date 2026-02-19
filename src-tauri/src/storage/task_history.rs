@@ -191,6 +191,20 @@ pub async fn add_history(item: &TaskHistoryItem) -> Result<()> {
         .build_sqlx(SqliteQueryBuilder);
 
     sqlx::query_with(&sql, values).execute(&pool).await?;
+    sqlx::query(
+        r#"
+        DELETE FROM task_history
+        WHERE id NOT IN (
+            SELECT id
+            FROM task_history
+            ORDER BY finished_at DESC
+            LIMIT 200
+        )
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+    crate::storage::favorites::cleanup_orphans().await.ok();
     Ok(())
 }
 

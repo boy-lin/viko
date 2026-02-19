@@ -2,6 +2,12 @@ import { useState, useEffect, useTransition } from "react";
 import { remove } from "@tauri-apps/plugin-fs";
 import { useNavigate } from "react-router-dom";
 import { bridge } from "@/lib/bridge";
+import { useSession } from "@/lib/auth-client";
+import {
+  deleteRemoteTaskHistory,
+  getRemoteTaskHistory,
+  syncLocalTaskHistoryToRemote,
+} from "@/services/task-history-api";
 import { RefreshCw, Search } from "lucide-react";
 import {
   Card,
@@ -27,6 +33,7 @@ interface TaskListPageProps {
 }
 
 export default function TaskListPage({ mode }: TaskListPageProps) {
+  const { data: session } = useSession();
   const [globalFilter, setGlobalFilter] = useState("");
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -43,12 +50,34 @@ export default function TaskListPage({ mode }: TaskListPageProps) {
     setLoading(true);
     try {
       const keyword = globalFilter.trim();
-      const history = await bridge.getTaskHistory(10, 0, mode, keyword || undefined);
-      startTransition(() => {
-        setTasks(history);
-      });
+      if (session?.user) {
+        await syncLocalTaskHistoryToRemote();
+        const remote = await getRemoteTaskHistory({
+          page: 1,
+          limit: 10,
+          taskType: mode,
+          keyword: keyword || undefined,
+        });
+        startTransition(() => {
+          setTasks(remote.list || []);
+        });
+      } else {
+        const history = await bridge.getTaskHistory(10, 0, mode, keyword || undefined);
+        startTransition(() => {
+          setTasks(history);
+        });
+      }
     } catch (error) {
       console.error("Failed to fetch history:", error);
+      try {
+        const keyword = globalFilter.trim();
+        const history = await bridge.getTaskHistory(10, 0, mode, keyword || undefined);
+        startTransition(() => {
+          setTasks(history);
+        });
+      } catch (localError) {
+        console.error("Failed to fetch local history fallback:", localError);
+      }
     } finally {
       setLoading(false);
     }
@@ -67,7 +96,11 @@ export default function TaskListPage({ mode }: TaskListPageProps) {
       }
     }
     try {
-      await bridge.deleteTaskHistory(id);
+      if (session?.user) {
+        await deleteRemoteTaskHistory(id);
+      } else {
+        await bridge.deleteTaskHistory(id);
+      }
       setTasks((prev) => prev.filter((item) => item.id !== id));
     } catch (error) {
       console.error("Failed to delete task history:", error);
@@ -76,7 +109,7 @@ export default function TaskListPage({ mode }: TaskListPageProps) {
 
   useEffect(() => {
     fetchData();
-  }, [mode]);
+  }, [mode, session?.user?.id]);
 
   useEffect(() => {
     useAppStore.getState().resetUnreadFinishedCount();

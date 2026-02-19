@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { User } from '@/types/user';
+import { getUserInfoApi } from '@/services/user-api';
 
 interface UserState {
     userInfo: User | null;
@@ -18,20 +19,8 @@ export const useUserStore = create<UserState>((set) => ({
     fetchUserInfo: async () => {
         set({ isLoading: true, error: null });
         try {
-            const response = await fetch('/api/user/get-user-info', {
-                method: 'POST',
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch user info');
-            }
-
-            const data = await response.json();
-            if (data.code === 0 && data.data) {
-                set({ userInfo: data.data, isLoading: false });
-            } else {
-                throw new Error(data.msg || 'Failed to fetch user info');
-            }
+            const user = await getUserInfoApi();
+            set({ userInfo: user, isLoading: false });
         } catch (error) {
             set({ error: (error as Error).message, isLoading: false, userInfo: null });
         }

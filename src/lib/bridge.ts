@@ -8,6 +8,7 @@ import {
 import { extractFilenameFromPath } from "./utils";
 import { MediaTaskType } from "@/types/tasks";
 import { handleDirectoryToFiles } from "./file";
+import { analytics } from "@/lib/analytics";
 
 export type DownloadProgress = {
   stage: string;
@@ -515,6 +516,7 @@ class MediaTaskQueue {
     });
 
     this.ensureEventListener();
+    this.trackTaskSubmit("tasks_submit_convert", tasks);
     console.log("Adding convert tasks", tasks);
     await bridge.invoke("media_task_submit", { tasks, priority });
   }
@@ -529,6 +531,7 @@ class MediaTaskQueue {
       }
     });
     this.ensureEventListener();
+    this.trackTaskSubmit("tasks_submit_compress", tasks);
     console.log("Adding compress tasks", tasks);
     await bridge.invoke("media_task_submit", { tasks, priority });
   }
@@ -591,6 +594,22 @@ class MediaTaskQueue {
       // The original code tried to stop listener if pendingTaskIds is empty.
       this.tryStopListener();
     }
+  }
+
+  private trackTaskSubmit(
+    eventName: "tasks_submit_convert" | "tasks_submit_compress",
+    tasks: Array<{ kind: MediaTaskType; args: unknown }>
+  ): void {
+    analytics.track(eventName, {
+      task_meta: tasks.map((task) => {
+        const args = (task.args || {}) as Record<string, unknown>;
+        return {
+          kind: task.kind,
+          format: typeof args.format === "string" ? args.format : undefined,
+          has_watermark: Boolean(args.watermark),
+        };
+      }),
+    });
   }
 }
 

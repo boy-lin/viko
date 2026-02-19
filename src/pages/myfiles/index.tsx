@@ -141,7 +141,6 @@ export default function MyFilesPage() {
           (pageNum - 1) * pageSize,
           keyword || undefined
         );
-        console.log("history", history);
         const newFiles = history.map(mapHistoryToRecord);
 
         if (isReset) {
@@ -156,7 +155,6 @@ export default function MyFilesPage() {
         // Ideally we'd have indexes for all, but for now we load all if non-date sort
         if (isReset) {
           const history = await bridge.getMyFiles(1000, 0, keyword || undefined);
-          console.log("history", history);
           setMyFiles(history.map(mapHistoryToRecord));
           setHasMore(false);
         }

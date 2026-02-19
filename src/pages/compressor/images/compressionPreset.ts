@@ -16,10 +16,18 @@ const clampQuality = (quality: number) => {
   return Math.max(0, Math.min(100, Math.round(quality)));
 };
 
+const supportsTransparency = (format?: string) => {
+  if (!format) return true;
+  const normalized = format.toLowerCase();
+  return ["png", "webp", "avif", "gif", "tiff", "ico"].includes(normalized);
+};
+
 export const getImageCompressionPresetByQuality = (
-  quality: number
+  quality: number,
+  format?: string
 ): ImageCompressionPresetResult => {
   const normalizedQuality = clampQuality(quality);
+  const canKeepTransparency = supportsTransparency(format);
 
   if (normalizedQuality < 20) {
     return {
@@ -57,7 +65,7 @@ export const getImageCompressionPresetByQuality = (
         color_mode: "RGB",
         dpi: 96,
         strip_metadata: true,
-        keep_transparency: true,
+        keep_transparency: canKeepTransparency,
         crop_whitespace: false,
       },
     };
@@ -70,9 +78,8 @@ export const getImageCompressionPresetByQuality = (
       color_mode: "RGB",
       dpi: 150,
       strip_metadata: false,
-      keep_transparency: true,
+      keep_transparency: canKeepTransparency,
       crop_whitespace: false,
     },
   };
 };
-

@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { ThemeProvider } from "next-themes";
-// import { analytics } from "@/lib/analytics";
+import { analytics } from "@/lib/analytics";
 import { Toaster } from 'sonner'
 import { ErrorBoundary } from '@/components/error/ErrorBoundary'
 // import '@/services/errorMonitor' 
@@ -10,7 +10,7 @@ import "./lib/i18n"; // Import i18n config
 import App from "./App";
 import "./App.css";
 
-// analytics.init();
+analytics.init();
 
 import "./lib/log";
 

@@ -92,13 +92,16 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="col-span-2 py-2">
-        <Slider
-          value={[config.quality]}
-          onValueChange={(value) => {
-            const next = getImageCompressionPresetByQuality(value[0]);
-            onConfigChange(next.patch);
-          }}
-          min={10}
+          <Slider
+            value={[config.quality]}
+            onValueChange={(value) => {
+              const next = getImageCompressionPresetByQuality(
+                value[0],
+                config.format
+              );
+              onConfigChange(next.patch);
+            }}
+            min={10}
           max={100}
           step={5}
           className="w-full"
@@ -211,20 +214,22 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
 
       <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <PopoverTrigger asChild>
-          <Button
-            variant="ghost"
-            className="h-9 w-[10em] cursor-pointer"
-          >
-            <Slider
-              value={[config.quality]}
-              disabled
-              min={10}
-              max={100}
-              step={5}
-              className="w-full"
-            />
-            <Settings className="w-4 h-4 text-muted-foreground" />
-          </Button>
+          {trigger ?? (
+            <Button
+              variant="ghost"
+              className="h-9 w-[10em] cursor-pointer"
+            >
+              <Slider
+                value={[config.quality]}
+                disabled
+                min={10}
+                max={100}
+                step={5}
+                className="w-full"
+              />
+              <Settings className="w-4 h-4 text-muted-foreground" />
+            </Button>
+          )}
         </PopoverTrigger>
         <PopoverContent className="w-[28rem] h-[72vh] p-0">
           <div className="flex flex-col h-full">

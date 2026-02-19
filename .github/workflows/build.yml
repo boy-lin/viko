@@ -16,7 +16,7 @@ jobs:
         include:
           # - platform: "macos-latest" # ARM64 (M1/M2)
           #   args: "--target aarch64-apple-darwin"
-          - platform: "macos-13"     # Intel (x86_64) - latest available for Intel
+          - platform: "macos-12"     # Intel (x86_64) - Reverted to macos-12 as macos-13 is unsupported; expect wait times
             args: "--target x86_64-apple-darwin"
           - platform: "windows-latest"
             args: "--target x86_64-pc-windows-msvc"
@@ -44,21 +44,26 @@ jobs:
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
-          # Install vcpkg if not available
-          if (-not (Get-Command vcpkg -ErrorAction SilentlyContinue)) {
+          # Install or update vcpkg to specific commit
+          $vcpkgPath = "C:\vcpkg"
+          if (Test-Path $vcpkgPath) {
+            Write-Host "vcpkg detected at $vcpkgPath"
+          } else {
             Write-Host "Installing vcpkg..."
-            git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
-            # Checkout a specific commit to ensure FFmpeg 7.1 is installed (avoid 8.x mismatch)
-            # Commit from Dec 2024 which likely has FFmpeg 7.1
-            cd C:\vcpkg
-            git checkout 5c64372
-            .\bootstrap-vcpkg.bat
-            echo "C:\vcpkg" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            git clone https://github.com/microsoft/vcpkg.git $vcpkgPath
           }
+
+          # Checkout a specific commit to ensure FFmpeg 7.1 is installed (avoid 8.x mismatch)
+          # Commit from Dec 2024 which likely has FFmpeg 7.1
+          cd $vcpkgPath
+          Write-Host "Checking out vcpkg commit 5c64372..."
+          git checkout 5c64372
+          .\bootstrap-vcpkg.bat
+          echo "$vcpkgPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           
           # Install FFmpeg (with x264/x265) and pkgconf via vcpkg
           Write-Host "Installing FFmpeg and pkgconf via vcpkg..."
-          vcpkg install "ffmpeg[gpl,x264,x265]:x64-windows" pkgconf:x64-windows --recurse
+          .\vcpkg.exe install "ffmpeg[gpl,x264,x265]:x64-windows" pkgconf:x64-windows --recurse
           
           # Set PKG_CONFIG_PATH
           $vcpkgRoot = if ($env:VCPKG_ROOT) { $env:VCPKG_ROOT } else { "C:\vcpkg" }
