@@ -8,8 +8,9 @@ import { CompressVideoTaskArgs } from "@/lib/bridge";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getMediaTaskQueue } from "@/lib/bridge";
 import { getVideoCompressionPresetByRatio } from "./compressionPreset";
+import { FormatEnum } from "@/types/options";
 
-export const defaultVideoCompressionConfig = getVideoCompressionPresetByRatio(50).patch as CompressVideoTaskArgs;
+export const defaultVideoCompressionConfig = getVideoCompressionPresetByRatio(50, FormatEnum.MP4).patch as CompressVideoTaskArgs;
 
 interface CompressorState {
   compressingTasks: CompressingTask[];
@@ -74,7 +75,6 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
           ...task.args, ...updates.args
         }
       };
-      console.log("updateTaskById", id, updates);
       const currentState = get();
       if (["finished", "cancelled"].includes(updatedTask.status)) {
         set({

@@ -566,7 +566,6 @@ fn run_compress_audio(app: &AppHandle, args: AudioCompressionArgs) -> Result<(),
     let params = crate::services::compress::audio::AudioCompressionParams {
         input_path: args.input_path.clone(),
         output_path: args.output_path.clone(),
-        compression_ratio: Some(args.compression_ratio),
         sample_rate: args.sample_rate,
         bitrate: args.bitrate,
         codec: args.codec.clone(),

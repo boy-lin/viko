@@ -17,22 +17,25 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { formatFileSize } from "@/lib/file";
+import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 
 interface TaskItemProps {
   task: CompressingTask;
 }
 
-const buildDefaultArgs = (taskId: string, path: string, mediaTitle: string, mediaDetails: any) => {
-  const outputDir = useSettingsStore.getState().getOutputDir(path);
-
+const buildDefaultArgs = (task: CompressingTask, details: any) => {
+  const title = details.title || details.path.split(/[/\\]/).pop() || "Unknown";
+  const taskId = task.id;
+  const path = task.args.input_path;
+  const format = details.extension;
   const outputArgs: any = {
+    ...getAudioCompressionPresetByRatio(task.args.ratio, format).patch,
     task_id: taskId,
-    title: mediaTitle,
-    format: mediaDetails.extension,
+    title,
+    format,
     input_path: path,
-    output_path: ""
   };
-  outputArgs.output_path = `${outputDir}/${mediaTitle}.${outputArgs.format}`;
+
   const containerDefinition = formatToDefinition.get(outputArgs.format);
   outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder;
 
@@ -57,15 +60,14 @@ export default function TaskItem({ task }: TaskItemProps) {
       try {
         const details = await bridge.getMediaDetails(task.args.input_path);
         if (!active) return;
-        const title = details.title || details.path.split(/[/\\]/).pop() || "Unknown";
-        const outputArgs = buildDefaultArgs(task.id, details.path, title, details);
+        const outputArgs = buildDefaultArgs(task, details);
         startTransition(() => {
           updateTaskById(task.id, {
             mediaDetails: details,
             args: outputArgs,
             fileType: FileType.Audio,
             taskType: MediaTaskType.CompressAudio,
-            outputTitle: title,
+            outputTitle: outputArgs.title,
           });
         });
       } catch (error: any) {
@@ -101,12 +103,16 @@ export default function TaskItem({ task }: TaskItemProps) {
   }
 
   const taskArgs = task.args as CompressAudioTaskArgs;
+  const firstAudioStream = task.mediaDetails?.streams?.find((s) => s.codec_type === "audio");
   const originalInfoParts = [
     task.mediaDetails?.extension?.toUpperCase?.(),
     formatFileSize(task.mediaDetails?.size),
+    firstAudioStream?.bit_rate,
+    firstAudioStream?.sample_rate,
   ];
   const targetInfoParts = [
     taskArgs.format?.toUpperCase?.(),
+    '-',
     taskArgs.bitrate,
     taskArgs.sample_rate,
   ];

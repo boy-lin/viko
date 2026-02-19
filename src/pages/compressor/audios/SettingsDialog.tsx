@@ -48,7 +48,6 @@ interface CompressionSettingsFormProps {
 
 interface CompressionSettingsProps extends CompressionSettingsFormProps {
   onSave: (config: CompressAudioTaskArgs) => void;
-  trigger?: React.ReactNode;
 }
 
 const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
@@ -81,13 +80,29 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         <div className="space-y-4">
 
           <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2 py-4">
+              <Slider
+                value={[config.ratio]}
+                onValueChange={(ratio: number[]) => {
+                  const next = getAudioCompressionPresetByRatio(
+                    ratio[0],
+                    config.format
+                  );
+                  onConfigChange(next.patch);
+                }}
+                min={10}
+                max={100}
+                step={5}
+                className="w-full"
+              />
+            </div>
             <div className="space-y-2">
               {renderAudioFieldLabel(t("settings.audio.fields.encoder"))}
               <AudioEncoderSelect
                 format={config.format}
-                value={config.audio_encoder}
+                value={config.codec}
                 placeholder={t("settings.audio.fields.encoderPlaceholder")}
-                onValueChange={(val) => onConfigChange({ audio_encoder: val })}
+                onValueChange={(val) => onConfigChange({ codec: val })}
               />
             </div>
             <div className="space-y-2">
@@ -211,22 +226,7 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
           </DialogHeader>
           <div className="flex overflow-hidden flex-col px-4">
             <ScrollArea className="flex-1">
-              <div className="py-4">
-                <Slider
-                  value={[config.ratio]}
-                  onValueChange={(ratio: number[]) => {
-                    const next = getAudioCompressionPresetByRatio(
-                      ratio[0],
-                      config.format
-                    );
-                    onConfigChange(next.patch);
-                  }}
-                  min={10}
-                  max={100}
-                  step={5}
-                  className="w-full"
-                />
-              </div>
+
 
               <CompressionSettingsForm
                 config={config}
@@ -234,7 +234,7 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
               />
             </ScrollArea>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex flex-row items-center justify-between space-y-0 pt-8 pb-2 px-4 border-b">
             <Button variant="outline" onClick={() => setOpen(false)}>
               取消
             </Button>
@@ -249,27 +249,29 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
   );
 };
 
-export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({ trigger, config, onConfigChange, onSave }) => {
+export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({ config, onConfigChange, onSave }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
     <div className="flex">
-      <Slider
-        value={[config.ratio]}
-        onValueChange={(ratio: number[]) => {
-          const next = getAudioCompressionPresetByRatio(
-            ratio[0],
-            config.format
-          );
-          onConfigChange(next.patch);
-        }}
-        min={10}
-        max={100}
-        step={5}
-        className="w-full"
-      />
+
       <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            className="h-9 w-[10em] cursor-pointer"
+          >
+            <Slider
+              value={[config.ratio]}
+              disabled
+              min={10}
+              max={100}
+              step={5}
+              className="w-full"
+            />
+            <Settings className="w-4 h-4 text-muted-foreground" />
+          </Button>
+        </PopoverTrigger>
         <PopoverContent className="w-[28rem] h-[72vh] p-0">
           <div className="flex flex-col h-full">
             <div className="space-y-1 pb-3 p-4">
@@ -293,7 +295,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
               <Button className="cursor-pointer" onClick={() => {
                 onSave && onSave(config);
                 setIsSettingsOpen(false);
-              }}>保存</Button>
+              }}>应用到所有</Button>
             </div>
           </div>
 

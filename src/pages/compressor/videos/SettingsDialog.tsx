@@ -36,7 +36,6 @@ interface CompressionSettingsFormProps {
 
 interface CompressionSettingsProps extends CompressionSettingsFormProps {
   onSave: (config: CompressVideoTaskArgs) => void;
-  trigger?: React.ReactNode;
 }
 
 const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
@@ -82,6 +81,22 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
 
   return (
     <div className="grid grid-cols-2 gap-4">
+      <div className="col-span-2 py-4">
+        <Slider
+          value={[config.ratio]}
+          onValueChange={(ratio: number[]) => {
+            const next = getVideoCompressionPresetByRatio(
+              ratio[0],
+              config.format
+            );
+            onConfigChange(next.patch);
+          }}
+          min={10}
+          max={100}
+          step={5}
+          className="w-full cursor-pointer"
+        />
+      </div>
       <div className="space-y-2">
         <Label>码率 (kbps)</Label>
         <VideoBitrateSelect
@@ -187,15 +202,6 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
 export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ config, onConfigChange, onSave }) => {
   const [open, setOpen] = useState(false);
 
-  const handleVideoCompressionChange = (ratio: number[]) => {
-    const containerDefinition = formatToDefinition.get(config.format);
-    const next = getVideoCompressionPresetByRatio(
-      ratio[0],
-      containerDefinition?.video?.allowedEncoders,
-    );
-    onConfigChange(next.patch);
-  };
-
   return (
     <>
       <Button
@@ -213,16 +219,6 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
           </DialogHeader>
           <div className="flex overflow-hidden flex-col px-4">
             <ScrollArea className="flex-1">
-              <div className="py-4">
-                <Slider
-                  value={[config.ratio]}
-                  onValueChange={handleVideoCompressionChange}
-                  min={10}
-                  max={100}
-                  step={5}
-                  className="w-full cursor-pointer"
-                />
-              </div>
               <CompressionSettingsForm
                 config={config}
                 onConfigChange={onConfigChange}
@@ -244,25 +240,28 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
   );
 };
 
-export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({ trigger, config, onConfigChange, onSave }) => {
+export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({ config, onConfigChange, onSave }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  const handleVideoCompressionChange = (ratio: number[]) => {
-    const next = getVideoCompressionPresetByRatio(ratio[0]);
-    onConfigChange(next.patch);
-  };
   return (
     <div className="flex">
-      <Slider
-        value={[config.ratio]}
-        onValueChange={handleVideoCompressionChange}
-        min={10}
-        max={100}
-        step={5}
-        className="w-full cursor-pointer"
-      />
+
       <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <PopoverTrigger className="cursor-pointer" asChild>{trigger}</PopoverTrigger>
+        <PopoverTrigger className="cursor-pointer" asChild>
+          <Button
+            variant="ghost"
+            className="h-9 w-[10em] cursor-pointer"
+          >
+            <Slider
+              value={[config.ratio]}
+              disabled
+              min={10}
+              max={100}
+              step={5}
+              className="w-full cursor-pointer"
+            />
+            <Settings className="w-4 h-4 text-muted-foreground" />
+          </Button>
+        </PopoverTrigger>
         <PopoverContent className="w-[28rem] h-[72vh] p-0">
           <div className="flex flex-col h-full">
             <div className="space-y-1 pb-3 p-4">

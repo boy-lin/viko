@@ -1,5 +1,6 @@
 import { CompressVideoTaskArgs } from "@/lib/bridge";
-import { VideoEncoderEnum } from "@/types/options";
+import { EncoderEnum } from "@/types/options";
+import { formatToDefinition } from "@/data/capabilities";
 
 export type VideoCompressionTier =
   | "extreme_compression"
@@ -19,16 +20,16 @@ const clampRatio = (ratio: number) => {
 
 export const getVideoCompressionPresetByRatio = (
   ratio: number,
-  supportedEncoders?: string[]
+  format: string
 ): VideoCompressionPresetResult => {
   const normalizedRatio = clampRatio(ratio);
-
+  const containerDefinition = formatToDefinition.get(format)
   if (normalizedRatio < 20) {
     return {
       tier: "extreme_compression",
       patch: {
         ratio: 20,
-        codec: supportedEncoders?.includes(VideoEncoderEnum.AV1) ? VideoEncoderEnum.AV1 : VideoEncoderEnum.H264,
+        codec: containerDefinition?.video?.allowedEncoders?.includes(EncoderEnum.AV1) ? EncoderEnum.AV1 : EncoderEnum.H264,
         preset: "slow",
         audio_bitrate: 96,
         frame_rate: 24,
@@ -43,7 +44,7 @@ export const getVideoCompressionPresetByRatio = (
       tier: "high_compression",
       patch: {
         ratio: normalizedRatio,
-        codec: VideoEncoderEnum.H265,
+        codec: EncoderEnum.H265,
         preset: "slow",
         audio_bitrate: 96,
         frame_rate: 24,
@@ -58,7 +59,7 @@ export const getVideoCompressionPresetByRatio = (
       tier: "balanced",
       patch: {
         ratio: normalizedRatio,
-        codec: VideoEncoderEnum.H264,
+        codec: EncoderEnum.H264,
         preset: "medium",
         audio_bitrate: 128,
         frame_rate: 30,
@@ -72,7 +73,7 @@ export const getVideoCompressionPresetByRatio = (
     tier: "high_quality",
     patch: {
       ratio: normalizedRatio,
-      codec: VideoEncoderEnum.H264,
+      codec: EncoderEnum.H264,
       preset: "fast",
       audio_bitrate: 160,
       frame_rate: 30,

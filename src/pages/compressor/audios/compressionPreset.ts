@@ -41,7 +41,7 @@ const pickSupportedAudioEncoder = (
 
 export const getAudioCompressionPresetByRatio = (
   ratio: number,
-  format?: string
+  format: string
 ): AudioCompressionPresetResult => {
   const normalizedRatio = clampRatio(ratio);
 
@@ -50,7 +50,7 @@ export const getAudioCompressionPresetByRatio = (
       tier: "extreme_compression",
       patch: {
         ratio: 20,
-        audio_encoder: pickSupportedAudioEncoder(format, [
+        codec: pickSupportedAudioEncoder(format, [
           EncoderEnum.OPUS,
           EncoderEnum.AAC,
           EncoderEnum.VORBIS,
@@ -69,7 +69,7 @@ export const getAudioCompressionPresetByRatio = (
       tier: "high_compression",
       patch: {
         ratio: normalizedRatio,
-        audio_encoder: pickSupportedAudioEncoder(format, [
+        codec: pickSupportedAudioEncoder(format, [
           EncoderEnum.OPUS,
           EncoderEnum.AAC,
           EncoderEnum.MP3,
@@ -88,7 +88,7 @@ export const getAudioCompressionPresetByRatio = (
       tier: "balanced",
       patch: {
         ratio: normalizedRatio,
-        audio_encoder: pickSupportedAudioEncoder(format, [
+        codec: pickSupportedAudioEncoder(format, [
           EncoderEnum.AAC,
           EncoderEnum.OPUS,
           EncoderEnum.MP3,
@@ -106,7 +106,7 @@ export const getAudioCompressionPresetByRatio = (
     tier: "high_quality",
     patch: {
       ratio: normalizedRatio,
-      audio_encoder: pickSupportedAudioEncoder(format, [
+      codec: pickSupportedAudioEncoder(format, [
         EncoderEnum.AAC,
         EncoderEnum.OPUS,
         EncoderEnum.FLAC,

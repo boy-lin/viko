@@ -187,9 +187,7 @@ export interface CompressAudioTaskArgs {
   task_id: string;
   input_path: string;
   format: string;
-  audio_encoder: string;
-  /** 扩展待同步到rust */
-  ratio: number
+  codec: string;
   sample_rate?: number
   bitrate?: number
   remove_silence?: boolean;
@@ -197,7 +195,9 @@ export interface CompressAudioTaskArgs {
   silence_threshold?: number;
   channels?: number;
   bit_depth?: number;
-  output_path: string
+  output_path: string;
+  /** only display */
+  ratio: number
 }
 export interface AudioCompressionConfig {
   type: "audio";

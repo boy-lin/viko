@@ -7,8 +7,9 @@ import {
 import { CompressImageTaskArgs } from "@/lib/bridge";
 import { getMediaTaskQueue } from "@/lib/bridge";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { getImageCompressionPresetByQuality } from "./compressionPreset";
 
-export const defaultImageCompressionConfig = {
+const baseDefaultImageCompressionConfig = {
   format: "jpg",
   quality: 80,
   color_mode: "RGB",
@@ -16,7 +17,11 @@ export const defaultImageCompressionConfig = {
   strip_metadata: true,
   keep_transparency: true,
   crop_whitespace: false
-} as CompressImageTaskArgs
+} as CompressImageTaskArgs;
+export const defaultImageCompressionConfig = {
+  ...baseDefaultImageCompressionConfig,
+  ...getImageCompressionPresetByQuality(baseDefaultImageCompressionConfig.quality).patch,
+} as CompressImageTaskArgs;
 
 interface CompressorState {
   compressingTasks: CompressingTask[];
@@ -110,8 +115,14 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
 
   },
   updateGlobalConfig: (config) => {
+    const current = get().imageConfig;
+    const presetPatch =
+      config.quality !== undefined
+        ? getImageCompressionPresetByQuality(config.quality).patch
+        : {};
     const next = {
-      ...get().imageConfig,
+      ...current,
+      ...presetPatch,
       ...config,
     } as CompressImageTaskArgs;
     set({ imageConfig: next });

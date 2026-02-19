@@ -15,7 +15,6 @@ use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
 pub struct AudioCompressionParams {
     pub input_path: String,
     pub output_path: String,
-    pub compression_ratio: Option<u32>, // 0-100 (兼容旧参数)
     pub sample_rate: Option<u32>,       // 目标采样率
     pub bitrate: Option<u32>,           // 目标码率（kbps）
     pub codec: Option<String>,          // "aac", "mp3", "opus", "flac"
@@ -107,11 +106,8 @@ pub fn compress_audio_file<E: TaskEmitter>(
         .audio()
         .map_err(|e| format!("创建音频解码器失败: {}", e))?;
 
-    let original_bitrate = decoder.bit_rate().max(128_000) as i64;
     let target_bitrate = if let Some(br) = params.bitrate {
         (br as i64 * 1000).max(32_000)
-    } else if let Some(ratio) = params.compression_ratio {
-        ((original_bitrate as f64 * ratio as f64 / 100.0) as i64).max(32_000)
     } else {
         128_000
     };

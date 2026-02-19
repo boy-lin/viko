@@ -115,15 +115,6 @@ export const CompressionFooter: React.FC = () => {
                   config={videoConfig}
                   onConfigChange={updateGlobalConfig}
                   onSave={handleSaveConfig}
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9"
-                    >
-                      <Settings className="w-4 h-4 text-muted-foreground" />
-                    </Button>
-                  }
                 />
               </div>
             </div>

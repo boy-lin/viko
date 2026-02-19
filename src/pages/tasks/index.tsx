@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useAppStore } from "@/stores/app";
+import { toast } from "sonner";
 
 const TASK_TYPE_LABEL: Record<string, string> = {
   convert: "转码",
@@ -109,8 +110,11 @@ export default function TaskHistoryPage() {
   };
 
   const handleOpenFolder = async (task: TaskHistoryItem) => {
-    const path = task.output_path || task.input_path;
-    if (!path) return;
+    const path = task.output_path;
+    if (!path) {
+      toast.error("输出路径不存在");
+      return;
+    }
     try {
       await revealItemInDir(path);
     } catch (error) {

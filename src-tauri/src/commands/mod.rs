@@ -1116,7 +1116,6 @@ pub struct AudioCompressionArgs {
     pub task_id: String,
     pub input_path: String,
     pub output_path: String,
-    pub compression_ratio: u32, // 0-100
     pub sample_rate: Option<u32>,
     pub bitrate: Option<u32>,
     pub codec: Option<String>,
@@ -1137,7 +1136,6 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
         let params = crate::services::compress::audio::AudioCompressionParams {
             input_path: args.input_path,
             output_path: args.output_path.clone(),
-            compression_ratio: Some(args.compression_ratio),
             sample_rate: args.sample_rate,
             bitrate: args.bitrate,
             codec: args.codec,

@@ -115,15 +115,6 @@ export const CompressionFooter: React.FC = () => {
                   config={imageConfig}
                   onConfigChange={updateGlobalConfig}
                   onSave={handleSaveConfig}
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9"
-                    >
-                      <Settings className="w-4 h-4 text-muted-foreground" />
-                    </Button>
-                  }
                 />
               </div>
             </div>
@@ -137,7 +128,7 @@ export const CompressionFooter: React.FC = () => {
             保存到
           </span>
           <div className="flex items-center gap-2">
-            <OutputLocationSelect className="w-[10em]" />
+            <OutputLocationSelect className="" />
           </div>
         </div>
       </div>

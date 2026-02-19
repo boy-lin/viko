@@ -17,22 +17,25 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { formatFileSize } from "@/lib/file";
+import { getVideoCompressionPresetByRatio } from "./compressionPreset";
 
 interface TaskItemProps {
   task: CompressingTask;
 }
 
-const buildDefaultArgs = (taskId: string, path: string, mediaTitle: string, mediaDetails: any) => {
-  const outputDir = useSettingsStore.getState().getOutputDir(path);
+const buildDefaultArgs = (task: CompressingTask, details: any) => {
+  const title = details.title || details.path.split(/[/\\]/).pop() || "Unknown";
+  const taskId = task.id;
+  const path = task.args.input_path;
+  const format = details.extension;
 
   const outputArgs: any = {
+    ...getVideoCompressionPresetByRatio(task.args.ratio, format).patch,
     task_id: taskId,
-    title: mediaTitle,
-    format: mediaDetails.extension,
+    title,
+    format,
     input_path: path,
-    output_path: ""
   };
-  outputArgs.output_path = `${outputDir}/${mediaTitle}.${outputArgs.format}`;
   const containerDefinition = formatToDefinition.get(outputArgs.format);
   outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder;
 
@@ -57,14 +60,13 @@ export default function TaskItem({ task }: TaskItemProps) {
       try {
         const details = await bridge.getMediaDetails(task.args.input_path);
         if (!active) return;
-        const title = details.title || details.path.split(/[/\\]/).pop() || "Unknown";
-        const outputArgs = buildDefaultArgs(task.id, details.path, title, details);
+        const outputArgs = buildDefaultArgs(task, details);
         updateTaskById(task.id, {
           mediaDetails: details,
           args: outputArgs,
           fileType: FileType.Video,
           taskType: MediaTaskType.CompressVideo,
-          outputTitle: title,
+          outputTitle: outputArgs.title,
         });
       } catch (error: any) {
         if (!active) return;
@@ -104,13 +106,13 @@ export default function TaskItem({ task }: TaskItemProps) {
     task.mediaDetails?.extension?.toUpperCase?.(),
     firstVideoStream?.codec_name?.toUpperCase?.(),
     formatFileSize(task.mediaDetails?.size),
-    firstVideoStream?.frame_rate,
+    firstVideoStream?.bit_rate,
   ];
   const targetInfoParts = [
     taskArgs.format?.toUpperCase?.(),
-    'auto',
-    taskArgs.resolution,
-    taskArgs.frame_rate,
+    taskArgs.codec?.toUpperCase?.(),
+    '-',
+    taskArgs.bitrate,
   ];
 
   const handleOutputTitleChange = (nextTitle: string) => {
