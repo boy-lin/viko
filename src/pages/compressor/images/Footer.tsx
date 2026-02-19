@@ -9,10 +9,8 @@ import {
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
 import { CompressionSettingsPopover } from "./SettingsDialog";
 import { CompressImageTaskArgs, getMediaTaskQueue } from "@/lib/bridge";
-import { Slider } from "@/components/ui/slider";
 import { useAppStore } from "@/stores/app";
 import { useCompressorStore } from './store'
-import { useSettingsStore } from "@/stores/settingsStore";
 
 export const CompressionFooter: React.FC = () => {
   const imageConfig = useCompressorStore((state) => state.imageConfig);

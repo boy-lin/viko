@@ -11,11 +11,10 @@ import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
 
-import { bridge, ConvertVideoTaskArgs, getMediaTaskQueue } from "@/lib/bridge";
+import { bridge, ConvertVideoTaskArgs } from "@/lib/bridge";
 import { formatToDefinition } from "@/data/capabilities";
 import { FormatEnum } from "@/types/options";
 import { ConverterTask, FileType, MediaDetails, MediaTaskType } from "@/types/tasks";
-import { useSettingsStore } from "@/stores/settingsStore";
 
 import { useConverterStore } from "./store";
 

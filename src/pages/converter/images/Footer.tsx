@@ -11,7 +11,6 @@ import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect
 import { GlobalConverterConfig, useConverterStore } from "./store";
 import { getMediaTaskQueue } from "@/lib/bridge";
 import { useAppStore } from "@/stores/app";
-import { useSettingsStore } from "@/stores/settingsStore";
 
 export const ConverterFooter: React.FC<{}> = () => {
   const globalConfig = useConverterStore((state) => state.globalConfig);

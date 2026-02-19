@@ -14,14 +14,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-latest" # ARM64 (M1/M2)
-            args: "--target aarch64-apple-darwin"
+          # - platform: "macos-latest" # ARM64 (M1/M2)
+          #   args: "--target aarch64-apple-darwin"
           - platform: "macos-13"     # Intel (x86_64) - latest available for Intel
             args: "--target x86_64-apple-darwin"
           - platform: "windows-latest"
             args: "--target x86_64-pc-windows-msvc"
-          - platform: "ubuntu-latest"
-            args: "--target x86_64-unknown-linux-gnu"
+          # - platform: "ubuntu-latest"
+          #   args: "--target x86_64-unknown-linux-gnu"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -56,9 +56,9 @@ jobs:
             echo "C:\vcpkg" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           }
           
-          # Install FFmpeg and pkgconf via vcpkg
+          # Install FFmpeg (with x264/x265) and pkgconf via vcpkg
           Write-Host "Installing FFmpeg and pkgconf via vcpkg..."
-          vcpkg install ffmpeg:x64-windows pkgconf:x64-windows
+          vcpkg install "ffmpeg[gpl,x264,x265]:x64-windows" pkgconf:x64-windows --recurse
           
           # Set PKG_CONFIG_PATH
           $vcpkgRoot = if ($env:VCPKG_ROOT) { $env:VCPKG_ROOT } else { "C:\vcpkg" }

@@ -27,7 +27,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
-import { formatFileSize } from "@/lib/file";
 import { formatDuration } from "@/lib/time";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 

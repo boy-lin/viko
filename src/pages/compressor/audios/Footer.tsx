@@ -24,13 +24,6 @@ export const CompressionFooter: React.FC = () => {
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
-  const handleCompressionChange = (value: number[]) => {
-    const newValue = value[0];
-    updateGlobalConfig({
-      ratio: newValue,
-    });
-  };
-
   const handleSaveConfig = (vals: CompressAudioTaskArgs) => {
     const pendingTasks = useCompressorStore.getState().compressingTasks;
     // 为每个任务设置 config（浅拷贝 globalConfig）

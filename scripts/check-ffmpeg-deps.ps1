@@ -257,8 +257,8 @@ function Install-FFmpeg {
   }
 
   try {
-    Write-Info "正在安装 FFmpeg (可能需要较长时间)..."
-    & $vcpkgPath install ffmpeg:x64-windows
+    Write-Info "正在安装 FFmpeg (包含 x264, x265)..."
+    & $vcpkgPath install "ffmpeg[gpl,x264,x265]:x64-windows" --recurse
     if ($LASTEXITCODE -eq 0) {
       Write-Info "FFmpeg 安装成功"
       Set-PkgConfigPath

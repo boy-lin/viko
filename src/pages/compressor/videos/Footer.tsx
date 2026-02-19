@@ -9,10 +9,8 @@ import {
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
 import { CompressionSettingsPopover } from "./SettingsDialog";
 import { CompressVideoTaskArgs, getMediaTaskQueue } from "@/lib/bridge";
-import { Slider } from "@/components/ui/slider";
 import { useAppStore } from "@/stores/app";
 import { useCompressorStore } from './store'
-import { useSettingsStore } from "@/stores/settingsStore";
 
 export const CompressionFooter: React.FC = () => {
   const videoConfig = useCompressorStore((state) => state.videoConfig);
@@ -25,13 +23,6 @@ export const CompressionFooter: React.FC = () => {
   );
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
-
-  const handleCompressionChange = (value: number[]) => {
-    const newValue = value[0];
-    updateGlobalConfig({
-      ratio: newValue,
-    });
-  };
 
   const handleSaveConfig = (vals: CompressVideoTaskArgs) => {
     const pendingTasks = useCompressorStore.getState().compressingTasks;
