@@ -25,7 +25,6 @@ interface TaskItemProps {
 }
 
 const buildDefaultArgs = (taskId: string, path: string, mediaTitle: string, mediaDetails: any) => {
-  const outputDir = useSettingsStore.getState().getOutputDir(path);
   let format = FormatEnum.MP4;
   if (mediaDetails.extension === format) {
     format = FormatEnum.MOV

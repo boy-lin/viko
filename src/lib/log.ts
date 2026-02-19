@@ -1,15 +1,15 @@
-import { warn, debug, trace, info, error } from "@tauri-apps/plugin-log";
+// import { warn, debug, trace, info, error } from "@tauri-apps/plugin-log";
 
-function forwardConsole(
-  fnName: "log" | "debug" | "info" | "warn" | "error",
-  logger: (message: string) => Promise<void>
-) {
-  const original = console[fnName];
-  console[fnName] = (...args) => {
-    original(args);
-    logger(args.join("\n"));
-  };
-}
+// function forwardConsole(
+//   fnName: "log" | "debug" | "info" | "warn" | "error",
+//   logger: (message: string) => Promise<void>
+// ) {
+//   const original = console[fnName];
+//   console[fnName] = (...args) => {
+//     original(args);
+//     logger(args.join("\n"));
+//   };
+// }
 
 // forwardConsole("log", trace);
 // forwardConsole("debug", debug);

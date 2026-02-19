@@ -1,4 +1,4 @@
-import { CompressImageTaskArgs, CompressAudioTaskArgs, CompressVideoTaskArgs, ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs, } from "@/lib/bridge";
+import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs, } from "@/lib/bridge";
 
 export enum MediaTaskType {
   ConvertVideo = "convert-video",
@@ -76,20 +76,17 @@ export interface FFmpegTask {
   progress: number;
   errorMessage?: string;
   outputTitle?: string;
+  args: any;
+  fileType: FileType;
+  taskType: MediaTaskType;
 }
 
 export interface ConverterTask extends FFmpegTask {
   mediaDetails?: MediaDetails;
-  fileType: FileType;
-  taskType: MediaTaskType;
-  args: any;
   activeCategory?: FileType | ActiveCategoryEnum;
 }
 
 export interface CompressingTask extends FFmpegTask {
   mediaDetails?: MediaDetails;
-  fileType: FileType;
-  taskType: MediaTaskType;
-  args: CompressVideoTaskArgs | CompressAudioTaskArgs | CompressImageTaskArgs;
   activeCategory?: FileType | ActiveCategoryEnum;
 }

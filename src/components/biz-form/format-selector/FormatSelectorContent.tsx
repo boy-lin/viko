@@ -17,9 +17,8 @@ import { FormatSelectorContentProps } from "./types";
 import { ImageSettingsSection } from "@/pages/converter/components/ImageSettingsSection";
 import { FormatGroup } from "@/types/options";
 import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
-import { encoderToDefinition, formatToDefinition } from "@/data/capabilities";
+import { formatToDefinition } from "@/data/capabilities";
 import { useTranslation } from "react-i18next";
-import { use } from "i18next";
 
 export default function FormatSelectorContent({
   config,

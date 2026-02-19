@@ -2,10 +2,8 @@ import { create } from "zustand";
 import {
   ConverterTask,
   FileType,
-  MediaDetails,
 } from "@/types/tasks";
 import { AudioEncoderEnum, FormatEnum } from "@/types/options";
-import { formatToDefinition } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
 
 export enum ActiveCategoryEnum {

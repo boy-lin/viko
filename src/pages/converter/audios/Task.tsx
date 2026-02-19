@@ -1,6 +1,5 @@
 ﻿import { useMemo } from "react";
 import { AUDIO_FORMATS } from "@/data/formats";
-import { MediaTaskType } from "@/types/tasks";
 
 import { UploadPanel } from "./UploadPanel";
 import { useConverterStore } from "./store";
