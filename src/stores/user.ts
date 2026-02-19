@@ -23,6 +23,7 @@ export const useUserStore = create<UserState>((set) => ({
             set({ userInfo: user, isLoading: false });
         } catch (error) {
             set({ error: (error as Error).message, isLoading: false, userInfo: null });
+            throw error;
         }
     },
 

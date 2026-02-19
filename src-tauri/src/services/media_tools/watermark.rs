@@ -11,7 +11,7 @@ pub struct WatermarkConfig {
 }
 
 impl WatermarkConfig {
-    pub fn build_filter_string(&self, _width: u32, _height: u32) -> Result<String, String> {
+    pub fn build_filter_string(&self, width: u32, height: u32) -> Result<String, String> {
         let mut filter = String::new();
         let mut current_stream = "in".to_string();
         let mut stage = 0;
@@ -38,7 +38,15 @@ impl WatermarkConfig {
 
             // Scale and Opacity for overlay
             let mut overlay_filters = Vec::new();
-            if (img.scale - 1.0).abs() > 0.001 {
+            if let (Some(mode), Some(value)) = (&img.size_mode, img.size_value) {
+                if mode == "video_width_ratio" {
+                    let ratio = if value > 1.0 { value / 100.0 } else { value };
+                    let target_width = (width as f32 * ratio).max(1.0).round() as u32;
+                    overlay_filters.push(format!("scale={target_width}:-1"));
+                } else if mode == "scale" && value > 0.0 && (value - 1.0).abs() > 0.001 {
+                    overlay_filters.push(format!("scale=iw*{}:-1", value));
+                }
+            } else if (img.scale - 1.0).abs() > 0.001 {
                 overlay_filters.push(format!("scale=iw*{}:-1", img.scale));
             }
             if img.opacity < 1.0 {
@@ -67,10 +75,22 @@ impl WatermarkConfig {
             // We need to resolve x/y expressions if possible or assume ffmpeg handles them.
             // FFmpeg handles "10", "main_w-overlay_w-10" etc.
             // So we pass string directly.
+            let (overlay_x, overlay_y) = if img.anchor.is_some() {
+                resolve_overlay_position_expr(
+                    img.anchor.as_deref(),
+                    img.offset_x,
+                    img.offset_y,
+                    img.offset_unit.as_deref(),
+                    width,
+                    height,
+                )
+            } else {
+                (img.x.clone(), img.y.clone())
+            };
             write!(
                 filter,
                 "[{}][{}]overlay=x={}:y={}[{}];",
-                current_stream, overlay_output, img.x, img.y, next_stream
+                current_stream, overlay_output, overlay_x, overlay_y, next_stream
             )
             .unwrap();
             current_stream = next_stream;
@@ -94,9 +114,21 @@ impl WatermarkConfig {
                 format!("fontfile='{}':", safe_font)
             };
 
+            let (text_x, text_y) = if txt.anchor.is_some() {
+                resolve_text_position_expr(
+                    txt.anchor.as_deref(),
+                    txt.offset_x,
+                    txt.offset_y,
+                    txt.offset_unit.as_deref(),
+                    width,
+                    height,
+                )
+            } else {
+                (txt.x.clone(), txt.y.clone())
+            };
             let drawtext_cmd = format!(
                 "drawtext={}text='{}':fontsize={}:fontcolor={}:alpha={}:x={}:y={}",
-                font_arg, safe_text, txt.font_size, txt.color, txt.opacity, txt.x, txt.y
+                font_arg, safe_text, txt.font_size, txt.color, txt.opacity, text_x, text_y
             );
 
             write!(
@@ -189,6 +221,77 @@ impl WatermarkConfig {
 }
 
 // Helpers
+fn resolve_offset_px(value: Option<f32>, unit: Option<&str>, total: u32) -> i32 {
+    let v = value.unwrap_or(10.0);
+    if unit.unwrap_or("px").eq_ignore_ascii_case("percent") {
+        ((total as f32 * v) / 100.0).round() as i32
+    } else {
+        v.round() as i32
+    }
+}
+
+fn resolve_overlay_position_expr(
+    anchor: Option<&str>,
+    offset_x: Option<f32>,
+    offset_y: Option<f32>,
+    offset_unit: Option<&str>,
+    width: u32,
+    height: u32,
+) -> (String, String) {
+    let a = anchor.unwrap_or("c");
+    let ox = resolve_offset_px(offset_x, offset_unit, width);
+    let oy = resolve_offset_px(offset_y, offset_unit, height);
+
+    let x = if a.contains('l') {
+        ox.to_string()
+    } else if a.contains('r') {
+        format!("main_w-overlay_w-{}", ox)
+    } else {
+        format!("(main_w-overlay_w)/2+{}", ox)
+    };
+
+    let y = if a.contains('t') {
+        oy.to_string()
+    } else if a.contains('b') {
+        format!("main_h-overlay_h-{}", oy)
+    } else {
+        format!("(main_h-overlay_h)/2+{}", oy)
+    };
+
+    (x, y)
+}
+
+fn resolve_text_position_expr(
+    anchor: Option<&str>,
+    offset_x: Option<f32>,
+    offset_y: Option<f32>,
+    offset_unit: Option<&str>,
+    width: u32,
+    height: u32,
+) -> (String, String) {
+    let a = anchor.unwrap_or("c");
+    let ox = resolve_offset_px(offset_x, offset_unit, width);
+    let oy = resolve_offset_px(offset_y, offset_unit, height);
+
+    let x = if a.contains('l') {
+        ox.to_string()
+    } else if a.contains('r') {
+        format!("w-text_w-{}", ox)
+    } else {
+        format!("(w-text_w)/2+{}", ox)
+    };
+
+    let y = if a.contains('t') {
+        oy.to_string()
+    } else if a.contains('b') {
+        format!("h-text_h-{}", oy)
+    } else {
+        format!("(h-text_h)/2+{}", oy)
+    };
+
+    (x, y)
+}
+
 fn parse_position(pos_str: &str, container_dim: u32, object_dim: u32) -> i32 {
     // Simple parsing:
     // "10" -> 10
@@ -250,6 +353,10 @@ pub struct TextWatermark {
     pub opacity: f32,  // 0.0 - 1.0
     pub x: String,     // "10" or "W-w-10"
     pub y: String,
+    pub anchor: Option<String>, // tl/tm/tr/ml/c/mr/bl/bm/br
+    pub offset_x: Option<f32>,
+    pub offset_y: Option<f32>,
+    pub offset_unit: Option<String>, // px/percent
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -259,4 +366,10 @@ pub struct ImageWatermark {
     pub opacity: f32,
     pub x: String,
     pub y: String,
+    pub anchor: Option<String>, // tl/tm/tr/ml/c/mr/bl/bm/br
+    pub offset_x: Option<f32>,
+    pub offset_y: Option<f32>,
+    pub offset_unit: Option<String>, // px/percent
+    pub size_mode: Option<String>,   // video_width_ratio/scale
+    pub size_value: Option<f32>,
 }

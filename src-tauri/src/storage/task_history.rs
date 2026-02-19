@@ -38,6 +38,7 @@ impl TableSpec for TaskHistoryTable {
     fn create_stmt() -> TableCreateStatement {
         Table::create()
             .table(TaskHistory::Table)
+            .if_not_exists()
             .col(
                 ColumnDef::new(TaskHistory::Id)
                     .string()
@@ -66,6 +67,8 @@ impl TableSpec for TaskHistoryTable {
         async {
             super::db::init_meta().await?;
             let pool = get_db().await?;
+            let create_sql = Self::create_stmt().to_string(SqliteQueryBuilder);
+            sqlx::query(&create_sql).execute(&pool).await?;
             let cur = super::db::get_version(Self::NAME).await?;
             if cur < 2 {
                 let sql = "ALTER TABLE task_history ADD COLUMN effective_params TEXT";

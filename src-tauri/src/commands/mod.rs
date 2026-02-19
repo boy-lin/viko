@@ -1045,8 +1045,11 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
 // ==================== 媒体缩略图相关命令 ====================
 
 #[command]
-pub fn generate_media_thumbnail(path: String) -> Result<Option<String>, String> {
-    crate::services::media_tools::thumbnail::generate_thumbnail(&path)
+pub fn generate_media_thumbnail(
+    path: String,
+    options: Option<crate::services::media_tools::thumbnail::ThumbnailOptions>,
+) -> Result<Option<crate::services::media_tools::thumbnail::ThumbnailResult>, String> {
+    crate::services::media_tools::thumbnail::generate_thumbnail(&path, options)
 }
 
 // ==================== 压缩相关命令 ====================

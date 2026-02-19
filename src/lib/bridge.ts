@@ -70,6 +70,10 @@ export interface TextWatermark {
   opacity: number;
   x: string;
   y: string;
+  anchor?: "tl" | "tm" | "tr" | "ml" | "c" | "mr" | "bl" | "bm" | "br";
+  offset_x?: number;
+  offset_y?: number;
+  offset_unit?: "px" | "percent";
 }
 
 /** 与 Rust ImageWatermark 对应 */
@@ -79,6 +83,12 @@ export interface ImageWatermark {
   opacity: number;
   x: string;
   y: string;
+  anchor?: "tl" | "tm" | "tr" | "ml" | "c" | "mr" | "bl" | "bm" | "br";
+  offset_x?: number;
+  offset_y?: number;
+  offset_unit?: "px" | "percent";
+  size_mode?: "video_width_ratio" | "scale";
+  size_value?: number;
 }
 
 /** 与 Rust WatermarkConfig 对应 */

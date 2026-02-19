@@ -14,15 +14,34 @@ interface MediaThumbnailProps {
   title?: string;
   className?: string;
   fileType?: FileType;
+  thumbnailOptions?: {
+    width?: number;
+    height?: number;
+    fitMode?: "contain" | "cover";
+  };
 }
+
+type ThumbnailPayload = {
+  dataUrl: string;
+  width: number;
+  height: number;
+};
 
 export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   path,
   title = "Media",
   className,
   fileType,
+  thumbnailOptions = {
+    width: 320,
+    height: 180,
+    fitMode: "cover",
+  },
 }) => {
   const [thumbnail, setThumbnail] = useState<string | null>(null);
+  const [thumbnailResolution, setThumbnailResolution] = useState<
+    { width: number; height: number } | null
+  >(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isMissing, setIsMissing] = useState(false);
@@ -38,14 +57,17 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
 
       try {
         // Invoke backend command to generate thumbnail
-        const thumb = await invoke<string | null>("generate_media_thumbnail", {
+        const thumb = await invoke<ThumbnailPayload | null>("generate_media_thumbnail", {
           path,
+          options: thumbnailOptions,
         });
         if (isMounted) {
-          if (thumb) {
-            setThumbnail(thumb);
+          if (thumb?.dataUrl) {
+            setThumbnail(thumb.dataUrl);
+            setThumbnailResolution({ width: thumb.width, height: thumb.height });
           } else {
             setThumbnail(null);
+            setThumbnailResolution(null);
           }
         }
       } catch (err) {
@@ -58,6 +80,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
         if (missing) {
           setIsMissing(true);
           setThumbnail(null);
+          setThumbnailResolution(null);
           setIsDialogOpen(false);
         }
         console.error("Failed to load thumbnail:", err);
@@ -69,7 +92,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [path]);
+  }, [path, thumbnailOptions]);
 
   const icon = useMemo(() => {
     if (fileType === "video") return <FileVideo className="w-6 h-6" />;
@@ -139,6 +162,11 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
             <img
               src={thumbnail}
               alt={title}
+              title={
+                thumbnailResolution
+                  ? `${title} (${thumbnailResolution.width}x${thumbnailResolution.height})`
+                  : title
+              }
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
             />
             {/* Hover 播放效果 */}

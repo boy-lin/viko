@@ -12,7 +12,7 @@ export default function Header() {
         size="md"
         variant="dropdown"
         themes={["light", "dark", "system"]}
-        className="border-transparent bg-secondary px-[9px] py-[9px] h-auto"
+        className="cursor-pointer border-transparent bg-secondary px-[9px] py-[9px] h-auto"
       />
       <LanguageSwitcher />
 

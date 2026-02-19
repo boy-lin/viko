@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,16 @@ type AuthDialogProps = {
   onSuccess?: () => void;
 };
 
+const AUTH_EMAIL_CACHE_KEY = "auth:last-email";
+
 export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) => {
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const signinEmailRef = useRef<HTMLInputElement>(null);
+  const signupNameRef = useRef<HTMLInputElement>(null);
   const configs = useMemo(
     () => ({
       email_auth_enabled: "true",
@@ -32,7 +36,6 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
 
   const reset = () => {
     setPassword("");
-    setEmail("");
     setName("");
   };
 
@@ -54,7 +57,10 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
       {
         onRequest: () => setLoading(true),
         onResponse: () => setLoading(false),
-        onSuccess: handleSuccess,
+        onSuccess: () => {
+          localStorage.setItem(AUTH_EMAIL_CACHE_KEY, email);
+          handleSuccess();
+        },
         onError: (ctx) => {
           toast.error(ctx.error.message || "Sign in failed");
           setLoading(false);
@@ -75,7 +81,10 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
       {
         onRequest: () => setLoading(true),
         onResponse: () => setLoading(false),
-        onSuccess: handleSuccess,
+        onSuccess: () => {
+          localStorage.setItem(AUTH_EMAIL_CACHE_KEY, email);
+          handleSuccess();
+        },
         onError: (ctx) => {
           toast.error(ctx.error.message || "Sign up failed");
           setLoading(false);
@@ -83,6 +92,26 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
       }
     );
   };
+
+  useEffect(() => {
+    if (!open) return;
+    const cachedEmail = localStorage.getItem(AUTH_EMAIL_CACHE_KEY);
+    if (cachedEmail) {
+      setEmail(cachedEmail);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => {
+      if (tab === "signin") {
+        signinEmailRef.current?.focus();
+      } else {
+        signupNameRef.current?.focus();
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [open, tab]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -104,6 +133,7 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
                 <Label htmlFor="signin-email">Email</Label>
                 <Input
                   id="signin-email"
+                  ref={signinEmailRef}
                   type="email"
                   placeholder="name@example.com"
                   value={email}
@@ -140,6 +170,7 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
                 <Label htmlFor="signup-name">Name</Label>
                 <Input
                   id="signup-name"
+                  ref={signupNameRef}
                   type="text"
                   placeholder="Your Name"
                   value={name}

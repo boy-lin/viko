@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Globe } from "lucide-react";
 
-export function LanguageSwitcher() {
+export function LanguageSwitcher({ className }: { className?: string }) {
     const { i18n } = useTranslation();
 
     const changeLanguage = (lng: string) => {
@@ -23,7 +23,7 @@ export function LanguageSwitcher() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="icon" className="cursor-pointer w-9 h-9">
+                <Button variant="secondary" size="icon" className={`cursor-pointer w-9 h-9 ${className}`}>
                     <Globe className="h-4 w-4" />
                     <span className="sr-only">Switch Language</span>
                 </Button>

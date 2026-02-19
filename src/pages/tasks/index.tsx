@@ -96,6 +96,7 @@ export default function TaskHistoryPage() {
       }
     } catch (error) {
       console.error("Failed to fetch task history:", error);
+      toast.error("获取云端任务历史失败");
       try {
         const keyword = globalFilter.trim();
         const history = await bridge.getTaskHistory(
@@ -308,7 +309,8 @@ export default function TaskHistoryPage() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="px-0 flex-1 min-h-0 overflow-auto">
+      <CardContent className="relative px-0 flex-1 min-h-0 overflow-auto">
+
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -324,15 +326,25 @@ export default function TaskHistoryPage() {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            {
+              loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-8">
+                    <div className="flex items-center justify-center w-full">
+                      <div className="loader"></div>
+                    </div>
                   </TableCell>
-                ))}
-              </TableRow>
-            ))}
+                </TableRow>
+              ) : table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            }
             {!loading && table.getRowModel().rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
@@ -362,6 +374,6 @@ export default function TaskHistoryPage() {
           </Button>
         </div>
       </CardContent>
-    </Card>
+    </Card >
   );
 }

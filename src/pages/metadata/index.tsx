@@ -12,6 +12,7 @@ import { MediaDetails } from "@/types/tasks";
 import { AUDIO_FORMATS, VIDEO_FORMATS } from "@/data/formats";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { useTranslation } from "react-i18next";
+import { useMetadataStore, type Metadata } from "./store";
 
 type MediaType = "audio" | "video" | "other";
 
@@ -30,20 +31,12 @@ function detectMediaType(details: MediaDetails | null): MediaType {
     return "other";
 }
 
-type Metadata = Record<string, string>;
-
 type MetadataEditorProps = {
     mediaType: MediaType;
     metadata: Metadata;
     streamTags: Record<string, string>[];
     onChange: (key: string, value: string) => void;
 };
-
-interface FileInfo {
-    path: string;
-    format: string;
-    size: number;
-}
 
 const CommonFieldsForm = ({
     fields,
@@ -202,12 +195,18 @@ const GenericMetadataEditor = ({ mediaType, ...rest }: MetadataEditorProps & { t
 );
 
 export default function MetadataEditorPage() {
-    const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
-    const [metadata, setMetadata] = useState<Metadata>({});
-    const [streamTags, setStreamTags] = useState<Record<string, string>[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-    const [details, setDetails] = useState<MediaDetails | null>(null);
+    const {
+        fileInfo,
+        metadata,
+        streamTags,
+        loading,
+        message,
+        details,
+        setLoading,
+        setMessage,
+        setMetadataField,
+        applyLoadedFile,
+    } = useMetadataStore();
     const mediaType = useMemo(() => detectMediaType(details), [details]);
     const { t } = useTranslation("metadata");
 
@@ -227,16 +226,7 @@ export default function MetadataEditorPage() {
                 try {
                     // Get file info and initial metadata
                     const details = await bridge.getMediaDetails(selected);
-                    setDetails(details);
-                    setFileInfo({
-                        path: selected,
-                        format: details.format,
-                        size: details.size || 0,
-                    });
-
-                    const tags = details.tags || {};
-                    setMetadata(tags);
-                    setStreamTags(details.stream_tags || []);
+                    applyLoadedFile(selected, details);
                 } catch (e: any) {
                     setMessage({ type: "error", text: t("loadError", { error: String(e) }) });
                 } finally {
@@ -249,7 +239,7 @@ export default function MetadataEditorPage() {
     };
 
     const handleMetadataChange = (key: string, value: string) => {
-        setMetadata((prev) => ({ ...prev, [key]: value }));
+        setMetadataField(key, value);
     };
 
     const handleSave = async (overwrite: boolean) => {

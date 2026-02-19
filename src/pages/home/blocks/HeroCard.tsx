@@ -222,6 +222,7 @@ export function HeroCard() {
       }
     } else if (actionId === "watermark-add") {
       const videoAndImageFormats = [...VIDEO_FORMATS, ...IMAGE_FORMATS];
+      const { useWatermarkStore } = await import("@/pages/watermark/store")
       const paths = await bridge.addFilesOrFolders({
         name: "Watermark",
         multiple: true,
@@ -229,6 +230,7 @@ export function HeroCard() {
         folder: true,
       });
       if (paths && paths.length > 0) {
+        useWatermarkStore.getState().addTasksByPaths(paths)
         navigate(MenuItems.watermark);
       }
     }

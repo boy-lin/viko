@@ -14,6 +14,7 @@ import { AuthDialog } from "@/components/auth/AuthDialog";
 import { signOut, useSession } from "@/lib/auth-client";
 import { useUserStore } from "@/stores/user";
 import { toast } from "sonner";
+import { analytics } from "@/lib/analytics";
 
 export const UserMenu = () => {
   const { data: session, isPending } = useSession();
@@ -26,9 +27,20 @@ export const UserMenu = () => {
 
   useEffect(() => {
     if (session?.user) {
-      fetchUserInfo();
+      fetchUserInfo().catch(() => {
+        toast.error("获取用户信息失败");
+      });
     }
   }, [session?.user, fetchUserInfo]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      analytics.identify(session.user.id, {
+        email: session.user.email,
+        name: session.user.name,
+      });
+    }
+  }, [session?.user?.id, session?.user?.email, session?.user?.name]);
 
   const handleLogout = async () => {
     try {
