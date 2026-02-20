@@ -12,6 +12,7 @@ export interface FileInfo {
 export type MetadataMessage = {
   type: "success" | "error";
   text: string;
+  outputPath?: string;
 };
 
 interface MetadataState {

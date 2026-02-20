@@ -198,7 +198,7 @@ export default function MyFilesPage() {
   }, []);
 
   // 打开文件夹
-  const handleOpenFolder = useCallback(async (outputPath: string) => {
+  const handleOpenFolder = useCallback(async (outputPath?: string) => {
     if (!outputPath) return;
     try {
       await revealItemInDir(outputPath);
@@ -490,7 +490,7 @@ export default function MyFilesPage() {
                           className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleOpenFolder(file.outputPath || file.path);
+                            handleOpenFolder(file.outputPath);
                           }}
                         >
                           <FolderOpen className="h-4 w-4" />

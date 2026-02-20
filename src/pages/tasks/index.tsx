@@ -8,11 +8,11 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, FolderOpen, RefreshCw, Search, Trash2 } from "lucide-react";
+import { ArrowUpDown, FolderOpen, RefreshCw, Search } from "lucide-react";
 import { bridge, type TaskHistoryItem } from "@/lib/bridge";
 import { useSession } from "@/lib/auth-client";
 import {
-  deleteRemoteTaskHistory,
+  // deleteRemoteTaskHistory,
   getRemoteTaskHistory,
   syncLocalTaskHistoryToRemote,
 } from "@/services/task-history-api";
@@ -132,18 +132,18 @@ export default function TaskHistoryPage() {
     fetchData(page);
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      if (session?.user) {
-        await deleteRemoteTaskHistory(id);
-      } else {
-        await bridge.deleteTaskHistory(id);
-      }
-      setTasks((prev) => prev.filter((item) => item.id !== id));
-    } catch (error) {
-      console.error("Failed to delete task history:", error);
-    }
-  };
+  // const handleDelete = async (id: string) => {
+  //   try {
+  //     if (session?.user) {
+  //       await deleteRemoteTaskHistory(id);
+  //     } else {
+  //       await bridge.deleteTaskHistory(id);
+  //     }
+  //     setTasks((prev) => prev.filter((item) => item.id !== id));
+  //   } catch (error) {
+  //     console.error("Failed to delete task history:", error);
+  //   }
+  // };
 
   const handleOpenFolder = async (task: TaskHistoryItem) => {
     const path = task.output_path;
@@ -259,21 +259,6 @@ export default function TaskHistoryPage() {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>打开文件目录</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => handleDelete(task.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>删除记录</p>
                 </TooltipContent>
               </Tooltip>
             </div>

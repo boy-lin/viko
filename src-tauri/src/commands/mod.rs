@@ -1235,7 +1235,7 @@ pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result
 
 // ==================== Metadata Editor Commands ====================
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct WriteMetadataArgs {
     pub input_path: String,
     pub output_path: String,
@@ -1244,6 +1244,7 @@ pub struct WriteMetadataArgs {
 
 #[command]
 pub fn write_media_metadata(args: WriteMetadataArgs) -> Result<(), String> {
+    println!("write_media_metadata: {:?}", args);
     crate::services::media_tools::metadata::write_metadata(
         &args.input_path,
         &args.output_path,

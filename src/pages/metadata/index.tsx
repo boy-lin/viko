@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,10 @@ import { AUDIO_FORMATS, VIDEO_FORMATS } from "@/data/formats";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { useTranslation } from "react-i18next";
 import { useMetadataStore, type Metadata } from "./store";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { extractFilenameFromPath } from "@/lib/utils";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { getFileType } from "@/lib/file";
 
 type MediaType = "audio" | "video" | "other";
 
@@ -238,6 +242,16 @@ export default function MetadataEditorPage() {
         }
     };
 
+    // 打开文件夹
+    const handleOpenFolder = useCallback(async (outputPath?: string) => {
+        if (!outputPath) return;
+        try {
+            await revealItemInDir(outputPath);
+        } catch (e) {
+            console.error("Failed to open folder:", e);
+        }
+    }, []);
+
     const handleMetadataChange = (key: string, value: string) => {
         setMetadataField(key, value);
     };
@@ -250,7 +264,6 @@ export default function MetadataEditorPage() {
             setMessage(null);
 
             let outputPath = fileInfo.path;
-
             if (!overwrite) {
                 const saved = await save({
                     defaultPath: fileInfo.path,
@@ -260,17 +273,26 @@ export default function MetadataEditorPage() {
                     setLoading(false);
                     return;
                 }
-                outputPath = saved;
+                outputPath = saved
+            } else {
+                const outputDir = useSettingsStore.getState().getOutputDir(fileInfo.path);
+
+                outputPath = `${outputDir}/${extractFilenameFromPath(fileInfo.path)}.${fileInfo.format}`
             }
-            const data = {
+
+            const args = {
                 input_path: fileInfo.path,
                 output_path: outputPath,
-                metadata: metadata,
+                metadata,
             };
-            console.log('data', data);
-            await invoke("write_media_metadata", data);
+            console.log("write_media_metadata args", args);
+            await invoke("write_media_metadata", { args });
 
-            setMessage({ type: "success", text: t("saveSuccess", { path: outputPath }) });
+            setMessage({
+                type: "success",
+                text: t("saveSuccess", { path: outputPath }),
+                outputPath
+            });
         } catch (e: any) {
             console.error(e);
             setMessage({ type: "error", text: t("saveError", { error: String(e) }) });
@@ -337,14 +359,14 @@ export default function MetadataEditorPage() {
                                     <Save className="w-4 h-4 mr-2" />
                                     {t("saveAsCopy")}
                                 </Button>
-                                <Button
+                                {/* <Button
                                     variant="secondary"
                                     className="w-full"
                                     onClick={() => handleSave(true)}
                                     disabled={loading}
                                 >
                                     {t("overwrite")}
-                                </Button>
+                                </Button> */}
                             </CardContent>
                         </Card>
                     )}
@@ -353,7 +375,17 @@ export default function MetadataEditorPage() {
                         <Alert variant={message.type === "error" ? "destructive" : "default"} className={message.type === "success" ? "border-green-500 text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400" : ""}>
                             {message.type === "error" ? <AlertCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
                             <AlertTitle>{message.type === "error" ? t("error") : t("success")}</AlertTitle>
-                            <AlertDescription>{message.text}</AlertDescription>
+                            <AlertDescription>
+
+                                {message.text}
+                                <Button
+                                    variant="outline"
+                                    className="ml-2"
+                                    onClick={() => handleOpenFolder(message.outputPath)}
+                                >
+                                    {t("openFolder")}
+                                </Button>
+                            </AlertDescription>
                         </Alert>
                     )}
                 </div>
@@ -370,6 +402,7 @@ export default function MetadataEditorPage() {
                                 {mediaType === "video" && fileInfo?.path && (
                                     <MediaThumbnail
                                         path={fileInfo.path}
+                                        fileType={getFileType(fileInfo.format)}
                                         title={t("videoPreview")}
                                         className="w-full h-48"
                                     />

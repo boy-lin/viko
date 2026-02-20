@@ -1,3 +1,5 @@
+import { isAudioFormat, isImageFormat, isVideoFormat } from "@/data/formats";
+import { FileType } from "@/types/tasks";
 import { readDir, stat } from "@tauri-apps/plugin-fs";
 
 // 文件相关工具函数
@@ -106,4 +108,11 @@ export async function handleDirectoryToFiles({
     }
   }
   return finalPaths;
+}
+
+export function getFileType(extension: string): FileType {
+  if (isAudioFormat(extension)) return FileType.Audio;
+  if (isVideoFormat(extension)) return FileType.Video;
+  if (isImageFormat(extension)) return FileType.Image;
+  throw new Error(`Unsupported file type: ${extension}`);
 }
