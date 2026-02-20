@@ -3,18 +3,18 @@ use crate::services::ffmpeg::media_info::MediaDetails;
 use ffmpeg_next as ffmpeg;
 use std::collections::HashMap;
 use std::path::Path;
-use std::process::Command;
 
 /// Metadata information for frontend
 pub type Metadata = MediaDetails;
 
 /// Read metadata from a file (reusing existing detailed info logic)
 pub fn read_metadata(path: &str) -> Result<Metadata, String> {
+    crate::media_common::init_ffmpeg()?;
     get_media_details(path)
 }
 
-/// Write metadata to a media file
-/// This function uses ffmpeg CLI to copy streams and update metadata to avoid re-encoding.
+/// Write metadata to a media file.
+/// This function remuxes streams with ffmpeg-next and updates container metadata without re-encoding.
 ///
 /// # Arguments
 /// * `input_path` - Path to the source file
@@ -25,45 +25,80 @@ pub fn write_metadata(
     output_path: &str,
     metadata: HashMap<String, String>,
 ) -> Result<(), String> {
+    crate::media_common::init_ffmpeg()?;
+
     if !Path::new(input_path).exists() {
         return Err(format!("Input file not found: {}", input_path));
     }
-
-    // Build FFmpeg command
-    // ffmpeg -i input.mp4 -map_metadata 0 -metadata title="New Title" -c copy output.mp4
-
-    let mut cmd = Command::new("ffmpeg");
-    cmd.arg("-i").arg(input_path);
-
-    // Copy all metadata from input first (default behavior usually, but Good to be explicit if needed)
-    // Actually -map_metadata 0 is default for single input.
-
-    // Override/Add metadata
-    for (key, value) in &metadata {
-        // Handle empty values by setting them to empty string effectively deleting them if supported,
-        // or just updating.
-        cmd.arg("-metadata").arg(format!("{}={}", key, value));
+    if input_path == output_path {
+        return Err("Input and output path must be different".to_string());
     }
 
-    // Copy all streams without re-encoding
-    cmd.arg("-c").arg("copy");
-
-    // Overwrite output
-    cmd.arg("-y");
-
-    cmd.arg(output_path);
-
-    // Disable stdin to prevent hanging
-    cmd.stdin(std::process::Stdio::null());
-
-    let output = cmd
-        .output()
-        .map_err(|e| format!("Failed to execute ffmpeg: {}", e))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("FFmpeg failed: {}", stderr));
+    if Path::new(output_path).exists() {
+        std::fs::remove_file(output_path)
+            .map_err(|e| format!("Failed to overwrite output file: {e}"))?;
     }
+
+    let mut ictx =
+        ffmpeg::format::input(input_path).map_err(|e| format!("Failed to open input file: {e}"))?;
+    let mut octx = ffmpeg::format::output(output_path)
+        .map_err(|e| format!("Failed to open output file: {e}"))?;
+
+    let stream_count = ictx.nb_streams() as usize;
+    let mut stream_mapping = vec![-1isize; stream_count];
+    let mut ist_time_bases = vec![ffmpeg::Rational(0, 1); stream_count];
+    let mut ost_index = 0usize;
+
+    for (ist_index, ist) in ictx.streams().enumerate() {
+        stream_mapping[ist_index] = ost_index as isize;
+        ist_time_bases[ist_index] = ist.time_base();
+
+        let mut ost = octx
+            .add_stream(ffmpeg::encoder::find(ffmpeg::codec::Id::None))
+            .map_err(|e| format!("Failed to add output stream: {e}"))?;
+        ost.set_parameters(ist.parameters());
+        unsafe {
+            (*ost.parameters().as_mut_ptr()).codec_tag = 0;
+        }
+
+        ost_index += 1;
+    }
+
+    let mut out_meta = ictx.metadata().to_owned();
+    for (key, value) in metadata {
+        out_meta.set(&key, &value);
+    }
+    octx.set_metadata(out_meta);
+
+    octx.write_header()
+        .map_err(|e| format!("Failed to write output header: {e}"))?;
+
+    let mut ost_time_bases = vec![ffmpeg::Rational(0, 1); ost_index];
+    for (index, item) in ost_time_bases.iter_mut().enumerate() {
+        *item = octx
+            .stream(index)
+            .ok_or_else(|| format!("Missing output stream at index {index}"))?
+            .time_base();
+    }
+
+    for (stream, mut packet) in ictx.packets() {
+        let ist_index = stream.index();
+        let mapped = stream_mapping[ist_index];
+        if mapped < 0 {
+            continue;
+        }
+
+        let ost_index = mapped as usize;
+        packet.rescale_ts(ist_time_bases[ist_index], ost_time_bases[ost_index]);
+        packet.set_position(-1);
+        packet.set_stream(ost_index);
+        packet
+            .write_interleaved(&mut octx)
+            .map_err(|e| format!("Failed to write packet: {e}"))?;
+    }
+
+    octx.write_trailer()
+        .map_err(|e| format!("Failed to write output trailer: {e}"))?;
 
     Ok(())
 }

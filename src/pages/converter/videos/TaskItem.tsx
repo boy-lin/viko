@@ -19,6 +19,7 @@ import TaskLoadingCard from "@/components/ui-biz/TaskLoadingCard";
 import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
 import MediaOriginalInfoGrid from "@/components/ui-biz/MediaOriginalInfoGrid";
 import MediaTargetInfoGrid from "@/components/ui-biz/MediaTargetInfoGrid";
+import { extractFilenameFromPath } from "@/lib/utils";
 
 interface TaskItemProps {
   task: ConverterTask;
@@ -67,7 +68,7 @@ export default function TaskItem({ task }: TaskItemProps) {
       try {
         const details = await bridge.getMediaDetails(task.args.input_path);
         if (!active) return;
-        const title = details.title || details.path.split(/[/\\]/).pop() || "Unknown";
+        const title = details.title || extractFilenameFromPath(details.path);
         const outputArgs = buildDefaultArgs(task.id, details.path, title, details);
         updateTaskById(task.id, {
           mediaDetails: details,

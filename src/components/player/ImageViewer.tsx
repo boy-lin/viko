@@ -5,7 +5,7 @@ import { ZoomIn, ZoomOut, RotateCw, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ImageViewerProps {
-  imagePath: string;
+  imagePath?: string;
   alt?: string;
   className?: string;
 }

@@ -1,4 +1,5 @@
 import { type PointerEvent as ReactPointerEvent, useMemo, useRef } from "react";
+import { ThumbnailImage } from "@/components/image/ThumbnailImage";
 import { WatermarkEditorConfig } from "./types";
 
 type PreviewPanelProps = {
@@ -16,8 +17,8 @@ export function PreviewPanel({ config, frame, onOffsetChange }: PreviewPanelProp
   const dragStateRef = useRef<{ pointerOffsetX: number; pointerOffsetY: number } | null>(null);
   const videoWidth = frame?.width ?? 1280;
   const videoHeight = frame?.height ?? 720;
-  const previewCanvasWidth = 800;
-  const previewCanvasHeight = 380;
+  const previewCanvasWidth = 388;
+  const previewCanvasHeight = 412;
   const videoAspect = videoWidth / videoHeight;
   const canvasAspect = previewCanvasWidth / previewCanvasHeight;
 
@@ -142,7 +143,7 @@ export function PreviewPanel({ config, frame, onOffsetChange }: PreviewPanelProp
   };
 
   return (
-    <div className="bg-muted/30 border rounded-lg p-4 shadow-sm h-[420px] flex items-center justify-center relative overflow-hidden">
+    <div className="bg-muted/30 border rounded-lg shadow-sm flex items-center justify-center relative overflow-hidden w-[388px] h-[412px]">
       <div
         ref={containerRef}
         className="relative bg-black/20 rounded-md overflow-hidden"
@@ -155,7 +156,7 @@ export function PreviewPanel({ config, frame, onOffsetChange }: PreviewPanelProp
           <img
             src={frame.dataUrl}
             alt="Video first frame"
-            className="w-full h-full object-cover"
+            className="object-contain"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
@@ -182,9 +183,19 @@ export function PreviewPanel({ config, frame, onOffsetChange }: PreviewPanelProp
           {config.type === "text" ? (
             config.text
           ) : (
-            <div className="bg-blue-500/50 rounded flex items-center justify-center text-[10px] text-white w-full h-full">
-              IMG
-            </div>
+            <ThumbnailImage
+              imagePath={config.imagePath}
+              width={previewImageWidth}
+              height={previewImageHeight}
+              fitMode="contain"
+              alt="Watermark preview"
+              className="w-full h-full object-contain rounded"
+              fallback={
+                <div className="bg-blue-500/50 rounded flex items-center justify-center text-[10px] text-white w-full h-full">
+                  IMG
+                </div>
+              }
+            />
           )}
         </div>
       </div>

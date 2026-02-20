@@ -21,7 +21,7 @@ import {
   Settings2,
   Download,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, extractFilenameFromPath } from "@/lib/utils";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -122,7 +122,7 @@ export function Mp3Converter() {
         });
 
         // 从路径获取文件名
-        const fileName = file.split(/[/\\]/).pop() || "未知文件";
+        const fileName = extractFilenameFromPath(file);
         const fileType = `audio/${info.format || "unknown"}`;
 
         setFile({ name: fileName, path: file });
@@ -231,11 +231,11 @@ export function Mp3Converter() {
                 className={cn(
                   "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-300",
                   isCompleted &&
-                    "bg-primary border-primary text-primary-foreground",
+                  "bg-primary border-primary text-primary-foreground",
                   isActive && "border-primary text-primary",
                   !isActive &&
-                    !isCompleted &&
-                    "border-border text-muted-foreground"
+                  !isCompleted &&
+                  "border-border text-muted-foreground"
                 )}
               >
                 {isCompleted ? (
@@ -558,8 +558,8 @@ export function Mp3Converter() {
                             {fileInfo &&
                               formatFileSize(
                                 (fileInfo.duration || 0) *
-                                  settings.bitrate *
-                                  125
+                                settings.bitrate *
+                                125
                               )}
                           </span>
                         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getMediaTaskQueue, WatermarkConfig } from "@/lib/bridge";
 import { VIDEO_FORMATS } from "@/data/formats";
 import { toast } from "sonner";
@@ -34,7 +34,7 @@ export default function WatermarkPage() {
                 return;
             }
             try {
-                const result = await invoke<{ dataUrl: string; width: number; height: number } | null>(
+                const result = await invoke<{ thumbnailPath?: string; dataUrl?: string; width: number; height: number } | null>(
                     "generate_media_thumbnail",
                     {
                         path: firstVideoPath,
@@ -42,7 +42,21 @@ export default function WatermarkPage() {
                     }
                 );
                 if (active) {
-                    setPreviewFrame(result);
+                    if (result?.thumbnailPath) {
+                        setPreviewFrame({
+                            dataUrl: convertFileSrc(result.thumbnailPath),
+                            width: result.width,
+                            height: result.height,
+                        });
+                    } else if (result?.dataUrl) {
+                        setPreviewFrame({
+                            dataUrl: result.dataUrl,
+                            width: result.width,
+                            height: result.height,
+                        });
+                    } else {
+                        setPreviewFrame(null);
+                    }
                 }
             } catch (error) {
                 if (active) {

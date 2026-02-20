@@ -1,9 +1,7 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Search,
   Trash2,
-  Star,
-  Plus,
   ArrowUp,
   ArrowDown,
   MoreVertical,
@@ -39,12 +37,13 @@ import { ShakaPlayer } from "@/components/player/ShakaPlayer";
 import { MusicPlayer } from "@/components/player/MusicPlayer";
 import { ImageViewer } from "@/components/player/ImageViewer";
 import { bridge, type MyFileItem } from "@/lib/bridge";
+import { FileType } from "@/types/tasks";
 import { extractFilenameFromPath } from "@/lib/utils";
 
 type MyFileRecord = {
   id: string;
   title: string;
-  fileType: "video" | "audio" | "image" | "other";
+  fileType: FileType
   path: string;
   outputPath?: string;
   size?: number;
@@ -53,59 +52,17 @@ type MyFileRecord = {
   displayFormat?: string;
   displayResolution?: string;
   createdAt: number;
-  taskType: "convert" | "compress";
-  isFavorite?: boolean;
+  taskType: string;
 };
 
-type FilterType = "all" | "favorite" | "video" | "audio" | "image" | "other";
-type SortBy = "date" | "name" | "size" | "duration";
+type FilterType = FileType;
+type SortBy = "date" | "name";
 type SortOrder = "asc" | "desc";
-
-const getExtension = (path?: string) => {
-  if (!path) return undefined;
-  const filename = path.split(/[/\\]/).pop() || "";
-  const idx = filename.lastIndexOf(".");
-  if (idx <= 0) return undefined;
-  return filename.slice(idx + 1).toLowerCase();
-};
-
-const normalizeFileType = (mediaType?: string): MyFileRecord["fileType"] => {
-  if (mediaType === "video") return "video";
-  if (mediaType === "audio") return "audio";
-  if (mediaType === "image" || mediaType === "gif") return "image";
-  return "other";
-};
-
-const mapHistoryToRecord = (item: MyFileItem): MyFileRecord => {
-  const path = item.input_path;
-  const outputPath = item.output_path || undefined;
-  const extension = getExtension(outputPath || path);
-  const title =
-    item.title || extractFilenameFromPath(outputPath || path) || "Untitled";
-
-  return {
-    id: item.id,
-    title,
-    fileType: normalizeFileType(item.media_type),
-    path,
-    outputPath,
-    size: item.output_size ?? undefined,
-    duration:
-      item.output_duration !== undefined
-        ? Number(item.output_duration) || undefined
-        : undefined,
-    extension,
-    displayFormat: extension,
-    createdAt: item.created_at,
-    taskType: item.task_type === "compress" ? "compress" : "convert",
-    isFavorite: item.is_favorite,
-  };
-};
 
 export default function MyFilesPage() {
   const [myFiles, setMyFiles] = useState<MyFileRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<FilterType>("all");
+  const [activeTab, setActiveTab] = useState<FilterType>();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<SortBy>("date");
@@ -125,6 +82,30 @@ export default function MyFilesPage() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+  const mapHistoryToRecord = (item: MyFileItem): MyFileRecord => {
+    const outputPath = item.output_path || undefined;
+    const sourcePath = outputPath || item.input_path;
+    const ext = sourcePath.split(".").pop()?.toLowerCase();
+    const normalizedType = item.media_type
+
+    return {
+      id: item.id,
+      title: item.title || extractFilenameFromPath(sourcePath),
+      fileType: normalizedType,
+      path: item.input_path,
+      outputPath,
+      size: item.output_size ?? undefined,
+      duration:
+        item.output_duration !== undefined
+          ? Number(item.output_duration) || undefined
+          : undefined,
+      extension: ext,
+      displayFormat: ext,
+      createdAt: item.created_at,
+      taskType: item.task_type,
+    };
+  };
+
   // 加载数据
   const loadFiles = async (pageNum: number, isReset: boolean = false) => {
     try {
@@ -132,33 +113,26 @@ export default function MyFilesPage() {
       else setIsLoadingMore(true);
 
       const keyword = searchQuery.trim();
-      const pageSize = 10;
+      const pageSize = 8;
 
-      // Only use DB pagination if sorting by Date
-      if (sortBy === "date") {
-        const history = await bridge.getMyFiles(
-          pageSize,
-          (pageNum - 1) * pageSize,
-          keyword || undefined
-        );
-        const newFiles = history.map(mapHistoryToRecord);
+      const sortByParam: "date" | "name" = sortBy === "name" ? "name" : "date";
+      const pageData = await bridge.getMyFilesPage(
+        pageSize,
+        (pageNum - 1) * pageSize,
+        keyword || undefined,
+        sortByParam,
+        sortOrder,
+        activeTab
+      );
+      const newFiles = pageData.list.map(mapHistoryToRecord);
 
-        if (isReset) {
-          setMyFiles(newFiles);
-        } else {
-          setMyFiles(prev => [...prev, ...newFiles]);
-        }
-
-        setHasMore(newFiles.length === pageSize);
+      if (isReset) {
+        setMyFiles(newFiles);
       } else {
-        // Fallback or "Load All" for other sort types (simplification)
-        // Ideally we'd have indexes for all, but for now we load all if non-date sort
-        if (isReset) {
-          const history = await bridge.getMyFiles(1000, 0, keyword || undefined);
-          setMyFiles(history.map(mapHistoryToRecord));
-          setHasMore(false);
-        }
+        setMyFiles(prev => [...prev, ...newFiles]);
       }
+
+      setHasMore(pageData.hasMore);
     } catch (error) {
       console.error("Failed to load my files:", error);
     } finally {
@@ -171,7 +145,7 @@ export default function MyFilesPage() {
   useEffect(() => {
     setPage(1);
     loadFiles(1, true);
-  }, [sortBy, sortOrder]);
+  }, [sortBy, sortOrder, activeTab]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -182,90 +156,11 @@ export default function MyFilesPage() {
   }, [searchQuery]);
 
   const handleLoadMore = () => {
+    if (!hasMore || isLoadingMore) return;
     const nextPage = page + 1;
     setPage(nextPage);
     loadFiles(nextPage, false);
   };
-
-  // 过滤文件
-  const filteredFiles = useMemo(() => {
-    let filtered = myFiles;
-
-    // 按标签页过滤
-    if (activeTab === "favorite") {
-      filtered = filtered.filter((file) => file.isFavorite);
-    } else if (activeTab === "video") {
-      filtered = filtered.filter((file) => file.fileType === "video");
-    } else if (activeTab === "audio") {
-      filtered = filtered.filter((file) => file.fileType === "audio");
-    } else if (activeTab === "image") {
-      filtered = filtered.filter((file) => file.fileType === "image");
-    } else if (activeTab === "other") {
-      filtered = filtered.filter(
-        (file) =>
-          file.fileType !== "video" &&
-          file.fileType !== "audio" &&
-          file.fileType !== "image"
-      );
-    }
-
-    // 搜索过滤
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (file) =>
-          file.title.toLowerCase().includes(query) ||
-          file.extension?.toLowerCase().includes(query) ||
-          file.outputPath?.toLowerCase().includes(query)
-      );
-    }
-
-    // Client-side Sort (only needed if NOT date sort, or to refine filtered result)
-    // If sortBy is date, the list is already roughly sorted by chunks, but filtering might mess gaps.
-    // However, keeping client sort ensures consistency on the loaded set.
-    const sorted = [...filtered].sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortBy) {
-        case "date":
-          // If we are paginating, DB already sorted blocks, but let's ensure local sort too
-          comparison = a.createdAt - b.createdAt;
-          break;
-        case "name":
-          comparison = a.title.localeCompare(b.title, "zh-CN");
-          break;
-        case "size":
-          comparison = (a.size || 0) - (b.size || 0);
-          break;
-        case "duration":
-          comparison = (a.duration || 0) - (b.duration || 0);
-          break;
-        default:
-          comparison = 0;
-      }
-
-      return sortOrder === "asc" ? comparison : -comparison;
-    });
-
-    return sorted;
-  }, [myFiles, activeTab, searchQuery, sortBy, sortOrder]);
-
-  // 切换收藏状态
-  const toggleFavorite = useCallback(
-    async (id: string) => {
-      try {
-        const file = myFiles.find((f) => f.id === id);
-        if (!file) return;
-
-        const updatedFile = { ...file, isFavorite: !file.isFavorite };
-        await bridge.setMyFileFavorite(id, !!updatedFile.isFavorite);
-        setMyFiles((prev) => prev.map((f) => (f.id === id ? updatedFile : f)));
-      } catch (error) {
-        console.error("Failed to toggle favorite:", error);
-      }
-    },
-    [myFiles]
-  );
 
   // 批量删除
   const handleBatchDelete = useCallback(async () => {
@@ -282,12 +177,12 @@ export default function MyFilesPage() {
 
   // 切换全选
   const toggleSelectAll = useCallback(() => {
-    if (selectedFiles.size === filteredFiles.length) {
+    if (selectedFiles.size === myFiles.length) {
       setSelectedFiles(new Set());
     } else {
-      setSelectedFiles(new Set(filteredFiles.map((f) => f.id)));
+      setSelectedFiles(new Set(myFiles.map((f) => f.id)));
     }
-  }, [filteredFiles, selectedFiles.size]);
+  }, [myFiles, selectedFiles.size]);
 
   // 切换单个文件选择
   const toggleSelect = useCallback((id: string) => {
@@ -405,7 +300,6 @@ export default function MyFilesPage() {
             <SelectContent>
               <SelectItem value="date">日期</SelectItem>
               <SelectItem value="name">名称</SelectItem>
-              <SelectItem value="size">大小</SelectItem>
             </SelectContent>
           </Select>
 
@@ -436,16 +330,16 @@ export default function MyFilesPage() {
                 value="all"
                 className={cn(
                   "px-4 py-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
-                  activeTab === "all" && "border-primary"
+                  activeTab === undefined && "border-primary"
                 )}
               >
                 全部
               </TabsTrigger>
               <TabsTrigger
-                value="video"
+                value={FileType.Video}
                 className={cn(
                   "px-4 py-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
-                  activeTab === "video" && "border-primary"
+                  activeTab === FileType.Video && "border-primary"
                 )}
               >
                 视频
@@ -468,15 +362,6 @@ export default function MyFilesPage() {
               >
                 图片
               </TabsTrigger>
-              <TabsTrigger
-                value="other"
-                className={cn(
-                  "px-4 py-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
-                  activeTab === "other" && "border-primary"
-                )}
-              >
-                其他
-              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -487,13 +372,13 @@ export default function MyFilesPage() {
         {isLoading && <div className="flex items-center justify-center h-full">
           <div className="text-sm text-muted-foreground">加载中...</div>
         </div>}
-        {filteredFiles.length === 0 ? (
+        {myFiles.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-sm text-muted-foreground">暂无文件</div>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-            {filteredFiles.map((file) => (
+            {myFiles.map((file) => (
               <div
                 key={file.id}
                 className="group relative flex flex-col"
@@ -557,25 +442,6 @@ export default function MyFilesPage() {
                   </div>
                   {/* 右上角操作按钮 */}
                   <div className="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {/* 收藏按钮 */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background/95"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(file.id);
-                      }}
-                    >
-                      <Star
-                        className={cn(
-                          "h-3.5 w-3.5",
-                          file.isFavorite
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-muted-foreground"
-                        )}
-                      />
-                    </Button>
                     {/* 更多操作：hover 弹出 */}
                     <HoverCard openDelay={0} closeDelay={120}>
                       <HoverCardTrigger asChild>
@@ -643,7 +509,7 @@ export default function MyFilesPage() {
           </div>
         )}
 
-        {hasMore && sortBy === "date" && (
+        {hasMore && (
           <div className="flex justify-center mt-6 mb-8">
             <Button
               variant="outline"
@@ -655,6 +521,11 @@ export default function MyFilesPage() {
             </Button>
           </div>
         )}
+        {!hasMore && !isLoading && myFiles.length > 0 && (
+          <div className="flex justify-center mt-6 mb-8">
+            <span className="text-sm text-muted-foreground">已加载全部文件</span>
+          </div>
+        )}
       </div>
 
       {/* 底部操作栏 */}
@@ -662,11 +533,11 @@ export default function MyFilesPage() {
         <div className="flex-shrink-0 px-6 py-3 border-t border-border bg-background flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Checkbox
-              checked={selectedFiles.size === filteredFiles.length}
+              checked={selectedFiles.size === myFiles.length}
               onCheckedChange={toggleSelectAll}
             />
             <span className="text-sm text-muted-foreground">
-              全选 ({selectedFiles.size}/{filteredFiles.length})
+              全选 ({selectedFiles.size}/{myFiles.length})
             </span>
           </div>
 
@@ -678,20 +549,6 @@ export default function MyFilesPage() {
               className="text-red-500 hover:text-red-600 hover:bg-red-50"
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                selectedFiles.forEach((id) => toggleFavorite(id));
-              }}
-              title="收藏"
-            >
-              <Star className="h-4 w-4" />
-            </Button>
-            <Button className="bg-purple-500 hover:bg-purple-600 text-white rounded-lg">
-              <Plus className="h-4 w-4 mr-2" />
-              添加至
             </Button>
           </div>
         </div>
@@ -723,23 +580,12 @@ export default function MyFilesPage() {
           <div
             className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent"
             onClick={() => {
-              // TODO: 实现添加至功能
-              console.log("添加至", contextMenu.file);
-              setContextMenu(null);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            添加至
-          </div>
-          <div
-            className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent"
-            onClick={() => {
               handlePlay(contextMenu.file);
               setContextMenu(null);
             }}
           >
             <Play className="mr-2 h-4 w-4" />
-            播放
+            预览
           </div>
           <div className="-mx-1 my-1 h-px bg-muted" />
           <div
@@ -833,7 +679,7 @@ export default function MyFilesPage() {
                 <div>
                   <div className="text-muted-foreground mb-1">任务类型</div>
                   <div className="font-medium">
-                    {infoFile.taskType === "convert" ? "转码" : "压缩"}
+                    {infoFile.taskType}
                   </div>
                 </div>
                 <div>

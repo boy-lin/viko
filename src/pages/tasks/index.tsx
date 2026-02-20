@@ -16,7 +16,7 @@ import {
   getRemoteTaskHistory,
   syncLocalTaskHistoryToRemote,
 } from "@/services/task-history-api";
-import { formatDuration } from "@/lib/time";
+import { formatDuration, getDurationSecondsFromTimestamps } from "@/lib/time";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +48,7 @@ const STATUS_CLASSNAME: Record<string, string> = {
   idle: "text-gray-500",
 };
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 const getFileName = (item: TaskHistoryItem) => {
   const fullPath = item.output_path || item.input_path || "";
@@ -161,6 +161,12 @@ export default function TaskHistoryPage() {
   const columns = useMemo<ColumnDef<TaskHistoryItem>[]>(
     () => [
       {
+        id: "index",
+        header: "序号",
+        cell: ({ row }) => page * PAGE_SIZE + row.index + 1,
+        enableSorting: false,
+      },
+      {
         accessorKey: "output_name",
         header: "输出文件名",
         cell: ({ row }) => {
@@ -220,7 +226,10 @@ export default function TaskHistoryPage() {
           );
         },
         cell: ({ row }) => {
-          const taskDuration = Number(row.original.output_duration || 0);
+          const taskDuration = getDurationSecondsFromTimestamps(
+            row.original.created_at,
+            row.original.finished_at
+          );
           return formatDuration(taskDuration);
         },
       },
@@ -273,7 +282,7 @@ export default function TaskHistoryPage() {
         enableSorting: false,
       },
     ],
-    []
+    [page]
   );
 
   const table = useReactTable({
@@ -329,7 +338,7 @@ export default function TaskHistoryPage() {
             {
               loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8">
+                  <TableCell colSpan={7} className="py-8">
                     <div className="flex items-center justify-center w-full">
                       <div className="loader"></div>
                     </div>
@@ -347,7 +356,7 @@ export default function TaskHistoryPage() {
             }
             {!loading && table.getRowModel().rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   暂无任务记录
                 </TableCell>
               </TableRow>

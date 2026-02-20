@@ -18,13 +18,14 @@ import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { formatFileSize } from "@/lib/file";
 import { getVideoCompressionPresetByRatio } from "./compressionPreset";
+import { extractFilenameFromPath } from "@/lib/utils";
 
 interface TaskItemProps {
   task: CompressingTask;
 }
 
 const buildDefaultArgs = (task: CompressingTask, details: any) => {
-  const title = details.title || details.path.split(/[/\\]/).pop() || "Unknown";
+  const title = details.title || extractFilenameFromPath(details.path);
   const taskId = task.id;
   const path = task.args.input_path;
   const format = details.extension;

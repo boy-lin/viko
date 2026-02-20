@@ -20,7 +20,16 @@ export function extractFilenameFromPath(filePath: string): string {
     return filenameWithExt;
   }
 
-  return filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.')) || '';
+  return filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.')) || 'Unknown';
 }
+
+
+export const getExtension = (path?: string) => {
+  if (!path) return undefined;
+  const filename = path.split(/[/\\]/).pop() || "";
+  const idx = filename.lastIndexOf(".");
+  if (idx <= 0) return undefined;
+  return filename.slice(idx + 1).toLowerCase();
+};
 
 

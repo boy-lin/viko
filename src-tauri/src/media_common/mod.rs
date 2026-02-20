@@ -11,6 +11,14 @@ pub use codec::*;
 pub use fifo::AudioFifo;
 pub use resolution::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaFileType {
+    Image,
+    Video,
+    Audio,
+    Unknown,
+}
+
 static FFMPEG_INIT: Once = Once::new();
 
 pub fn init_ffmpeg() -> Result<(), String> {
@@ -26,6 +34,25 @@ pub fn ensure_ffmpeg_init() -> Result<(), String> {
 
 pub fn open_input(path: &str) -> Result<format::context::Input, String> {
     format::input(&path).map_err(|e| format!("无法打开输入文件: {}", e))
+}
+
+pub fn detect_media_file_type(path: &std::path::Path) -> MediaFileType {
+    let ext = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_ascii_lowercase());
+
+    match ext.as_deref() {
+        Some("jpg") | Some("jpeg") | Some("png") | Some("webp") | Some("bmp") | Some("gif")
+        | Some("tif") | Some("tiff") | Some("ico") | Some("avif") => MediaFileType::Image,
+        Some("mp4") | Some("mkv") | Some("mov") | Some("avi") | Some("webm") | Some("flv")
+        | Some("m4v") | Some("wmv") | Some("3gp") | Some("mts") | Some("m2ts") => {
+            MediaFileType::Video
+        }
+        Some("mp3") | Some("wav") | Some("flac") | Some("aac") | Some("m4a") | Some("ogg")
+        | Some("oga") | Some("opus") | Some("wma") => MediaFileType::Audio,
+        _ => MediaFileType::Unknown,
+    }
 }
 
 pub fn gcd(a: u32, b: u32) -> u32 {

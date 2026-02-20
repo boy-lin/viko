@@ -1049,7 +1049,25 @@ pub fn generate_media_thumbnail(
     path: String,
     options: Option<crate::services::media_tools::thumbnail::ThumbnailOptions>,
 ) -> Result<Option<crate::services::media_tools::thumbnail::ThumbnailResult>, String> {
-    crate::services::media_tools::thumbnail::generate_thumbnail(&path, options)
+    let mut result = crate::services::media_tools::thumbnail::generate_thumbnail(&path, options)?;
+
+    // Return original video dimensions to frontend, not the resized thumbnail dimensions.
+    if let Some(thumb) = result.as_mut() {
+        if let Ok(details) = media_info::get_media_details(&path) {
+            if let Some(stream) = details
+                .streams
+                .iter()
+                .find(|s| s.codec_type == "video" && s.width.is_some() && s.height.is_some())
+            {
+                if let (Some(width), Some(height)) = (stream.width, stream.height) {
+                    thumb.width = width;
+                    thumb.height = height;
+                }
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 // ==================== 压缩相关命令 ====================
@@ -1257,11 +1275,17 @@ pub async fn get_my_files(
     limit: Option<u32>,
     offset: Option<u32>,
     keyword: Option<String>,
+    sort_by: Option<String>,
+    sort_order: Option<String>,
+    media_type: Option<String>,
 ) -> Result<Vec<crate::storage::task_history::MyFileItem>, String> {
     crate::storage::task_history::get_my_files(
         limit.unwrap_or(50) as usize,
         offset.unwrap_or(0) as usize,
         keyword,
+        sort_by,
+        sort_order,
+        media_type,
     )
     .await
     .map_err(|e| e.to_string())

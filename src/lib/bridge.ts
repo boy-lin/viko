@@ -397,15 +397,44 @@ class Bridge {
   }
 
   async getMyFiles(
-    limit: number = 50,
+    limit: number = 10,
     offset: number = 0,
-    keyword?: string
+    keyword?: string,
+    sortBy?: "date" | "name",
+    sortOrder?: "asc" | "desc",
+    mediaType?: FileType
   ): Promise<MyFileItem[]> {
     return this.invoke<MyFileItem[]>("get_my_files", {
       limit,
       offset,
       keyword,
+      sortBy,
+      sortOrder,
+      mediaType,
     });
+  }
+
+  async getMyFilesPage(
+    limit: number = 10,
+    offset: number = 0,
+    keyword?: string,
+    sortBy?: "date" | "name",
+    sortOrder?: "asc" | "desc",
+    mediaType?: FileType
+  ): Promise<{ list: MyFileItem[]; hasMore: boolean }> {
+    const pageSize = Math.max(1, limit);
+    const rows = await this.getMyFiles(
+      pageSize + 1,
+      offset,
+      keyword,
+      sortBy,
+      sortOrder,
+      mediaType
+    );
+    return {
+      list: rows.slice(0, pageSize),
+      hasMore: rows.length > pageSize,
+    };
   }
 
   async setMyFileFavorite(id: string, favorite: boolean): Promise<void> {

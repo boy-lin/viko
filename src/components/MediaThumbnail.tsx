@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { FileVideo, FileAudio, ImageIcon } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ShakaPlayer } from "@/components/player/ShakaPlayer";
@@ -22,7 +22,8 @@ interface MediaThumbnailProps {
 }
 
 type ThumbnailPayload = {
-  dataUrl: string;
+  thumbnailPath?: string;
+  dataUrl?: string;
   width: number;
   height: number;
 };
@@ -62,7 +63,10 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
           options: thumbnailOptions,
         });
         if (isMounted) {
-          if (thumb?.dataUrl) {
+          if (thumb?.thumbnailPath) {
+            setThumbnail(convertFileSrc(thumb.thumbnailPath));
+            setThumbnailResolution({ width: thumb.width, height: thumb.height });
+          } else if (thumb?.dataUrl) {
             setThumbnail(thumb.dataUrl);
             setThumbnailResolution({ width: thumb.width, height: thumb.height });
           } else {
@@ -92,7 +96,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [path, thumbnailOptions]);
+  }, [path]);
 
   const icon = useMemo(() => {
     if (fileType === "video") return <FileVideo className="w-6 h-6" />;

@@ -291,9 +291,11 @@ pub async fn get_my_files(
     limit: usize,
     offset: usize,
     keyword: Option<String>,
+    sort_by: Option<String>,
+    sort_order: Option<String>,
+    media_type: Option<String>,
 ) -> Result<Vec<MyFileItem>> {
     let pool = get_db().await?;
-
     let mut query = Query::select();
     query
         .columns([
@@ -320,10 +322,43 @@ pub async fn get_my_files(
             TaskFavorite::Table,
             Expr::col((TaskFavorite::Table, TaskFavorite::Id))
                 .equals((TaskHistory::Table, TaskHistory::Id)),
-        )
-        .order_by((TaskHistory::Table, TaskHistory::CreatedAt), Order::Desc)
-        .limit(limit as u64)
-        .offset(offset as u64);
+        );
+
+    let sort_order = match sort_order
+        .as_deref()
+        .map(|s| s.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("asc") => Order::Asc,
+        _ => Order::Desc,
+    };
+
+    match sort_by
+        .as_deref()
+        .map(|s| s.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("name") => {
+            query
+                .order_by((TaskHistory::Table, TaskHistory::Title), sort_order.clone())
+                .order_by(
+                    (TaskHistory::Table, TaskHistory::InputPath),
+                    sort_order.clone(),
+                )
+                .order_by((TaskHistory::Table, TaskHistory::Id), sort_order);
+        }
+        _ => {
+            // Default sort by start time (created_at).
+            query
+                .order_by(
+                    (TaskHistory::Table, TaskHistory::CreatedAt),
+                    sort_order.clone(),
+                )
+                .order_by((TaskHistory::Table, TaskHistory::Id), sort_order);
+        }
+    }
+
+    query.limit(limit as u64).offset(offset as u64);
 
     if let Some(raw) = keyword {
         let keyword = raw.trim().to_string();
@@ -335,6 +370,24 @@ pub async fn get_my_files(
                     .or(Expr::col((TaskHistory::Table, TaskHistory::InputPath)).like(&pattern))
                     .or(Expr::col((TaskHistory::Table, TaskHistory::OutputPath)).like(&pattern)),
             );
+        }
+    }
+
+    if let Some(raw_media_type) = media_type {
+        let media_type = raw_media_type.trim().to_ascii_lowercase();
+        if !media_type.is_empty() && media_type != "all" {
+            if media_type == "image" {
+                // Keep image tab behavior compatible with existing data that may use "gif".
+                query.and_where(
+                    Expr::col((TaskHistory::Table, TaskHistory::MediaType))
+                        .eq("image")
+                        .or(Expr::col((TaskHistory::Table, TaskHistory::MediaType)).eq("gif")),
+                );
+            } else {
+                query.and_where(
+                    Expr::col((TaskHistory::Table, TaskHistory::MediaType)).eq(media_type),
+                );
+            }
         }
     }
 

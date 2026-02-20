@@ -29,6 +29,7 @@ import {
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { formatFileSize } from "@/lib/file";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { extractFilenameFromPath } from "@/lib/utils";
 
 interface FinishedTaskProps {
   tasks?: TaskHistoryItem[];
@@ -74,7 +75,7 @@ export default function FinishedTask({
                     className="text-xs text-muted-foreground truncate"
                     title={task.output_path}
                   >
-                    输出: {task.output_path.split(/[/\\]/).pop()}
+                    输出: {extractFilenameFromPath(task.output_path)}
                   </span>
                 )}
               </div>

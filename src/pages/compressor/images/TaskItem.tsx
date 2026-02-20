@@ -16,6 +16,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { formatFileSize } from "@/lib/file";
+import { extractFilenameFromPath } from "@/lib/utils";
 
 interface TaskItemProps {
   task: CompressingTask;
@@ -54,7 +55,7 @@ export default function TaskItem({ task }: TaskItemProps) {
       try {
         const details = await bridge.getMediaDetails(task.args.input_path);
         if (!active) return;
-        const title = details.title || details.path.split(/[/\\]/).pop() || "Unknown";
+        const title = details.title || extractFilenameFromPath(details.path);
         const outputArgs = buildDefaultArgs(task.id, details.path, title, details);
         startTransition(() => {
           updateTaskById(task.id, {

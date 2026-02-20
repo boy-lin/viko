@@ -14,14 +14,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - platform: "macos-latest" # ARM64 (M1/M2)
-          #   args: "--target aarch64-apple-darwin"
-          - platform: "macos-12"     # Intel (x86_64) - Reverted to macos-12 as macos-13 is unsupported; expect wait times
-            args: "--target x86_64-apple-darwin"
+          - platform: "macos-latest" # ARM64 (M1/M2)
+            args: "--target aarch64-apple-darwin"
+          # - platform: "macos-12"     # Intel (x86_64) - Reverted to macos-12 as macos-13 is unsupported; expect wait times
+          #   args: "--target x86_64-apple-darwin"
           - platform: "windows-latest"
             args: "--target x86_64-pc-windows-msvc"
-          # - platform: "ubuntu-latest"
-          #   args: "--target x86_64-unknown-linux-gnu"
+          - platform: "ubuntu-latest"
+            args: "--target x86_64-unknown-linux-gnu"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -159,6 +159,7 @@ jobs:
 
       - name: Extract target from args
         id: extract_target
+        shell: bash
         run: |
           TARGET=$(echo "${{ matrix.args }}" | sed 's/--target //')
           echo "target=$TARGET" >> $GITHUB_OUTPUT

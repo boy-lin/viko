@@ -1,31 +1,40 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import i18n from "@/lib/i18n";
 import RootLayout from "./layout/RootPage";
-import HomePage from "./pages/home";
-import TaskListPage from "./pages/tasks/TaskListPage";
-import TaskHistoryPage from "./pages/tasks";
-import CompressorVideoPage from "./pages/compressor/videos";
-import CompressorAudioPage from "./pages/compressor/audios";
-import CompressorImagePage from "./pages/compressor/images";
-import ConverterVideoPage from "./pages/converter/videos";
-import ConverterAudioPage from "./pages/converter/audios";
-import ConverterImagePage from "./pages/converter/images";
-import Mp3ConverterPage from "./pages/demo/converter";
-import AudioTestPage from "./pages/demo/AudioTestPage";
-import VideoPlayerPage from "./pages/demo/VideoPlayer";
-import MyFilesPage from "./pages/myfiles";
-import SignInPage from "./pages/auth/sign-in";
-import SignUpPage from "./pages/auth/sign-up";
 import AuthLayout from "./layout/AuthLayout";
-import MetadataEditorPage from "./pages/metadata";
-import WatermarkPage from "./pages/watermark";
 import ErrorPage from '@/components/error/ErrorPage';
+
+const HomePage = lazy(() => import("./pages/home"));
+const TaskListPage = lazy(() => import("./pages/tasks/TaskListPage"));
+const TaskHistoryPage = lazy(() => import("./pages/tasks"));
+const CompressorVideoPage = lazy(() => import("./pages/compressor/videos"));
+const CompressorAudioPage = lazy(() => import("./pages/compressor/audios"));
+const CompressorImagePage = lazy(() => import("./pages/compressor/images"));
+const ConverterVideoPage = lazy(() => import("./pages/converter/videos"));
+const ConverterAudioPage = lazy(() => import("./pages/converter/audios"));
+const ConverterImagePage = lazy(() => import("./pages/converter/images"));
+const Mp3ConverterPage = lazy(() => import("./pages/demo/converter"));
+const AudioTestPage = lazy(() => import("./pages/demo/AudioTestPage"));
+const VideoPlayerPage = lazy(() => import("./pages/demo/VideoPlayer"));
+const MyFilesPage = lazy(() => import("./pages/myfiles"));
+const SignInPage = lazy(() => import("./pages/auth/sign-in"));
+const SignUpPage = lazy(() => import("./pages/auth/sign-up"));
+const MetadataEditorPage = lazy(() => import("./pages/metadata"));
+const WatermarkPage = lazy(() => import("./pages/watermark"));
 
 const preloadI18nNamespaces = (namespaces: string[]) => async () => {
   await i18n.loadNamespaces(namespaces);
   return null;
 };
+
+const withSuspense = (element: React.ReactNode) => (
+  <Suspense fallback={<div className="loader-wrapper">
+    <div className="loader"></div>
+  </div>}>
+    {element}
+  </Suspense>
+);
 
 const router = createBrowserRouter([
   {
@@ -38,60 +47,60 @@ const router = createBrowserRouter([
         path: "/",
         element: <RootLayout />,
         children: [
-          { index: true, element: <HomePage />, loader: preloadI18nNamespaces(["home"]) },
+          { index: true, element: withSuspense(<HomePage />), loader: preloadI18nNamespaces(["home"]) },
           {
             path: "compressor", element: <Outlet />, children: [
-              { path: "videos", element: <CompressorVideoPage />, loader: preloadI18nNamespaces(["converter", "common"]) },
-              { path: "audios", element: <CompressorAudioPage />, loader: preloadI18nNamespaces(["converter", "common"]) },
-              { path: "images", element: <CompressorImagePage />, loader: preloadI18nNamespaces(["converter", "common"]) },
+              { path: "videos", element: withSuspense(<CompressorVideoPage />), loader: preloadI18nNamespaces(["converter", "common"]) },
+              { path: "audios", element: withSuspense(<CompressorAudioPage />), loader: preloadI18nNamespaces(["converter", "common"]) },
+              { path: "images", element: withSuspense(<CompressorImagePage />), loader: preloadI18nNamespaces(["converter", "common"]) },
             ]
           },
           {
             path: "converter", element: <Outlet />, children: [
-              { path: "videos", element: <ConverterVideoPage />, loader: preloadI18nNamespaces(["converter", "common"]) },
-              { path: "audios", element: <ConverterAudioPage />, loader: preloadI18nNamespaces(["converter", "common"]) },
-              { path: "images", element: <ConverterImagePage />, loader: preloadI18nNamespaces(["converter", "common"]) },
+              { path: "videos", element: withSuspense(<ConverterVideoPage />), loader: preloadI18nNamespaces(["converter", "common"]) },
+              { path: "audios", element: withSuspense(<ConverterAudioPage />), loader: preloadI18nNamespaces(["converter", "common"]) },
+              { path: "images", element: withSuspense(<ConverterImagePage />), loader: preloadI18nNamespaces(["converter", "common"]) },
             ]
           },
           {
             path: "my",
-            children: [{ path: "files", element: <MyFilesPage /> }],
+            children: [{ path: "files", element: withSuspense(<MyFilesPage />) }],
           },
           {
             path: "tasks",
             element: <Outlet />,
             children: [
-              { index: true, element: <TaskHistoryPage /> },
-              { path: "convert", element: <TaskListPage mode="convert" /> },
-              { path: "compress", element: <TaskListPage mode="compress" /> },
+              { index: true, element: withSuspense(<TaskHistoryPage />) },
+              { path: "convert", element: withSuspense(<TaskListPage mode="convert" />) },
+              { path: "compress", element: withSuspense(<TaskListPage mode="compress" />) },
             ],
           },
           {
             path: "demo",
             children: [
-              { path: "mp3", element: <Mp3ConverterPage /> },
-              { path: "audio-test", element: <AudioTestPage /> },
-              { path: "v1", element: <HomePage /> },
+              { path: "mp3", element: withSuspense(<Mp3ConverterPage />) },
+              { path: "audio-test", element: withSuspense(<AudioTestPage />) },
+              { path: "v1", element: withSuspense(<HomePage />) },
             ],
           },
           {
             children: [
-              { path: "video-player", element: <VideoPlayerPage /> },
+              { path: "video-player", element: withSuspense(<VideoPlayerPage />) },
             ],
           },
-          { path: "metadata", element: <MetadataEditorPage /> },
-          { path: "watermark", element: <WatermarkPage /> },
+          { path: "metadata", element: withSuspense(<MetadataEditorPage />) },
+          { path: "watermark", element: withSuspense(<WatermarkPage />) },
         ],
       },
     ],
   },
   {
-    path: "/sign-in", element: <SignInPage />,
+    path: "/sign-in", element: withSuspense(<SignInPage />),
     errorElement: <ErrorPage />,
     loader: preloadI18nNamespaces(["auth", "common"])
   },
   {
-    path: "/sign-up", element: <SignUpPage />,
+    path: "/sign-up", element: withSuspense(<SignUpPage />),
     errorElement: <ErrorPage />,
     loader: preloadI18nNamespaces(["auth", "common"])
   },
