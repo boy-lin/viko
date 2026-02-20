@@ -54,10 +54,10 @@ jobs:
           }
 
           # Checkout a specific commit to ensure FFmpeg 7.1 is installed (avoid 8.x mismatch)
-          # Commit from Dec 2024 which likely has FFmpeg 7.1
+          # Use commit b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c (from tag 2024.11.16)
           cd $vcpkgPath
-          Write-Host "Checking out vcpkg commit 5c64372..."
-          git checkout 5c64372
+          Write-Host "Checking out vcpkg tag 2024.11.16 (b2cb0da531c2f)..."
+          git checkout b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
           .\bootstrap-vcpkg.bat
           echo "$vcpkgPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           

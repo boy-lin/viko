@@ -184,11 +184,11 @@ function Install-Vcpkg {
         throw "git clone failed"
       }
       
-      # Checkout specific commit for FFmpeg 7.1 (Dec 2024)
+      # Checkout specific tag for FFmpeg 7.1 (2024.11.16 release)
       Push-Location $targetDir
       try {
-        Write-Info "切换到指定 commit (5c64372)..."
-        git checkout 5c64372
+        Write-Info "切换到指定 vcpkg tag (2024.11.16 / b2cb0da)..."
+        git checkout b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
       } finally {
         Pop-Location
       }
