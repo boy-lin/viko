@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager};
 #[derive(Serialize, Clone)]
 pub struct MediaTaskEvent {
     pub task_id: String,
-    pub task_type: String,  // "convert" | "compress"
+    pub task_type: String,  // MediaTaskType string, e.g. "convert-video"
     pub media_type: String, // "video" | "audio" | "image"
     pub event_type: String, // "progress" | "complete" | "error"
     pub progress: Option<f64>,
@@ -59,7 +59,7 @@ pub trait TaskEmitter: Send + Sync {
 pub struct WindowEmitter {
     pub window: tauri::WebviewWindow,
     pub task_id: String,
-    pub task_type: String,  // "convert" | "compress" | "metadata" | "watermark"
+    pub task_type: String,  // MediaTaskType string
     pub media_type: String, // "video" | "audio" | "image"
 }
 

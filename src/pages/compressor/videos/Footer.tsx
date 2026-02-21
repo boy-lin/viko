@@ -8,11 +8,14 @@ import {
 } from "@/components/ui/popover";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
 import { CompressionSettingsPopover } from "./SettingsDialog";
-import { CompressVideoTaskArgs, getMediaTaskQueue } from "@/lib/bridge";
-import { useAppStore } from "@/stores/app";
+import { CompressVideoTaskArgs } from "@/lib/mediaTaskEvent";
+import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useCompressorStore } from './store'
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export const CompressionFooter: React.FC = () => {
+  const { t } = useTranslation("compressor");
   const videoConfig = useCompressorStore((state) => state.videoConfig);
   const updateTaskById = useCompressorStore((state) => state.updateTaskById);
   const updateGlobalConfig = useCompressorStore(
@@ -38,7 +41,12 @@ export const CompressionFooter: React.FC = () => {
   };
 
   const handleCompressAll = async () => {
-    await useCompressorStore.getState().pushTasksToQueue()
+    try {
+      await useCompressorStore.getState().pushTasksToQueue()
+    } catch (error) {
+      toast.error(t("footer.compress_all_failed_video"));
+      console.error("Failed to compress all videos:", error);
+    }
   };
 
   const handleDelete = async () => {
@@ -62,43 +70,6 @@ export const CompressionFooter: React.FC = () => {
     // 关闭弹窗
     setIsDeletePopoverOpen(false);
   };
-
-  React.useEffect(() => {
-    const queue = getMediaTaskQueue();
-    const handleEvent = (payload: any) => {
-      if (payload.task_type !== "compress") return;
-      const { task_id, event_type, progress, error_message } = payload;
-      const store = useCompressorStore.getState();
-
-      // Check if this task belongs to video converter store
-      // We might want to check if task exists in convertingTasks
-      const taskExists = store.compressingTasks.some(t => t.id === task_id);
-      if (!taskExists && event_type !== 'complete') {
-        // If complete, it might have been moved? No, complete moves it.
-        return;
-      }
-      console.log("payload", payload);
-      if (event_type === "progress") {
-        store.updateTaskById(task_id, {
-          status: "processing",
-          progress: Math.min(100, Math.max(0, progress || 0)),
-        });
-      } else if (event_type === "complete") {
-        store.removeTask(task_id);
-        useAppStore.getState().incrementUnreadFinishedCount();
-      } else if (event_type === "error") {
-        store.updateTaskById(task_id, {
-          status: error_message === "Task cancelled" ? "cancelled" : "error",
-          errorMessage: error_message,
-        });
-      }
-    };
-
-    const unsubscribe = queue.on(handleEvent);
-    return () => {
-      unsubscribe();
-    };
-  }, []);
 
   return (
     <div className="w-full flex items-end justify-between bg-background mt-auto">

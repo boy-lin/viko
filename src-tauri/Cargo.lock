@@ -429,47 +429,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
-name = "audio_video_kit"
-version = "0.1.0"
-dependencies = [
- "ab_glyph",
- "anyhow",
- "base64 0.22.1",
- "bytemuck",
- "cocoa",
- "cpal",
- "dirs",
- "ffmpeg-next",
- "futures",
- "image",
- "imageproc",
- "lazy_static",
- "libloading 0.8.9",
- "log",
- "machine-uid",
- "pollster",
- "reqwest 0.11.27",
- "ringbuf",
- "sea-query",
- "sea-query-binder",
- "serde",
- "serde_json",
- "smol",
- "sqlx",
- "tar",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tokio",
- "video-rs",
- "xz2",
- "zip",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6838,6 +6797,47 @@ dependencies = [
  "ffmpeg-next",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "viko"
+version = "0.1.0"
+dependencies = [
+ "ab_glyph",
+ "anyhow",
+ "base64 0.22.1",
+ "bytemuck",
+ "cocoa",
+ "cpal",
+ "dirs",
+ "ffmpeg-next",
+ "futures",
+ "image",
+ "imageproc",
+ "lazy_static",
+ "libloading 0.8.9",
+ "log",
+ "machine-uid",
+ "pollster",
+ "reqwest 0.11.27",
+ "ringbuf",
+ "sea-query",
+ "sea-query-binder",
+ "serde",
+ "serde_json",
+ "smol",
+ "sqlx",
+ "tar",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tokio",
+ "video-rs",
+ "xz2",
+ "zip",
 ]
 
 [[package]]

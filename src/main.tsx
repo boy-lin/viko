@@ -4,7 +4,7 @@ import { ThemeProvider } from "next-themes";
 import { analytics } from "@/lib/analytics";
 import { Toaster } from 'sonner'
 import { ErrorBoundary } from '@/components/error/ErrorBoundary'
-// import '@/services/errorMonitor' 
+import '@/services/errorMonitor'
 
 import "./lib/i18n"; // Import i18n config
 import App from "./App";

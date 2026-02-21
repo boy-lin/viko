@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use audio_video_kit_lib::events::MockEmitter;
-    use audio_video_kit_lib::video_compressor::{compress_video_file, VideoCompressionParams};
+    use viko_lib::events::MockEmitter;
+    use viko_lib::video_compressor::{compress_video_file, VideoCompressionParams};
     use std::fs;
     use std::path::PathBuf;
 

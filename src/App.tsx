@@ -6,17 +6,17 @@ import AuthLayout from "./layout/AuthLayout";
 import ErrorPage from '@/components/error/ErrorPage';
 
 const HomePage = lazy(() => import("./pages/home"));
-const TaskListPage = lazy(() => import("./pages/tasks/TaskListPage"));
 const TaskHistoryPage = lazy(() => import("./pages/tasks"));
 const CompressorVideoPage = lazy(() => import("./pages/compressor/videos"));
 const CompressorAudioPage = lazy(() => import("./pages/compressor/audios"));
 const CompressorImagePage = lazy(() => import("./pages/compressor/images"));
+
 const ConverterVideoPage = lazy(() => import("./pages/converter/videos"));
 const ConverterAudioPage = lazy(() => import("./pages/converter/audios"));
 const ConverterImagePage = lazy(() => import("./pages/converter/images"));
+
 const Mp3ConverterPage = lazy(() => import("./pages/demo/converter"));
 const AudioTestPage = lazy(() => import("./pages/demo/AudioTestPage"));
-const VideoPlayerPage = lazy(() => import("./pages/demo/VideoPlayer"));
 const MyFilesPage = lazy(() => import("./pages/myfiles"));
 const SignInPage = lazy(() => import("./pages/auth/sign-in"));
 const SignUpPage = lazy(() => import("./pages/auth/sign-up"));
@@ -46,20 +46,29 @@ const router = createBrowserRouter([
       {
         path: "/",
         element: <RootLayout />,
+
         children: [
-          { index: true, element: withSuspense(<HomePage />), loader: preloadI18nNamespaces(["home"]) },
           {
-            path: "compressor", element: <Outlet />, children: [
-              { path: "videos", element: withSuspense(<CompressorVideoPage />), loader: preloadI18nNamespaces(["converter", "common"]) },
-              { path: "audios", element: withSuspense(<CompressorAudioPage />), loader: preloadI18nNamespaces(["converter", "common"]) },
-              { path: "images", element: withSuspense(<CompressorImagePage />), loader: preloadI18nNamespaces(["converter", "common"]) },
+            index: true,
+            element: withSuspense(<HomePage />),
+            loader: preloadI18nNamespaces(["home"])
+          },
+          {
+            path: "compressor", element: <Outlet />,
+            loader: preloadI18nNamespaces(["converter"]),
+            children: [
+              { path: "videos", element: withSuspense(<CompressorVideoPage />) },
+              { path: "audios", element: withSuspense(<CompressorAudioPage />) },
+              { path: "images", element: withSuspense(<CompressorImagePage />) },
             ]
           },
           {
-            path: "converter", element: <Outlet />, children: [
-              { path: "videos", element: withSuspense(<ConverterVideoPage />), loader: preloadI18nNamespaces(["converter", "common"]) },
-              { path: "audios", element: withSuspense(<ConverterAudioPage />), loader: preloadI18nNamespaces(["converter", "common"]) },
-              { path: "images", element: withSuspense(<ConverterImagePage />), loader: preloadI18nNamespaces(["converter", "common"]) },
+            path: "converter", element: <Outlet />,
+            loader: preloadI18nNamespaces(["converter"]),
+            children: [
+              { path: "videos", element: withSuspense(<ConverterVideoPage />) },
+              { path: "audios", element: withSuspense(<ConverterAudioPage />) },
+              { path: "images", element: withSuspense(<ConverterImagePage />) },
             ]
           },
           {
@@ -69,10 +78,9 @@ const router = createBrowserRouter([
           {
             path: "tasks",
             element: <Outlet />,
+            loader: preloadI18nNamespaces(["tasks"]),
             children: [
               { index: true, element: withSuspense(<TaskHistoryPage />) },
-              { path: "convert", element: withSuspense(<TaskListPage mode="convert" />) },
-              { path: "compress", element: withSuspense(<TaskListPage mode="compress" />) },
             ],
           },
           {
@@ -80,12 +88,6 @@ const router = createBrowserRouter([
             children: [
               { path: "mp3", element: withSuspense(<Mp3ConverterPage />) },
               { path: "audio-test", element: withSuspense(<AudioTestPage />) },
-              { path: "v1", element: withSuspense(<HomePage />) },
-            ],
-          },
-          {
-            children: [
-              { path: "video-player", element: withSuspense(<VideoPlayerPage />) },
             ],
           },
           { path: "metadata", element: withSuspense(<MetadataEditorPage />) },

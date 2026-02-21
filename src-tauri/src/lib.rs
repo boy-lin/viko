@@ -159,6 +159,17 @@ pub fn run() {
                 crate::storage::favorites::init()
                     .await
                     .expect("failed to init task_favorites");
+
+                // Mark long-running tasks from previous sessions as interrupted.
+                // 24 hours cutoff to avoid false positives for long conversions.
+                if let Ok(affected) =
+                    crate::storage::task_history::cleanup_stale_processing(24 * 60 * 60 * 1000)
+                        .await
+                {
+                    if affected > 0 {
+                        log::info!("Marked {} stale tasks as interrupted", affected);
+                    }
+                }
             });
 
             if let Ok(resource_dir) = app.path().resource_dir() {

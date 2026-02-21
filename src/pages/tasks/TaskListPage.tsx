@@ -50,8 +50,14 @@ export default function TaskListPage({ mode }: TaskListPageProps) {
     setLoading(true);
     try {
       const keyword = globalFilter.trim();
+      try {
+        await syncLocalTaskHistoryToRemote({
+          userId: session?.user?.id || undefined,
+        });
+      } catch (syncError) {
+        console.warn("Failed to sync local task history to remote:", syncError);
+      }
       if (session?.user) {
-        await syncLocalTaskHistoryToRemote();
         const remote = await getRemoteTaskHistory({
           page: 1,
           limit: 10,

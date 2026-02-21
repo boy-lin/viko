@@ -134,7 +134,7 @@ fn check_fs_permission() -> (bool, Option<String>) {
         Some(path) => path,
         None => return (false, Some("未找到下载目录".to_string())),
     };
-    let test_path = download_dir.join("audio_video_kit_permission_probe.tmp");
+    let test_path = download_dir.join("viko_permission_probe.tmp");
     match OpenOptions::new()
         .create(true)
         .write(true)
@@ -898,7 +898,7 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
         let emitter = WindowEmitter::new(
             window_clone,
             task_id.clone(),
-            "convert".to_string(),
+            "convert-audio".to_string(),
             "audio".to_string(),
         );
 
@@ -1032,7 +1032,7 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
         };
 
         let emitter =
-            WindowEmitter::new(window, task_id, "convert".to_string(), "image".to_string());
+            WindowEmitter::new(window, task_id, "convert-gif".to_string(), "image".to_string());
 
         if let Err(e) = gif::convert_video_to_gif(emitter.clone(), params).map(|_| ()) {
             emitter.emit("error", None, None, Some(e));
@@ -1118,7 +1118,7 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
         };
 
         let emitter =
-            WindowEmitter::new(window, task_id, "compress".to_string(), "video".to_string());
+            WindowEmitter::new(window, task_id, "compress-video".to_string(), "video".to_string());
 
         if let Err(e) =
             crate::services::compress::video::compress_video_file(emitter.clone(), params)
@@ -1168,7 +1168,7 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
         };
 
         let emitter =
-            WindowEmitter::new(window, task_id, "compress".to_string(), "audio".to_string());
+            WindowEmitter::new(window, task_id, "compress-audio".to_string(), "audio".to_string());
 
         if let Err(e) =
             crate::services::compress::audio::compress_audio_file(emitter.clone(), params)
@@ -1220,7 +1220,7 @@ pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result
         };
 
         let emitter =
-            WindowEmitter::new(window, task_id, "compress".to_string(), "image".to_string());
+            WindowEmitter::new(window, task_id, "compress-image".to_string(), "image".to_string());
 
         if let Err(e) =
             crate::services::compress::image::compress_image_file(emitter.clone(), params)

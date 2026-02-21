@@ -8,11 +8,14 @@ import {
 } from "@/components/ui/popover";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
 import { CompressionSettingsPopover } from "./SettingsDialog";
-import { CompressImageTaskArgs, getMediaTaskQueue } from "@/lib/bridge";
-import { useAppStore } from "@/stores/app";
+import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
+import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useCompressorStore } from './store'
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 export const CompressionFooter: React.FC = () => {
+  const { t } = useTranslation("compressor");
   const imageConfig = useCompressorStore((state) => state.imageConfig);
   const updateTaskById = useCompressorStore((state) => state.updateTaskById);
   const updateGlobalConfig = useCompressorStore(
@@ -38,7 +41,12 @@ export const CompressionFooter: React.FC = () => {
   };
 
   const handleCompressAll = async () => {
-    await useCompressorStore.getState().pushTasksToQueue()
+    try {
+      await useCompressorStore.getState().pushTasksToQueue()
+    } catch (error) {
+      toast.error(t("footer.compress_all_failed_image"));
+      console.error("Failed to compress all images:", error);
+    }
   };
 
   const handleDelete = async () => {
@@ -63,50 +71,13 @@ export const CompressionFooter: React.FC = () => {
     setIsDeletePopoverOpen(false);
   };
 
-  React.useEffect(() => {
-    const queue = getMediaTaskQueue();
-    const handleEvent = (payload: any) => {
-      if (payload.task_type !== "compress") return;
-      const { task_id, event_type, progress, error_message } = payload;
-      const store = useCompressorStore.getState();
-
-      // Check if this task belongs to video converter store
-      // We might want to check if task exists in convertingTasks
-      const taskExists = store.compressingTasks.some(t => t.id === task_id);
-      if (!taskExists && event_type !== 'complete') {
-        // If complete, it might have been moved? No, complete moves it.
-        return;
-      }
-
-      if (event_type === "progress") {
-        store.updateTaskById(task_id, {
-          status: "processing",
-          progress: Math.min(100, Math.max(0, progress || 0)),
-        });
-      } else if (event_type === "complete") {
-        store.removeTask(task_id);
-        useAppStore.getState().incrementUnreadFinishedCount();
-      } else if (event_type === "error") {
-        store.updateTaskById(task_id, {
-          status: error_message === "Task cancelled" ? "cancelled" : "error",
-          errorMessage: error_message,
-        });
-      }
-    };
-
-    const unsubscribe = queue.on(handleEvent);
-    return () => {
-      unsubscribe();
-    };
-  }, []);
-
   return (
     <div className="w-full flex items-end justify-between bg-background mt-auto">
       <div className="flex items-center gap-6">
         {/* Compression Ratio Label and Slider */}
         <div className="flex flex-col gap-2 items-start">
           <span className="text-sm font-medium text-muted-foreground">
-            压缩质量
+            {t("footer.quality")}
           </span>
           <div className="flex items-center gap-2">
             <div className="w-[10em]">
@@ -125,7 +96,7 @@ export const CompressionFooter: React.FC = () => {
         {/* Save to Label and Select */}
         <div className="flex flex-col items-start gap-2">
           <span className="text-sm font-medium text-muted-foreground">
-            保存到
+            {t("footer.save_to")}
           </span>
           <div className="flex items-center gap-2">
             <OutputLocationSelect className="" />
@@ -152,9 +123,9 @@ export const CompressionFooter: React.FC = () => {
             <PopoverContent className="w-64" align="end">
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <h4 className="text-sm font-semibold">确认删除</h4>
+                  <h4 className="text-sm font-semibold">{t("footer.confirm_delete_title")}</h4>
                   <p className="text-xs text-muted-foreground">
-                    当前有任务正在执行中，是否中断并清空所有转换中的任务？
+                    {t("footer.confirm_delete_desc")}
                   </p>
                 </div>
                 <div className="flex items-center justify-end gap-2">
@@ -163,14 +134,14 @@ export const CompressionFooter: React.FC = () => {
                     size="sm"
                     onClick={() => setIsDeletePopoverOpen(false)}
                   >
-                    取消
+                    {t("common.cancel")}
                   </Button>
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={handleConfirmDelete}
                   >
-                    确认删除
+                    {t("footer.confirm_delete")}
                   </Button>
                 </div>
               </div>
@@ -182,7 +153,7 @@ export const CompressionFooter: React.FC = () => {
           className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20 cursor-pointer"
           onClick={handleCompressAll}
         >
-          压缩全部
+          {t("footer.compress_all")}
         </Button>
       </div>
 

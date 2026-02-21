@@ -15,7 +15,7 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { RESOLUTION_GROUPS_DEVICES, RESOLUTION_GROUPS_PLATFORMS } from "@/data/resolution";
-import { ConvertVideoTaskArgs } from "@/lib/bridge";
+import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { VideoResolutionSelect } from "@/components/biz-form/VideoResolutionSelect";
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { VideoQualitySelect } from "@/components/biz-form/VideoQualitySelect";

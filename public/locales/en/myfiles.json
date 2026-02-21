@@ -1,0 +1,53 @@
+{
+  "search": {
+    "placeholder": "Search"
+  },
+  "sort": {
+    "placeholder": "Sort by",
+    "date": "Date",
+    "name": "Name",
+    "asc": "Ascending",
+    "desc": "Descending"
+  },
+  "tabs": {
+    "all": "All",
+    "video": "Video",
+    "audio": "Audio",
+    "image": "Image"
+  },
+  "loading": "Loading...",
+  "empty": "No files",
+  "actions": {
+    "play": "Play",
+    "preview": "Preview",
+    "delete": "Delete",
+    "info": "Media Info",
+    "open_in_folder": "Show in Finder"
+  },
+  "load_more": "Load more",
+  "loaded_all": "All files loaded",
+  "select_all": "Select all ({{selected}}/{{total}})",
+  "player": {
+    "title": "Play"
+  },
+  "info": {
+    "title": "Media Info",
+    "file_name": "File Name",
+    "file_type": "File Type",
+    "file_size": "File Size",
+    "duration": "Duration",
+    "format": "Format",
+    "unknown": "Unknown",
+    "resolution": "Resolution",
+    "task_type": "Task Type",
+    "created_at": "Created At",
+    "source_path": "Source Path",
+    "output_path": "Output Path"
+  },
+  "file_type": {
+    "video": "Video",
+    "audio": "Audio",
+    "image": "Image",
+    "other": "Other"
+  }
+}

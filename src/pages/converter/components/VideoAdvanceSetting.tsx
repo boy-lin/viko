@@ -5,7 +5,7 @@ import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
 import { getVideoOptionsByEncoder, formatToDefinition } from "@/data/capabilities";
-import { ConvertVideoTaskArgs } from "@/lib/bridge";
+import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 
 import { Label } from "@/components/ui/label";
 import { Info } from "lucide-react";

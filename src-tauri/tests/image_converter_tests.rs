@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use audio_video_kit_lib::image_converter::{convert_image_file, ImageConversionParams};
+    use viko_lib::image_converter::{convert_image_file, ImageConversionParams};
     use std::fs;
     use std::path::PathBuf;
 

@@ -6,7 +6,7 @@ import {
 import { AudioEncoderEnum, FormatEnum } from "@/types/options";
 import { MediaTaskType } from "@/types/tasks";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { getMediaTaskQueue } from "@/lib/bridge";
+import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 
 export enum ActiveCategoryEnum {
   Recents = "recents",

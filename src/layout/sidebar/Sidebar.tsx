@@ -195,6 +195,7 @@ const SidebarLabel = ({
 
 const SidebarLogo = () => {
   const { open, animate } = useSidebar();
+  const { t } = useTranslation("common");
   return (
     <motion.div variants={itemVariants} className="px-5 py-4">
       <div className="flex items-center gap-2 h-9">
@@ -207,8 +208,8 @@ const SidebarLogo = () => {
             opacity: animate ? (open ? 1 : 0) : 1,
           }}
         >
-          <div className="text-xs text-muted-foreground">Viko</div>
-          <div className="text-sm font-bold">AudioVideoKits</div>
+          <div className="text-xs text-muted-foreground">{t("sidebar.brand_name")}</div>
+          <div className="text-sm font-bold">{t("sidebar.brand_tagline")}</div>
         </motion.div>
       </div>
     </motion.div>
@@ -220,6 +221,7 @@ const SidebarNavItem = ({
 }: {
   item: NavItem;
 }) => {
+  const { t } = useTranslation("common");
   const Icon = item.icon;
   const navigate = useNavigate();
   const location = useLocation();
@@ -236,13 +238,13 @@ const SidebarNavItem = ({
       whileTap={{ scale: 0.98 }}
       onClick={() => {
         if (isDisabled) {
-          toast.info("功能开发中");
+          toast.info(t("sidebar.feature_in_development"));
           return;
         }
         if (item.href) {
           navigate(item.href);
         } else {
-          toast.info("This feature is coming soon");
+          toast.info(t("sidebar.coming_soon"));
         }
       }}
       className={cn(
@@ -294,7 +296,7 @@ const SidebarQuickAccessItem = ({
   isPinned?: boolean;
   onTogglePin?: (href: string) => void;
 }) => {
-  const { t } = useTranslation("sidebar");
+  const { t } = useTranslation("common");
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = item.href ? location.pathname.startsWith(item.href) : false;
@@ -310,7 +312,7 @@ const SidebarQuickAccessItem = ({
         })
       }
       className={cn(
-        "w-full h-10 flex items-center gap-3 px-2 py-2 rounded-lg transition-colors overflow-hidden group cursor-pointer",
+        "w-full h-10 flex items-center px-2 py-2 rounded-lg transition-colors overflow-hidden group",
         isActive
           ? "bg-indigo-50"
           : "hover:bg-slate-100"
@@ -318,13 +320,13 @@ const SidebarQuickAccessItem = ({
     >
       <div
         className={cn(
-          "flex flex-shrink-0 h-7 w-7 items-center justify-center rounded-lg transition-transform group-hover:scale-105",
+          "mr-2 flex flex-shrink-0 h-7 w-7 items-center justify-center rounded-lg transition-transform group-hover:scale-105",
           item.color
         )}
       >
         <item.icon className="w-5 h-5" />
       </div>
-      <SidebarLabel className={cn("text-sm", isActive ? "text-foreground" : "text-foreground/90 group-hover:text-slate-700")}>
+      <SidebarLabel className={cn("text-sm max-w-[12em] truncate cursor-default", isActive ? "text-foreground" : "text-foreground/90 group-hover:text-slate-700")}>
         {t(item.label)}
       </SidebarLabel>
       {item.href && (
@@ -334,9 +336,9 @@ const SidebarQuickAccessItem = ({
             e.stopPropagation();
             onTogglePin?.(item.href as string);
           }}
-          title={isPinned ? t("unpin") : t("pin")}
+          title={isPinned ? t("sidebar.unpin") : t("sidebar.pin")}
           className={cn(
-            "ml-auto h-8 w-8 flex items-center justify-center rounded-md transition",
+            "cursor-pointer ml-auto h-8 w-8 flex items-center justify-center rounded-md transition",
             isPinned
               ? "text-indigo-600 hover:bg-white/10"
               : "text-foreground/60 hover:text-foreground hover:bg-white/10 opacity-0 group-hover:opacity-100"
@@ -364,12 +366,12 @@ const SidebarQuickAccess = ({
   pinnedPaths: string[];
   onTogglePin: (href: string) => void;
 }) => {
-  const { t } = useTranslation("sidebar");
+  const { t } = useTranslation("common");
   return (
     <motion.div variants={itemVariants} className="flex-1 min-h-0 flex flex-col">
       <div className="flex items-center justify-between px-3 py-2">
         <SidebarLabel useVisible className="text-xs text-foreground/50 font-medium">
-          {t("quick_access")}
+          {t("sidebar.quick_access")}
         </SidebarLabel>
         {/* <SidebarLabel className="inline-flex text-foreground/40">
           <Plus className="w-4 h-4" />
@@ -416,7 +418,7 @@ const SidebarQuickAccess = ({
 };
 
 const SidebarNav = () => {
-  const { t } = useTranslation("sidebar");
+  const { t } = useTranslation("common");
   const location = useLocation();
   const unreadFinishedCount = useAppStore((s) => s.unreadFinishedCount);
   const {
@@ -502,11 +504,12 @@ const SidebarContent = () => (
 
 const SidebarToggle = () => {
   const { open, setOpen } = useSidebar();
+  const { t } = useTranslation("common");
   const Icon = open ? ChevronLeft : ChevronRight;
   return (
     <button
       type="button"
-      title={open ? "收起侧边栏" : "展开侧边栏"}
+      title={open ? t("sidebar.collapse") : t("sidebar.expand")}
       onClick={() => setOpen((prev) => !prev)}
       className="cursor-pointer absolute right-0 top-1/2 z-10 flex h-9 w-2 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-border/50 bg-background backdrop-blur-sm text-foreground shadow-sm transition hover:bg-muted hover:scale-110"
     >

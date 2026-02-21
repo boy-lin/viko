@@ -1,4 +1,4 @@
-import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs, } from "@/lib/bridge";
+import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs, } from "@/lib/mediaTaskEvent";
 
 export enum MediaTaskType {
   ConvertVideo = "convert-video",
@@ -64,6 +64,7 @@ export enum FileType {
   Video = "video",
   Audio = "audio",
   Image = "image",
+  Gif = "gif",
 }
 
 export enum ActiveCategoryEnum {

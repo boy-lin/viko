@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use audio_video_kit_lib::commands::AudioConversionArgs;
-    use audio_video_kit_lib::storage::{db, media_queue};
-    use audio_video_kit_lib::task::queue::MediaTaskRequest;
+    use viko_lib::commands::AudioConversionArgs;
+    use viko_lib::storage::{db, media_queue};
+    use viko_lib::task::queue::MediaTaskRequest;
     use std::env;
     use std::fs;
     use std::path::PathBuf;
@@ -33,8 +33,8 @@ mod tests {
         // But `media_queue` module didn't expose a `init` function calling `check_latest`.
         // Let's call it via generic mechanism if possible, or just exact SQL.
         // Actually `MediaQueueTable` implements `TableSpec`.
-        use audio_video_kit_lib::storage::db::TableSpec;
-        audio_video_kit_lib::storage::media_queue::MediaQueueTable::check_latest()
+        use viko_lib::storage::db::TableSpec;
+        viko_lib::storage::media_queue::MediaQueueTable::check_latest()
             .await
             .expect("Failed to init table");
 

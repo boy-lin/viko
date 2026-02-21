@@ -1,4 +1,4 @@
-import { CompressVideoTaskArgs } from "@/lib/bridge";
+import { CompressVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { EncoderEnum } from "@/types/options";
 import { formatToDefinition } from "@/data/capabilities";
 

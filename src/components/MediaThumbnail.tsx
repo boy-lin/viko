@@ -14,6 +14,8 @@ interface MediaThumbnailProps {
   title?: string;
   className?: string;
   fileType?: FileType;
+  thumbnailPath?: string;
+  disableAutoGenerate?: boolean;
   thumbnailOptions?: {
     width?: number;
     height?: number;
@@ -33,9 +35,11 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   title = "Media",
   className,
   fileType,
+  thumbnailPath,
+  disableAutoGenerate = false,
   thumbnailOptions = {
-    width: 320,
-    height: 180,
+    width: 160,
+    height: 90,
     fitMode: "cover",
   },
 }) => {
@@ -52,6 +56,22 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
 
     const fetchThumbnail = async () => {
       if (!path) return;
+      if (disableAutoGenerate && !thumbnailPath) {
+        if (isMounted) {
+          setIsMissing(false);
+          setThumbnail(null);
+          setThumbnailResolution(null);
+        }
+        return;
+      }
+      if (thumbnailPath) {
+        if (isMounted) {
+          setIsMissing(false);
+          setThumbnail(convertFileSrc(thumbnailPath));
+          setThumbnailResolution(null);
+        }
+        return;
+      }
       if (isMounted) {
         setIsMissing(false);
       }
@@ -96,13 +116,13 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [path]);
+  }, [path, thumbnailPath, disableAutoGenerate]);
 
   const icon = useMemo(() => {
-    if (fileType === "video") return <FileVideo className="w-6 h-6" />;
-    if (fileType === "audio")
+    if (fileType === FileType.Video) return <FileVideo className="w-6 h-6" />;
+    if (fileType === FileType.Audio)
       return <FileAudio className="text-blue-500 w-6 h-6" />;
-    if (fileType === "image") return <ImageIcon className="w-6 h-6" />;
+    if (fileType === FileType.Image || fileType === FileType.Gif) return <ImageIcon className="w-6 h-6" />;
     return null;
   }, [fileType]);
 
@@ -117,7 +137,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
     if (!fileType || !path) return null;
 
     switch (fileType) {
-      case "video":
+      case FileType.Video:
         return (
           <ShakaPlayer
             filePath={path}
@@ -126,7 +146,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
             autoPlay={false}
           />
         );
-      case "audio":
+      case FileType.Audio:
         return (
           <MusicPlayer
             filePath={path}
@@ -135,7 +155,8 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
             autoPlay={false}
           />
         );
-      case "image":
+      case FileType.Image:
+      case FileType.Gif:
         return (
           <ImageViewer imagePath={path} alt={title} className="w-full h-full" />
         );
@@ -194,7 +215,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
         <DialogContent
           className={cn(
             "bg-transparent border-0 shadow-none max-w-6xl w-[95vw] p-0",
-            fileType === "image" && "max-w-[95vw] h-[95vh]"
+            (fileType === FileType.Image || fileType === FileType.Gif) && "max-w-[95vw] h-[95vh]"
           )}
           showCloseButton={true}
         >

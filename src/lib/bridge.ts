@@ -8,23 +8,12 @@ import {
 import { extractFilenameFromPath } from "./utils";
 import { MediaTaskType } from "@/types/tasks";
 import { handleDirectoryToFiles } from "./file";
-import { analytics } from "@/lib/analytics";
+import { MediaTaskEvent } from "./mediaTaskEvent";
 
 export type DownloadProgress = {
   stage: string;
   downloaded: number;
   total?: number | null;
-};
-
-export type MediaTaskEvent = {
-  task_id: string;
-  task_type: "convert" | "compress";
-  media_type: "video" | "audio" | "image" | "gif";
-  event_type: "progress" | "complete" | "error";
-  progress?: number;
-  output_path?: string;
-  output_size?: number;
-  error_message?: string;
 };
 
 export type BridgeEvents = {
@@ -39,235 +28,11 @@ type EventPayload<K extends string> = K extends KnownEvent
   ? BridgeEvents[K]
   : unknown;
 
-/** 与 Rust AudioEncodingParams 对应 */
-export interface AudioEncodingParams {
-  codec?: string;
-  bitrate?: number;
-  sample_rate?: number;
-  channels?: number;
-  bit_depth?: number;
-  quality?: number;
+export interface HardwareSupport {
+  h264_hardware: boolean;
+  hevc_hardware: boolean;
+  prores_hardware: boolean;
 }
-
-/** 与 Rust AudioTrackConfig 对应 */
-export interface AudioTrackConfig {
-  source_stream_index?: number;
-  /** flatten: 与 AudioEncodingParams 字段一致 */
-  codec?: string;
-  bitrate?: number;
-  sample_rate?: number;
-  channels?: number;
-  bit_depth?: number;
-  quality?: number;
-}
-
-/** 与 Rust TextWatermark 对应 */
-export interface TextWatermark {
-  content: string;
-  font_path: string;
-  font_size: number;
-  color: string;
-  opacity: number;
-  x: string;
-  y: string;
-  anchor?: "tl" | "tm" | "tr" | "ml" | "c" | "mr" | "bl" | "bm" | "br";
-  offset_x?: number;
-  offset_y?: number;
-  offset_unit?: "px" | "percent";
-}
-
-/** 与 Rust ImageWatermark 对应 */
-export interface ImageWatermark {
-  path: string;
-  scale: number;
-  opacity: number;
-  x: string;
-  y: string;
-  anchor?: "tl" | "tm" | "tr" | "ml" | "c" | "mr" | "bl" | "bm" | "br";
-  offset_x?: number;
-  offset_y?: number;
-  offset_unit?: "px" | "percent";
-  size_mode?: "video_width_ratio" | "scale";
-  size_value?: number;
-}
-
-/** 与 Rust WatermarkConfig 对应 */
-export interface WatermarkConfig {
-  text?: TextWatermark;
-  image?: ImageWatermark;
-}
-
-/** 与 Rust VideoConversionArgs 对应，用于 convert_video_file */
-export interface ConvertVideoTaskArgs {
-  task_id: string;
-  input_path: string;
-  output_path?: string;
-  format?: string;
-  video_encoder?: string;
-  video_bitrate?: number;
-  min_bitrate?: number;
-  max_bitrate?: number;
-  rc_mode?: string;
-  crf?: number;
-  resolution?: string;
-  aspect_ratio?: string;
-  scaling_mode?: string;
-  frame_rate?: string;
-  gop_size?: number;
-  preset?: string;
-  profile?: string;
-  tune?: string;
-  color_space?: string;
-  bit_depth?: number;
-  crop?: string;
-  audio_tracks?: AudioTrackConfig[];
-  default_audio_params?: AudioEncodingParams;
-  use_hardware_acceleration?: boolean;
-  use_ultra_fast_speed?: boolean;
-  watermark?: WatermarkConfig;
-}
-
-export interface ConvertAudioTaskArgs {
-  task_id: string;
-  input_path: string;
-  format: string;
-  // 扩展待同步到rust
-  output_path?: string;
-  audio_tracks?: AudioTrackConfig[];
-  use_hardware_acceleration?: boolean;
-  use_ultra_fast_speed?: boolean;
-}
-
-export interface ConvertGifTaskArgs {
-  task_id: string;
-  input_path: string;
-  format: string;
-  // 扩展待同步到rust
-  output_path?: string;
-}
-
-export interface ConvertImageTaskArgs {
-  task_id: string;
-  input_path: string;
-  format: string;
-  width?: number;
-  height?: number;
-  quality?: number;
-  /** 扩展待同步到rust */
-  image_encoder?: string;
-  resolution?: string;
-  output_path?: string;
-}
-
-export interface CompressVideoTaskArgs {
-  task_id: string;
-  input_path: string;
-  format: string;
-  codec: string;
-  resolution: string;
-  bitrate: number;
-  frame_rate: number;
-  output_path?: string;
-  keyframe_interval?: number;
-  color_depth?: number;
-  remove_audio?: boolean;
-  audio_bitrate?: number;
-  preset?: string;
-  use_hardware_acceleration?: boolean;
-  /** 扩展待同步到rust */
-  ratio: number;// only display 0-100，表示压缩到原文件的百分比
-}
-// 压缩配置类型
-export interface VideoCompressionConfig {
-  compressionRatio: number; // 0-100，表示压缩到原文件的百分比
-  format?: string;
-  width?: number;
-  height?: number;
-  bitrate?: number; // kbps
-  frameRate?: number;
-  codec?: string;
-  keyframeInterval?: number;
-  colorDepth?: number;
-  removeAudio?: boolean;
-  audioBitrate?: number; // kbps
-  preset?: string;
-  useHardwareAcceleration?: boolean;
-}
-
-export interface CompressAudioTaskArgs {
-  task_id: string;
-  input_path: string;
-  format: string;
-  codec: string;
-  sample_rate?: number
-  bitrate?: number
-  remove_silence?: boolean;
-  volume_gain?: number;
-  silence_threshold?: number;
-  channels?: number;
-  bit_depth?: number;
-  output_path: string;
-  /** only display */
-  ratio: number
-}
-export interface AudioCompressionConfig {
-  type: "audio";
-  compressionRatio: number; // 0-100
-  format?: string;
-  sampleRate?: number;
-  bitrate?: number; // kbps
-  codec?: string;
-  channels?: number;
-  bitDepth?: number;
-  removeSilence?: boolean;
-  silenceThreshold?: number;
-  volumeGain?: number;
-}
-
-export interface CompressImageTaskArgs {
-  task_id: string;
-  input_path: string;
-  format: string;
-  width?: number;
-  height?: number;
-  quality: number;
-  /** 扩展待同步到rust */
-  output_path?: string;
-  color_mode?: string;
-  strip_metadata?: boolean;
-  keep_transparency?: boolean;
-  dpi?: number;
-  crop_whitespace?: boolean;
-}
-
-export interface ImageCompressionConfig {
-  type: "image";
-  quality: number; // 0-100，质量百分比
-  format?: string;
-  width?: number;
-  height?: number;
-  colorMode?: string;
-  stripMetadata?: boolean;
-  keepTransparency?: boolean;
-  dpi?: number;
-  cropWhitespace?: boolean;
-}
-
-
-export type CompressionConfig = VideoCompressionConfig
-  | AudioCompressionConfig
-  | ImageCompressionConfig;
-
-type ConvertTaskRequest = {
-  kind: MediaTaskType;
-  args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs;
-}
-
-
-type CompressTaskRequest = {
-  kind: MediaTaskType;
-  args: CompressVideoTaskArgs | CompressAudioTaskArgs | CompressImageTaskArgs
-};
 
 class Bridge {
   private static instance: Bridge | null = null;
@@ -368,6 +133,10 @@ class Bridge {
       resolution,
       title
     };
+  }
+
+  async checkHardwareAcceleration(): Promise<HardwareSupport> {
+    return this.invoke<HardwareSupport>("check_hardware_acceleration");
   }
 
   async getDeviceId(): Promise<string> {
@@ -485,9 +254,9 @@ class Bridge {
 
 export interface TaskHistoryItem {
   id: string;
-  task_type: string;
+  task_type: MediaTaskType;
   media_type: FileType;
-  status: "finished" | "error" | "cancelled";
+  status: "idle" | "processing" | "finished" | "error" | "cancelled";
   input_path: string;
   output_path?: string;
   output_size?: number;
@@ -507,151 +276,3 @@ export interface MyFileItem extends TaskHistoryItem {
 }
 
 export const bridge = Bridge.getInstance();
-
-
-type TaskPriority = "high" | "normal" | "low";
-
-class MediaTaskQueue {
-  private static instance: MediaTaskQueue | null = null;
-
-  private pendingTaskIds = new Set<string>();
-  private eventUnlisten: UnlistenFn | null = null;
-  private listeners: ((event: MediaTaskEvent) => void)[] = [];
-
-  private constructor() { }
-
-  static getInstance(): MediaTaskQueue {
-    if (MediaTaskQueue.instance === null) {
-      MediaTaskQueue.instance = new MediaTaskQueue();
-    }
-    return MediaTaskQueue.instance;
-  }
-
-  async ensureEventListener(): Promise<void> {
-    if (this.eventUnlisten !== null) return;
-    this.eventUnlisten = await listen<MediaTaskEvent>(
-      "media_task_event",
-      (e) => this.handleMediaTaskEvent(e.payload)
-    );
-  }
-
-  /**
-   * 
-   * @param tasks 
-   * @param priority 
-   */
-  async addConvertTasks(
-    tasks: ConvertTaskRequest[],
-    priority: TaskPriority = "normal"
-  ): Promise<void> {
-    tasks.forEach(task => {
-      if (!task.args.output_path) {
-        throw new Error("Task output_path is required");
-      }
-      if (!task.args.task_id) {
-        throw new Error("Task ID is required");
-      }
-      this.pendingTaskIds.add(task.args.task_id);
-    });
-
-    this.ensureEventListener();
-    this.trackTaskSubmit("tasks_submit_convert", tasks);
-    console.log("Adding convert tasks", tasks);
-    await bridge.invoke("media_task_submit", { tasks, priority });
-  }
-
-  async addCompressTasks(
-    tasks: CompressTaskRequest[],
-    priority: TaskPriority = "normal"
-  ): Promise<void> {
-    tasks.forEach(task => {
-      if (task.args && task.args.task_id) {
-        this.pendingTaskIds.add(task.args.task_id);
-      }
-    });
-    this.ensureEventListener();
-    this.trackTaskSubmit("tasks_submit_compress", tasks);
-    console.log("Adding compress tasks", tasks);
-    await bridge.invoke("media_task_submit", { tasks, priority });
-  }
-
-  async hasRunningTasksByType(taskType?: MediaTaskType): Promise<boolean> {
-    if (taskType) {
-      return bridge.invoke<boolean>("media_task_has_running_by_type", { taskType });
-    }
-    return bridge.invoke<boolean>("media_task_has_running_by_type");
-  }
-
-  async clearQueueByType(
-    stopRunning: boolean = false,
-    taskType?: MediaTaskType,
-  ): Promise<void> {
-    const args: Record<string, unknown> = { stopRunning };
-    if (taskType) args.taskType = taskType;
-    await bridge.invoke("media_task_clear_by_type_with_stop", args);
-  }
-
-  async cancelTaskById(id: string): Promise<void> {
-    await bridge.invoke("media_task_cancel_task", { id });
-  }
-
-  on(listener: (event: MediaTaskEvent) => void): () => void {
-    this.listeners.push(listener);
-    return () => {
-      this.listeners = this.listeners.filter((l) => l !== listener);
-    };
-  }
-
-  getQueueLength(): number {
-    return 0;
-  }
-
-  getActiveCount(): number {
-    return 0;
-  }
-
-  private tryStopListener(): void {
-    if (this.pendingTaskIds.size === 0 && this.eventUnlisten) {
-      this.eventUnlisten();
-      this.eventUnlisten = null;
-    }
-  }
-
-  private handleMediaTaskEvent(payload: MediaTaskEvent): void {
-    // console.log("Media task event", !this.pendingTaskIds.has(payload.task_id), payload);
-    if (!this.pendingTaskIds.has(payload.task_id)) return;
-
-    // Notify all listeners
-    this.listeners.forEach(listener => listener(payload));
-
-    // Internal cleanup logic
-    if (payload.event_type === "complete" || payload.event_type === "error") {
-      this.pendingTaskIds.delete(payload.task_id);
-
-      // If no more pending tasks, we can potentially stop listening to the bridge event?
-      // But we might want to keep listening if new tasks are added?
-      // The original code tried to stop listener if pendingTaskIds is empty.
-      this.tryStopListener();
-    }
-  }
-
-  private trackTaskSubmit(
-    eventName: "tasks_submit_convert" | "tasks_submit_compress",
-    tasks: Array<{ kind: MediaTaskType; args: unknown }>
-  ): void {
-    analytics.track(eventName, {
-      task_meta: tasks.map((task) => {
-        const args = (task.args || {}) as Record<string, unknown>;
-        return {
-          kind: task.kind,
-          format: typeof args.format === "string" ? args.format : undefined,
-          has_watermark: Boolean(args.watermark),
-        };
-      }),
-    });
-  }
-}
-
-export function getMediaTaskQueue(): MediaTaskQueue {
-  return MediaTaskQueue.getInstance();
-}

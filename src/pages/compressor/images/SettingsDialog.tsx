@@ -23,7 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CompressImageTaskArgs } from "@/lib/bridge";
+import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Settings } from "lucide-react";
 import { getImageCompressionPresetByQuality } from "./compressionPreset";
@@ -92,16 +92,16 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="col-span-2 py-2">
-          <Slider
-            value={[config.quality]}
-            onValueChange={(value) => {
-              const next = getImageCompressionPresetByQuality(
-                value[0],
-                config.format
-              );
-              onConfigChange(next.patch);
-            }}
-            min={10}
+        <Slider
+          value={[config.quality]}
+          onValueChange={(value) => {
+            const next = getImageCompressionPresetByQuality(
+              value[0],
+              config.format
+            );
+            onConfigChange(next.patch);
+          }}
+          min={10}
           max={100}
           step={5}
           className="w-full"

@@ -10,15 +10,15 @@ import {
 import VideoSettingsSection from "@/pages/converter/components/VideoSettingsSection";
 import { ActiveCategoryEnum } from "@/pages/converter/videos/store";
 import { FileType, MediaTaskType } from "@/types/tasks";
-import { AudioTrackConfig, ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/bridge";
-
-import CategoryItem from "./CategoryItem";
-import { FormatSelectorContentProps } from "./types";
 import { ImageSettingsSection } from "@/pages/converter/components/ImageSettingsSection";
-import { FormatGroup } from "@/types/options";
+import { FormatGroup, FormatEnum } from "@/types/options";
 import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
 import { formatToDefinition } from "@/data/capabilities";
 import { useTranslation } from "react-i18next";
+import { AudioTrackConfig, ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
+
+import CategoryItem from "./CategoryItem";
+import { FormatSelectorContentProps } from "./types";
 
 export default function FormatSelectorContent({
   config,
@@ -138,7 +138,11 @@ export default function FormatSelectorContent({
       updates.args.video_encoder = definition?.video?.defaultEncoder;
       updates.args.audio_tracks = audioTracks;
     } else if (formatOpt.category === FileType.Image) {
-      updates.taskType = MediaTaskType.ConvertImage;
+      if (formatOpt.extension === FormatEnum.GIF) {
+        updates.taskType = MediaTaskType.ConvertGif;
+      } else {
+        updates.taskType = MediaTaskType.ConvertImage;
+      }
       updates.args.image_encoder = definition?.image?.defaultEncoder;
     }
     console.log('updates22', updates)

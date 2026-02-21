@@ -180,6 +180,14 @@ fn find_vcpkg_root() -> Option<String> {
 fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(|e| e.to_string())?;
     let target = std::env::var("TARGET").unwrap_or_default();
+    
+    // On macOS, we use `scripts/fix-mac-dylibs.sh` during Tauri's `beforeBundleCommand`
+    // to recursively copy all FFmpeg dependencies (including x264, x265, etc.) and
+    // fix their install_name references via `install_name_tool`.
+    if target.contains("apple-darwin") {
+        return Ok(());
+    }
+
     let arch = if target.contains("aarch64") {
         "aarch64"
     } else if target.contains("x86_64") {
@@ -218,17 +226,6 @@ fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
             "libswresample.dylib",
             "libswscale.dylib",
         ]
-    } else if target.contains("windows") {
-        vec![
-            "avcodec.dll",
-            "avdevice.dll",
-            "avfilter.dll",
-            "avformat.dll",
-            "avutil.dll",
-            "postproc.dll",
-            "swresample.dll",
-            "swscale.dll",
-        ]
     } else {
         vec![
             "libavcodec.so",
@@ -243,19 +240,39 @@ fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
     };
 
     let mut copied_any = false;
-    for name in lib_names {
-        let src = src_dir.join(name);
-        if src.exists() {
-            let dest = dest_dir.join(name);
-            std::fs::copy(&src, &dest).map_err(|e| {
-                format!(
-                    "copy failed: {} -> {} ({})",
-                    src.display(),
-                    dest.display(),
-                    e
-                )
-            })?;
-            copied_any = true;
+    
+    if target.contains("windows") {
+        // On Windows, vcpkg appends version numbers to dlls (e.g., avformat-61.dll).
+        // It's safest to copy all .dll files from the bin directory, which also includes 
+        // transitive dependencies like libx264.dll, zlib1.dll, etc.
+        if let Ok(entries) = std::fs::read_dir(&src_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("dll") {
+                    if let Some(file_name) = path.file_name() {
+                        let dest = dest_dir.join(file_name);
+                        if std::fs::copy(&path, &dest).is_ok() {
+                            copied_any = true;
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        for name in lib_names {
+            let src = src_dir.join(name);
+            if src.exists() {
+                let dest = dest_dir.join(name);
+                std::fs::copy(&src, &dest).map_err(|e| {
+                    format!(
+                        "copy failed: {} -> {} ({})",
+                        src.display(),
+                        dest.display(),
+                        e
+                    )
+                })?;
+                copied_any = true;
+            }
         }
     }
 

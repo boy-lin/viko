@@ -1,5 +1,5 @@
 import { formatToDefinition } from "@/data/capabilities";
-import { CompressAudioTaskArgs } from "@/lib/bridge";
+import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { EncoderEnum } from "@/types/options";
 
 export type AudioCompressionTier =

@@ -7,16 +7,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { invoke } from "@tauri-apps/api/core";
+import { bridge, type HardwareSupport } from "@/lib/bridge";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-
-interface HardwareSupport {
-  h264_hardware: boolean;
-  hevc_hardware: boolean;
-  prores_hardware: boolean;
-}
 
 interface HighSpeedConversionBadgeProps {
   className?: string;
@@ -42,9 +36,11 @@ export const HighSpeedConversionBadge: React.FC<
   useEffect(() => {
     const checkSupport = async () => {
       try {
-        const result = await invoke<HardwareSupport>(
-          "check_hardware_acceleration"
-        );
+        if (!bridge.isTauri()) {
+          setLoading(false);
+          return;
+        }
+        const result = await bridge.checkHardwareAcceleration();
         console.log("result", result);
         setSupport(result);
 

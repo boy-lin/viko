@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use audio_video_kit_lib::events::MockEmitter;
-    use audio_video_kit_lib::services::convert::video::{convert_video, VideoConversionParams};
-    use audio_video_kit_lib::services::media_tools::watermark::{
+    use viko_lib::events::MockEmitter;
+    use viko_lib::services::convert::video::{convert_video, VideoConversionParams};
+    use viko_lib::services::media_tools::watermark::{
         ImageWatermark, TextWatermark, WatermarkConfig,
     };
     use image::{Rgba, RgbaImage};

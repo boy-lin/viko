@@ -9,10 +9,12 @@ import {
 import { FormatSelector } from "@/components/biz-form/FormatSelector";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
 import { GlobalConverterConfig, useConverterStore } from "./store";
-import { getMediaTaskQueue } from "@/lib/bridge";
-import { useAppStore } from "@/stores/app";
+import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 export const ConverterFooter: React.FC<{}> = () => {
+  const { t } = useTranslation("converter");
   const globalConfig = useConverterStore((state) => state.globalConfig);
   const convertingTasks = useConverterStore((state) => state.convertingTasks);
   const updateGlobalConfig = useConverterStore(
@@ -26,43 +28,6 @@ export const ConverterFooter: React.FC<{}> = () => {
   );
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
-
-  React.useEffect(() => {
-    const queue = getMediaTaskQueue();
-    const handleEvent = (payload: any) => {
-      if (payload.task_type !== "convert") return;
-      const { task_id, event_type, progress, error_message } = payload;
-      const store = useConverterStore.getState();
-
-      // Check if this task belongs to video converter store
-      // We might want to check if task exists in convertingTasks
-      const taskExists = store.convertingTasks.some(t => t.id === task_id);
-      if (!taskExists && event_type !== 'complete') {
-        // If complete, it might have been moved? No, complete moves it.
-        return;
-      }
-
-      if (event_type === "progress") {
-        store.updateTaskById(task_id, {
-          status: "processing",
-          progress: Math.min(100, Math.max(0, progress || 0)),
-        });
-      } else if (event_type === "complete") {
-        store.removeTask(task_id);
-        useAppStore.getState().incrementUnreadFinishedCount();
-      } else if (event_type === "error") {
-        store.updateTaskById(task_id, {
-          status: error_message === "Task cancelled" ? "cancelled" : "error",
-          errorMessage: error_message,
-        });
-      }
-    };
-
-    const unsubscribe = queue.on(handleEvent);
-    return () => {
-      unsubscribe();
-    };
-  }, []);
 
   const handleFormatChange = (
     config: GlobalConverterConfig
@@ -83,7 +48,12 @@ export const ConverterFooter: React.FC<{}> = () => {
   };
 
   const handleConvertAll = async () => {
-    await useConverterStore.getState().pushTasksToQueue()
+    try {
+      await useConverterStore.getState().pushTasksToQueue()
+    } catch (error) {
+      toast.error(t("footer.convert_all_failed_image"));
+      console.error("Failed to convert all images:", error);
+    }
   };
 
   const handleDelete = async () => {
@@ -114,7 +84,7 @@ export const ConverterFooter: React.FC<{}> = () => {
         {/* Convert to Label and Select */}
         <div className="flex flex-col gap-2 items-start">
           <span className="text-sm font-medium text-muted-foreground">
-            目标格式
+            {t("footer.target_format")}
           </span>
           <div className="flex items-center gap-2">
             <FormatSelector
@@ -130,7 +100,7 @@ export const ConverterFooter: React.FC<{}> = () => {
         {/* Save to Label and Select */}
         <div className="flex flex-col items-start gap-2">
           <span className="text-sm font-medium text-muted-foreground">
-            保存到
+            {t("footer.save_to")}
           </span>
           <div className="flex items-center gap-2">
             <OutputLocationSelect className="w-[14em]" />
@@ -148,7 +118,7 @@ export const ConverterFooter: React.FC<{}> = () => {
               <Button
                 variant="outline"
                 size="icon"
-                className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
+                className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 cursor-pointer"
                 onClick={handleDelete}
               >
                 <Trash2 className="w-4 h-4" />
@@ -157,9 +127,9 @@ export const ConverterFooter: React.FC<{}> = () => {
             <PopoverContent className="w-64" align="end">
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <h4 className="text-sm font-semibold">确认删除</h4>
+                  <h4 className="text-sm font-semibold">{t("footer.confirm_delete_title")}</h4>
                   <p className="text-xs text-muted-foreground">
-                    当前有任务正在执行中，是否中断并清空所有转换中的任务？
+                    {t("footer.confirm_delete_desc")}
                   </p>
                 </div>
                 <div className="flex items-center justify-end gap-2">
@@ -168,14 +138,14 @@ export const ConverterFooter: React.FC<{}> = () => {
                     size="sm"
                     onClick={() => setIsDeletePopoverOpen(false)}
                   >
-                    取消
+                    {t("common.cancel")}
                   </Button>
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={handleConfirmDelete}
                   >
-                    确认删除
+                    {t("footer.confirm_delete")}
                   </Button>
                 </div>
               </div>
@@ -184,10 +154,10 @@ export const ConverterFooter: React.FC<{}> = () => {
         </div>
 
         <Button
-          className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20"
+          className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20 cursor-pointer"
           onClick={handleConvertAll}
         >
-          转换全部
+          {t("footer.convert_all")}
         </Button>
       </div>
 

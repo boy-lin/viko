@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { VIDEO_FORMATS } from "@/data/formats";
 import { bridge } from "@/lib/bridge";
+import { useTranslation } from "react-i18next";
 
 import { useConverterStore } from "./store";
 import { ConverterFooter } from "./Footer";
 import ConvertingTask from "./Task";
 
 export default function ConvertionVideoPage() {
+  const { t } = useTranslation("converter");
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -34,7 +36,7 @@ export default function ConvertionVideoPage() {
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="搜索文件名..."
+              placeholder={t("search.placeholder")}
               className="pl-9"
               value={globalFilter ?? ""}
               onChange={(e) => {
@@ -49,7 +51,7 @@ export default function ConvertionVideoPage() {
               size="sm"
               onClick={async () => {
                 const paths = await bridge.addFilesOrFolders({
-                  name: "Video",
+                  name: t("file_picker.video"),
                   multiple: true,
                   extensions: VIDEO_FORMATS,
                   folder: true,
@@ -57,7 +59,7 @@ export default function ConvertionVideoPage() {
                 useConverterStore.getState().addTasksByPaths(paths)
               }}
             >
-              <UserPlus className="h-4 w-4" /> 添加文件
+              <UserPlus className="h-4 w-4" /> {t("search.add_files")}
             </Button>
           </div>
         </div>

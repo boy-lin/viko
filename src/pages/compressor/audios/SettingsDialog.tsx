@@ -21,7 +21,7 @@ import { AudioBitrateSelect } from "@/components/biz-form/AudioBitrateSelect";
 import { AudioChannelSelect } from "@/components/biz-form/AudioChannelSelect";
 import { AudioEncoderSelect } from "@/components/biz-form/AudioEncoderSelect";
 import { AudioBitDepthSelect } from "@/components/biz-form/AudioBitDepthSelect";
-import { CompressAudioTaskArgs } from "@/lib/bridge";
+import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Info, Settings } from "lucide-react";
 import type { SelectOption } from "@/types/options";

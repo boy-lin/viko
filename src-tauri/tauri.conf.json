@@ -7,7 +7,8 @@
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "",
-    "frontendDist": "https://app.2342342.xyz"
+    "beforeBundleCommand": "bash scripts/fix-mac-dylibs.sh",
+    "frontendDist": "../dist"
   },
   "app": {
     "windows": [
@@ -37,9 +38,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": [
-      "resources/ffmpeg"
-    ],
+    "resources": {
+      "resources/ffmpeg": "resources/ffmpeg"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

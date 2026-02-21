@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use audio_video_kit_lib::events::MockEmitter;
-    use audio_video_kit_lib::video_converter::{convert_video, VideoConversionParams};
+    use viko_lib::events::MockEmitter;
+    use viko_lib::video_converter::{convert_video, VideoConversionParams};
     use ffmpeg_next as ffmpeg;
     use std::fs;
     use std::path::PathBuf;
@@ -232,7 +232,7 @@ mod tests {
 
     // #[test]
     fn list_all_encoders() {
-        audio_video_kit_lib::media_common::init_ffmpeg().unwrap();
+        viko_lib::media_common::init_ffmpeg().unwrap();
         println!("--- Video Encoders ---");
         unsafe {
             let mut opaque: *mut std::ffi::c_void = std::ptr::null_mut();
@@ -254,7 +254,7 @@ mod tests {
 
     // #[test]
     fn list_all_audio_encoders() {
-        audio_video_kit_lib::media_common::init_ffmpeg().unwrap();
+        viko_lib::media_common::init_ffmpeg().unwrap();
         println!("--- Audio Encoders ---");
         unsafe {
             let mut opaque: *mut std::ffi::c_void = std::ptr::null_mut();

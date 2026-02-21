@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use audio_video_kit_lib::audio_converter::{convert_audio, AudioConversionParams};
-    use audio_video_kit_lib::events::MockEmitter;
+    use viko_lib::audio_converter::{convert_audio, AudioConversionParams};
+    use viko_lib::events::MockEmitter;
     use ffmpeg_next as ffmpeg;
     use std::fs;
     use std::path::PathBuf;
@@ -116,7 +116,7 @@ mod tests {
 
     // #[test]
     fn list_all_formats() {
-        audio_video_kit_lib::media_common::init_ffmpeg().unwrap();
+        viko_lib::media_common::init_ffmpeg().unwrap();
         println!("--- Formats (Demux/Mux) ---");
         unsafe {
             let mut opaque: *mut std::ffi::c_void = std::ptr::null_mut();

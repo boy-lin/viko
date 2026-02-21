@@ -39,6 +39,7 @@ import { ImageViewer } from "@/components/player/ImageViewer";
 import { bridge, type MyFileItem } from "@/lib/bridge";
 import { FileType } from "@/types/tasks";
 import { extractFilenameFromPath } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 type MyFileRecord = {
   id: string;
@@ -46,6 +47,7 @@ type MyFileRecord = {
   fileType: FileType
   path: string;
   outputPath?: string;
+  thumbnail?: string;
   size?: number;
   duration?: number;
   extension?: string;
@@ -60,6 +62,7 @@ type SortBy = "date" | "name";
 type SortOrder = "asc" | "desc";
 
 export default function MyFilesPage() {
+  const { t, i18n } = useTranslation("myfiles");
   const [myFiles, setMyFiles] = useState<MyFileRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterType>();
@@ -86,14 +89,13 @@ export default function MyFilesPage() {
     const outputPath = item.output_path || undefined;
     const sourcePath = outputPath || item.input_path;
     const ext = sourcePath.split(".").pop()?.toLowerCase();
-    const normalizedType = item.media_type
-
     return {
       id: item.id,
       title: item.title || extractFilenameFromPath(sourcePath),
-      fileType: normalizedType,
+      fileType: item.media_type,
       path: item.input_path,
       outputPath,
+      thumbnail: item.thumbnail ?? undefined,
       size: item.output_size ?? undefined,
       duration:
         item.output_duration !== undefined
@@ -282,7 +284,7 @@ export default function MyFilesPage() {
           <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="搜索"
+              placeholder={t("search.placeholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -295,11 +297,11 @@ export default function MyFilesPage() {
             onValueChange={(v) => setSortBy(v as SortBy)}
           >
             <SelectTrigger className="w-32">
-              <SelectValue placeholder="排序方式" />
+              <SelectValue placeholder={t("sort.placeholder")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="date">日期</SelectItem>
-              <SelectItem value="name">名称</SelectItem>
+              <SelectItem value="date">{t("sort.date")}</SelectItem>
+              <SelectItem value="name">{t("sort.name")}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -310,7 +312,7 @@ export default function MyFilesPage() {
             onClick={() =>
               setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
             }
-            title={sortOrder === "asc" ? "升序" : "降序"}
+            title={sortOrder === "asc" ? t("sort.asc") : t("sort.desc")}
           >
             {sortOrder === "asc" ? (
               <ArrowUp className="h-4 w-4" />
@@ -333,7 +335,7 @@ export default function MyFilesPage() {
                   activeTab === undefined && "border-primary"
                 )}
               >
-                全部
+                {t("tabs.all")}
               </TabsTrigger>
               <TabsTrigger
                 value={FileType.Video}
@@ -342,7 +344,7 @@ export default function MyFilesPage() {
                   activeTab === FileType.Video && "border-primary"
                 )}
               >
-                视频
+                {t("tabs.video")}
               </TabsTrigger>
               <TabsTrigger
                 value="audio"
@@ -351,7 +353,7 @@ export default function MyFilesPage() {
                   activeTab === "audio" && "border-primary"
                 )}
               >
-                音频
+                {t("tabs.audio")}
               </TabsTrigger>
               <TabsTrigger
                 value="image"
@@ -360,7 +362,7 @@ export default function MyFilesPage() {
                   activeTab === "image" && "border-primary"
                 )}
               >
-                图片
+                {t("tabs.image")}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -369,12 +371,14 @@ export default function MyFilesPage() {
 
       {/* 内容区域 */}
       <div className="flex-1 overflow-auto px-4 py-2">
-        {isLoading && <div className="flex items-center justify-center h-full">
-          <div className="text-sm text-muted-foreground">加载中...</div>
-        </div>}
+        {isLoading && (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-sm text-muted-foreground">{t("loading")}</div>
+          </div>
+        )}
         {myFiles.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-sm text-muted-foreground">暂无文件</div>
+            <div className="text-sm text-muted-foreground">{t("empty")}</div>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
@@ -390,24 +394,15 @@ export default function MyFilesPage() {
                     y: e.clientY,
                   });
                 }}
-                onClick={(e) => {
-                  // 如果点击的是操作按钮，不触发打开文件夹
-                  if (
-                    (e.target as HTMLElement).closest("button") ||
-                    (e.target as HTMLElement).closest("[role='menuitem']")
-                  ) {
-                    return;
-                  }
-                  if (file.outputPath) {
-                    handleOpenFolder(file.outputPath);
-                  }
-                }}
               >
                 {/* 文件卡片 */}
                 <div className="relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30 mb-2 shadow-sm transition-shadow hover:shadow-md">
                   <MediaThumbnail
-                    path={file.outputPath}
+                    path={file.outputPath || file.path}
                     title={file.title}
+                    fileType={file.fileType}
+                    thumbnailPath={file.thumbnail}
+                    disableAutoGenerate={true}
                     className="w-full h-full"
                   />
                   {/* 选择复选框 - hover 时显示 */}
@@ -463,7 +458,7 @@ export default function MyFilesPage() {
                           }}
                         >
                           <Play className="h-4 w-4" />
-                          播放
+                          {t("actions.play")}
                         </button>
                         <div className="-mx-2 h-px bg-muted" />
                         <button
@@ -474,7 +469,7 @@ export default function MyFilesPage() {
                           }}
                         >
                           <Trash2 className="h-4 w-4" />
-                          删除
+                          {t("actions.delete")}
                         </button>
                         <button
                           className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
@@ -484,7 +479,7 @@ export default function MyFilesPage() {
                           }}
                         >
                           <Info className="h-4 w-4" />
-                          媒体信息
+                          {t("actions.info")}
                         </button>
                         <button
                           className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
@@ -494,14 +489,14 @@ export default function MyFilesPage() {
                           }}
                         >
                           <FolderOpen className="h-4 w-4" />
-                          在Finder中显示
+                          {t("actions.open_in_folder")}
                         </button>
                       </HoverCardContent>
                     </HoverCard>
                   </div>
                 </div>
                 {/* 文件名 */}
-                <div className="text-sm text-foreground truncate text-center px-1">
+                <div className="text-sm text-foreground truncate text-center px-1" title={file.title}>
                   {file.title}
                 </div>
               </div>
@@ -517,13 +512,13 @@ export default function MyFilesPage() {
               disabled={isLoadingMore}
               className="min-w-[120px]"
             >
-              {isLoadingMore ? "加载中..." : "加载更多"}
+              {isLoadingMore ? t("loading") : t("load_more")}
             </Button>
           </div>
         )}
         {!hasMore && !isLoading && myFiles.length > 0 && (
           <div className="flex justify-center mt-6 mb-8">
-            <span className="text-sm text-muted-foreground">已加载全部文件</span>
+            <span className="text-sm text-muted-foreground">{t("loaded_all")}</span>
           </div>
         )}
       </div>
@@ -537,7 +532,7 @@ export default function MyFilesPage() {
               onCheckedChange={toggleSelectAll}
             />
             <span className="text-sm text-muted-foreground">
-              全选 ({selectedFiles.size}/{myFiles.length})
+              {t("select_all", { selected: selectedFiles.size, total: myFiles.length })}
             </span>
           </div>
 
@@ -561,7 +556,7 @@ export default function MyFilesPage() {
           showCloseButton={true}
         >
           <DialogTitle className="sr-only">
-            {playingFile?.title || "播放"}
+            {playingFile?.title || t("player.title")}
           </DialogTitle>
           {playingFile && renderPlayer()}
         </DialogContent>
@@ -585,7 +580,7 @@ export default function MyFilesPage() {
             }}
           >
             <Play className="mr-2 h-4 w-4" />
-            预览
+            {t("actions.preview")}
           </div>
           <div className="-mx-1 my-1 h-px bg-muted" />
           <div
@@ -596,7 +591,7 @@ export default function MyFilesPage() {
             }}
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            删除
+            {t("actions.delete")}
           </div>
           <div
             className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent"
@@ -606,7 +601,7 @@ export default function MyFilesPage() {
             }}
           >
             <Info className="mr-2 h-4 w-4" />
-            媒体信息
+            {t("actions.info")}
           </div>
           <div
             className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent"
@@ -618,7 +613,7 @@ export default function MyFilesPage() {
             }}
           >
             <FolderOpen className="mr-2 h-4 w-4" />
-            在Finder中显示
+            {t("actions.open_in_folder")}
           </div>
         </div>
       )}
@@ -627,73 +622,67 @@ export default function MyFilesPage() {
       <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>媒体信息</DialogTitle>
+            <DialogTitle>{t("info.title")}</DialogTitle>
           </DialogHeader>
           {infoFile && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <div className="text-muted-foreground mb-1">文件名</div>
+                  <div className="text-muted-foreground mb-1">{t("info.file_name")}</div>
                   <div className="font-medium break-all">{infoFile.title}</div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground mb-1">文件类型</div>
+                  <div className="text-muted-foreground mb-1">{t("info.file_type")}</div>
                   <div className="font-medium">
-                    {infoFile.fileType === "video"
-                      ? "视频"
-                      : infoFile.fileType === "audio"
-                        ? "音频"
-                        : infoFile.fileType === "image"
-                          ? "图片"
-                          : "其他"}
+                    {t(`file_type.${infoFile.fileType}`, t("file_type.other"))}
                   </div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground mb-1">文件大小</div>
+                  <div className="text-muted-foreground mb-1">{t("info.file_size")}</div>
                   <div className="font-medium">
                     {formatFileSize(infoFile.size || 0)}
                   </div>
                 </div>
                 {infoFile.duration && (
                   <div>
-                    <div className="text-muted-foreground mb-1">时长</div>
+                    <div className="text-muted-foreground mb-1">{t("info.duration")}</div>
                     <div className="font-medium">
                       {formatDuration(infoFile.duration)}
                     </div>
                   </div>
                 )}
                 <div>
-                  <div className="text-muted-foreground mb-1">格式</div>
+                  <div className="text-muted-foreground mb-1">{t("info.format")}</div>
                   <div className="font-medium uppercase">
-                    {infoFile.displayFormat || infoFile.extension || "未知"}
+                    {infoFile.displayFormat || infoFile.extension || t("info.unknown")}
                   </div>
                 </div>
                 {infoFile.displayResolution && (
                   <div>
-                    <div className="text-muted-foreground mb-1">分辨率</div>
+                    <div className="text-muted-foreground mb-1">{t("info.resolution")}</div>
                     <div className="font-medium">
                       {infoFile.displayResolution}
                     </div>
                   </div>
                 )}
                 <div>
-                  <div className="text-muted-foreground mb-1">任务类型</div>
+                  <div className="text-muted-foreground mb-1">{t("info.task_type")}</div>
                   <div className="font-medium">
                     {infoFile.taskType}
                   </div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground mb-1">创建时间</div>
+                  <div className="text-muted-foreground mb-1">{t("info.created_at")}</div>
                   <div className="font-medium">
-                    {new Date(infoFile.createdAt).toLocaleString("zh-CN")}
+                    {new Date(infoFile.createdAt).toLocaleString(
+                      i18n.language === "zh" ? "zh-CN" : "en-US"
+                    )}
                   </div>
                 </div>
               </div>
               {infoFile.path && (
                 <div>
-                  <div className="text-muted-foreground mb-1 text-sm">
-                    原始路径
-                  </div>
+                  <div className="text-muted-foreground mb-1 text-sm">{t("info.source_path")}</div>
                   <div className="font-medium break-all text-sm">
                     {infoFile.path}
                   </div>
@@ -701,9 +690,7 @@ export default function MyFilesPage() {
               )}
               {infoFile.outputPath && (
                 <div>
-                  <div className="text-muted-foreground mb-1 text-sm">
-                    输出路径
-                  </div>
+                  <div className="text-muted-foreground mb-1 text-sm">{t("info.output_path")}</div>
                   <div className="font-medium break-all text-sm">
                     {infoFile.outputPath}
                   </div>

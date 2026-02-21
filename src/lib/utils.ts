@@ -10,7 +10,8 @@ export function cn(...inputs: ClassValue[]) {
  * @param filePath Full file path
  * @returns Filename without extension
  */
-export function extractFilenameFromPath(filePath: string): string {
+export function extractFilenameFromPath(filePath?: string): string {
+  if (!filePath) return "";
   // Get filename with extension (handle both / and \ separators)
   const filenameWithExt = filePath.split(/[/\\]/).pop() || "";
 
@@ -20,7 +21,7 @@ export function extractFilenameFromPath(filePath: string): string {
     return filenameWithExt;
   }
 
-  return filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.')) || 'Unknown';
+  return filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.'));
 }
 
 

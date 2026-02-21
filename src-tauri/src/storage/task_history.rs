@@ -8,6 +8,7 @@ use sea_query::{
 use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
+use crate::shared::get_millis;
 
 #[derive(Iden)]
 pub enum TaskHistory {
@@ -201,7 +202,7 @@ pub async fn add_history(item: &TaskHistoryItem) -> Result<()> {
             SELECT id
             FROM task_history
             ORDER BY finished_at DESC
-            LIMIT 200
+            LIMIT 2000
         )
         "#,
     )
@@ -242,7 +243,13 @@ pub async fn get_history(
         .offset(offset as u64);
 
     if let Some(t_type) = task_type {
-        query.and_where(Expr::col(TaskHistory::TaskType).eq(t_type));
+        if t_type == "convert" {
+            query.and_where(Expr::col(TaskHistory::TaskType).like("convert-%"));
+        } else if t_type == "compress" {
+            query.and_where(Expr::col(TaskHistory::TaskType).like("compress-%"));
+        } else {
+            query.and_where(Expr::col(TaskHistory::TaskType).eq(t_type));
+        }
     }
 
     if let Some(raw) = keyword {
@@ -323,6 +330,9 @@ pub async fn get_my_files(
             Expr::col((TaskFavorite::Table, TaskFavorite::Id))
                 .equals((TaskHistory::Table, TaskHistory::Id)),
         );
+
+    query.and_where(Expr::col((TaskHistory::Table, TaskHistory::Status)).eq("finished"));
+    query.and_where(Expr::col((TaskHistory::Table, TaskHistory::OutputPath)).is_not_null());
 
     let sort_order = match sort_order
         .as_deref()
@@ -446,6 +456,28 @@ pub async fn clear_history(task_type: Option<String>) -> Result<()> {
     sqlx::query_with(&sql, values).execute(&pool).await?;
     crate::storage::favorites::cleanup_orphans().await.ok();
     Ok(())
+}
+
+pub async fn cleanup_stale_processing(max_age_ms: i64) -> Result<u64> {
+    let pool = get_db().await?;
+    let now = get_millis();
+    let cutoff = now - max_age_ms;
+    let result = sqlx::query(
+        r#"
+        UPDATE task_history
+        SET status = 'error',
+            error_message = 'Task interrupted',
+            finished_at = ?
+        WHERE status IN ('processing', 'idle')
+          AND created_at < ?
+        "#,
+    )
+    .bind(now)
+    .bind(cutoff)
+    .execute(&pool)
+    .await?;
+
+    Ok(result.rows_affected())
 }
 
 pub async fn init() -> Result<()> {

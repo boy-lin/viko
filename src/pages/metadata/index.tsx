@@ -285,7 +285,6 @@ export default function MetadataEditorPage() {
                 output_path: outputPath,
                 metadata,
             };
-            console.log("write_media_metadata args", args);
             await invoke("write_media_metadata", { args });
 
             setMessage({

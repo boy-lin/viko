@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { getMediaTaskQueue, WatermarkConfig } from "@/lib/bridge";
+import { WatermarkConfig } from "@/lib/mediaTaskEvent";
+import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { VIDEO_FORMATS } from "@/data/formats";
 import { toast } from "sonner";
 import { MediaTaskType } from "@/types/tasks";
@@ -21,6 +22,17 @@ export default function WatermarkPage() {
 
     const queueTasks = useWatermarkStore((state) => state.queueTasks);
     const clearTasks = useWatermarkStore((state) => state.clearTasks);
+    const runningTasks = useMemo(
+        () => queueTasks.filter((task) => task.status === "processing"),
+        [queueTasks]
+    );
+    console.log("runningTasks", runningTasks);
+    const isRunning = runningTasks.length > 0;
+    const progress = useMemo(() => {
+        if (!runningTasks.length) return 0;
+        const total = runningTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
+        return total / runningTasks.length;
+    }, [runningTasks]);
     const firstVideoPath = useMemo(
         () => queueTasks[0]?.args?.input_path as string | undefined,
         [queueTasks]
@@ -72,7 +84,10 @@ export default function WatermarkPage() {
         };
     }, [firstVideoPath]);
 
-    const handleExport = async () => {
+    const handleStartWork = async () => {
+        if (isRunning) {
+            return;
+        }
         if (queueTasks.length === 0) {
             toast.error("Please select at least one video file.");
             return;
@@ -127,9 +142,9 @@ export default function WatermarkPage() {
             const file = task.args.input_path;
             const outputPath = file.replace(/(\.[^/.]+)?$/, "_watermarked.mp4");
             return {
-                kind: MediaTaskType.ConvertVideo,
+                kind: MediaTaskType.Watermark,
                 args: {
-                    task_id: crypto.randomUUID(),
+                    task_id: task.args.task_id,
                     input_path: file,
                     output_path: outputPath,
                     watermark: watermarkConfig,
@@ -138,8 +153,18 @@ export default function WatermarkPage() {
         });
 
         try {
+            tasks.forEach((task) => {
+                useWatermarkStore.getState().updateTaskById(task.args.task_id, {
+                    status: "processing",
+                    progress: 0,
+                    args: {
+                        output_path: task.args.output_path,
+                        watermark: task.args.watermark,
+                    },
+                });
+            });
             await getMediaTaskQueue().addConvertTasks(tasks);
-            toast.success(`Submitted ${tasks.length} tasks!`);
+            // toast.success(`Submitted ${tasks.length} tasks!`);
             // Optional: navigate to tasks page
         } catch (e: any) {
             console.error(e);
@@ -170,7 +195,13 @@ export default function WatermarkPage() {
                         }
                     />
                 </div>
-                <BottomToolbar selectedCount={queueTasks.length} onClear={clearTasks} onExport={handleExport} />
+                <BottomToolbar
+                    selectedCount={queueTasks.length}
+                    onClear={clearTasks}
+                    onExport={handleStartWork}
+                    isRunning={isRunning}
+                    progress={progress}
+                />
             </div>
             <SettingsPanel
                 config={config}

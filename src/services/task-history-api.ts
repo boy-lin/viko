@@ -49,13 +49,23 @@ export async function deleteRemoteTaskHistory(id: string): Promise<void> {
   await postJson<Record<string, never>>("/api/task/history/delete", { id });
 }
 
-export async function syncLocalTaskHistoryToRemote(limit = 200): Promise<void> {
+export async function syncLocalTaskHistoryToRemote(options?: {
+  limit?: number;
+  userId?: string;
+  deviceId?: string;
+}): Promise<void> {
+  const limit = options?.limit ?? 200;
+  const deviceId =
+    options?.deviceId ?? (await bridge.getDeviceId().catch(() => undefined));
+  const userId = options?.userId;
   const localItems = await bridge.getTaskHistory(limit, 0, undefined, undefined);
   if (localItems.length === 0) {
     return;
   }
 
   await postJson<Record<string, never>>("/api/task/history/upsert", {
+    device_id: deviceId,
+    user_id: userId,
     tasks: localItems.map((item) => ({
       id: item.id,
       task_type: item.task_type,

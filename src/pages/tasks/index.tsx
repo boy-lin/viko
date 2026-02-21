@@ -8,15 +8,13 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, FolderOpen, RefreshCw, Search } from "lucide-react";
+import { FolderOpen, RefreshCw, Search } from "lucide-react";
 import { bridge, type TaskHistoryItem } from "@/lib/bridge";
 import { useSession } from "@/lib/auth-client";
 import {
-  // deleteRemoteTaskHistory,
-  getRemoteTaskHistory,
   syncLocalTaskHistoryToRemote,
 } from "@/services/task-history-api";
-import { formatDuration, getDurationSecondsFromTimestamps } from "@/lib/time";
+import { formatDuration, getDurationSecondsFromTimestamps, formatDateTime } from "@/lib/time";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,19 +24,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useAppStore } from "@/stores/app";
 import { toast } from "sonner";
-
-const TASK_TYPE_LABEL: Record<string, string> = {
-  convert: "转码",
-  compress: "压缩",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  finished: "已完成",
-  processing: "处理中",
-  error: "失败",
-  cancelled: "已取消",
-  idle: "等待中",
-};
+import { extractFilenameFromPath, getExtension } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 const STATUS_CLASSNAME: Record<string, string> = {
   finished: "text-green-600",
@@ -50,19 +37,8 @@ const STATUS_CLASSNAME: Record<string, string> = {
 
 const PAGE_SIZE = 10;
 
-const getFileName = (item: TaskHistoryItem) => {
-  const fullPath = item.output_path || item.input_path || "";
-  const name = fullPath.split(/[/\\]/).pop();
-  return name || item.title || "-";
-};
-
-const getFileFormat = (item: TaskHistoryItem) => {
-  const fullPath = item.output_path || item.input_path || "";
-  const ext = fullPath.split(".").pop();
-  return ext ? ext.toUpperCase() : "-";
-};
-
 export default function TaskHistoryPage() {
+  const { t } = useTranslation("tasks");
   const { data: session } = useSession();
   const [globalFilter, setGlobalFilter] = useState("");
   const [tasks, setTasks] = useState<TaskHistoryItem[]>([]);
@@ -70,46 +46,30 @@ export default function TaskHistoryPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const fetchData = async (targetPage: number = page) => {
     setLoading(true);
     try {
       const keyword = globalFilter.trim();
-      if (session?.user) {
-        await syncLocalTaskHistoryToRemote();
-        const remote = await getRemoteTaskHistory({
-          page: targetPage + 1,
-          limit: PAGE_SIZE,
-          keyword: keyword || undefined,
+      try {
+        await syncLocalTaskHistoryToRemote({
+          userId: session?.user?.id || undefined,
         });
-        setHasNextPage(Boolean(remote.hasMore));
-        setTasks(remote.list || []);
-      } else {
-        const history = await bridge.getTaskHistory(
-          PAGE_SIZE + 1,
-          targetPage * PAGE_SIZE,
-          undefined,
-          keyword || undefined
-        );
-        setHasNextPage(history.length > PAGE_SIZE);
-        setTasks(history.slice(0, PAGE_SIZE));
+      } catch (error) {
+        console.warn("Failed to sync local task history to remote:", error);
       }
+      const history = await bridge.getTaskHistory(
+        PAGE_SIZE + 1,
+        targetPage * PAGE_SIZE,
+        undefined,
+        keyword || undefined
+      );
+      setHasNextPage(history.length > PAGE_SIZE);
+      setTasks(history.slice(0, PAGE_SIZE));
     } catch (error) {
       console.error("Failed to fetch task history:", error);
-      toast.error("获取云端任务历史失败");
-      try {
-        const keyword = globalFilter.trim();
-        const history = await bridge.getTaskHistory(
-          PAGE_SIZE + 1,
-          targetPage * PAGE_SIZE,
-          undefined,
-          keyword || undefined
-        );
-        setHasNextPage(history.length > PAGE_SIZE);
-        setTasks(history.slice(0, PAGE_SIZE));
-      } catch (localError) {
-        console.error("Failed to fetch local task history fallback:", localError);
-      }
+      toast.error(t("errors.fetch_local"));
     } finally {
       setLoading(false);
     }
@@ -122,6 +82,15 @@ export default function TaskHistoryPage() {
   useEffect(() => {
     useAppStore.getState().resetUnreadFinishedCount();
   }, []);
+
+  useEffect(() => {
+    const hasRunning = tasks.some(
+      (task) => task.status === "processing" || task.status === "idle"
+    );
+    if (!hasRunning) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [tasks]);
 
   const handleSearch = () => {
     setPage(0);
@@ -146,14 +115,19 @@ export default function TaskHistoryPage() {
   // };
 
   const handleOpenFolder = async (task: TaskHistoryItem) => {
+    if (task.status !== "finished") {
+      toast.error(t("errors.task_not_finished"));
+      return;
+    }
     const path = task.output_path;
     if (!path) {
-      toast.error("输出路径不存在");
+      toast.error(t("errors.output_missing"));
       return;
     }
     try {
       await revealItemInDir(path);
     } catch (error) {
+      toast.error(t("errors.open_folder"));
       console.error("Failed to open folder:", error);
     }
   };
@@ -162,86 +136,62 @@ export default function TaskHistoryPage() {
     () => [
       {
         id: "index",
-        header: "序号",
+        header: t("table.index"),
         cell: ({ row }) => page * PAGE_SIZE + row.index + 1,
         enableSorting: false,
       },
       {
         accessorKey: "output_name",
-        header: "输出文件名",
+        header: t("table.output_name"),
         cell: ({ row }) => {
-          const fileName = getFileName(row.original);
+          const fileName = extractFilenameFromPath(row.original.output_path);
           return <EllipsisName name={fileName} className="text-left block max-w-[360px]" />;
         },
         enableSorting: false,
       },
       {
+        accessorKey: "finished_at",
+        header: t("table.finished_at"),
+        cell: ({ row }) => formatDateTime(row.original.finished_at),
+      },
+      {
         accessorKey: "task_type",
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-              className="h-auto p-0 hover:bg-transparent"
-            >
-              任务类型
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
-        cell: ({ row }) => TASK_TYPE_LABEL[row.original.task_type] || row.original.task_type,
+        header: t("table.task_type"),
+        cell: ({ row }) => t(`task_type.${row.original.task_type}`, row.original.task_type),
       },
       {
         accessorKey: "status",
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-              className="h-auto p-0 hover:bg-transparent"
-            >
-              任务状态
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
+        header: t("table.status"),
         cell: ({ row }) => {
-          const statusText = STATUS_LABEL[row.original.status] || row.original.status;
+          const statusText = t(`status.${row.original.status}`, row.original.status);
           const statusClass = STATUS_CLASSNAME[row.original.status] || "text-muted-foreground";
           return <span className={statusClass}>{statusText}</span>;
         },
       },
       {
         accessorKey: "output_duration",
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-              className="h-auto p-0 hover:bg-transparent"
-            >
-              任务用时
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
+        header: t("table.duration"),
         cell: ({ row }) => {
-          const taskDuration = getDurationSecondsFromTimestamps(
-            row.original.created_at,
-            row.original.finished_at
-          );
+          const isRunning =
+            row.original.status === "processing" || row.original.status === "idle";
+          const taskDuration = isRunning
+            ? Math.max(0, Math.floor((now - row.original.created_at) / 1000))
+            : getDurationSecondsFromTimestamps(
+                row.original.created_at,
+                row.original.finished_at
+              );
           return formatDuration(taskDuration);
         },
       },
       {
         accessorKey: "file_format",
-        header: "文件格式",
-        cell: ({ row }) => getFileFormat(row.original),
+        header: t("table.format"),
+        cell: ({ row }) => getExtension(row.original.output_path),
         enableSorting: false,
       },
       {
         id: "actions",
-        header: "操作",
+        header: t("table.actions"),
         cell: ({ row }) => {
           const task = row.original;
           return (
@@ -258,7 +208,7 @@ export default function TaskHistoryPage() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>打开文件目录</p>
+                  <p>{t("actions.open_folder")}</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -284,22 +234,23 @@ export default function TaskHistoryPage() {
     <Card className="h-full w-full py-0 gap-0 bg-transparent border-none shadow-none flex flex-col">
       <CardHeader className="rounded-none px-0 flex-shrink-0">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>任务记录</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
           <div className="flex items-center gap-2">
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="搜索文件名..."
+                placeholder={t("search.placeholder")}
                 className="pl-9"
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
               />
             </div>
+            <Button variant="outline" onClick={handleSearch} disabled={loading}>{t("search.action")}</Button>
+
             <Button variant="outline" onClick={handleRefresh} disabled={loading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              刷新
+              {t("refresh")}
             </Button>
-            <Button variant="outline" onClick={handleSearch} disabled={loading}>搜索</Button>
           </div>
         </div>
       </CardHeader>
@@ -342,21 +293,21 @@ export default function TaskHistoryPage() {
             {!loading && table.getRowModel().rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  暂无任务记录
+                  {t("empty")}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
         <div className="flex items-center justify-end space-x-2 py-4 pr-2">
-          <span className="text-sm text-muted-foreground mr-2">第 {page + 1} 页</span>
+          <span className="text-sm text-muted-foreground mr-2">{t("page", { page: page + 1 })}</span>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setPage((prev) => Math.max(0, prev - 1))}
             disabled={page === 0 || loading}
           >
-            上一页
+            {t("pagination.prev")}
           </Button>
           <Button
             variant="outline"
@@ -364,7 +315,7 @@ export default function TaskHistoryPage() {
             onClick={() => setPage((prev) => prev + 1)}
             disabled={!hasNextPage || loading}
           >
-            下一页
+            {t("pagination.next")}
           </Button>
         </div>
       </CardContent>

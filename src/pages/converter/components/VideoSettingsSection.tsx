@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { VideoAdvanceSetting } from "./VideoAdvanceSetting";
 import { VideoSimpleSettings } from "./VideoSimpleSettings";
-import { ConvertVideoTaskArgs } from "@/lib/bridge";
+import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 
 interface SettingsModeToggleProps {
   openAdvanced: boolean;

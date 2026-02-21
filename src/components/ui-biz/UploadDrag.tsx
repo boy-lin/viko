@@ -10,6 +10,7 @@ import {
 import { useDragDrop } from "@/lib/drag";
 import { bridge } from "@/lib/bridge";
 import { open } from "@tauri-apps/plugin-dialog";
+import { useTranslation } from "react-i18next";
 
 type UploadStatus = "queued" | "processing" | "done" | "error";
 type UploadKind = "audio" | "video" | "image" | "file";
@@ -38,6 +39,7 @@ export function UploadDrag({
   supportedExtensions: string[];
   onUploadComplete: (uploads: string[]) => void,
 }) {
+  const { t } = useTranslation("common");
   const [pending, setPending] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -110,7 +112,7 @@ export function UploadDrag({
                 multiple: true,
                 filters: [
                   {
-                    name: "Media Files",
+                    name: t("upload_drag.picker_name"),
                     extensions: supportedExtensions,
                   },
                 ],
@@ -122,9 +124,9 @@ export function UploadDrag({
           >
             <UploadCloud className="h-7 w-7" />
           </div>
-          <div className="text-base font-medium">拖拽文件或文件夹到此处</div>
+          <div className="text-base font-medium">{t("upload_drag.title")}</div>
           <div className="text-xs text-muted-foreground">
-            支持 {supportedHint}
+            {t("upload_drag.support_hint", { hint: supportedHint })}
           </div>
         </div>
       )}

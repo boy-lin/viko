@@ -2,7 +2,7 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useTranslation } from "react-i18next";
-import { ConvertImageTaskArgs } from "@/lib/bridge";
+import { ConvertImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { cn } from "@/lib/utils";
 
 type ImageConfig = Pick<ConvertImageTaskArgs, "format" | "image_encoder" | "resolution">

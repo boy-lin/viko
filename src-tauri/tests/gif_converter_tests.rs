@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use audio_video_kit_lib::events::MockEmitter;
-    use audio_video_kit_lib::gif_converter::{convert_video_to_gif, GifConversionParams};
+    use viko_lib::events::MockEmitter;
+    use viko_lib::gif_converter::{convert_video_to_gif, GifConversionParams};
     use std::fs;
     use std::path::PathBuf;
 

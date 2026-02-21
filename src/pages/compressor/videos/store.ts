@@ -4,9 +4,9 @@ import {
   MediaTaskType,
   CompressingTask,
 } from "../../../types/tasks";
-import { CompressVideoTaskArgs } from "@/lib/bridge";
+import { CompressVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { getMediaTaskQueue } from "@/lib/bridge";
+import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { getVideoCompressionPresetByRatio } from "./compressionPreset";
 import { FormatEnum } from "@/types/options";
 

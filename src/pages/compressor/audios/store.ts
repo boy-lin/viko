@@ -4,9 +4,9 @@ import {
   MediaTaskType,
   CompressingTask,
 } from "../../../types/tasks";
-import { CompressAudioTaskArgs } from "@/lib/bridge";
+import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { EncoderEnum } from "@/types/options";
-import { getMediaTaskQueue } from "@/lib/bridge";
+import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 

@@ -4,8 +4,8 @@ import {
   MediaTaskType,
   CompressingTask,
 } from "../../../types/tasks";
-import { CompressImageTaskArgs } from "@/lib/bridge";
-import { getMediaTaskQueue } from "@/lib/bridge";
+import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
+import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getImageCompressionPresetByQuality } from "./compressionPreset";
 

@@ -1,0 +1,16 @@
+{
+  "common": {
+    "cancel": "Cancel"
+  },
+  "footer": {
+    "quality": "Compression Quality",
+    "save_to": "Save to",
+    "compress_all": "Compress All",
+    "compress_all_failed_video": "Failed to compress all videos",
+    "compress_all_failed_image": "Failed to compress all images",
+    "compress_all_failed_audio": "Failed to compress all audios",
+    "confirm_delete_title": "Confirm delete",
+    "confirm_delete_desc": "Some tasks are running. Stop and clear all compressing tasks?",
+    "confirm_delete": "Confirm delete"
+  }
+}

@@ -1,4 +1,4 @@
-import { CompressImageTaskArgs } from "@/lib/bridge";
+import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
 
 export type ImageCompressionTier =
   | "extreme_compression"

@@ -31,5 +31,24 @@
     "delete": "Delete",
     "convertSingle": "Convert",
     "compressSingle": "Compress"
+  },
+  "search": {
+    "placeholder": "Search file name...",
+    "add_files": "Add Files"
+  },
+  "file_picker": {
+    "video": "Video",
+    "images": "Images"
+  },
+  "footer": {
+    "target_format": "Target Format",
+    "save_to": "Save to",
+    "convert_all": "Convert All",
+    "convert_all_failed_video": "Failed to convert all videos",
+    "convert_all_failed_image": "Failed to convert all images",
+    "convert_all_failed_audio": "Failed to convert all audios",
+    "confirm_delete_title": "Confirm delete",
+    "confirm_delete_desc": "Some tasks are running. Stop and clear all converting tasks?",
+    "confirm_delete": "Confirm delete"
   }
 }

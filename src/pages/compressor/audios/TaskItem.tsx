@@ -7,7 +7,8 @@ import TaskLoadingCard from "@/components/ui-biz/TaskLoadingCard";
 import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
 import { CompressingTask, FileType } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
-import { CompressAudioTaskArgs, bridge, getMediaTaskQueue } from "@/lib/bridge";
+import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
+import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useTranslation } from "react-i18next";
 import { CompressionSettingsDialog } from "./SettingsDialog";
 import { useCompressorStore } from "./store";
@@ -19,6 +20,7 @@ import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { formatFileSize } from "@/lib/file";
 import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 import { extractFilenameFromPath } from "@/lib/utils";
+import { bridge } from "@/lib/bridge";
 
 interface TaskItemProps {
   task: CompressingTask;

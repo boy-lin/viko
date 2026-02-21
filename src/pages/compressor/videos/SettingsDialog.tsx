@@ -22,7 +22,7 @@ import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
 import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect";
 import { VideoGopSelect } from "@/components/biz-form/VideoGopSelect";
 import { VideoPresetSelect } from "@/components/biz-form/VideoPresetSelect";
-import { CompressVideoTaskArgs } from "@/lib/bridge";
+import { CompressVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Settings } from "lucide-react";
 import { getVideoCompressionPresetByRatio } from "./compressionPreset";

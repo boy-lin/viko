@@ -1,4 +1,4 @@
-import { ConvertVideoTaskArgs } from "@/lib/bridge";
+import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { isAudioFormat, isImageFormat, isVideoFormat } from "@/data/formats";
 
 interface MediaTargetInfoGridProps {
