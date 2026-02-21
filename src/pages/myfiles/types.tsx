@@ -15,3 +15,8 @@ export type MyFileRecord = {
   createdAt: number;
   taskType: string;
 };
+
+export type TabItem = {
+  value: "all" | FileType;
+  labelKey: string;
+};

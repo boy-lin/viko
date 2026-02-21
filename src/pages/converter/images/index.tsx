@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, UserPlus } from "lucide-react";
+import { Search } from "lucide-react";
 import {
   Card,
   CardHeader,

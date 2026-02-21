@@ -12,18 +12,18 @@ import { MyFilesSelectionBar } from "./MyFilesSelectionBar";
 import { MyFilesContextMenu } from "./MyFilesContextMenu";
 import { MyFilesDialogs } from "./MyFilesDialogs";
 import { extractFilenameFromPath } from "@/lib/utils";
-import type { MyFileRecord } from "./types";
+import type { MyFileRecord, TabItem } from "./types";
 
 type FilterType = FileType;
 type SortBy = "date" | "name";
 type SortOrder = "asc" | "desc";
 
-const TAB_ITEMS = [
+const TAB_ITEMS: TabItem[] = [
   { value: "all", labelKey: "tabs.all" },
   { value: FileType.Video, labelKey: "tabs.video" },
   { value: FileType.Audio, labelKey: "tabs.audio" },
   { value: FileType.Image, labelKey: "tabs.image" },
-] as const;
+];
 
 export default function MyFilesPage() {
   const { i18n } = useTranslation("myfiles");

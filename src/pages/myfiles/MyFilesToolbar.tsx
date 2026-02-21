@@ -12,11 +12,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { FileType } from "@/types/tasks";
-
-export type TabItem = {
-  value: "all" | FileType;
-  labelKey: string;
-};
+import type { TabItem } from "./types";
 
 type SortBy = "date" | "name";
 type SortOrder = "asc" | "desc";

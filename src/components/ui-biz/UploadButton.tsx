@@ -9,8 +9,6 @@ import {
 } from "@/components/ui/hover-card";
 import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
-import { useConverterStore } from "../../pages/converter/videos/store";
-import { toast } from "sonner";
 
 type UploadButtonProps = {
   extensions: string[];
