@@ -1,6 +1,6 @@
 import { emit, listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import {
   FileType,
   MediaDetails,
@@ -21,6 +21,11 @@ export type BridgeEvents = {
   "video-complete": string;
   "video-error": string;
   "media_task_event": MediaTaskEvent;
+  "media_thumbnail": {
+    requestId: string;
+    result: ThumbnailPayload | null;
+    error?: string | null;
+  };
 };
 
 type KnownEvent = keyof BridgeEvents;
@@ -33,6 +38,22 @@ export interface HardwareSupport {
   hevc_hardware: boolean;
   prores_hardware: boolean;
 }
+
+export type ThumbnailPayload = {
+  thumbnailPath?: string;
+  dataUrl?: string;
+  width: number;
+  height: number;
+  sourceWidth?: number;
+  sourceHeight?: number;
+};
+
+export type ThumbnailOptions = {
+  width?: number;
+  height?: number;
+  fitMode?: "contain" | "cover";
+  time?: number;
+};
 
 class Bridge {
   private static instance: Bridge | null = null;
@@ -96,6 +117,72 @@ class Bridge {
     );
   }
 
+  createEventWaiter<K extends string>(
+    event: K,
+    options?: {
+      timeoutMs?: number;
+      filter?: (payload: EventPayload<K>) => boolean;
+      signal?: AbortSignal;
+    }
+  ): { promise: Promise<EventPayload<K>>; cancel: () => void } {
+    const timeoutMs = options?.timeoutMs ?? 15000;
+    let cancel: () => void = () => {};
+    const promise = new Promise<EventPayload<K>>((resolve, reject) => {
+      let settled = false;
+      let timeoutId: number | null = null;
+      let unlisten: (() => void) | null = null;
+
+      const finalize = (err?: Error, payload?: EventPayload<K>) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId !== null) window.clearTimeout(timeoutId);
+        if (unlisten) unlisten();
+        if (options?.signal) {
+          options.signal.removeEventListener("abort", onAbort);
+        }
+        if (err) reject(err);
+        else if (payload) resolve(payload);
+      };
+
+      const onAbort = () => {
+        finalize(new Error(`Event "${String(event)}" aborted`));
+      };
+
+      this.on(event, (payload) => {
+        if (options?.filter && !options.filter(payload)) return;
+        finalize(undefined, payload);
+      })
+        .then((dispose) => {
+          unlisten = dispose;
+          timeoutId = window.setTimeout(() => {
+            finalize(new Error(`Event "${String(event)}" timeout`));
+          }, timeoutMs);
+          if (options?.signal) {
+            if (options.signal.aborted) {
+              finalize(new Error(`Event "${String(event)}" aborted`));
+              return;
+            }
+            options.signal.addEventListener("abort", onAbort, { once: true });
+          }
+        })
+        .catch((err) => finalize(err));
+
+      cancel = () => finalize(new Error(`Event "${String(event)}" cancelled`));
+    });
+    return { promise, cancel };
+  }
+
+  once<K extends string>(
+    event: K,
+    options?: {
+      timeoutMs?: number;
+      filter?: (payload: EventPayload<K>) => boolean;
+      signal?: AbortSignal;
+    }
+  ): Promise<EventPayload<K>> {
+    return this.createEventWaiter(event, options).promise;
+  }
+
   async invoke<T = unknown>(
     cmd: string,
     args?: Record<string, unknown>
@@ -137,6 +224,54 @@ class Bridge {
 
   async checkHardwareAcceleration(): Promise<HardwareSupport> {
     return this.invoke<HardwareSupport>("check_hardware_acceleration");
+  }
+
+  async generateMediaThumbnail(
+    path: string,
+    options?: ThumbnailOptions,
+    requestOptions?: { timeoutMs?: number; signal?: AbortSignal }
+  ): Promise<ThumbnailPayload | null> {
+    const requestId =
+      globalThis.crypto?.randomUUID?.() ??
+      `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const { promise, cancel } = this.createEventWaiter("media_thumbnail", {
+      filter: (payload) => payload.requestId === requestId,
+      timeoutMs: requestOptions?.timeoutMs,
+      signal: requestOptions?.signal,
+    });
+
+    try {
+      await this.invoke<void>("generate_media_thumbnail", {
+        requestId,
+        path,
+        options,
+      });
+    } catch (err) {
+      cancel();
+      throw err;
+    }
+
+    const payload = await promise;
+    if (payload.error) {
+      throw new Error(payload.error);
+    }
+    return payload.result ?? null;
+  }
+
+  async getMediaThumbnailSrc(
+    path: string,
+    options?: ThumbnailOptions,
+    requestOptions?: { timeoutMs?: number; signal?: AbortSignal }
+  ): Promise<string | null> {
+    const result = await this.generateMediaThumbnail(path, options, requestOptions);
+    if (result?.thumbnailPath) {
+      return convertFileSrc(result.thumbnailPath);
+    }
+    if (result?.dataUrl) {
+      return result.dataUrl;
+    }
+    return null;
   }
 
   async getDeviceId(): Promise<string> {

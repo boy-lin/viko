@@ -1,4 +1,5 @@
 import { User } from "@/types/user";
+import { buildTimeoutSignal } from "@/services/http";
 
 type ApiResponse<T> = {
   code: number;
@@ -13,10 +14,17 @@ export async function getUserInfoApi(): Promise<User> {
     throw new Error("VITE_BASE_API_URL is not configured");
   }
 
-  const response = await fetch(`${baseApiUrl}/api/user/get-user-info`, {
-    method: "POST",
-    credentials: "include",
-  });
+  const { signal, cancel } = buildTimeoutSignal();
+  let response: Response;
+  try {
+    response = await fetch(`${baseApiUrl}/api/user/get-user-info`, {
+      method: "POST",
+      credentials: "include",
+      signal,
+    });
+  } finally {
+    cancel();
+  }
 
   if (!response.ok) {
     throw new Error("Failed to fetch user info");

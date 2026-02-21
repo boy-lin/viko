@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, UserPlus } from "lucide-react";
+import { Search } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -7,13 +7,13 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { CompressionFooter } from "./Footer";
 import { useCompressorStore } from "./store";
 import { useSettingsStore } from "@/stores/settingsStore";
 import ConvertingTask from "./Task";
 import { AUDIO_FORMATS } from "@/data/formats";
-import { bridge } from "@/lib/bridge";
+import { UploadButton } from "@/components/ui-biz/UploadButton";
+import { t } from "i18next";
 
 export default function ConverterPage() {
 
@@ -38,21 +38,12 @@ export default function ConverterPage() {
             />
           </div>
           <div>
-            <Button
-              className="flex items-center gap-3"
-              size="sm"
-              onClick={async () => {
-                const paths = await bridge.addFilesOrFolders({
-                  name: "Video",
-                  multiple: true,
-                  extensions: AUDIO_FORMATS,
-                  directory: true,
-                })
-                useCompressorStore.getState().addTasksByPaths(paths)
-              }}
-            >
-              <UserPlus className="h-4 w-4" /> 添加文件
-            </Button>
+            <UploadButton
+              name={t("file_picker.audio")}
+              multiple={true}
+              extensions={AUDIO_FORMATS}
+              onAddPaths={(paths) => useCompressorStore.getState().addTasksByPaths(paths)}
+            />
           </div>
         </div>
       </CardHeader>

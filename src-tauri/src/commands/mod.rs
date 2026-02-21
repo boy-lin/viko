@@ -1046,28 +1046,50 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
 
 #[command]
 pub fn generate_media_thumbnail(
+    window: tauri::Window,
+    request_id: String,
     path: String,
     options: Option<crate::services::media_tools::thumbnail::ThumbnailOptions>,
-) -> Result<Option<crate::services::media_tools::thumbnail::ThumbnailResult>, String> {
-    let mut result = crate::services::media_tools::thumbnail::generate_thumbnail(&path, options)?;
-
-    // Return original video dimensions to frontend, not the resized thumbnail dimensions.
-    if let Some(thumb) = result.as_mut() {
-        if let Ok(details) = media_info::get_media_details(&path) {
-            if let Some(stream) = details
-                .streams
-                .iter()
-                .find(|s| s.codec_type == "video" && s.width.is_some() && s.height.is_some())
-            {
-                if let (Some(width), Some(height)) = (stream.width, stream.height) {
-                    thumb.width = width;
-                    thumb.height = height;
-                }
-            }
-        }
+) -> Result<(), String> {
+    #[derive(Serialize, Clone)]
+    #[serde(rename_all = "camelCase")]
+    struct MediaThumbnailEventPayload {
+        request_id: String,
+        result: Option<crate::services::media_tools::thumbnail::ThumbnailResult>,
+        error: Option<String>,
     }
 
-    Ok(result)
+    let window_for_task = window.clone();
+    tauri::async_runtime::spawn(async move {
+        let task_path = path.clone();
+        let task_options = options.clone();
+        let outcome = tauri::async_runtime::spawn_blocking(move || {
+            crate::services::media_tools::thumbnail::generate_thumbnail(&task_path, task_options)
+        })
+        .await;
+
+        let payload = match outcome {
+            Ok(Ok(result)) => MediaThumbnailEventPayload {
+                request_id,
+                result,
+                error: None,
+            },
+            Ok(Err(err)) => MediaThumbnailEventPayload {
+                request_id,
+                result: None,
+                error: Some(err),
+            },
+            Err(err) => MediaThumbnailEventPayload {
+                request_id,
+                result: None,
+                error: Some(format!("Thumbnail task failed: {}", err)),
+            },
+        };
+
+        let _ = window_for_task.emit("media_thumbnail", payload);
+    });
+
+    Ok(())
 }
 
 // ==================== 压缩相关命令 ====================

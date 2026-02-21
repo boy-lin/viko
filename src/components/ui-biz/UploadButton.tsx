@@ -11,11 +11,13 @@ import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 
 type UploadButtonProps = {
+  name: string;
+  multiple: boolean;
   extensions: string[];
   onAddPaths: (paths: string[]) => void;
 };
 
-export function UploadButton({ extensions, onAddPaths }: UploadButtonProps) {
+export function UploadButton({ name, multiple, extensions, onAddPaths }: UploadButtonProps) {
   const { t } = useTranslation("converter");
   const [loading, setLoading] = useState(false);
 
@@ -23,8 +25,8 @@ export function UploadButton({ extensions, onAddPaths }: UploadButtonProps) {
     try {
       setLoading(true);
       const paths = await bridge.addFilesOrFolders({
-        name: t("file_picker.video"),
-        multiple: true,
+        name,
+        multiple,
         extensions,
       });
       onAddPaths(paths);
@@ -32,13 +34,13 @@ export function UploadButton({ extensions, onAddPaths }: UploadButtonProps) {
       setLoading(false);
     }
 
-  }, [extensions, t]);
+  }, [name, multiple, extensions, onAddPaths]);
 
   const addFolder = useCallback(async () => {
     try {
       const paths = await bridge.addFilesOrFolders({
-        name: t("file_picker.video"),
-        multiple: true,
+        name,
+        multiple,
         extensions,
         directory: true,
       });
@@ -46,7 +48,7 @@ export function UploadButton({ extensions, onAddPaths }: UploadButtonProps) {
     } finally {
       setLoading(false);
     }
-  }, [extensions, t, onAddPaths]);
+  }, [name, multiple, extensions, onAddPaths]);
 
   return (
     <ButtonGroup className="flex items-center">

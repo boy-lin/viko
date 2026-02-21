@@ -15,7 +15,7 @@ use crate::services::convert::audio::{self, AudioConversionParams};
 use crate::services::convert::gif::{self, GifConversionParams};
 use crate::services::convert::image::{self, ImageConversionParams};
 use crate::services::convert::video::{self, VideoConversionParams};
-use crate::services::media_tools::thumbnail::{generate_thumbnail, ThumbnailOptions};
+use crate::services::media_tools::thumbnail::{ThumbnailOptions};
 use crate::shared::get_millis;
 use crate::storage::media_queue;
 use crate::storage::task_history::{self, TaskHistoryItem};
@@ -798,29 +798,7 @@ fn record_history<T: Serialize + Send + Sync + 'static>(
             .file_name()
             .map(|s| s.to_string_lossy().to_string());
 
-        let thumbnail = if result_status == "finished" {
-            let output_path = output_path.clone();
-            tauri::async_runtime::spawn_blocking(move || {
-                if !Path::new(&output_path).exists() {
-                    return None;
-                }
-                let options = ThumbnailOptions {
-                    width: Some(240),
-                    height: Some(135),
-                    fit_mode: Some("cover".to_string()),
-                    time: Some(0.0),
-                };
-                generate_thumbnail(&output_path, Some(options))
-                    .ok()
-                    .flatten()
-                    .map(|result| result.thumbnail_path)
-            })
-            .await
-            .ok()
-            .flatten()
-        } else {
-            None
-        };
+        let thumbnail = None;
 
         let item = TaskHistoryItem {
             id,

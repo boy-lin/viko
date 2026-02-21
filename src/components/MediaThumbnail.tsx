@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { FileVideo, FileAudio, ImageIcon } from "lucide-react";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { FileVideo, FileAudio, ImageIcon, Loader2 } from "lucide-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ShakaPlayer } from "@/components/player/ShakaPlayer";
@@ -8,6 +8,7 @@ import { MusicPlayer } from "@/components/player/MusicPlayer";
 import { ImageViewer } from "@/components/player/ImageViewer";
 import { PlayIcon } from "@/components/icons/play";
 import { FileType } from "@/types/tasks";
+import { bridge } from "@/lib/bridge";
 
 interface MediaThumbnailProps {
   path?: string;
@@ -20,15 +21,9 @@ interface MediaThumbnailProps {
     width?: number;
     height?: number;
     fitMode?: "contain" | "cover";
+    time?: number;
   };
 }
-
-type ThumbnailPayload = {
-  thumbnailPath?: string;
-  dataUrl?: string;
-  width: number;
-  height: number;
-};
 
 export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   path,
@@ -37,22 +32,34 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   fileType,
   thumbnailPath,
   disableAutoGenerate = false,
-  thumbnailOptions = {
-    width: 160,
-    height: 90,
-    fitMode: "cover",
-  },
+  thumbnailOptions,
 }) => {
+  const resolvedThumbnailOptions = useMemo(
+    () => ({
+      width: thumbnailOptions?.width ?? 160,
+      height: thumbnailOptions?.height ?? 90,
+      fitMode: thumbnailOptions?.fitMode ?? "cover",
+      time: thumbnailOptions?.time,
+    }),
+    [
+      thumbnailOptions?.width,
+      thumbnailOptions?.height,
+      thumbnailOptions?.fitMode,
+      thumbnailOptions?.time,
+    ]
+  );
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [thumbnailResolution, setThumbnailResolution] = useState<
     { width: number; height: number } | null
   >(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isMissing, setIsMissing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
 
     const fetchThumbnail = async () => {
       if (!path) return;
@@ -61,6 +68,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
           setIsMissing(false);
           setThumbnail(null);
           setThumbnailResolution(null);
+          setIsLoading(false);
         }
         return;
       }
@@ -69,19 +77,21 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
           setIsMissing(false);
           setThumbnail(convertFileSrc(thumbnailPath));
           setThumbnailResolution(null);
+          setIsLoading(false);
         }
         return;
       }
       if (isMounted) {
         setIsMissing(false);
+        setIsLoading(true);
       }
 
       try {
-        // Invoke backend command to generate thumbnail
-        const thumb = await invoke<ThumbnailPayload | null>("generate_media_thumbnail", {
+        const thumb = await bridge.generateMediaThumbnail(
           path,
-          options: thumbnailOptions,
-        });
+          resolvedThumbnailOptions,
+          { signal: controller.signal }
+        );
         if (isMounted) {
           if (thumb?.thumbnailPath) {
             setThumbnail(convertFileSrc(thumb.thumbnailPath));
@@ -93,6 +103,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
             setThumbnail(null);
             setThumbnailResolution(null);
           }
+          setIsLoading(false);
         }
       } catch (err) {
         if (!isMounted) return;
@@ -107,6 +118,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
           setThumbnailResolution(null);
           setIsDialogOpen(false);
         }
+        setIsLoading(false);
         console.error("Failed to load thumbnail:", err);
       }
     };
@@ -115,8 +127,9 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
-  }, [path, thumbnailPath, disableAutoGenerate]);
+  }, [path, thumbnailPath, disableAutoGenerate, resolvedThumbnailOptions]);
 
   const icon = useMemo(() => {
     if (fileType === FileType.Video) return <FileVideo className="w-6 h-6" />;
@@ -205,7 +218,11 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
           </>
         ) : (
           <div className="w-full h-full bg-muted/30 rounded-lg flex items-center justify-center text-muted-foreground">
-            {icon}
+            {isLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              icon
+            )}
           </div>
         )}
       </div>

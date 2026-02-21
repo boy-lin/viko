@@ -250,6 +250,8 @@ pub struct ThumbnailResult {
     pub data_url: Option<String>,
     pub width: u32,
     pub height: u32,
+    pub source_width: u32,
+    pub source_height: u32,
 }
 
 /// Generate a base64 encoded thumbnail for the given media file.
@@ -437,6 +439,8 @@ fn generate_video_stream_thumbnail(
         .decoder()
         .video()
         .map_err(|e| format!("Decoder failed: {}", e))?;
+    let source_width = decoder.width().max(1);
+    let source_height = decoder.height().max(1);
 
     if requested_time_us.is_some() {
         decoder.flush();
@@ -486,6 +490,8 @@ fn generate_video_stream_thumbnail(
                 requested_height,
                 fit_mode,
                 cache_key,
+                source_width,
+                source_height,
             )
             .map(Some);
         }
@@ -504,12 +510,16 @@ fn generate_image_thumbnail(
     let img_buffer = image::open(path)
         .map_err(|e| format!("Image decode failed: {}", e))?
         .to_rgb8();
+    let source_width = img_buffer.width().max(1);
+    let source_height = img_buffer.height().max(1);
     build_thumbnail_result(
         img_buffer,
         requested_width,
         requested_height,
         fit_mode,
         cache_key,
+        source_width,
+        source_height,
     )
 }
 
@@ -519,6 +529,8 @@ fn build_thumbnail_result(
     requested_height: Option<u32>,
     fit_mode: &str,
     cache_key: &str,
+    source_width: u32,
+    source_height: u32,
 ) -> Result<ThumbnailResult, String> {
     let src_width = img_buffer.width();
     let src_height = img_buffer.height();
@@ -542,6 +554,8 @@ fn build_thumbnail_result(
         data_url: None,
         width: img_buffer.width(),
         height: img_buffer.height(),
+        source_width,
+        source_height,
     })
 }
 

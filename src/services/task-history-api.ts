@@ -1,4 +1,5 @@
 import { bridge, type TaskHistoryItem } from "@/lib/bridge";
+import { buildTimeoutSignal } from "@/services/http";
 
 type ApiResponse<T> = {
   code: number;
@@ -21,12 +22,19 @@ async function postJson<T>(path: string, body: Record<string, unknown>): Promise
     throw new Error("VITE_BASE_API_URL is not configured");
   }
 
-  const response = await fetch(`${baseApiUrl}${path}`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const { signal, cancel } = buildTimeoutSignal();
+  let response: Response;
+  try {
+    response = await fetch(`${baseApiUrl}${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } finally {
+    cancel();
+  }
 
   const json = (await response.json()) as ApiResponse<T>;
   if (!response.ok || json.code !== 0) {

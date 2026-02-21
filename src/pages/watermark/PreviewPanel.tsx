@@ -9,10 +9,11 @@ type PreviewPanelProps = {
     width: number;
     height: number;
   } | null;
+  loading?: boolean;
   onOffsetChange?: (offsetX: number, offsetY: number) => void;
 };
 
-export function PreviewPanel({ config, frame, onOffsetChange }: PreviewPanelProps) {
+export function PreviewPanel({ config, frame, loading = false, onOffsetChange }: PreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<{ pointerOffsetX: number; pointerOffsetY: number } | null>(null);
   const videoWidth = frame?.width ?? 1280;
@@ -160,9 +161,14 @@ export function PreviewPanel({ config, frame, onOffsetChange }: PreviewPanelProp
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-            暂无预览帧
+            {loading ? "加载预览帧中..." : "暂无预览帧"}
           </div>
         )}
+        {loading ? (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-full border-2 border-white/60 border-t-transparent animate-spin" />
+          </div>
+        ) : null}
         <div
           className="absolute origin-center cursor-move select-none"
           onPointerDown={handlePointerDown}

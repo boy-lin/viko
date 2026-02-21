@@ -1,18 +1,12 @@
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { type ReactNode, useEffect, useState } from "react";
-
-type ThumbnailPayload = {
-  thumbnailPath?: string;
-  dataUrl?: string;
-  width: number;
-  height: number;
-};
+import { bridge, type ThumbnailOptions } from "@/lib/bridge";
 
 type ThumbnailImageProps = {
   imagePath?: string;
   width?: number;
   height?: number;
   fitMode?: "contain" | "cover";
+  time?: number;
   alt?: string;
   className?: string;
   fallback?: ReactNode;
@@ -23,6 +17,7 @@ export function ThumbnailImage({
   width,
   height,
   fitMode = "contain",
+  time,
   alt = "thumbnail",
   className,
   fallback = null,
@@ -32,6 +27,7 @@ export function ThumbnailImage({
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
 
     const load = async () => {
       const path = imagePath?.trim();
@@ -44,21 +40,19 @@ export function ThumbnailImage({
       }
 
       try {
-        const result = await invoke<ThumbnailPayload | null>("generate_media_thumbnail", {
-          path,
-          options: {
-            width,
-            height,
-            fitMode,
-          },
+        const options: ThumbnailOptions = {
+          width,
+          height,
+          fitMode,
+          time,
+        };
+        const src = await bridge.getMediaThumbnailSrc(path, options, {
+          signal: controller.signal,
         });
 
         if (!active) return;
-        if (result?.thumbnailPath) {
-          setThumbnailSrc(convertFileSrc(result.thumbnailPath));
-          setFailed(false);
-        } else if (result?.dataUrl) {
-          setThumbnailSrc(result.dataUrl);
+        if (src) {
+          setThumbnailSrc(src);
           setFailed(false);
         } else {
           setThumbnailSrc(null);
@@ -74,8 +68,9 @@ export function ThumbnailImage({
     load();
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [imagePath, width, height, fitMode]);
+  }, [imagePath, width, height, fitMode, time]);
 
   if (!thumbnailSrc || failed) {
     return <>{fallback}</>;

@@ -46,6 +46,8 @@ export default function ConvertionVideoPage() {
           </div>
           <div>
             <UploadButton
+              name={t("file_picker.video")}
+              multiple={true}
               extensions={VIDEO_FORMATS}
               onAddPaths={(paths) => useConverterStore.getState().addTasksByPaths(paths)}
             />

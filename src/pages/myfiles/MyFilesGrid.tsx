@@ -71,8 +71,6 @@ export function MyFilesGrid({
                 path={file.outputPath || file.path}
                 title={file.title}
                 fileType={file.fileType}
-                thumbnailPath={file.thumbnail}
-                disableAutoGenerate={true}
                 className="w-full h-full"
               />
 

@@ -40,6 +40,8 @@ export default function ConvertionImagePage() {
           </div>
           <div>
             <UploadButton
+              name={t("file_picker.image")}
+              multiple={true}
               extensions={IMAGE_FORMATS}
               onAddPaths={(paths) => useConverterStore.getState().addTasksByPaths(paths)}
             />

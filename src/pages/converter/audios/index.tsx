@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, UserPlus } from "lucide-react";
+import { Search } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -7,16 +7,17 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { AUDIO_FORMATS } from "@/data/formats";
-import { bridge } from "@/lib/bridge";
 
 import { ConverterFooter } from "./Footer";
 import ConvertingTask from "./Task";
 import { useConverterStore } from "./store";
+import { UploadButton } from "@/components/ui-biz/UploadButton";
+import { useTranslation } from "react-i18next";
 
 export default function ConvertionImagePage() {
+  const { t } = useTranslation("converter");
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -31,28 +32,19 @@ export default function ConvertionImagePage() {
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="搜索文件名..."
+              placeholder={t("search.placeholder")}
               className="pl-9"
               value={globalFilter ?? ""}
               onChange={(e) => setGlobalFilter(e.target.value)}
             />
           </div>
           <div>
-            <Button
-              className="flex items-center gap-3"
-              size="sm"
-              onClick={async () => {
-                const paths = await bridge.addFilesOrFolders({
-                  name: "Audios",
-                  multiple: true,
-                  extensions: AUDIO_FORMATS,
-                  directory: true,
-                })
-                useConverterStore.getState().addTasksByPaths(paths)
-              }}
-            >
-              <UserPlus className="h-4 w-4" /> 添加文件
-            </Button>
+            <UploadButton
+              name={t("file_picker.audio")}
+              multiple={true}
+              extensions={AUDIO_FORMATS}
+              onAddPaths={(paths) => useConverterStore.getState().addTasksByPaths(paths)}
+            />
           </div>
         </div>
       </CardHeader>

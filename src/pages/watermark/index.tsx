@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { WatermarkConfig } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { VIDEO_FORMATS } from "@/data/formats";
@@ -11,6 +11,7 @@ import { PreviewPanel } from "./PreviewPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { defaultWatermarkConfig, positionMap } from "./types";
 import { UploadPanel } from "./UploadPanel";
+import { bridge } from "@/lib/bridge";
 
 export default function WatermarkPage() {
     const [config, setConfig] = useState(defaultWatermarkConfig);
@@ -19,6 +20,7 @@ export default function WatermarkPage() {
         width: number;
         height: number;
     } | null>(null);
+    const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
     const queueTasks = useWatermarkStore((state) => state.queueTasks);
     const clearTasks = useWatermarkStore((state) => state.clearTasks);
@@ -26,7 +28,6 @@ export default function WatermarkPage() {
         () => queueTasks.filter((task) => task.status === "processing"),
         [queueTasks]
     );
-    console.log("runningTasks", runningTasks);
     const isRunning = runningTasks.length > 0;
     const progress = useMemo(() => {
         if (!runningTasks.length) return 0;
@@ -40,42 +41,53 @@ export default function WatermarkPage() {
 
     useEffect(() => {
         let active = true;
+        const controller = new AbortController();
         const loadPreviewFrame = async () => {
             if (!firstVideoPath) {
-                if (active) setPreviewFrame(null);
+                if (active) {
+                    setPreviewFrame(null);
+                    setIsPreviewLoading(false);
+                }
                 return;
             }
             try {
-                const result = await invoke<{ thumbnailPath?: string; dataUrl?: string; width: number; height: number } | null>(
-                    "generate_media_thumbnail",
+                if (active) {
+                    setIsPreviewLoading(true);
+                }
+                const result = await bridge.generateMediaThumbnail(
+                    firstVideoPath,
                     {
-                        path: firstVideoPath,
-                        options: {
-                            time: 2,
-                            width: 1920
-                        },
-                    }
+                        time: 2,
+                        width: 1920
+                    },
+                    { signal: controller.signal }
                 );
                 if (active) {
                     if (result?.thumbnailPath) {
+                        const resolvedWidth = result.sourceWidth ?? result.width;
+                        const resolvedHeight = result.sourceHeight ?? result.height;
                         setPreviewFrame({
                             dataUrl: convertFileSrc(result.thumbnailPath),
-                            width: result.width,
-                            height: result.height,
+                            width: resolvedWidth,
+                            height: resolvedHeight,
                         });
                     } else if (result?.dataUrl) {
+                        const resolvedWidth = result.sourceWidth ?? result.width;
+                        const resolvedHeight = result.sourceHeight ?? result.height;
                         setPreviewFrame({
                             dataUrl: result.dataUrl,
-                            width: result.width,
-                            height: result.height,
+                            width: resolvedWidth,
+                            height: resolvedHeight,
                         });
                     } else {
                         setPreviewFrame(null);
                     }
+                    setIsPreviewLoading(false);
                 }
             } catch (error) {
                 if (active) {
                     setPreviewFrame(null);
+                    setIsPreviewLoading(false);
                 }
                 console.error("Failed to load watermark preview frame:", error);
             }
@@ -84,6 +96,7 @@ export default function WatermarkPage() {
         loadPreviewFrame();
         return () => {
             active = false;
+            controller.abort();
         };
     }, [firstVideoPath]);
 
@@ -193,6 +206,7 @@ export default function WatermarkPage() {
                     <PreviewPanel
                         config={config}
                         frame={previewFrame}
+                        loading={isPreviewLoading}
                         onOffsetChange={(offsetX, offsetY) =>
                             setConfig((prev) => ({ ...prev, offsetX, offsetY }))
                         }
