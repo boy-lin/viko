@@ -46,7 +46,7 @@ export default function ConverterPage() {
                   name: "Image",
                   multiple: true,
                   extensions: IMAGE_FORMATS,
-                  folder: true,
+                  directory: true,
                 })
                 useCompressorStore.getState().addTasksByPaths(paths)
               }}

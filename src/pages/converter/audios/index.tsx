@@ -46,7 +46,7 @@ export default function ConvertionImagePage() {
                   name: "Audios",
                   multiple: true,
                   extensions: AUDIO_FORMATS,
-                  folder: true,
+                  directory: true,
                 })
                 useConverterStore.getState().addTasksByPaths(paths)
               }}

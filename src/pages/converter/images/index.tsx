@@ -7,14 +7,14 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { IMAGE_FORMATS } from "@/data/formats";
-import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 
 import { ConverterFooter } from "./Footer";
 import ConvertingTask from "./Task";
+import { UploadButton } from "@/components/ui-biz/UploadButton";
+import { useConverterStore } from "./store";
 
 export default function ConvertionImagePage() {
   const { t } = useTranslation("converter");
@@ -39,18 +39,10 @@ export default function ConvertionImagePage() {
             />
           </div>
           <div>
-            <Button
-              className="flex items-center gap-3"
-              size="sm"
-              onClick={() => bridge.addFilesOrFolders({
-                name: t("file_picker.images"),
-                multiple: true,
-                extensions: IMAGE_FORMATS,
-                folder: true,
-              })}
-            >
-              <UserPlus className="h-4 w-4" /> {t("search.add_files")}
-            </Button>
+            <UploadButton
+              extensions={IMAGE_FORMATS}
+              onAddPaths={(paths) => useConverterStore.getState().addTasksByPaths(paths)}
+            />
           </div>
         </div>
       </CardHeader>

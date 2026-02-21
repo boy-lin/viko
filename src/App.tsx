@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from "react";
-import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
+import { createHashRouter, Outlet, RouterProvider } from "react-router-dom";
 import i18n from "@/lib/i18n";
 import RootLayout from "./layout/RootPage";
 import AuthLayout from "./layout/AuthLayout";
@@ -36,7 +36,7 @@ const withSuspense = (element: React.ReactNode) => (
   </Suspense>
 );
 
-const router = createBrowserRouter([
+const router = createHashRouter([
   {
     path: "/",
     element: <AuthLayout />,

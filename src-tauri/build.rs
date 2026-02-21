@@ -181,6 +181,10 @@ fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(|e| e.to_string())?;
     let target = std::env::var("TARGET").unwrap_or_default();
     
+    // Ensure the resources/ffmpeg directory exists to satisfy Tauri bundler
+    let base_dest_dir = std::path::Path::new(&manifest_dir).join("resources/ffmpeg");
+    std::fs::create_dir_all(&base_dest_dir).map_err(|e| e.to_string())?;
+
     // On macOS, we use `scripts/fix-mac-dylibs.sh` during Tauri's `beforeBundleCommand`
     // to recursively copy all FFmpeg dependencies (including x264, x265, etc.) and
     // fix their install_name references via `install_name_tool`.
@@ -243,14 +247,19 @@ fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
     
     if target.contains("windows") {
         // On Windows, vcpkg appends version numbers to dlls (e.g., avformat-61.dll).
-        // It's safest to copy all .dll files from the bin directory, which also includes 
-        // transitive dependencies like libx264.dll, zlib1.dll, etc.
+        // To ensure the DLLs are placed exactly next to `viko.exe` where the Windows loader
+        // and Tauri's NSIS bundler expect them natively, copy them into the cargo output directory.
+        let out_dir_env = std::env::var("OUT_DIR").expect("OUT_DIR must be set");
+        let out_dir = std::path::PathBuf::from(out_dir_env);
+        // OUT_DIR is typically: target/x86_64-pc-windows-msvc/release/build/viko-xxxx/out
+        let exe_dir = out_dir.parent().unwrap().parent().unwrap().parent().unwrap();
+
         if let Ok(entries) = std::fs::read_dir(&src_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.extension().and_then(|s| s.to_str()) == Some("dll") {
                     if let Some(file_name) = path.file_name() {
-                        let dest = dest_dir.join(file_name);
+                        let dest = exe_dir.join(file_name);
                         if std::fs::copy(&path, &dest).is_ok() {
                             copied_any = true;
                         }

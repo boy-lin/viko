@@ -232,8 +232,8 @@ class Bridge {
     }
   }
 
-  async addFilesOrFolders(opts: { name: string, multiple: boolean, extensions: string[], folder?: boolean }) {
-    const { name = "", multiple = false, extensions = [], folder = false } = opts;
+  async addFilesOrFolders(opts: { name: string, multiple: boolean, extensions: string[], directory?: boolean }) {
+    const { name = "", multiple = false, extensions = [], directory = false } = opts;
     const selected = await open({
       multiple,
       filters: [
@@ -242,11 +242,12 @@ class Bridge {
           extensions,
         },
       ],
+      directory
     });
     if (!selected) return [];
     const paths: string[] = Array.isArray(selected) ? selected : [selected];
-    if (folder) {
-      return this.getDirectoryToFiles(paths, extensions);
+    if (directory) {
+      return await this.getDirectoryToFiles(paths, extensions);
     }
     return paths;
   }

@@ -153,7 +153,7 @@ export function HeroCard() {
         name: "Video",
         multiple: true,
         extensions: VIDEO_FORMATS,
-        folder: true,
+
       })
       if (paths && paths.length > 0) {
         const { useConverterStore } = await import("@/pages/converter/videos/store")
@@ -165,7 +165,6 @@ export function HeroCard() {
         name: "Audio",
         multiple: true,
         extensions: AUDIO_FORMATS,
-        folder: true,
       })
       if (paths && paths.length > 0) {
         const { useConverterStore } = await import("@/pages/converter/audios/store")
@@ -177,7 +176,7 @@ export function HeroCard() {
         name: "Image",
         multiple: true,
         extensions: IMAGE_FORMATS,
-        folder: true,
+
       });
       if (paths && paths.length > 0) {
         const { useConverterStore } = await import("@/pages/converter/images/store")
@@ -189,7 +188,7 @@ export function HeroCard() {
         name: "Compressor",
         multiple: true,
         extensions: VIDEO_FORMATS,
-        folder: true,
+
       });
       if (paths && paths.length > 0) {
         const { useCompressorStore } = await import("@/pages/compressor/videos/store")
@@ -201,7 +200,7 @@ export function HeroCard() {
         name: "Compressor",
         multiple: true,
         extensions: AUDIO_FORMATS,
-        folder: true,
+
       });
       if (paths && paths.length > 0) {
         const { useCompressorStore } = await import("@/pages/compressor/audios/store")
@@ -213,7 +212,7 @@ export function HeroCard() {
         name: "Compressor",
         multiple: true,
         extensions: IMAGE_FORMATS,
-        folder: true,
+
       });
       if (paths && paths.length > 0) {
         const { useCompressorStore } = await import("@/pages/compressor/images/store")
@@ -227,7 +226,7 @@ export function HeroCard() {
         name: "Watermark",
         multiple: true,
         extensions: videoAndImageFormats,
-        folder: true,
+
       });
       if (paths && paths.length > 0) {
         useWatermarkStore.getState().addTasksByPaths(paths)

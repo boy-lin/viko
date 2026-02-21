@@ -1,5 +1,5 @@
 import { useState, useEffect, startTransition } from "react";
-import { Search, UserPlus } from "lucide-react";
+import { Search } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -7,15 +7,14 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { VIDEO_FORMATS } from "@/data/formats";
-import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 
-import { useConverterStore } from "./store";
 import { ConverterFooter } from "./Footer";
 import ConvertingTask from "./Task";
+import { UploadButton } from "@/components/ui-biz/UploadButton";
+import { useConverterStore } from "./store";
 
 export default function ConvertionVideoPage() {
   const { t } = useTranslation("converter");
@@ -46,21 +45,10 @@ export default function ConvertionVideoPage() {
             />
           </div>
           <div>
-            <Button
-              className="flex items-center gap-3"
-              size="sm"
-              onClick={async () => {
-                const paths = await bridge.addFilesOrFolders({
-                  name: t("file_picker.video"),
-                  multiple: true,
-                  extensions: VIDEO_FORMATS,
-                  folder: true,
-                })
-                useConverterStore.getState().addTasksByPaths(paths)
-              }}
-            >
-              <UserPlus className="h-4 w-4" /> {t("search.add_files")}
-            </Button>
+            <UploadButton
+              extensions={VIDEO_FORMATS}
+              onAddPaths={(paths) => useConverterStore.getState().addTasksByPaths(paths)}
+            />
           </div>
         </div>
       </CardHeader>

@@ -46,7 +46,7 @@ export default function ConverterPage() {
                   name: "Video",
                   multiple: true,
                   extensions: VIDEO_FORMATS,
-                  folder: true,
+                  directory: true,
                 })
                 useCompressorStore.getState().addTasksByPaths(paths)
               }}

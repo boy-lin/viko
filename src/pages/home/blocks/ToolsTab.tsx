@@ -49,13 +49,13 @@ export function ToolsTab() {
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              className={`relative whitespace-nowrap flex items-center gap-2 pb-0 font-medium transition-colors ${activeKey === tab.key
+              className={`relative whitespace-nowrap flex items-center gap-2 pb-0 font-medium text-sm transition-colors ${activeKey === tab.key
                 ? "text-indigo-600"
                 : "cursor-pointer text-muted-foreground hover:text-foreground"
                 }`}
               onClick={() => setActiveKey(tab.key)}
             >
-              {tab.icon && <tab.icon className="w-5 h-5" />}
+              {tab.icon && <tab.icon className="w-4 h-4" />}
               {t(tab.label)}
               <span
                 className={`absolute left-1/2 -bottom-1 h-0.5 w-full -translate-x-1/2 rounded-full transition-all ${activeKey === tab.key

@@ -50,7 +50,10 @@ export default function WatermarkPage() {
                     "generate_media_thumbnail",
                     {
                         path: firstVideoPath,
-                        options: null,
+                        options: {
+                            time: 2,
+                            width: 1920
+                        },
                     }
                 );
                 if (active) {

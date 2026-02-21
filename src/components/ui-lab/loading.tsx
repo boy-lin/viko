@@ -6,7 +6,7 @@ type loadingProps = {
   screenHFull?: boolean;
 };
 
-export function Loading({ screenHFull = true }: loadingProps) {
+export function Loading({ screenHFull = false }: loadingProps) {
   const [state, setState] = React.useState("_");
   const [loadText, setLoadText] = React.useState("Fetching");
 
@@ -52,9 +52,8 @@ export function Loading({ screenHFull = true }: loadingProps) {
 
   return (
     <div
-      className={`${
-        screenHFull ? "min-h-screen" : ""
-      } relative flex flex-col items-center justify-center`}
+      className={`${screenHFull ? "min-h-screen" : ""
+        } relative flex flex-col items-center justify-center`}
     >
       <div
         className={`p-1 border border-dashed rounded-full animate-spin ${colorClass}`}

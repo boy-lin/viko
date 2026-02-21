@@ -237,6 +237,8 @@ fn cleanup_thumbnail_file_from_response(resp: &ThumbnailResponse) {
 pub struct ThumbnailOptions {
     pub width: Option<u32>,
     pub height: Option<u32>,
+    /// 截取视频指定时间点(秒)
+    pub time: Option<f64>,
     /// contain(默认): 等比缩放完整显示; cover: 等比放大后居中裁切
     pub fit_mode: Option<String>,
 }
@@ -264,14 +266,24 @@ pub fn generate_thumbnail(
 
     let requested_width = options.as_ref().and_then(|o| o.width);
     let requested_height = options.as_ref().and_then(|o| o.height);
+    let requested_time_us = options
+        .as_ref()
+        .and_then(|o| o.time)
+        .filter(|t| t.is_finite() && *t >= 0.0)
+        .map(|t| (t * ffmpeg::ffi::AV_TIME_BASE as f64).round() as i64);
     let fit_mode = options
         .as_ref()
         .and_then(|o| o.fit_mode.as_deref())
         .unwrap_or("contain")
         .to_ascii_lowercase();
 
-    let cache_key =
-        build_thumbnail_cache_key(input_path, requested_width, requested_height, &fit_mode);
+    let cache_key = build_thumbnail_cache_key(
+        input_path,
+        requested_width,
+        requested_height,
+        requested_time_us,
+        &fit_mode,
+    );
 
     if let Some(hit) = THUMBNAIL_CACHE.lock().unwrap().get(&cache_key) {
         return hit;
@@ -297,6 +309,7 @@ pub fn generate_thumbnail(
         path,
         requested_width,
         requested_height,
+        requested_time_us,
         fit_mode.as_str(),
         &cache_key,
     );
@@ -317,6 +330,7 @@ fn generate_thumbnail_inner(
     path: &str,
     requested_width: Option<u32>,
     requested_height: Option<u32>,
+    requested_time_us: Option<i64>,
     fit_mode: &str,
     cache_key: &str,
 ) -> Result<Option<ThumbnailResult>, String> {
@@ -331,6 +345,7 @@ fn generate_thumbnail_inner(
             path,
             requested_width,
             requested_height,
+            requested_time_us,
             fit_mode,
             cache_key,
         ),
@@ -339,6 +354,7 @@ fn generate_thumbnail_inner(
                 path,
                 requested_width,
                 requested_height,
+                requested_time_us,
                 fit_mode,
                 cache_key,
             )? {
@@ -362,6 +378,7 @@ fn build_thumbnail_cache_key(
     path: &Path,
     requested_width: Option<u32>,
     requested_height: Option<u32>,
+    requested_time_us: Option<i64>,
     fit_mode: &str,
 ) -> String {
     let (size, mtime_ms) = match fs::metadata(path) {
@@ -379,10 +396,11 @@ fn build_thumbnail_cache_key(
     };
 
     format!(
-        "{}|w={:?}|h={:?}|fit={}|size={}|mtime={}",
+        "{}|w={:?}|h={:?}|t={:?}|fit={}|size={}|mtime={}",
         path.to_string_lossy(),
         requested_width,
         requested_height,
+        requested_time_us,
         fit_mode,
         size,
         mtime_ms
@@ -393,6 +411,7 @@ fn generate_video_stream_thumbnail(
     path: &str,
     requested_width: Option<u32>,
     requested_height: Option<u32>,
+    requested_time_us: Option<i64>,
     fit_mode: &str,
     cache_key: &str,
 ) -> Result<Option<ThumbnailResult>, String> {
@@ -403,13 +422,25 @@ fn generate_video_stream_thumbnail(
         return Ok(None);
     };
     let stream_index = stream.index();
+    let stream_params = stream.parameters().to_owned();
 
-    let decoder_ctx = ffmpeg::codec::context::Context::from_parameters(stream.parameters())
+    if let Some(time_us) = requested_time_us {
+        let clamped = time_us.max(0);
+        if ictx.seek(clamped, stream_index as i64..).is_err() {
+            let _ = ictx.seek(clamped, ..);
+        }
+    }
+
+    let decoder_ctx = ffmpeg::codec::context::Context::from_parameters(stream_params)
         .map_err(|e| format!("Decoder context failed: {}", e))?;
     let mut decoder = decoder_ctx
         .decoder()
         .video()
         .map_err(|e| format!("Decoder failed: {}", e))?;
+
+    if requested_time_us.is_some() {
+        decoder.flush();
+    }
 
     let mut scaler = if decoder.width() > 0 && decoder.height() > 0 {
         let src_width = decoder.width();

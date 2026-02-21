@@ -13,13 +13,11 @@ import { MenuItems } from "./menu";
 import HomeLinear from "@/components/icons/HomeLinear";
 import FolderLinear from "@/components/icons/FolderLinear";
 import AILinear from "@/components/icons/AILinear";
-import ConversionLinear from "@/components/icons/ConversionLinear";
-import SeityMetadata from "@/components/icons/SeityMetadata";
-import CompressionLinear from "@/components/icons/CompressionLinear";
 import PinLinear from "@/components/icons/PinLinear";
 import PinCancelLinear from "@/components/icons/PinCancelLinear";
 import { useAppStore } from "@/stores/app";
 import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
+import { QuickAccessItem, QUICK_ACCESS_CONFIG } from "./menu";
 
 type NavItem = {
   label: string;
@@ -29,13 +27,7 @@ type NavItem = {
   badgeCount?: number;
 };
 
-type QuickAccessItem = {
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  color: string;
-  activeGradient?: string;
-  href?: string;
-};
+
 
 type SidebarContextValue = {
   open: boolean;
@@ -80,64 +72,6 @@ const itemVariants = {
   show: { opacity: 1, x: 0 },
 };
 
-const QUICK_ACCESS_CONFIG: QuickAccessItem[] = [
-  {
-    label: "quick.converter_videos",
-    icon: ConversionLinear,
-    color: "bg-indigo-50 text-indigo-600",
-    activeGradient: "from-[#8B5CF6] to-[#6366F1]",
-    href: MenuItems.converterVideos,
-  },
-  {
-    label: "quick.converter_audios",
-    icon: ConversionLinear,
-    color: "bg-indigo-50 text-indigo-600",
-    activeGradient: "from-[#8B5CF6] to-[#6366F1]",
-    href: MenuItems.converterAudios,
-  },
-  {
-    label: "quick.converter_images",
-    icon: ConversionLinear,
-    color: "bg-indigo-50 text-indigo-600",
-    activeGradient: "from-[#8B5CF6] to-[#6366F1]",
-    href: MenuItems.converterImages,
-  },
-  {
-    label: "quick.metadata",
-    icon: SeityMetadata,
-    color: "bg-sky-50 text-sky-600",
-    activeGradient: "from-[#06B6D4] to-[#3B82F6]",
-    href: MenuItems.metadata,
-  },
-  {
-    label: "quick.compressor_videos",
-    icon: CompressionLinear,
-    color: "bg-rose-50 text-rose-600",
-    activeGradient: "from-[#F43F5E] to-[#F97316]",
-    href: MenuItems.compressorVideos,
-  },
-  {
-    label: "quick.compressor_audios",
-    icon: CompressionLinear,
-    color: "bg-rose-50 text-rose-600",
-    activeGradient: "from-[#F43F5E] to-[#F97316]",
-    href: MenuItems.compressorAudios,
-  },
-  {
-    label: "quick.compressor_images",
-    icon: CompressionLinear,
-    color: "bg-rose-50 text-rose-600",
-    activeGradient: "from-[#F43F5E] to-[#F97316]",
-    href: MenuItems.compressorImages,
-  },
-  {
-    label: "quick.watermark",
-    icon: PinLinear,
-    color: "bg-rose-50 text-rose-600",
-    activeGradient: "from-[#F43F5E] to-[#F97316]",
-    href: MenuItems.watermark,
-  }
-];
 
 const SidebarProvider = ({
   children,

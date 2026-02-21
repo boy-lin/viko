@@ -115,7 +115,7 @@ export function UploadDrag({
                     name: t("upload_drag.picker_name"),
                     extensions: supportedExtensions,
                   },
-                ],
+                ]
               });
               if (!selected) return [];
               const paths = Array.isArray(selected) ? selected : [selected];

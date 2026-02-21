@@ -34,7 +34,9 @@
   },
   "search": {
     "placeholder": "Search file name...",
-    "add_files": "Add Files"
+    "add_files": "Add Files",
+    "add_folders": "Add Folder",
+    "folder_no_supported": "No supported files found in the selected folder"
   },
   "file_picker": {
     "video": "Video",

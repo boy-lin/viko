@@ -808,6 +808,7 @@ fn record_history<T: Serialize + Send + Sync + 'static>(
                     width: Some(240),
                     height: Some(135),
                     fit_mode: Some("cover".to_string()),
+                    time: Some(0.0),
                 };
                 generate_thumbnail(&output_path, Some(options))
                     .ok()
