@@ -57,7 +57,6 @@ export default function WatermarkPage() {
                 const result = await bridge.generateMediaThumbnail(
                     firstVideoPath,
                     {
-                        time: 2,
                         width: 1920
                     },
                     { signal: controller.signal }

@@ -10,12 +10,20 @@ jobs:
   build:
     permissions:
       contents: write
+    environment: production
+    env:
+      VITE_GOOGLE_ANALYTICS_ID: ${{ vars.VITE_GOOGLE_ANALYTICS_ID }}
+      VITE_BASE_API_URL: ${{ vars.VITE_BASE_API_URL }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APP_RELEASE_CI_TOKEN: ${{ secrets.APP_RELEASE_CI_TOKEN }}
+      UPDATER_API_BASE: ${{ vars.UPDATER_API_BASE }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-latest" # ARM64 (M1/M2)
-            args: "--target aarch64-apple-darwin"
+          # - platform: "macos-latest" # ARM64 (M1/M2)
+          #   args: "--target aarch64-apple-darwin"
           # - platform: "macos-12"     # Intel (x86_64) - Reverted to macos-12 as macos-13 is unsupported; expect wait times
           #   args: "--target x86_64-apple-darwin"
           - platform: "windows-latest"
@@ -150,12 +158,171 @@ jobs:
         run: pnpm build
 
       - name: Build Tauri
-        uses: tauri-apps/tauri-action@v0
+        shell: bash
+        run: |
+          pnpm tauri build ${{ matrix.args }} --verbose
+
+      - name: Debug DMG bundling failure
+        if: failure() && startsWith(matrix.platform, 'macos')
+        shell: bash
+        run: |
+          TARGET="${{ matrix.args }}"
+          TARGET="${TARGET#--target }"
+          DMG_DIR="src-tauri/target/${TARGET}/release/bundle/dmg"
+          echo "Inspecting $DMG_DIR"
+          ls -la "$DMG_DIR" || true
+          if [[ -f "$DMG_DIR/bundle_dmg.sh" ]]; then
+            echo "----- bundle_dmg.sh -----"
+            cat "$DMG_DIR/bundle_dmg.sh"
+            echo "----- rerun with bash -x -----"
+            bash -x "$DMG_DIR/bundle_dmg.sh" || true
+          fi
+
+      - name: Resolve updater upload metadata
+        id: updater_meta
+        shell: bash
+        run: |
+          TARGET="${{ matrix.args }}"
+          TARGET="${TARGET#--target }"
+          case "$TARGET" in
+            aarch64-apple-darwin)
+              PLATFORM="darwin-aarch64"
+              UPDATER_PATTERN="*.app.tar.gz"
+              INSTALLER_PATTERN="*.dmg"
+              ;;
+            x86_64-apple-darwin)
+              PLATFORM="darwin-x86_64"
+              UPDATER_PATTERN="*.app.tar.gz"
+              INSTALLER_PATTERN="*.dmg"
+              ;;
+            x86_64-pc-windows-msvc)
+              PLATFORM="windows-x86_64"
+              UPDATER_PATTERN="*.msi.zip"
+              INSTALLER_PATTERN="*.msi"
+              ;;
+            *)
+              echo "Unsupported target for updater upload: $TARGET"
+              exit 1
+              ;;
+          esac
+
+          BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
+          UPDATER_ARTIFACT_PATH="$(find "$BUNDLE_DIR" -type f -name "$UPDATER_PATTERN" | head -n 1)"
+          if [[ -z "$UPDATER_ARTIFACT_PATH" ]]; then
+            echo "Updater artifact not found in $BUNDLE_DIR ($UPDATER_PATTERN)"
+            exit 1
+          fi
+
+          INSTALLER_ARTIFACT_PATH="$(find "$BUNDLE_DIR" -type f -name "$INSTALLER_PATTERN" | head -n 1)"
+          if [[ -z "$INSTALLER_ARTIFACT_PATH" ]]; then
+            echo "Installer artifact not found in $BUNDLE_DIR ($INSTALLER_PATTERN)"
+            exit 1
+          fi
+
+          UPDATER_SIG_PATH="${UPDATER_ARTIFACT_PATH}.sig"
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ -z "$VERSION" || "$VERSION" == "$GITHUB_REF_NAME" ]]; then
+            VERSION="$(node -p "require('./package.json').version")"
+          fi
+
+          echo "platform=$PLATFORM" >> "$GITHUB_OUTPUT"
+          echo "updater_artifact_path=$UPDATER_ARTIFACT_PATH" >> "$GITHUB_OUTPUT"
+          echo "updater_sig_path=$UPDATER_SIG_PATH" >> "$GITHUB_OUTPUT"
+          echo "installer_artifact_path=$INSTALLER_ARTIFACT_PATH" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Upload updater asset metadata
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: .
-          args: ${{ matrix.args }}
+          UPDATER_API_BASE: ${{ env.UPDATER_API_BASE }}
+          UPDATER_API_TOKEN: ${{ env.APP_RELEASE_CI_TOKEN }}
+          UPDATER_VERSION: ${{ steps.updater_meta.outputs.version }}
+          UPDATER_ASSET_TYPE: "updater"
+          UPDATER_PLATFORMS: ${{ steps.updater_meta.outputs.platform }}
+        run: |
+          if [[ -z "${UPDATER_API_BASE:-}" ]]; then
+            echo "UPDATER_API_BASE is required and cannot be empty"
+            exit 1
+          fi
+
+          if [[ -z "${UPDATER_PLATFORMS:-}" ]]; then
+            echo "UPDATER_PLATFORMS is required and cannot be empty"
+            exit 1
+          fi
+
+          PLATFORM_KEY="$(echo "${{ steps.updater_meta.outputs.platform }}" | tr '[:lower:]-' '[:upper:]_')"
+          FILE_VAR="UPDATER_FILE_${PLATFORM_KEY}"
+          SIG_VAR="UPDATER_SIGNATURE_${PLATFORM_KEY}"
+          ARTIFACT_PATH="${{ steps.updater_meta.outputs.updater_artifact_path }}"
+          SIG_PATH="${{ steps.updater_meta.outputs.updater_sig_path }}"
+
+          if [[ -f "$SIG_PATH" ]]; then
+            SIGNATURE="$(tr -d '\r\n' < "$SIG_PATH")"
+          else
+            echo "Signature sidecar not found, signing artifact directly: $ARTIFACT_PATH"
+            export TAURI_PRIVATE_KEY="${TAURI_SIGNING_PRIVATE_KEY}"
+            export TAURI_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD}"
+            SIGN_OUTPUT="$(pnpm tauri signer sign "$ARTIFACT_PATH")"
+            SIGNATURE="$(echo "$SIGN_OUTPUT" | sed -n 's/^Signature: //p' | tail -n 1 | tr -d '\r\n')"
+            if [[ -z "$SIGNATURE" ]]; then
+              SIGNATURE="$(
+                echo "$SIGN_OUTPUT" \
+                  | tr -d '\r' \
+                  | awk '/^[A-Za-z0-9+/=]+$/{sig=$0} END{print sig}' \
+                  | tr -d '\n'
+              )"
+            fi
+            if [[ -z "$SIGNATURE" || "$SIGNATURE" == *" "* ]]; then
+              echo "Failed to parse signature from signer output"
+              echo "$SIGN_OUTPUT"
+              exit 1
+            fi
+          fi
+
+          echo "Updater platform key: ${PLATFORM_KEY}"
+          echo "Signature env var: ${SIG_VAR}"
+          echo "Signature length: ${#SIGNATURE}"
+          echo "Signature prefix: ${SIGNATURE:0:24}..."
+
+          export "$FILE_VAR=${{ steps.updater_meta.outputs.updater_artifact_path }}"
+          export "$SIG_VAR=$SIGNATURE"
+
+          echo "Exported file var: ${FILE_VAR}=${{ steps.updater_meta.outputs.updater_artifact_path }}"
+          echo "Exported sig var present: $(printenv "$SIG_VAR" | wc -c | tr -d ' ') bytes"
+
+          pnpm simulate:updater
+
+      - name: Upload installer asset metadata
+        shell: bash
+        env:
+          UPDATER_API_BASE: ${{ env.UPDATER_API_BASE }}
+          UPDATER_API_TOKEN: ${{ env.APP_RELEASE_CI_TOKEN }}
+          UPDATER_VERSION: ${{ steps.updater_meta.outputs.version }}
+          UPDATER_ASSET_TYPE: "installer"
+          UPDATER_PLATFORMS: ${{ steps.updater_meta.outputs.platform }}
+        run: |
+          if [[ -z "${UPDATER_API_BASE:-}" ]]; then
+            echo "UPDATER_API_BASE is required and cannot be empty"
+            exit 1
+          fi
+
+          if [[ -z "${UPDATER_PLATFORMS:-}" ]]; then
+            echo "UPDATER_PLATFORMS is required and cannot be empty"
+            exit 1
+          fi
+
+          PLATFORM_KEY="$(echo "${{ steps.updater_meta.outputs.platform }}" | tr '[:lower:]-' '[:upper:]_')"
+          FILE_VAR="UPDATER_FILE_${PLATFORM_KEY}"
+          INSTALLER_PATH="${{ steps.updater_meta.outputs.installer_artifact_path }}"
+
+          if [[ -z "$INSTALLER_PATH" || ! -f "$INSTALLER_PATH" ]]; then
+            echo "Installer artifact is missing: $INSTALLER_PATH"
+            exit 1
+          fi
+
+          export "$FILE_VAR=$INSTALLER_PATH"
+          pnpm simulate:updater
 
       - name: Extract target from args
         id: extract_target

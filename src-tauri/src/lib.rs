@@ -81,6 +81,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
@@ -88,6 +89,8 @@ pub fn run() {
                 .level_for("sqlx::query", log::LevelFilter::Warn)
                 .build(),
         )
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -126,6 +129,11 @@ pub fn run() {
             crate::commands::compress_image_file,
             crate::commands::write_media_metadata,
             crate::commands::get_device_id,
+            crate::commands::auth_exchange_code,
+            crate::commands::updater_guard_report_success,
+            crate::commands::updater_guard_report_failure,
+            crate::commands::updater_guard_get_status,
+            crate::commands::updater_guard_reset,
             crate::commands::get_task_history,
             crate::commands::get_my_files,
             crate::commands::set_my_file_favorite,
@@ -165,11 +173,14 @@ pub fn run() {
                 crate::storage::favorites::init()
                     .await
                     .expect("failed to init task_favorites");
+                crate::storage::updater_guard::init()
+                    .await
+                    .expect("failed to init updater_guard");
 
                 // Mark long-running tasks from previous sessions as interrupted.
                 // 24 hours cutoff to avoid false positives for long conversions.
                 if let Ok(affected) =
-                    crate::storage::task_history::cleanup_stale_processing(24 * 60 * 60 * 1000)
+                    crate::storage::task_history::cleanup_stale_processing(2 * 60 * 60 * 1000)
                         .await
                 {
                     if affected > 0 {
@@ -178,12 +189,21 @@ pub fn run() {
                 }
             });
 
+            // 仅在 release 构建中加载捆绑的 FFmpeg 动态库。
+            // debug 构建直接依赖编译期链接的系统 FFmpeg（Homebrew），
+            // bundled dylib 经过 install_name_tool 修改，路径仅在 .app 包内有效。
+            #[cfg(not(debug_assertions))]
             if let Ok(resource_dir) = app.path().resource_dir() {
+                let bundled_dir = crate::services::ffmpeg::loader::bundled_ffmpeg_dir(&resource_dir);
                 if let Err(e) = crate::services::ffmpeg::loader::load_bundled_ffmpeg(&resource_dir)
                 {
-                    log::warn!("Failed to load bundled FFmpeg: {}", e);
+                    log::warn!(
+                        "Failed to load bundled FFmpeg from {}: {}",
+                        bundled_dir.display(),
+                        e
+                    );
                 } else {
-                    log::info!("Loaded bundled FFmpeg from: {}", resource_dir.display());
+                    log::info!("Loaded bundled FFmpeg from: {}", bundled_dir.display());
                 }
             } else {
                 log::warn!("Failed to resolve resource_dir; FFmpeg will rely on system libs");

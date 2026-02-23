@@ -22,6 +22,7 @@ const SignInPage = lazy(() => import("./pages/auth/sign-in"));
 const SignUpPage = lazy(() => import("./pages/auth/sign-up"));
 const MetadataEditorPage = lazy(() => import("./pages/metadata"));
 const WatermarkPage = lazy(() => import("./pages/watermark"));
+const ForceUpdatePage = lazy(() => import("./pages/force-update"));
 
 const preloadI18nNamespaces = (namespaces: string[]) => async () => {
   await i18n.loadNamespaces(namespaces);
@@ -105,6 +106,12 @@ const router = createHashRouter([
     path: "/sign-up", element: withSuspense(<SignUpPage />),
     errorElement: <ErrorPage />,
     loader: preloadI18nNamespaces(["auth", "common"])
+  },
+  {
+    path: "/force-update",
+    element: withSuspense(<ForceUpdatePage />),
+    errorElement: <ErrorPage />,
+    loader: preloadI18nNamespaces(["common"])
   },
 ]);
 

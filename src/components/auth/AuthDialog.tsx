@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { SocialProviders } from "@/components/auth/social-providers";
-import { signIn, signUp } from "@/lib/auth-client";
+import {
+  clearDesktopOAuthSession,
+  finishDesktopOAuthLogin,
+  isDesktopOAuthAvailable,
+  startDesktopOAuthLogin,
+} from "@/lib/desktop-auth";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -15,203 +17,226 @@ type AuthDialogProps = {
   onSuccess?: () => void;
 };
 
-const AUTH_EMAIL_CACHE_KEY = "auth:last-email";
+type LoginPhase =
+  | "idle"
+  | "opening"
+  | "pending_callback"
+  | "exchanging"
+  | "success"
+  | "timeout"
+  | "error";
+
+type DesktopAuthErrorDetail = {
+  code: string;
+  message: string;
+};
+
+const CALLBACK_TIMEOUT_MS = 90_000;
+const CALLBACK_TIMEOUT_SECONDS = CALLBACK_TIMEOUT_MS / 1000;
 
 export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) => {
-  const [tab, setTab] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const signinEmailRef = useRef<HTMLInputElement>(null);
-  const signupNameRef = useRef<HTMLInputElement>(null);
-  const configs = useMemo(
-    () => ({
-      email_auth_enabled: "true",
-      google_auth_enabled: "true",
-      github_auth_enabled: "true",
-    }),
-    []
-  );
-
-  const reset = () => {
-    setPassword("");
-    setName("");
-  };
+  const [phase, setPhase] = useState<LoginPhase>("idle");
+  const [desktopCode, setDesktopCode] = useState("");
+  const [lastError, setLastError] = useState<string>("");
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(CALLBACK_TIMEOUT_SECONDS);
+  const desktopOauthEnabled = isDesktopOAuthAvailable();
+  const debugManualInputEnabled = true;
+  const loading = phase === "opening" || phase === "exchanging";
+  const pending = phase === "pending_callback";
+  const canStart = phase === "idle" || phase === "timeout" || phase === "error";
+  const pendingText = useMemo(() => {
+    if (phase === "exchanging") {
+      return "已收到回调，正在完成登录...";
+    }
+    if (phase === "pending_callback") {
+      return "请在浏览器完成授权，应用会自动登录";
+    }
+    if (phase === "timeout") {
+      return "长时间未收到回调，你可以重试登录";
+    }
+    return "";
+  }, [phase]);
+  const countdownProgress = useMemo(() => {
+    const consumed = CALLBACK_TIMEOUT_SECONDS - remainingSeconds;
+    const ratio = Math.min(100, Math.max(0, (consumed / CALLBACK_TIMEOUT_SECONDS) * 100));
+    return ratio;
+  }, [remainingSeconds]);
 
   const handleSuccess = () => {
-    reset();
+    setPhase("success");
     onOpenChange(false);
     onSuccess?.();
   };
 
-  const handleSignIn = async () => {
-    if (loading) return;
-    if (!email || !password) {
-      toast.error("Email and password are required");
-      return;
+  const handleDesktopOAuthStart = async () => {
+    if (!canStart) return;
+    try {
+      setLastError("");
+      setPhase("opening");
+      setRemainingSeconds(CALLBACK_TIMEOUT_SECONDS);
+      await startDesktopOAuthLogin();
+      setPhase("pending_callback");
+      toast.success("已打开浏览器，请完成授权");
+    } catch (error) {
+      setPhase("error");
+      const message = (error as Error).message || "打开网页登录失败";
+      setLastError(message);
+      toast.error(message);
     }
-
-    await signIn.email(
-      { email, password },
-      {
-        onRequest: () => setLoading(true),
-        onResponse: () => setLoading(false),
-        onSuccess: () => {
-          localStorage.setItem(AUTH_EMAIL_CACHE_KEY, email);
-          handleSuccess();
-        },
-        onError: (ctx) => {
-          toast.error(ctx.error.message || "Sign in failed");
-          setLoading(false);
-        },
-      }
-    );
   };
 
-  const handleSignUp = async () => {
+  const handleDesktopOAuthFinish = async () => {
     if (loading) return;
-    if (!email || !password || !name) {
-      toast.error("Name, email and password are required");
+    if (!desktopCode.trim()) {
+      toast.error("请先输入授权 code");
       return;
     }
+    try {
+      setPhase("exchanging");
+      await finishDesktopOAuthLogin(desktopCode.trim());
+      setDesktopCode("");
+      handleSuccess();
+      toast.success("登录成功");
+    } catch (error) {
+      const message = (error as Error).message || "桌面登录失败";
+      setLastError(message);
+      setPhase("error");
+      toast.error(message);
+    }
+  };
 
-    await signUp.email(
-      { email, password, name },
-      {
-        onRequest: () => setLoading(true),
-        onResponse: () => setLoading(false),
-        onSuccess: () => {
-          localStorage.setItem(AUTH_EMAIL_CACHE_KEY, email);
-          handleSuccess();
-        },
-        onError: (ctx) => {
-          toast.error(ctx.error.message || "Sign up failed");
-          setLoading(false);
-        },
-      }
-    );
+  const handleCancel = () => {
+    clearDesktopOAuthSession();
+    setDesktopCode("");
+    setLastError("");
+    setRemainingSeconds(CALLBACK_TIMEOUT_SECONDS);
+    setPhase("idle");
   };
 
   useEffect(() => {
-    if (!open) return;
-    const cachedEmail = localStorage.getItem(AUTH_EMAIL_CACHE_KEY);
-    if (cachedEmail) {
-      setEmail(cachedEmail);
+    if (!open) {
+      return;
     }
+    setPhase("idle");
+    setLastError("");
+    setRemainingSeconds(CALLBACK_TIMEOUT_SECONDS);
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !pending) {
+      return;
+    }
     const timer = window.setTimeout(() => {
-      if (tab === "signin") {
-        signinEmailRef.current?.focus();
-      } else {
-        signupNameRef.current?.focus();
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [open, tab]);
+      setPhase("timeout");
+      setLastError("授权超时，请点击重试");
+    }, CALLBACK_TIMEOUT_MS);
+    const countdownTimer = window.setInterval(() => {
+      setRemainingSeconds((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(countdownTimer);
+    };
+  }, [open, pending]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const onExchanging = () => {
+      setLastError("");
+      setPhase("exchanging");
+    };
+    const onSuccess = () => {
+      setDesktopCode("");
+      setLastError("");
+      handleSuccess();
+    };
+    const onError = (event: Event) => {
+      const detail = (event as CustomEvent<DesktopAuthErrorDetail>).detail;
+      const message = detail?.message || "桌面登录失败";
+      setLastError(message);
+      setPhase("error");
+      toast.error(message);
+    };
+    window.addEventListener("desktop-auth:exchanging", onExchanging);
+    window.addEventListener("desktop-auth:success", onSuccess);
+    window.addEventListener("desktop-auth:error", onError as EventListener);
+    return () => {
+      window.removeEventListener("desktop-auth:exchanging", onExchanging);
+      window.removeEventListener("desktop-auth:success", onSuccess);
+      window.removeEventListener("desktop-auth:error", onError as EventListener);
+    };
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-lg">
-            {tab === "signin" ? "登录" : "注册"}
-          </DialogTitle>
+          <DialogTitle className="text-lg">登录</DialogTitle>
         </DialogHeader>
-
-        <Tabs value={tab} onValueChange={(val) => setTab(val as "signin" | "signup")}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="signin">登录</TabsTrigger>
-            <TabsTrigger value="signup">注册</TabsTrigger>
-          </TabsList>
-          <TabsContent value="signin" className="space-y-4">
-            <div className="grid gap-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="signin-email">Email</Label>
-                <Input
-                  id="signin-email"
-                  ref={signinEmailRef}
-                  type="email"
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
+        {desktopOauthEnabled && (
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={loading || !canStart}
+              onClick={handleDesktopOAuthStart}
+            >
+              {phase === "timeout" || phase === "error" ? "重新发起浏览器登录" : "使用浏览器登录"}
+            </Button>
+            {(phase === "opening" || phase === "exchanging") && (
+              <div className="flex items-center text-sm text-muted-foreground gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {pendingText || "处理中..."}
               </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="signin-password">Password</Label>
-                <Input
-                  id="signin-password"
-                  type="password"
-                  placeholder="Your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
+            )}
+            {pendingText && phase !== "opening" && phase !== "exchanging" && (
+              <p className="text-sm text-muted-foreground">{pendingText}</p>
+            )}
+            {pending && (
+              <div className="space-y-1">
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-1000"
+                    style={{ width: `${countdownProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">剩余 {remainingSeconds}s</p>
               </div>
-              <Button className="w-full" disabled={loading} onClick={handleSignIn}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "登录"}
+            )}
+            {(pending || loading) && (
+              <Button variant="ghost" className="w-full" disabled={loading} onClick={handleCancel}>
+                取消本次登录
               </Button>
-            </div>
-            <SocialProviders
-              configs={configs}
-              callbackUrl="/"
-              loading={loading}
-              setLoading={setLoading}
-            />
-          </TabsContent>
-
-          <TabsContent value="signup" className="space-y-4">
-            <div className="grid gap-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="signup-name">Name</Label>
+            )}
+            {debugManualInputEnabled && (
+              <>
                 <Input
-                  id="signup-name"
-                  ref={signupNameRef}
-                  type="text"
-                  placeholder="Your Name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  placeholder="调试：粘贴授权/回调 URL 或 code"
+                  value={desktopCode}
+                  onChange={(e) => setDesktopCode(e.target.value)}
                   disabled={loading}
                 />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="signup-email">Email</Label>
-                <Input
-                  id="signup-email"
-                  type="email"
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="signup-password">Password</Label>
-                <Input
-                  id="signup-password"
-                  type="password"
-                  placeholder="Create a password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-              <Button className="w-full" disabled={loading} onClick={handleSignUp}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "注册"}
-              </Button>
-            </div>
-            <SocialProviders
-              configs={configs}
-              callbackUrl="/"
-              loading={loading}
-              setLoading={setLoading}
-            />
-          </TabsContent>
-        </Tabs>
+                <Button
+                  className="w-full"
+                  disabled={loading || !desktopCode.trim()}
+                  onClick={handleDesktopOAuthFinish}
+                >
+                  调试提交 URL/code
+                </Button>
+              </>
+            )}
+            {lastError && phase === "error" && (
+              <p className="text-sm text-red-500">{lastError}</p>
+            )}
+          </div>
+        )}
+        {!desktopOauthEnabled && (
+          <p className="text-sm text-muted-foreground">
+            当前环境未启用 Desktop OAuth，请检查 OAuth 环境变量配置。
+          </p>
+        )}
       </DialogContent>
     </Dialog>
   );

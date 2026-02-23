@@ -52,7 +52,6 @@ export type ThumbnailOptions = {
   width?: number;
   height?: number;
   fitMode?: "contain" | "cover";
-  time?: number;
 };
 
 class Bridge {
@@ -126,7 +125,7 @@ class Bridge {
     }
   ): { promise: Promise<EventPayload<K>>; cancel: () => void } {
     const timeoutMs = options?.timeoutMs ?? 15000;
-    let cancel: () => void = () => {};
+    let cancel: () => void = () => { };
     const promise = new Promise<EventPayload<K>>((resolve, reject) => {
       let settled = false;
       let timeoutId: number | null = null;

@@ -6,7 +6,6 @@ type ThumbnailImageProps = {
   width?: number;
   height?: number;
   fitMode?: "contain" | "cover";
-  time?: number;
   alt?: string;
   className?: string;
   fallback?: ReactNode;
@@ -17,7 +16,6 @@ export function ThumbnailImage({
   width,
   height,
   fitMode = "contain",
-  time,
   alt = "thumbnail",
   className,
   fallback = null,
@@ -44,7 +42,6 @@ export function ThumbnailImage({
           width,
           height,
           fitMode,
-          time,
         };
         const src = await bridge.getMediaThumbnailSrc(path, options, {
           signal: controller.signal,
@@ -70,7 +67,7 @@ export function ThumbnailImage({
       active = false;
       controller.abort();
     };
-  }, [imagePath, width, height, fitMode, time]);
+  }, [imagePath, width, height, fitMode]);
 
   if (!thumbnailSrc || failed) {
     return <>{fallback}</>;

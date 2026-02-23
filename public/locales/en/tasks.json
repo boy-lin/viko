@@ -13,7 +13,7 @@
     "duration": "Duration",
     "format": "Format",
     "actions": "Actions",
-    "finished_at": "Finished At"
+    "started_at": "Started At"
   },
   "task_type": {
     "convert": "Convert",

@@ -237,9 +237,9 @@ export default function MyFilesPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background px-4">
       {/* 头部 */}
-      <div className="flex-shrink-0 px-2 pt-0 pb-0 space-y-4">
+      <div className="flex-shrink-0 px-0 pt-0 pb-0 space-y-4">
         {/* <h1 className="text-2xl font-semibold text-foreground">我的文件</h1> */}
         <MyFilesToolbar
           searchQuery={searchQuery}
@@ -257,7 +257,7 @@ export default function MyFilesPage() {
       </div>
 
       {/* 内容区域 */}
-      <div className="flex-1 overflow-auto px-4 py-2">
+      <div className="flex-1 overflow-auto px-0 py-4">
         <MyFilesGrid
           files={myFiles}
           selectedFiles={selectedFiles}

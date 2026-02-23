@@ -1,5 +1,6 @@
 import { bridge, type TaskHistoryItem } from "@/lib/bridge";
 import { buildTimeoutSignal } from "@/services/http";
+import { baseApiUrl } from "@/lib/env";
 
 type ApiResponse<T> = {
   code: number;
@@ -14,8 +15,6 @@ type TaskHistoryListData = {
   limit: number;
   hasMore: boolean;
 };
-
-const baseApiUrl = (import.meta.env.VITE_BASE_API_URL || "").replace(/\/$/, "");
 
 async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
   if (!baseApiUrl) {

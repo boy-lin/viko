@@ -13,7 +13,7 @@
     "duration": "任务用时",
     "format": "文件格式",
     "actions": "操作",
-    "finished_at": "完成时间"
+    "started_at": "开始时间"
   },
   "task_type": {
     "convert": "转码",

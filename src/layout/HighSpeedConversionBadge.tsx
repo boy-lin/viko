@@ -41,7 +41,6 @@ export const HighSpeedConversionBadge: React.FC<
           return;
         }
         const result = await bridge.checkHardwareAcceleration();
-        console.log("result", result);
         setSupport(result);
 
         if (result.h264_hardware || result.hevc_hardware) {

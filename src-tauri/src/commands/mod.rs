@@ -175,6 +175,96 @@ pub fn get_device_id() -> Result<String, String> {
     machine_uid::get().map_err(|e| e.to_string())
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthExchangeCodeInput {
+    pub token_endpoint: String,
+    pub client_id: String,
+    pub code: String,
+    pub code_verifier: String,
+    pub redirect_uri: String,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct AuthTokenResponse {
+    pub access_token: String,
+    pub refresh_token: Option<String>,
+    pub expires_in: Option<u64>,
+    pub token_type: Option<String>,
+    pub id_token: Option<String>,
+}
+
+#[command]
+pub fn auth_exchange_code(input: AuthExchangeCodeInput) -> Result<AuthTokenResponse, String> {
+    if input.token_endpoint.trim().is_empty() {
+        return Err("token_endpoint is required".to_string());
+    }
+
+    let body = serde_json::json!({
+        "grant_type": "authorization_code",
+        "client_id": input.client_id,
+        "code": input.code,
+        "code_verifier": input.code_verifier,
+        "redirect_uri": input.redirect_uri
+    });
+
+    let client = reqwest::blocking::Client::new();
+    let response = client
+        .post(&input.token_endpoint)
+        .header("content-type", "application/json")
+        .body(body.to_string())
+        .send()
+        .map_err(|e| format!("Token exchange request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().unwrap_or_else(|_| String::new());
+        return Err(format!("Token exchange failed with status {}: {}", status, text));
+    }
+
+    let text = response
+        .text()
+        .map_err(|e| format!("Read token response failed: {}", e))?;
+    serde_json::from_str::<AuthTokenResponse>(&text)
+        .map_err(|e| format!("Parse token response failed: {}", e))
+}
+
+#[command]
+pub async fn updater_guard_report_success() -> Result<crate::storage::updater_guard::UpdaterGuardStatus, String> {
+    crate::storage::updater_guard::record_success()
+        .await
+        .map_err(|e| e.to_string())?;
+    crate::storage::updater_guard::get_status()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[command]
+pub async fn updater_guard_report_failure(
+    reason: Option<String>,
+) -> Result<crate::storage::updater_guard::UpdaterGuardStatus, String> {
+    crate::storage::updater_guard::record_failure(reason)
+        .await
+        .map_err(|e| e.to_string())?;
+    crate::storage::updater_guard::get_status()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[command]
+pub async fn updater_guard_get_status() -> Result<crate::storage::updater_guard::UpdaterGuardStatus, String> {
+    crate::storage::updater_guard::get_status()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[command]
+pub async fn updater_guard_reset() -> Result<(), String> {
+    crate::storage::updater_guard::reset_failures()
+        .await
+        .map_err(|e| e.to_string())
+}
+
 #[command]
 pub fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
     // Check for hardware encoders on various platforms

@@ -3,7 +3,7 @@ import { ToolsTab } from "./blocks/ToolsTab";
 
 export default function Home() {
   return (
-    <main className="">
+    <main className="px-4">
       <HeroCard />
       <ToolsTab />
     </main>

@@ -9,8 +9,10 @@ import '@/services/errorMonitor'
 import "./lib/i18n"; // Import i18n config
 import App from "./App";
 import "./App.css";
+import { initDesktopOAuthDeepLinkListener } from "./lib/desktop-auth";
 
 analytics.init();
+void initDesktopOAuthDeepLinkListener();
 
 import "./lib/log";
 

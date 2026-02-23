@@ -106,7 +106,7 @@ export function MyFilesToolbar({
                   value={tab.value}
                   className={cn(
                     "px-4 py-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent",
-                    isActive && "border-primary"
+                    isActive ? "border-primary" : "cursor-pointer"
                   )}
                 >
                   {t(tab.labelKey)}

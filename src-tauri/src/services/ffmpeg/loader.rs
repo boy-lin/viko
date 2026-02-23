@@ -54,7 +54,48 @@ impl FFmpegConfig {
     }
 
     pub fn get_library_path(&self) -> PathBuf {
-        self.lib_path.join(&self.lib_name)
+        let exact = self.lib_path.join(&self.lib_name);
+        if exact.exists() {
+            return exact;
+        }
+
+        // Homebrew 安装的 FFmpeg 使用带主版本号的文件名
+        // 例如：libavformat.61.dylib 而非 libavformat.dylib
+        // 尝试在目录中查找匹配的文件（取文件名前缀进行匹配）
+        let stem = self.lib_name.split('.').next().unwrap_or(&self.lib_name);
+        let ext = if cfg!(target_os = "macos") {
+            "dylib"
+        } else if cfg!(target_os = "windows") {
+            "dll"
+        } else {
+            "so"
+        };
+
+        if let Ok(entries) = std::fs::read_dir(&self.lib_path) {
+            let mut candidates: Vec<PathBuf> = entries
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| {
+                    p.extension().and_then(|e| e.to_str()) == Some(ext)
+                        && p.file_name()
+                            .and_then(|n| n.to_str())
+                            .map(|n| n.starts_with(stem))
+                            .unwrap_or(false)
+                })
+                .collect();
+            // 排序后取第一个（版本号最小，通常是主版本库）
+            candidates.sort();
+            if let Some(found) = candidates.into_iter().next() {
+                log::debug!(
+                    "FFmpeg lib '{}' not found, using fallback: {}",
+                    self.lib_name,
+                    found.display()
+                );
+                return found;
+            }
+        }
+
+        exact
     }
 }
 
@@ -92,8 +133,22 @@ pub fn load_ffmpeg_library(lib_dir: &Path) -> Result<(), FFmpegLoadError> {
 }
 
 /// 获取打包资源中的 FFmpeg 目录
+///
+/// Tauri 在不同模式下 `resource_dir` 指向不同位置：
+/// - 开发模式 (`tauri dev`)：`target/debug/`，资源实际在 `target/debug/resources/`
+/// - 生产模式（打包后）：`AppName.app/Contents/Resources/`，资源直接在此目录下
+///
+/// 通过检测 `resources/` 子目录是否存在来自动适配，无需手动区分构建模式。
 pub fn bundled_ffmpeg_dir(resource_dir: &Path) -> PathBuf {
-    let mut dir = resource_dir.join("ffmpeg");
+    // 开发模式下 resource_dir 是 target/debug/，实际资源在其 resources/ 子目录
+    // 生产模式下 resource_dir 本身就是 Resources/，不存在 resources/ 子目录
+    let base = if resource_dir.join("resources").is_dir() {
+        resource_dir.join("resources")
+    } else {
+        resource_dir.to_path_buf()
+    };
+
+    let mut dir = base.join("ffmpeg");
     if cfg!(target_os = "macos") {
         dir = dir.join("macos");
         if cfg!(target_arch = "aarch64") {
@@ -111,6 +166,17 @@ pub fn bundled_ffmpeg_dir(resource_dir: &Path) -> PathBuf {
 
 /// 优先从打包资源目录加载 FFmpeg
 pub fn load_bundled_ffmpeg(resource_dir: &Path) -> Result<(), FFmpegLoadError> {
+    // Windows: build.rs 将 DLL 复制到可执行文件旁边（exe_dir），优先在此查找
+    #[cfg(target_os = "windows")]
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            if load_ffmpeg_library(exe_dir).is_ok() {
+                return Ok(());
+            }
+        }
+    }
+
+    // macOS/Linux 或 Windows fallback：从 resource_dir 下的 ffmpeg/ 子目录加载
     let dir = bundled_ffmpeg_dir(resource_dir);
     load_ffmpeg_library(&dir)
 }

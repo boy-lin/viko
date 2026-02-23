@@ -21,7 +21,6 @@ interface MediaThumbnailProps {
     width?: number;
     height?: number;
     fitMode?: "contain" | "cover";
-    time?: number;
   };
 }
 
@@ -39,14 +38,8 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
       width: thumbnailOptions?.width ?? 160,
       height: thumbnailOptions?.height ?? 90,
       fitMode: thumbnailOptions?.fitMode ?? "cover",
-      time: thumbnailOptions?.time,
     }),
-    [
-      thumbnailOptions?.width,
-      thumbnailOptions?.height,
-      thumbnailOptions?.fitMode,
-      thumbnailOptions?.time,
-    ]
+    [thumbnailOptions?.width, thumbnailOptions?.height, thumbnailOptions?.fitMode]
   );
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [thumbnailResolution, setThumbnailResolution] = useState<

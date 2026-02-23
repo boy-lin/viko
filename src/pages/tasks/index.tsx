@@ -150,9 +150,9 @@ export default function TaskHistoryPage() {
         enableSorting: false,
       },
       {
-        accessorKey: "finished_at",
-        header: t("table.finished_at"),
-        cell: ({ row }) => formatDateTime(row.original.finished_at),
+        accessorKey: "created_at",
+        header: t("table.started_at"),
+        cell: ({ row }) => formatDateTime(row.original.created_at),
       },
       {
         accessorKey: "task_type",
@@ -177,9 +177,9 @@ export default function TaskHistoryPage() {
           const taskDuration = isRunning
             ? Math.max(0, Math.floor((now - row.original.created_at) / 1000))
             : getDurationSecondsFromTimestamps(
-                row.original.created_at,
-                row.original.finished_at
-              );
+              row.original.created_at,
+              row.original.finished_at
+            );
           return formatDuration(taskDuration);
         },
       },
@@ -231,8 +231,8 @@ export default function TaskHistoryPage() {
   });
 
   return (
-    <Card className="h-full w-full py-0 gap-0 bg-transparent border-none shadow-none flex flex-col">
-      <CardHeader className="rounded-none px-0 flex-shrink-0">
+    <Card className="h-full w-full p-0 gap-0 bg-transparent border-none shadow-none flex flex-col">
+      <CardHeader className="rounded-none px-4 flex-shrink-0">
         <div className="flex items-center justify-between gap-3">
           <CardTitle>{t("title")}</CardTitle>
           <div className="flex items-center gap-2">
@@ -254,7 +254,7 @@ export default function TaskHistoryPage() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="relative px-0 flex-1 min-h-0 overflow-auto">
+      <CardContent className="relative flex-1 min-h-0 overflow-auto">
 
         <Table>
           <TableHeader>
@@ -274,7 +274,7 @@ export default function TaskHistoryPage() {
             {
               loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8">
+                  <TableCell colSpan={8} className="py-8">
                     <div className="flex items-center justify-center w-full">
                       <div className="loader"></div>
                     </div>
@@ -292,7 +292,7 @@ export default function TaskHistoryPage() {
             }
             {!loading && table.getRowModel().rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   {t("empty")}
                 </TableCell>
               </TableRow>
