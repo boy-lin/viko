@@ -1,0 +1,61 @@
+{
+  "hero": {
+    "converter": {
+      "title": "Converter",
+      "desc": "Batch convert video, audio, and image files, supporting over 1,000 formats.",
+      "action": "Add Files",
+      "videoAdd": "Video Files",
+      "audioAdd": "Audio Files",
+      "imageAdd": "Image Files"
+    },
+    "downloader": {
+      "title": "Downloader",
+      "desc": "Batch download video and audio from 10,000+ sites.",
+      "action": "Start Now"
+    },
+    "compressor": {
+      "title": "Compressor",
+      "desc": "Automatically compress audio and video to reduce file size.",
+      "action": "Add File(s)",
+      "videoAdd": "Video Files",
+      "audioAdd": "Audio Files",
+      "imageAdd": "Image Files"
+    },
+    "watermark": {
+      "title": "Video/Image Watermark",
+      "desc": "Generate watermarks for videos and images, with batch support.",
+      "add": "Add Files"
+    }
+  },
+  "comingSoon": "Coming soon",
+  "newFeatures": {
+    "videoMeta": { "title": "Video metadata editor", "desc": "Edit video metadata with batch support." },
+    "audioMeta": { "title": "Audio metadata editor", "desc": "Edit audio metadata with batch support." },
+    "imageMeta": { "title": "Image metadata editor", "desc": "Edit image metadata with batch support." },
+    "merge": { "title": "Video merger", "desc": "Merge videos with batch support." },
+    "split": { "title": "Video splitter", "desc": "Split videos with batch support." },
+    "crop": { "title": "Video cropper", "desc": "Crop videos with batch support." },
+    "rotate": { "title": "Video rotator", "desc": "Rotate videos with batch support." }
+  },
+  "tabs": {
+    "new": "New",
+    "common": "Common",
+    "recent": "Recent"
+  },
+  "searchPlaceholder": "Search by name or keyword",
+  "common": {
+    "converter": { "title": "Video transcoding", "desc": "One-click convert popular formats" },
+    "audio": { "title": "Audio processing", "desc": "Audio transcoding and optimization" },
+    "image": { "title": "Image conversion", "desc": "Fast conversion for common image formats" },
+    "compressor": { "title": "Efficient compression", "desc": "Shrink size while keeping quality" },
+    "batch": { "title": "Batch processing", "desc": "Faster batch convert/compress" },
+    "metadata": { "title": "Metadata editing", "desc": "Quickly edit media info" },
+    "tasks": { "title": "Tasks", "desc": "See ongoing and finished jobs" },
+    "myfiles": { "title": "My files", "desc": "Manage exported media files" }
+  },
+  "recent": {
+    "loading": "Loading recent files...",
+    "empty": "No recent files",
+    "viewAll": "View my files"
+  }
+}

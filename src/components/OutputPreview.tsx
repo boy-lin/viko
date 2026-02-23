@@ -1,5 +1,5 @@
 ﻿import React from "react";
-import VideoPreview from "./VideoPreview";
+import VideoPreview from "./VideoPlayer";
 import {
   Card,
   CardContent,
@@ -36,4 +36,3 @@ const OutputPreview: React.FC<Props> = ({ config }) => {
 };
 
 export default OutputPreview;
-

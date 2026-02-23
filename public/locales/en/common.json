@@ -1,0 +1,78 @@
+{
+    "app": {
+        "description": "Powerful Media Toolkit",
+        "title": "FigureX"
+    },
+    "nav": {
+        "tasks": "Tasks",
+        "converter": "Converter",
+        "ai_tools": "AI Tools",
+        "downloader": "Downloader",
+        "batch": "Batch",
+        "video_player": "Video Player",
+        "compressor": "Compressor",
+        "audio_test": "Audio Test",
+        "home": "Home",
+        "my_files": "My Files",
+        "home_v1": "Home V1",
+        "metadata": "Metadata"
+    },
+    "sidebar": {
+        "quick_access": "Quick Access",
+        "pin": "Pin to top",
+        "unpin": "Unpin",
+        "feature_in_development": "Feature in development",
+        "coming_soon": "This feature is coming soon",
+        "collapse": "Collapse sidebar",
+        "expand": "Expand sidebar",
+        "brand_name": "Viko",
+        "brand_tagline": "AudioVideoKits"
+    },
+    "quick": {
+        "converter": "Converter",
+        "converter_videos": "Video Converter",
+        "converter_audios": "Audio Converter",
+        "converter_images": "Image Converter",
+        "watermark": "Watermark Generator",
+        "metadata": "Metadata Editor",
+        "compressor_videos": "Video Compressor",
+        "compressor_audios": "Audio Compressor",
+        "compressor_images": "Image Compressor"
+    },
+    "common": {
+        "loading": "Loading...",
+        "confirm": "Confirm",
+        "edit": "Edit",
+        "select_file": "Select File",
+        "add": "Add",
+        "cancel": "Cancel",
+        "save": "Save",
+        "delete": "Delete",
+        "recents": "Recents",
+        "apply_all": "Apply to all"
+    },
+    "upload_drag": {
+        "picker_name": "Media Files",
+        "title": "Drag files or folders here",
+        "support_hint": "Supports {{hint}}"
+    },
+    "acceleration": {
+        "description": "Configure hardware acceleration options.",
+        "title": "Acceleration Settings",
+        "checking": "Checking hardware support...",
+        "badge_high": "High",
+        "ultra_fast_desc": "Optimizes conversion settings for maximum speed.",
+        "gpu_label": "Enable GPU Acceleration",
+        "ultra_fast_label": "Enable Ultra-fast Speed",
+        "gpu_desc_unavailable": "No supported hardware encoder detected.",
+        "gpu_desc_available": "Uses hardware encoders (e.g., NVENC, QSV, VideoToolbox) when available."
+    },
+    "video_advance": {
+        "color_space": "Color Space",
+        "missing": "format or encoder is not set",
+        "resolution": "Resolution",
+        "encoder": "Encoder",
+        "frame_rate": "Frame Rate",
+        "bitrate": "Bitrate"
+    }
+}

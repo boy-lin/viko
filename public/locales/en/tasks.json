@@ -1,0 +1,54 @@
+{
+  "title": "Task History",
+  "search": {
+    "placeholder": "Search file name...",
+    "action": "Search"
+  },
+  "refresh": "Refresh",
+  "table": {
+    "index": "No.",
+    "output_name": "Output File",
+    "task_type": "Task Type",
+    "status": "Status",
+    "duration": "Duration",
+    "format": "Format",
+    "actions": "Actions",
+    "started_at": "Started At"
+  },
+  "task_type": {
+    "convert": "Convert",
+    "compress": "Compress",
+    "convert-video": "Convert Video",
+    "convert-audio": "Convert Audio",
+    "convert-image": "Convert Image",
+    "convert-gif": "Convert GIF",
+    "compress-video": "Compress Video",
+    "compress-audio": "Compress Audio",
+    "compress-image": "Compress Image",
+    "watermark": "Watermark",
+    "metadata": "Metadata"
+  },
+  "status": {
+    "finished": "Finished",
+    "processing": "Processing",
+    "error": "Failed",
+    "cancelled": "Cancelled",
+    "idle": "Pending"
+  },
+  "actions": {
+    "open_folder": "Open Folder"
+  },
+  "empty": "No task history",
+  "page": "Page {{page}}",
+  "pagination": {
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "errors": {
+    "fetch_remote": "Failed to fetch remote task history",
+    "fetch_local": "Failed to fetch local task history",
+    "task_not_finished": "Task is still running",
+    "output_missing": "Output path not found",
+    "open_folder": "Failed to open folder"
+  }
+}

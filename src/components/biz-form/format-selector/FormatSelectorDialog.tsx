@@ -1,0 +1,53 @@
+import { useState } from "react";
+import { Settings } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { FormatOption } from "@/types/options";
+
+import FormatSelectorContent from "./FormatSelectorContent";
+import { FormatSelectorProps } from "./types";
+import { useFormatSelectorStore } from "./store";
+
+const EMPTY_RECENTS: FormatOption[] = [];
+
+export default function FormatSelectorDialog(props: FormatSelectorProps) {
+  const {
+    config,
+    recentKey,
+    onValueChange = () => { },
+    className,
+    applyConfigToAllTasks,
+  } = props;
+  const [open, setOpen] = useState(false);
+  const formatRecents = useFormatSelectorStore(
+    (state) => state.recentsByKey[recentKey] ?? EMPTY_RECENTS
+  );
+  const addToRecents = useFormatSelectorStore((state) => state.addToRecents);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          aria-expanded={open}
+          className={cn("cursor-pointer flex items-center justify-center", className)}
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="p-0 sm:max-w-[72vw]" showCloseButton={true}>
+        <FormatSelectorContent
+          config={config}
+          formatRecents={formatRecents}
+          addToRecents={(format) => addToRecents(recentKey, format)}
+          onValueChange={onValueChange}
+          applyConfigToAllTasks={applyConfigToAllTasks}
+          onClose={() => setOpen(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}

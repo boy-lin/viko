@@ -1,0 +1,54 @@
+{
+  "title": "任务记录",
+  "search": {
+    "placeholder": "搜索文件名...",
+    "action": "搜索"
+  },
+  "refresh": "刷新",
+  "table": {
+    "index": "序号",
+    "output_name": "输出文件名",
+    "task_type": "任务类型",
+    "status": "任务状态",
+    "duration": "任务用时",
+    "format": "文件格式",
+    "actions": "操作",
+    "started_at": "开始时间"
+  },
+  "task_type": {
+    "convert": "转码",
+    "compress": "压缩",
+    "convert-video": "视频转码",
+    "convert-audio": "音频转码",
+    "convert-image": "图片转码",
+    "convert-gif": "GIF 转换",
+    "compress-video": "视频压缩",
+    "compress-audio": "音频压缩",
+    "compress-image": "图片压缩",
+    "watermark": "添加水印",
+    "metadata": "元数据"
+  },
+  "status": {
+    "finished": "已完成",
+    "processing": "处理中",
+    "error": "失败",
+    "cancelled": "已取消",
+    "idle": "等待中"
+  },
+  "actions": {
+    "open_folder": "打开文件目录"
+  },
+  "empty": "暂无任务记录",
+  "page": "第 {{page}} 页",
+  "pagination": {
+    "prev": "上一页",
+    "next": "下一页"
+  },
+  "errors": {
+    "fetch_remote": "获取云端任务历史失败",
+    "fetch_local": "获取本地任务历史失败",
+    "task_not_finished": "任务正在进行中",
+    "output_missing": "输出路径不存在",
+    "open_folder": "打开文件目录失败"
+  }
+}

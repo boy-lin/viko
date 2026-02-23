@@ -1,0 +1,64 @@
+{
+  "settings": {
+    "title": "设置",
+    "description": "配置本次任务的输出参数",
+    "singleDescription": "仅对当前文件进行转换并立即开始。",
+    "startSingle": "开始转换",
+    "titleLabel": "标题：",
+    "targetFormatLabel": "目标",
+    "video": { "title": "视频" },
+    "audio": {
+      "title": "音频",
+      "trackLabel": "音轨 {{index}}",
+      "noAudioTrackAvailable": "没有可用的音轨。",
+      "fields": {
+        "encoder": "编码器",
+        "encoderPlaceholder": "选择编码器",
+        "channel": "声道",
+        "channelPlaceholder": "选择声道",
+        "sampleRate": "采样率",
+        "sampleRatePlaceholder": "选择采样率",
+        "bitrate": "码率",
+        "bitratePlaceholder": "选择码率",
+        "bitDepth": "位深",
+        "bitDepthPlaceholder": "选择位深"
+      }
+    },
+    "image": { "title": "图片", "quality": "质量：", "resolution": "分辨率：" }
+  },
+  "common": { "cancel": "取消", "save": "保存" },
+  "status": {
+    "idle": "等待中",
+    "processing": "处理中",
+    "finished": "已完成",
+    "error": "错误",
+    "cancelled": "已取消"
+  },
+  "targetInfo": "目标信息",
+  "actions": {
+    "delete": "删除",
+    "convertSingle": "开始转换",
+    "compressSingle": "开始压缩"
+  },
+  "search": {
+    "placeholder": "搜索文件名...",
+    "add_files": "添加文件",
+    "add_folders": "添加文件夹",
+    "folder_no_supported": "所选文件夹中未找到支持的文件"
+  },
+  "file_picker": {
+    "video": "Video",
+    "images": "Images"
+  },
+  "footer": {
+    "target_format": "目标格式",
+    "save_to": "保存到",
+    "convert_all": "转换全部",
+    "convert_all_failed_video": "视频批量转换失败",
+    "convert_all_failed_image": "图片批量转换失败",
+    "convert_all_failed_audio": "音频批量转换失败",
+    "confirm_delete_title": "确认删除",
+    "confirm_delete_desc": "当前有任务正在执行中，是否中断并清空所有转换中的任务？",
+    "confirm_delete": "确认删除"
+  }
+}

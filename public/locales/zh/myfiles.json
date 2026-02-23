@@ -1,0 +1,53 @@
+{
+  "search": {
+    "placeholder": "搜索"
+  },
+  "sort": {
+    "placeholder": "排序方式",
+    "date": "日期",
+    "name": "名称",
+    "asc": "升序",
+    "desc": "降序"
+  },
+  "tabs": {
+    "all": "全部",
+    "video": "视频",
+    "audio": "音频",
+    "image": "图片"
+  },
+  "loading": "加载中...",
+  "empty": "暂无文件",
+  "actions": {
+    "play": "播放",
+    "preview": "预览",
+    "delete": "删除",
+    "info": "媒体信息",
+    "open_in_folder": "在Finder中显示"
+  },
+  "load_more": "加载更多",
+  "loaded_all": "已加载全部文件",
+  "select_all": "全选 ({{selected}}/{{total}})",
+  "player": {
+    "title": "播放"
+  },
+  "info": {
+    "title": "媒体信息",
+    "file_name": "文件名",
+    "file_type": "文件类型",
+    "file_size": "文件大小",
+    "duration": "时长",
+    "format": "格式",
+    "unknown": "未知",
+    "resolution": "分辨率",
+    "task_type": "任务类型",
+    "created_at": "创建时间",
+    "source_path": "原始路径",
+    "output_path": "输出路径"
+  },
+  "file_type": {
+    "video": "视频",
+    "audio": "音频",
+    "image": "图片",
+    "other": "其他"
+  }
+}

@@ -26,3 +26,9 @@
 # 如果需要在 macOS 上强制使用 ARM64 目标以避免 Rosetta 问题，
 # 可以取消上面的注释。但请注意：这会导致在 Windows/Linux 上无法编译。
 
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-headerpad_max_install_names"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-headerpad_max_install_names"]

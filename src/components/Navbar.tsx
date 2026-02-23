@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Link, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   NavigationMenu,
@@ -17,7 +17,7 @@ export function Navbar() {
 
   const menuItems = [
     {
-      title: "任务列表",
+      title: "任务记录",
       href: "/tasks",
       items: [],
     },
@@ -111,11 +111,10 @@ export function Navbar() {
                                 }
                               }}
                               aria-disabled={item.disabled}
-                              className={`block px-4 py-2 text-sm transition-colors rounded-sm ${
-                                item.disabled
+                              className={`block px-4 py-2 text-sm transition-colors rounded-sm ${item.disabled
                                   ? "text-muted-foreground cursor-not-allowed pointer-events-none opacity-60"
                                   : "text-background hover:bg-blue-500/20 hover:text-white"
-                              }`}
+                                }`}
                             >
                               {item.name}
                             </NavigationMenuLink>
@@ -156,11 +155,10 @@ export function Navbar() {
                       key={item.name}
                       href={item.href}
                       aria-disabled={item.disabled}
-                      className={`block px-8 py-2 text-sm transition-colors ${
-                        item.disabled
+                      className={`block px-8 py-2 text-sm transition-colors ${item.disabled
                           ? "text-gray-400 cursor-not-allowed opacity-60 pointer-events-none"
                           : "text-gray-300 hover:bg-blue-500/20 hover:text-white"
-                      }`}
+                        }`}
                       onClick={(e) => {
                         if (item.disabled) {
                           e.preventDefault();

@@ -1,28 +1,122 @@
-import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Layout from "./components/Layout";
-import HomePage from "./pages/home/v2";
-import HomePageOld from "./pages/home/HomePage";
-import TaskListPage from "./pages/tasks/TaskListPage";
-import BatchPage from "./pages/batch/BatchPage";
-import AudioTestPage from "./pages/audio-test/AudioTestPage";
-import Mp3ConverterPage from "./pages/mp3/converter";
+import React, { Suspense, lazy } from "react";
+import { createHashRouter, Outlet, RouterProvider } from "react-router-dom";
+import i18n from "@/lib/i18n";
+import RootLayout from "./layout/RootPage";
+import AuthLayout from "./layout/AuthLayout";
+import ErrorPage from '@/components/error/ErrorPage';
+
+const HomePage = lazy(() => import("./pages/home"));
+const TaskHistoryPage = lazy(() => import("./pages/tasks"));
+const CompressorVideoPage = lazy(() => import("./pages/compressor/videos"));
+const CompressorAudioPage = lazy(() => import("./pages/compressor/audios"));
+const CompressorImagePage = lazy(() => import("./pages/compressor/images"));
+
+const ConverterVideoPage = lazy(() => import("./pages/converter/videos"));
+const ConverterAudioPage = lazy(() => import("./pages/converter/audios"));
+const ConverterImagePage = lazy(() => import("./pages/converter/images"));
+
+const Mp3ConverterPage = lazy(() => import("./pages/demo/converter"));
+const AudioTestPage = lazy(() => import("./pages/demo/AudioTestPage"));
+const MyFilesPage = lazy(() => import("./pages/myfiles"));
+const SignInPage = lazy(() => import("./pages/auth/sign-in"));
+const SignUpPage = lazy(() => import("./pages/auth/sign-up"));
+const MetadataEditorPage = lazy(() => import("./pages/metadata"));
+const WatermarkPage = lazy(() => import("./pages/watermark"));
+const ForceUpdatePage = lazy(() => import("./pages/force-update"));
+
+const preloadI18nNamespaces = (namespaces: string[]) => async () => {
+  await i18n.loadNamespaces(namespaces);
+  return null;
+};
+
+const withSuspense = (element: React.ReactNode) => (
+  <Suspense fallback={<div className="loader-wrapper">
+    <div className="loader"></div>
+  </div>}>
+    {element}
+  </Suspense>
+);
+
+const router = createHashRouter([
+  {
+    path: "/",
+    element: <AuthLayout />,
+    errorElement: <ErrorPage />,
+    loader: preloadI18nNamespaces(["common"]),
+    children: [
+      {
+        path: "/",
+        element: <RootLayout />,
+
+        children: [
+          {
+            index: true,
+            element: withSuspense(<HomePage />),
+            loader: preloadI18nNamespaces(["home"])
+          },
+          {
+            path: "compressor", element: <Outlet />,
+            loader: preloadI18nNamespaces(["converter"]),
+            children: [
+              { path: "videos", element: withSuspense(<CompressorVideoPage />) },
+              { path: "audios", element: withSuspense(<CompressorAudioPage />) },
+              { path: "images", element: withSuspense(<CompressorImagePage />) },
+            ]
+          },
+          {
+            path: "converter", element: <Outlet />,
+            loader: preloadI18nNamespaces(["converter"]),
+            children: [
+              { path: "videos", element: withSuspense(<ConverterVideoPage />) },
+              { path: "audios", element: withSuspense(<ConverterAudioPage />) },
+              { path: "images", element: withSuspense(<ConverterImagePage />) },
+            ]
+          },
+          {
+            path: "my",
+            children: [{ path: "files", element: withSuspense(<MyFilesPage />) }],
+          },
+          {
+            path: "tasks",
+            element: <Outlet />,
+            loader: preloadI18nNamespaces(["tasks"]),
+            children: [
+              { index: true, element: withSuspense(<TaskHistoryPage />) },
+            ],
+          },
+          {
+            path: "demo",
+            children: [
+              { path: "mp3", element: withSuspense(<Mp3ConverterPage />) },
+              { path: "audio-test", element: withSuspense(<AudioTestPage />) },
+            ],
+          },
+          { path: "metadata", element: withSuspense(<MetadataEditorPage />) },
+          { path: "watermark", element: withSuspense(<WatermarkPage />) },
+        ],
+      },
+    ],
+  },
+  {
+    path: "/sign-in", element: withSuspense(<SignInPage />),
+    errorElement: <ErrorPage />,
+    loader: preloadI18nNamespaces(["auth", "common"])
+  },
+  {
+    path: "/sign-up", element: withSuspense(<SignUpPage />),
+    errorElement: <ErrorPage />,
+    loader: preloadI18nNamespaces(["auth", "common"])
+  },
+  {
+    path: "/force-update",
+    element: withSuspense(<ForceUpdatePage />),
+    errorElement: <ErrorPage />,
+    loader: preloadI18nNamespaces(["common"])
+  },
+]);
 
 const App: React.FC = () => {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<HomePage />} />
-          <Route path="tasks" element={<TaskListPage />} />
-          <Route path="batch" element={<BatchPage />} />
-          <Route path="audio-test" element={<AudioTestPage />} />
-          <Route path="mp3/converter" element={<Mp3ConverterPage />} />
-        </Route>
-        <Route path="/old" element={<HomePageOld />} />
-      </Routes>
-    </BrowserRouter>
-  );
+  return <RouterProvider router={router} />;
 };
 
 export default App;
