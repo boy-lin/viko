@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/table";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { formatFileSize } from "@/lib/file";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@/lib/revealItemInDir";
 import { extractFilenameFromPath } from "@/lib/utils";
 
 interface FinishedTaskProps {

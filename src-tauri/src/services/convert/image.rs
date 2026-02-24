@@ -18,12 +18,60 @@ pub struct ImageConversionParams {
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub format: String, // jpg, png, webp, etc.
+    #[serde(default)]
+    pub image_encoder: Option<String>,
     pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ImageConversionReport {
     pub output_media: MediaDetails,
+}
+
+fn canonical_image_codec_name(codec: &str) -> Option<&'static str> {
+    match codec.trim().to_lowercase().as_str() {
+        "jpg" | "jpeg" | "mjpeg" => Some("jpeg"),
+        "png" => Some("png"),
+        "webp" => Some("webp"),
+        "gif" => Some("gif"),
+        "bmp" => Some("bmp"),
+        "tiff" | "tif" => Some("tiff"),
+        "ico" => Some("ico"),
+        _ => None,
+    }
+}
+
+fn codec_to_image_format(codec: &str) -> Option<ImageFormat> {
+    match canonical_image_codec_name(codec) {
+        Some("jpeg") => Some(ImageFormat::Jpeg),
+        Some("png") => Some(ImageFormat::Png),
+        Some("webp") => Some(ImageFormat::WebP),
+        Some("gif") => Some(ImageFormat::Gif),
+        Some("bmp") => Some(ImageFormat::Bmp),
+        Some("tiff") => Some(ImageFormat::Tiff),
+        Some("ico") => Some(ImageFormat::Ico),
+        _ => None,
+    }
+}
+
+fn pick_codec_name(format: &str, image_encoder: Option<&str>) -> Result<String, String> {
+    if let Some(encoder) = image_encoder {
+        if !encoder.trim().is_empty() {
+            if let Some(canonical) = canonical_image_codec_name(encoder) {
+                return Ok(canonical.to_string());
+            }
+            return Err(format!(
+                "Unsupported image_encoder: {}. Supported: jpeg(mjpeg), png, webp, gif, bmp, tiff, ico",
+                encoder
+            ));
+        }
+    }
+
+    if let Some(canonical) = canonical_image_codec_name(format) {
+        return Ok(canonical.to_string());
+    }
+
+    Ok("jpeg".to_string())
 }
 
 #[command]
@@ -36,15 +84,17 @@ pub async fn convert_image_file_with_report(
     args: ImageConversionParams,
 ) -> Result<ImageConversionReport, String> {
     let mut args = args;
+    let codec_name = pick_codec_name(&args.format, args.image_encoder.as_deref())?;
+    if args.format.is_empty() {
+        args.format = codec_name.clone();
+    }
+
     if args.output_path.is_empty() {
-        let format = if args.format.is_empty() {
-            "jpg".to_string()
+        let ext = if codec_name == "jpeg" {
+            "jpg"
         } else {
-            args.format.clone()
+            codec_name.as_str()
         };
-        if args.format.is_empty() {
-            args.format = format.clone();
-        }
         let path = std::path::Path::new(&args.input_path);
         let stem = path
             .file_stem()
@@ -52,7 +102,7 @@ pub async fn convert_image_file_with_report(
             .unwrap_or("output");
         let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
         args.output_path = parent
-            .join(format!("{}.{}", stem, format))
+            .join(format!("{}.{}", stem, ext))
             .to_string_lossy()
             .to_string();
     }
@@ -133,16 +183,8 @@ fn convert_image_file_impl(args: ImageConversionParams) -> Result<ImageConversio
                 let img_buffer = media_common::frame_to_rgb_image(&rgb_frame)?;
 
                 // Save to file
-                let save_format = match args.format.to_lowercase().as_str() {
-                    "jpg" | "jpeg" => ImageFormat::Jpeg,
-                    "png" => ImageFormat::Png,
-                    "webp" => ImageFormat::WebP,
-                    "gif" => ImageFormat::Gif,
-                    "bmp" => ImageFormat::Bmp,
-                    "tiff" | "tif" => ImageFormat::Tiff,
-                    "ico" => ImageFormat::Ico,
-                    _ => ImageFormat::Jpeg, // Default
-                };
+                let codec_name = pick_codec_name(&args.format, args.image_encoder.as_deref())?;
+                let save_format = codec_to_image_format(&codec_name).unwrap_or(ImageFormat::Jpeg);
 
                 if let Some(wm) = &args.watermark {
                     let mut rgba_img = image::DynamicImage::ImageRgb8(img_buffer).to_rgba8();
@@ -160,15 +202,7 @@ fn convert_image_file_impl(args: ImageConversionParams) -> Result<ImageConversio
                 let output_size = std::fs::metadata(&args.output_path)
                     .map(|m| m.len())
                     .unwrap_or(0);
-                let output_format = if args.format.is_empty() {
-                    std::path::Path::new(&args.output_path)
-                        .extension()
-                        .and_then(|ext| ext.to_str())
-                        .map(|s| s.to_lowercase())
-                        .unwrap_or_else(|| "jpg".to_string())
-                } else {
-                    args.format.to_lowercase()
-                };
+                let output_format = codec_name;
                 let stream = StreamDetails {
                     index: 0,
                     codec_type: "video".to_string(),

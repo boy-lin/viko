@@ -4,8 +4,9 @@ import { Label } from "@/components/ui/label";
 import { useTranslation } from "react-i18next";
 import { ConvertImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { cn } from "@/lib/utils";
+import { ImageResolutionSelect } from "@/components/biz-form/ImageResolutionSelect";
 
-type ImageConfig = Pick<ConvertImageTaskArgs, "format" | "image_encoder" | "resolution">
+type ImageConfig = Pick<ConvertImageTaskArgs, "format" | "image_encoder" | "width" | "height" | "quality">
 
 interface ImageSettingsSectionProps extends ImageConfig {
   onChange: (config: Partial<ImageConfig>) => void;
@@ -15,12 +16,15 @@ interface ImageSettingsSectionProps extends ImageConfig {
 export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
   format,
   image_encoder,
-  resolution,
+  width,
+  height,
+  quality,
   onChange,
   className,
 }) => {
   const { t } = useTranslation("converter");
-  console.log('format, image_encoder', { format, image_encoder })
+  const resolution = width && height ? `${width}x${height}` : "auto";
+
   return (
     <div className={cn("flex-1 overflow-hidden p-2 space-y-4", className)}>
       {/* <div className="flex items-center justify-between border-b bg-muted/10">
@@ -35,13 +39,12 @@ export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
       <div className="grid grid-cols-2 gap-x-8 gap-y-4">
         <div className="space-y-2">
           <Label className="text-muted-foreground">{t("settings.image.resolution")}</Label>
-          <Input
-            type="text"
-            value={resolution || "auto"}
-            onChange={(e) =>
-              onChange({ resolution: e.target.value })
-            }
-            placeholder="auto"
+          <ImageResolutionSelect
+            value={resolution}
+            onValueChange={(value) => {
+              const [width, height] = value.split("x").map(Number);
+              onChange({ width, height })
+            }}
           />
         </div>
       </div>

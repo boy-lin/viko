@@ -115,7 +115,7 @@ export const UserMenu = () => {
         <Button
           variant="secondary"
           size="sm"
-          className="cursor-pointer shadow-none font-medium px-3"
+          className="h-9 cursor-pointer shadow-none font-medium px-3"
           onClick={() => setDialogOpen(true)}
         >
           登录
@@ -131,7 +131,6 @@ export const UserMenu = () => {
       </>
     );
   }
-  console.warn('user info dialogOpen', dialogOpen);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

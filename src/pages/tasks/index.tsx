@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@/lib/revealItemInDir";
 import { useAppStore } from "@/stores/app";
 import { toast } from "sonner";
 import { extractFilenameFromPath, getExtension } from "@/lib/utils";
@@ -125,6 +125,7 @@ export default function TaskHistoryPage() {
       return;
     }
     try {
+      console.log("Opening folder:", path);
       await revealItemInDir(path);
     } catch (error) {
       toast.error(t("errors.open_folder"));

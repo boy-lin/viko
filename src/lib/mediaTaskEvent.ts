@@ -118,8 +118,20 @@ export interface ConvertGifTaskArgs {
   task_id: string;
   input_path: string;
   format: string;
-  // 扩展待同步到rust
   output_path?: string;
+  width?: number;
+  height?: number;
+  frame_rate?: number;
+  quality?: number;
+  preserve_transparency?: boolean;
+  color_mode?: string;
+  dpi?: number;
+  loop_count?: number;
+  frame_delay?: number;
+  colors?: number;
+  preserve_extensions?: boolean;
+  sharpen?: boolean;
+  denoise?: boolean;
 }
 
 export interface ConvertImageTaskArgs {
@@ -129,10 +141,9 @@ export interface ConvertImageTaskArgs {
   width?: number;
   height?: number;
   quality?: number;
-  /** 扩展待同步到rust */
   image_encoder?: string;
-  resolution?: string;
   output_path?: string;
+  watermark?: WatermarkConfig;
 }
 
 export interface CompressVideoTaskArgs {

@@ -1,4 +1,4 @@
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@/lib/revealItemInDir";
 import { Button } from "../ui/button";
 import { FolderOpen } from "lucide-react";
 
@@ -6,6 +6,7 @@ export const OpenFolder = ({ path, className }: { path?: string, className?: str
   const handleOpenFolder = async () => {
     if (!path) return;
     try {
+      console.log("Opening folder:", path);
       await revealItemInDir(path);
     } catch (e) {
       console.error("Failed to open folder:", e);

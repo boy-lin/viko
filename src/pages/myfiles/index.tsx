@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@/lib/revealItemInDir";
 import { ShakaPlayer } from "@/components/player/ShakaPlayer";
 import { MusicPlayer } from "@/components/player/MusicPlayer";
 import { ImageViewer } from "@/components/player/ImageViewer";

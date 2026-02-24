@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import { useMetadataStore, type Metadata } from "./store";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { extractFilenameFromPath } from "@/lib/utils";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@/lib/revealItemInDir";
 import { getFileType } from "@/lib/file";
 
 type MediaType = "audio" | "video" | "other";

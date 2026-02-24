@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { RESOLUTION_GROUPS_DEVICES, RESOLUTION_GROUPS_PLATFORMS } from "@/data/resolution";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
@@ -155,7 +156,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
                   { value: "preset", label: "预设" },
                   { value: "custom_size", label: "自定义" },
                 ].map((opt) => (
-                  <Label className="flex items-center gap-3 cursor-pointer" htmlFor={opt.value}>
+                  <Label key={opt.value} className="flex items-center gap-3 cursor-pointer" htmlFor={opt.value}>
                     <RadioGroupItem className="cursor-pointer" value={opt.value} id={opt.value} />
                     <span>{opt.label}</span>
                   </Label>
@@ -229,6 +230,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
 
       <Dialog open={deviceDialogOpen} onOpenChange={setDeviceDialogOpen}>
         <DialogContent className="sm:max-w-[72vw] p-0 overflow-hidden">
+          <DialogTitle className="sr-only">根据设备设置分辨率</DialogTitle>
           <div className="flex h-[520px]">
             <div className="w-56 bg-muted/20 p-4 space-y-2">
               {RESOLUTION_GROUPS_DEVICES.map((group) => (
@@ -274,6 +276,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
 
       <Dialog open={platformDialogOpen} onOpenChange={setPlatformDialogOpen}>
         <DialogContent className="sm:max-w-[72vw] p-0 overflow-hidden">
+          <DialogTitle className="sr-only">根据平台设置分辨率</DialogTitle>
           <div className="flex h-[520px]">
             <div className="w-56 bg-muted/20 p-4 space-y-2">
               {RESOLUTION_GROUPS_PLATFORMS.map((group) => (

@@ -201,7 +201,9 @@ export default function FormatSelectorContent({
         <ImageSettingsSection
           format={imageArgs.format}
           image_encoder={imageArgs.image_encoder}
-          resolution={imageArgs.resolution}
+          width={imageArgs.width}
+          height={imageArgs.height}
+          quality={imageArgs.quality}
           onChange={(next) => {
             onValueChange({
               ...config,
