@@ -15,8 +15,8 @@ const ConverterVideoPage = lazy(() => import("./pages/converter/videos"));
 const ConverterAudioPage = lazy(() => import("./pages/converter/audios"));
 const ConverterImagePage = lazy(() => import("./pages/converter/images"));
 
-const Mp3ConverterPage = lazy(() => import("./pages/demo/converter"));
-const AudioTestPage = lazy(() => import("./pages/demo/AudioTestPage"));
+// const Mp3ConverterPage = lazy(() => import("./pages/demo/converter"));
+// const AudioTestPage = lazy(() => import("./pages/demo/AudioTestPage"));
 const MyFilesPage = lazy(() => import("./pages/myfiles"));
 const SignInPage = lazy(() => import("./pages/auth/sign-in"));
 const SignUpPage = lazy(() => import("./pages/auth/sign-up"));
@@ -29,19 +29,22 @@ const preloadI18nNamespaces = (namespaces: string[]) => async () => {
   return null;
 };
 
-const withSuspense = (element: React.ReactNode) => (
-  <Suspense fallback={<div className="loader-wrapper">
+const hydrateFallbackElement = (
+  <div className="loader-wrapper">
     <div className="loader"></div>
-  </div>}>
+  </div>
+);
+const withSuspense = (element: React.ReactNode) => (
+  <Suspense fallback={hydrateFallbackElement}>
     {element}
   </Suspense>
 );
-
 const router = createHashRouter([
   {
     path: "/",
     element: <AuthLayout />,
     errorElement: <ErrorPage />,
+    hydrateFallbackElement,
     loader: preloadI18nNamespaces(["common"]),
     children: [
       {
@@ -84,13 +87,13 @@ const router = createHashRouter([
               { index: true, element: withSuspense(<TaskHistoryPage />) },
             ],
           },
-          {
-            path: "demo",
-            children: [
-              { path: "mp3", element: withSuspense(<Mp3ConverterPage />) },
-              { path: "audio-test", element: withSuspense(<AudioTestPage />) },
-            ],
-          },
+          // {
+          //   path: "demo",
+          //   children: [
+          //     { path: "mp3", element: withSuspense(<Mp3ConverterPage />) },
+          //     { path: "audio-test", element: withSuspense(<AudioTestPage />) },
+          //   ],
+          // },
           { path: "metadata", element: withSuspense(<MetadataEditorPage />) },
           { path: "watermark", element: withSuspense(<WatermarkPage />) },
         ],
@@ -100,17 +103,20 @@ const router = createHashRouter([
   {
     path: "/sign-in", element: withSuspense(<SignInPage />),
     errorElement: <ErrorPage />,
+    hydrateFallbackElement,
     loader: preloadI18nNamespaces(["auth", "common"])
   },
   {
     path: "/sign-up", element: withSuspense(<SignUpPage />),
     errorElement: <ErrorPage />,
+    hydrateFallbackElement,
     loader: preloadI18nNamespaces(["auth", "common"])
   },
   {
     path: "/force-update",
     element: withSuspense(<ForceUpdatePage />),
     errorElement: <ErrorPage />,
+    hydrateFallbackElement,
     loader: preloadI18nNamespaces(["common"])
   },
 ]);

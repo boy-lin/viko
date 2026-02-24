@@ -79,13 +79,6 @@ export async function initUpdater(options: InitUpdaterOptions = {}) {
   const enableForceGuard = Boolean(options.enableForceGuard);
   const skipForceGate = Boolean(options.skipForceGate);
 
-  if (enableForceGuard && !skipForceGate) {
-    const currentStatus = await updaterGuardGetStatus();
-    if (currentStatus?.shouldForceUpdate) {
-      options.onForceUpdateRequired?.(currentStatus);
-      return;
-    }
-  }
 
   try {
     const update = await check();
@@ -134,5 +127,14 @@ export async function initUpdater(options: InitUpdaterOptions = {}) {
       }
     }
     console.error("Updater check failed:" + JSON.stringify(error));
+  }
+
+
+  if (enableForceGuard && !skipForceGate) {
+    const currentStatus = await updaterGuardGetStatus();
+    if (currentStatus?.shouldForceUpdate) {
+      options.onForceUpdateRequired?.(currentStatus);
+      return;
+    }
   }
 }

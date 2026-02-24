@@ -11,11 +11,12 @@ import VideoSettingsSection from "@/pages/converter/components/VideoSettingsSect
 import { ActiveCategoryEnum } from "@/pages/converter/videos/store";
 import { FileType, MediaTaskType } from "@/types/tasks";
 import { ImageSettingsSection } from "@/pages/converter/components/ImageSettingsSection";
+import { GifSettingsSection } from "@/pages/converter/components/GifSettingsSection";
 import { FormatGroup, FormatEnum } from "@/types/options";
 import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
 import { formatToDefinition } from "@/data/capabilities";
 import { useTranslation } from "react-i18next";
-import { AudioTrackConfig, ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
+import { AudioTrackConfig, ConvertAudioTaskArgs, ConvertGifTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 
 import CategoryItem from "./CategoryItem";
 import { FormatSelectorContentProps } from "./types";
@@ -196,6 +197,37 @@ export default function FormatSelectorContent({
     }
 
     if (activeCategory?.id === FileType.Image) {
+      if (config.taskType === MediaTaskType.ConvertGif) {
+        const gifArgs = config.args as ConvertGifTaskArgs;
+        return (
+          <GifSettingsSection
+            format={gifArgs.format}
+            width={gifArgs.width}
+            height={gifArgs.height}
+            frame_rate={gifArgs.frame_rate}
+            quality={gifArgs.quality}
+            preserve_transparency={gifArgs.preserve_transparency}
+            color_mode={gifArgs.color_mode}
+            dpi={gifArgs.dpi}
+            loop_count={gifArgs.loop_count}
+            frame_delay={gifArgs.frame_delay}
+            colors={gifArgs.colors}
+            preserve_extensions={gifArgs.preserve_extensions}
+            sharpen={gifArgs.sharpen}
+            denoise={gifArgs.denoise}
+            onChange={(next) => {
+              onValueChange({
+                ...config,
+                args: {
+                  ...config.args,
+                  ...next,
+                },
+              });
+            }}
+          />
+        );
+      }
+
       const imageArgs = config.args as ConvertImageTaskArgs;
       return (
         <ImageSettingsSection

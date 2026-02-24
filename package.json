@@ -1,7 +1,7 @@
 {
   "name": "Viko kits",
   "private": true,
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "packageManager": "pnpm@10.11.1",
   "scripts": {
@@ -24,7 +24,8 @@
     "bump:version": "node scripts/bump-version.mjs",
     "check:deps": "bash scripts/check-ffmpeg-deps.sh",
     "check:deps:win": "powershell -ExecutionPolicy Bypass -File scripts/check-ffmpeg-deps.ps1",
-    "simulate:updater": "node scripts/simulate-updater-release.mjs"
+    "simulate:updater": "node scripts/simulate-updater-release.mjs",
+    "release:local": "node scripts/local-release-upload.mjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

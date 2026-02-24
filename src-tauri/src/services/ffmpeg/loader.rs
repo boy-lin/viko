@@ -1,9 +1,5 @@
-// FFmpeg 动态库加载器
-// 使用 libloading 在运行时加载 FFmpeg 动态库
-
-use libloading::{Library, Symbol};
-use std::ffi::CStr;
-use std::os::raw::{c_char, c_int};
+﻿use libloading::{Library, Symbol};
+use std::os::raw::c_uint;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -35,7 +31,7 @@ impl std::fmt::Display for FFmpegLoadError {
 
 impl std::error::Error for FFmpegLoadError {}
 
-/// FFmpeg 库路径配置
+/// FFmpeg 
 pub struct FFmpegConfig {
     pub lib_path: PathBuf,
     pub lib_name: String,
@@ -59,9 +55,6 @@ impl FFmpegConfig {
             return exact;
         }
 
-        // Homebrew 安装的 FFmpeg 使用带主版本号的文件名
-        // 例如：libavformat.61.dylib 而非 libavformat.dylib
-        // 尝试在目录中查找匹配的文件（取文件名前缀进行匹配）
         let stem = self.lib_name.split('.').next().unwrap_or(&self.lib_name);
         let ext = if cfg!(target_os = "macos") {
             "dylib"
@@ -83,7 +76,6 @@ impl FFmpegConfig {
                             .unwrap_or(false)
                 })
                 .collect();
-            // 排序后取第一个（版本号最小，通常是主版本库）
             candidates.sort();
             if let Some(found) = candidates.into_iter().next() {
                 log::debug!(
@@ -99,7 +91,6 @@ impl FFmpegConfig {
     }
 }
 
-/// 加载 FFmpeg 动态库
 pub fn load_ffmpeg_library(lib_dir: &Path) -> Result<(), FFmpegLoadError> {
     let config = FFmpegConfig::new(lib_dir.to_path_buf());
     let lib_path = config.get_library_path();
@@ -115,10 +106,9 @@ pub fn load_ffmpeg_library(lib_dir: &Path) -> Result<(), FFmpegLoadError> {
         let library = Library::new(&lib_path)
             .map_err(|e| FFmpegLoadError::LoadError(format!("Failed to load library: {}", e)))?;
 
-        // 尝试获取一个符号来验证库是否可用
-        let _: Symbol<unsafe extern "C" fn() -> c_int> = library
-            .get(b"av_version_info\0")
-            .map_err(|e| FFmpegLoadError::SymbolNotFound(format!("av_version_info: {}", e)))?;
+        let _: Symbol<unsafe extern "C" fn() -> c_uint> = library
+            .get(b"avformat_version\0")
+            .map_err(|e| FFmpegLoadError::SymbolNotFound(format!("avformat_version: {}", e)))?;
 
         let mut lib_guard = FFMPEG_LIB.lock().unwrap();
         *lib_guard = Some(library);
@@ -132,24 +122,16 @@ pub fn load_ffmpeg_library(lib_dir: &Path) -> Result<(), FFmpegLoadError> {
     Ok(())
 }
 
-/// 获取打包资源中的 FFmpeg 目录
-///
-/// Tauri 在不同模式下 `resource_dir` 指向不同位置：
-/// - 开发模式 (`tauri dev`)：`target/debug/`，资源实际在 `target/debug/resources/`
-/// - 生产模式（打包后）：`AppName.app/Contents/Resources/`，资源直接在此目录下
-///
-/// 通过检测 `resources/` 子目录是否存在来自动适配，无需手动区分构建模式。
 pub fn bundled_ffmpeg_dir(resource_dir: &Path) -> PathBuf {
-    // 开发模式下 resource_dir 是 target/debug/，实际资源在其 resources/ 子目录
-    // 生产模式下 resource_dir 本身就是 Resources/，不存在 resources/ 子目录
     let base = if resource_dir.join("resources").is_dir() {
         resource_dir.join("resources")
     } else {
         resource_dir.to_path_buf()
     };
 
-    let mut dir = base.join("ffmpeg");
+    let mut dir = base;
     if cfg!(target_os = "macos") {
+        dir = dir.join("ffmpeg");
         dir = dir.join("macos");
         if cfg!(target_arch = "aarch64") {
             dir = dir.join("aarch64");
@@ -157,48 +139,76 @@ pub fn bundled_ffmpeg_dir(resource_dir: &Path) -> PathBuf {
             dir = dir.join("x86_64");
         }
     } else if cfg!(target_os = "windows") {
-        dir = dir.join("windows");
+        // dir = dir.join("windows");
     } else {
+        dir = dir.join("ffmpeg");
         dir = dir.join("linux");
     }
     dir
 }
 
-/// 优先从打包资源目录加载 FFmpeg
 pub fn load_bundled_ffmpeg(resource_dir: &Path) -> Result<(), FFmpegLoadError> {
-    // Windows: build.rs 将 DLL 复制到可执行文件旁边（exe_dir），优先在此查找
     #[cfg(target_os = "windows")]
-    if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            if load_ffmpeg_library(exe_dir).is_ok() {
-                return Ok(());
+    {
+        // 1) Prefer DLLs next to viko.exe
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                match load_ffmpeg_library(exe_dir) {
+                    Ok(()) => return Ok(()),
+                    Err(e) => {
+                        log::warn!(
+                            "Failed to load FFmpeg from exe dir {}: {}",
+                            exe_dir.display(),
+                            e
+                        );
+                    }
+                }
             }
         }
+
+        // 2) Fallback to Tauri resource root
+        match load_ffmpeg_library(resource_dir) {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                log::warn!(
+                    "Failed to load FFmpeg from resource root {}: {}",
+                    resource_dir.display(),
+                    e
+                );
+            }
+        }
+
+        // 3) Legacy fallback: resource_dir/ffmpeg/windows
+        let bundled_dir = bundled_ffmpeg_dir(resource_dir);
+        return load_ffmpeg_library(&bundled_dir).map_err(|e| {
+            FFmpegLoadError::LoadError(format!(
+                "FFmpeg load attempts exhausted. Tried exe dir, resource root, and {}. Last error: {}",
+                bundled_dir.display(),
+                e
+            ))
+        });
     }
 
-    // macOS/Linux 或 Windows fallback：从 resource_dir 下的 ffmpeg/ 子目录加载
-    let dir = bundled_ffmpeg_dir(resource_dir);
-    load_ffmpeg_library(&dir)
+    #[cfg(not(target_os = "windows"))]
+    {
+        // macOS/Linux: load from resource_dir/ffmpeg/*
+        let dir = bundled_ffmpeg_dir(resource_dir);
+        load_ffmpeg_library(&dir)
+    }
 }
 
-/// 加载 FFprobe 动态库（通常与 FFmpeg 在同一目录）
 pub fn load_ffprobe_library(lib_dir: &Path) -> Result<(), FFmpegLoadError> {
-    // FFprobe 通常使用相同的库，但我们可以单独加载
-    // 这里我们假设使用相同的库目录
     load_ffmpeg_library(lib_dir)
 }
 
-/// 获取已加载的 FFmpeg 库路径
 pub fn get_loaded_ffmpeg_path() -> Option<PathBuf> {
     FFMPEG_LIB_PATH.lock().unwrap().clone()
 }
 
-/// 检查 FFmpeg 库是否已加载
 pub fn is_ffmpeg_loaded() -> bool {
     FFMPEG_LIB.lock().unwrap().is_some()
 }
 
-/// 卸载 FFmpeg 库
 pub fn unload_ffmpeg_library() {
     let mut lib_guard = FFMPEG_LIB.lock().unwrap();
     *lib_guard = None;
@@ -209,22 +219,18 @@ pub fn unload_ffmpeg_library() {
     drop(path_guard);
 }
 
-/// 从 FFmpeg 可执行文件路径推断库目录
 pub fn infer_lib_dir_from_executable(executable_path: &Path) -> PathBuf {
-    // 假设库文件在可执行文件的同一目录或父目录的 lib 子目录
     if let Some(parent) = executable_path.parent() {
-        // 尝试 lib 子目录
         let lib_dir = parent.join("lib");
         if lib_dir.exists() {
             return lib_dir;
         }
-        // 否则返回父目录
+        // 鍚﹀垯杩斿洖鐖剁洰锟?
         return parent.to_path_buf();
     }
     executable_path.to_path_buf()
 }
 
-/// 获取 FFmpeg 版本信息（用于验证库是否正常工作）
 pub fn get_ffmpeg_version() -> Result<String, FFmpegLoadError> {
     unsafe {
         let lib_guard = FFMPEG_LIB.lock().unwrap();
@@ -232,19 +238,15 @@ pub fn get_ffmpeg_version() -> Result<String, FFmpegLoadError> {
             .as_ref()
             .ok_or_else(|| FFmpegLoadError::InitError("FFmpeg library not loaded".to_string()))?;
 
-        let version_fn: Symbol<unsafe extern "C" fn() -> *const c_char> = lib
-            .get(b"av_version_info\0")
-            .map_err(|e| FFmpegLoadError::SymbolNotFound(format!("av_version_info: {}", e)))?;
+        let version_fn: Symbol<unsafe extern "C" fn() -> c_uint> = lib
+            .get(b"avformat_version\0")
+            .map_err(|e| FFmpegLoadError::SymbolNotFound(format!("avformat_version: {}", e)))?;
 
-        let version_ptr = version_fn();
-        if version_ptr.is_null() {
-            return Err(FFmpegLoadError::InitError(
-                "av_version_info returned null".to_string(),
-            ));
-        }
-
-        let version_cstr = CStr::from_ptr(version_ptr);
-        Ok(version_cstr.to_string_lossy().to_string())
+        let v = version_fn() as u32;
+        let major = (v >> 16) & 0xff;
+        let minor = (v >> 8) & 0xff;
+        let patch = v & 0xff;
+        Ok(format!("{}.{}.{}", major, minor, patch))
     }
 }
 
@@ -259,3 +261,6 @@ mod tests {
         assert_eq!(lib_dir, PathBuf::from("/usr/local/lib"));
     }
 }
+
+
+

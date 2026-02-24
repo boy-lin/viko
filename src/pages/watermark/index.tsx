@@ -157,7 +157,7 @@ export default function WatermarkPage() {
             const file = task.args.input_path;
             const outputPath = file.replace(/(\.[^/.]+)?$/, "_watermarked.mp4");
             return {
-                kind: MediaTaskType.Watermark,
+                type: MediaTaskType.Watermark,
                 args: {
                     task_id: task.args.task_id,
                     input_path: file,

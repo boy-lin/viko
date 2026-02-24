@@ -3,7 +3,7 @@ import { Settings } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FormatOption } from "@/types/options";
 
 import FormatSelectorContent from "./FormatSelectorContent";
@@ -39,6 +39,9 @@ export default function FormatSelectorDialog(props: FormatSelectorProps) {
         </Button>
       </DialogTrigger>
       <DialogContent className="p-0 sm:max-w-[72vw]" showCloseButton={true}>
+        <DialogHeader>
+          <DialogTitle className="sr-only">格式选择</DialogTitle>
+        </DialogHeader>
         <FormatSelectorContent
           config={config}
           formatRecents={formatRecents}
