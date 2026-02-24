@@ -14,6 +14,8 @@ pub struct ImageConversionParams {
     pub task_id: String,
     pub input_path: String,
     #[serde(default)]
+    pub input_file_type: Option<String>,
+    #[serde(default)]
     pub output_path: String,
     pub width: Option<u32>,
     pub height: Option<u32>,

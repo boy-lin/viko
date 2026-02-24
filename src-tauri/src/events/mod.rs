@@ -7,7 +7,7 @@ use tauri::{AppHandle, Manager};
 pub struct MediaTaskEvent {
     pub task_id: String,
     pub task_type: String,  // MediaTaskType string, e.g. "convert-video"
-    pub media_type: String, // "video" | "audio" | "image"
+    pub file_type: String, // "image" | "video" | "audio" | "gif"
     pub event_type: String, // "progress" | "complete" | "error"
     pub progress: Option<f64>,
     pub output_path: Option<String>,
@@ -19,7 +19,7 @@ pub fn emit_media_task_event(
     window: &tauri::WebviewWindow,
     task_id: &str,
     task_type: &str,
-    media_type: &str,
+    file_type: &str,
     event_type: &str,
     progress: Option<f64>,
     output_path: Option<String>,
@@ -35,7 +35,7 @@ pub fn emit_media_task_event(
     let event = MediaTaskEvent {
         task_id: task_id.to_string(),
         task_type: task_type.to_string(),
-        media_type: media_type.to_string(),
+        file_type: file_type.to_string(),
         event_type: event_type.to_string(),
         progress,
         output_path,
@@ -60,19 +60,19 @@ pub struct WindowEmitter {
     pub window: tauri::WebviewWindow,
     pub task_id: String,
     pub task_type: String,  // MediaTaskType string
-    pub media_type: String, // "video" | "audio" | "image"
+    pub file_type: String, // "compress" | "convert" | "watermark"
 }
 
 pub fn window_emitter(
     app: &AppHandle,
     task_id: String,
     task_type: String,
-    media_type: String,
+    file_type: String,
 ) -> Result<WindowEmitter, String> {
     let window = app
         .get_webview_window("main")
         .ok_or("Main window not found")?;
-    Ok(WindowEmitter::new(window, task_id, task_type, media_type))
+    Ok(WindowEmitter::new(window, task_id, task_type, file_type))
 }
 
 impl WindowEmitter {
@@ -80,13 +80,13 @@ impl WindowEmitter {
         window: tauri::WebviewWindow,
         task_id: String,
         task_type: String,
-        media_type: String,
+        file_type: String,
     ) -> Self {
         Self {
             window,
             task_id,
             task_type,
-            media_type,
+            file_type,
         }
     }
 }
@@ -103,7 +103,7 @@ impl TaskEmitter for WindowEmitter {
             &self.window,
             &self.task_id,
             &self.task_type,
-            &self.media_type,
+            &self.file_type,
             event_type,
             progress,
             output_path,

@@ -1,9 +1,9 @@
-import { MediaTaskType } from "@/types/tasks";
+import { FileType, MediaTaskType } from "@/types/tasks";
 
 export type MediaTaskEvent = {
   task_id: string;
   task_type: MediaTaskType;
-  media_type: "video" | "audio" | "image" | "gif";
+  file_type: FileType;
   event_type: "progress" | "complete" | "error";
   progress?: number;
   output_path?: string;
@@ -77,6 +77,7 @@ export interface WatermarkConfig {
 export interface ConvertVideoTaskArgs {
   task_id: string;
   input_path: string;
+  input_file_type?: FileType;
   output_path?: string;
   format?: string;
   video_encoder?: string;
@@ -106,6 +107,7 @@ export interface ConvertVideoTaskArgs {
 export interface ConvertAudioTaskArgs {
   task_id: string;
   input_path: string;
+  input_file_type?: FileType;
   format: string;
   // 扩展待同步到rust
   output_path?: string;
@@ -117,6 +119,7 @@ export interface ConvertAudioTaskArgs {
 export interface ConvertGifTaskArgs {
   task_id: string;
   input_path: string;
+  input_file_type?: FileType;
   format: string;
   output_path?: string;
   width?: number;
@@ -137,6 +140,7 @@ export interface ConvertGifTaskArgs {
 export interface ConvertImageTaskArgs {
   task_id: string;
   input_path: string;
+  input_file_type?: FileType;
   format: string;
   width?: number;
   height?: number;
@@ -149,6 +153,7 @@ export interface ConvertImageTaskArgs {
 export interface CompressVideoTaskArgs {
   task_id: string;
   input_path: string;
+  input_file_type?: FileType;
   format: string;
   codec: string;
   resolution: string;
@@ -168,6 +173,7 @@ export interface CompressVideoTaskArgs {
 export interface CompressAudioTaskArgs {
   task_id: string;
   input_path: string;
+  input_file_type?: FileType;
   format: string;
   codec: string;
   sample_rate?: number
@@ -185,6 +191,7 @@ export interface CompressAudioTaskArgs {
 export interface CompressImageTaskArgs {
   task_id: string;
   input_path: string;
+  input_file_type?: FileType;
   format: string;
   width?: number;
   height?: number;

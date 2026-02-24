@@ -107,7 +107,7 @@ const HeroCardItemView = ({
 }) => (
   <motion.div
     whileHover={{ scale: 0.98, rotate: item.hoverRotate }}
-    className="group cursor-pointer relative min-h-[210px] overflow-hidden rounded-2xl bg-background p-5 shadow-md"
+    className="group relative min-h-[210px] overflow-hidden rounded-2xl bg-background p-5 shadow-md"
   >
     <div
       className="absolute right-2 -top-0 h-40 w-40 blur-3xl opacity-70"
@@ -127,7 +127,7 @@ const HeroCardItemView = ({
           className="w-fit text-background shadow-md border-none transition-all z-20 px-4 py-2 text-sm font-semibold cursor-pointer hover:scale-105"
           style={{ backgroundImage: item.gradient }}
           onClick={(e) => {
-            e.stopPropagation(); // Stop propagation to avoid any parent click handlers
+            e.stopPropagation();
             handleAction(action.id);
           }}
         >

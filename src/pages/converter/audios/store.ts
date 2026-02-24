@@ -136,7 +136,7 @@ export const useConverterStore = create<ConverterState>((set, get) => ({
       await getMediaTaskQueue().addConvertTasks(tasksToPush.map((task) => {
         const outputDir = setting.getOutputDir(task.args.input_path);
         return {
-          kind: task.taskType,
+          type: task.taskType,
           args: {
             ...task.args,
             output_path: `${outputDir}/${task.args.title}.${task.args.format}`,

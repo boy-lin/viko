@@ -270,8 +270,16 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
         audio_tracks: args.audio_tracks.clone(),
     };
 
-    let emitter =
-        events::window_emitter(app, args.task_id.clone(), "convert-audio".into(), "audio".into())?;
+    let file_type = args
+        .input_file_type
+        .clone()
+        .unwrap_or_else(|| "audio".to_string());
+    let emitter = events::window_emitter(
+        app,
+        args.task_id.clone(),
+        "convert-audio".into(),
+        file_type,
+    )?;
 
     let result = audio::convert_audio(emitter.clone(), params);
     let (error, effective_params, output_size_hint) = match result {
@@ -382,8 +390,11 @@ fn run_convert_video_with_task_type(
         watermark: args.watermark.clone(),
     };
 
-    let emitter =
-        events::window_emitter(app, args.task_id.clone(), task_type.into(), "video".into())?;
+    let file_type = args
+        .input_file_type
+        .clone()
+        .unwrap_or_else(|| "video".to_string());
+    let emitter = events::window_emitter(app, args.task_id.clone(), task_type.into(), file_type)?;
 
     let result = video::convert_video(emitter.clone(), params);
     let (error, effective_params, output_size_hint) = match result {
@@ -459,8 +470,12 @@ fn run_convert_gif(app: &AppHandle, args: GifConversionArgs) -> Result<(), Strin
         denoise: args.denoise,
     };
 
+    let file_type = args
+        .input_file_type
+        .clone()
+        .unwrap_or_else(|| "video".to_string());
     let emitter =
-        events::window_emitter(app, args.task_id.clone(), "convert-gif".into(), "video".into())?; // GIF treated as video/image hybrid.
+        events::window_emitter(app, args.task_id.clone(), "convert-gif".into(), file_type)?; // GIF treated as video/image hybrid.
 
     let result = gif::convert_video_to_gif(emitter.clone(), params);
     let (error, effective_params, output_size_hint) = match result {
@@ -530,8 +545,11 @@ fn run_convert_image(app: &AppHandle, mut args: ImageConversionParams) -> Result
         &args,
     );
 
-    let emitter =
-        events::window_emitter(app, task_id.clone(), "convert-image".into(), "image".into())?;
+    let file_type = args
+        .input_file_type
+        .clone()
+        .unwrap_or_else(|| "image".to_string());
+    let emitter = events::window_emitter(app, task_id.clone(), "convert-image".into(), file_type)?;
 
     let result =
         tauri::async_runtime::block_on(image::convert_image_file_with_report(args.clone()));
@@ -600,8 +618,16 @@ fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(),
         use_hardware_acceleration: args.use_hardware_acceleration,
     };
 
-    let emitter =
-        events::window_emitter(app, args.task_id.clone(), "compress-video".into(), "video".into())?;
+    let file_type = args
+        .input_file_type
+        .clone()
+        .unwrap_or_else(|| "video".to_string());
+    let emitter = events::window_emitter(
+        app,
+        args.task_id.clone(),
+        "compress-video".into(),
+        file_type,
+    )?;
 
     let result = crate::services::compress::video::compress_video_file(emitter.clone(), params);
     let (error, effective_params, output_size_hint) = match result {
@@ -657,8 +683,16 @@ fn run_compress_audio(app: &AppHandle, args: AudioCompressionArgs) -> Result<(),
         volume_gain: args.volume_gain,
     };
 
-    let emitter =
-        events::window_emitter(app, args.task_id.clone(), "compress-audio".into(), "audio".into())?;
+    let file_type = args
+        .input_file_type
+        .clone()
+        .unwrap_or_else(|| "audio".to_string());
+    let emitter = events::window_emitter(
+        app,
+        args.task_id.clone(),
+        "compress-audio".into(),
+        file_type,
+    )?;
 
     let result = crate::services::compress::audio::compress_audio_file(emitter.clone(), params);
     let (error, effective_params, output_size_hint) = match result {
@@ -715,8 +749,16 @@ fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(),
         crop_whitespace: args.crop_whitespace,
     };
 
-    let emitter =
-        events::window_emitter(app, args.task_id.clone(), "compress-image".into(), "image".into())?;
+    let file_type = args
+        .input_file_type
+        .clone()
+        .unwrap_or_else(|| "image".to_string());
+    let emitter = events::window_emitter(
+        app,
+        args.task_id.clone(),
+        "compress-image".into(),
+        file_type,
+    )?;
 
     let result = crate::services::compress::image::compress_image_file(emitter.clone(), params);
     let (error, effective_params, output_size_hint) = match result {

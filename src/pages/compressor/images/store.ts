@@ -150,7 +150,7 @@ export const useCompressorStore = create<CompressorState>((set, get) => ({
       await getMediaTaskQueue().addCompressTasks(tasksToPush.map((task) => {
         const outputDir = setting.getOutputDir(task.args.input_path);
         return {
-          kind: task.taskType,
+          type: task.taskType,
           args: {
             ...task.args,
             output_path: `${outputDir}/${task.args.title}.${task.args.format}`,

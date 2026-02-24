@@ -903,6 +903,7 @@ pub fn audio_player_get_duration(
 pub struct AudioConversionArgs {
     pub task_id: String,
     pub input_path: String,
+    pub input_file_type: Option<String>,
     pub output_path: Option<String>, // 如果未提供，自动生成
     pub format: String,
     pub audio_tracks: Option<Vec<crate::services::convert::audio::AudioTrackConfig>>,
@@ -1010,6 +1011,7 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
 pub struct VideoConversionArgs {
     pub task_id: String,
     pub input_path: String,
+    pub input_file_type: Option<String>,
     pub output_path: Option<String>,
     pub format: Option<String>,
     pub video_encoder: Option<String>,
@@ -1050,6 +1052,7 @@ pub struct VideoConversionArgs {
 pub struct GifConversionArgs {
     pub task_id: String,
     pub input_path: String,
+    pub input_file_type: Option<String>,
     #[serde(default)]
     pub output_path: Option<String>,
     pub format: String, // 应该是 "gif"
@@ -1189,6 +1192,7 @@ pub fn generate_media_thumbnail(
 pub struct VideoCompressionArgs {
     pub task_id: String,
     pub input_path: String,
+    pub input_file_type: Option<String>,
     pub output_path: String,
     pub compression_ratio: Option<u32>, // 0-100
     pub width: Option<u32>,
@@ -1248,6 +1252,7 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
 pub struct AudioCompressionArgs {
     pub task_id: String,
     pub input_path: String,
+    pub input_file_type: Option<String>,
     pub output_path: String,
     pub sample_rate: Option<u32>,
     pub bitrate: Option<u32>,
@@ -1298,6 +1303,7 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
 pub struct ImageCompressionArgs {
     pub task_id: String,
     pub input_path: String,
+    pub input_file_type: Option<String>,
     pub output_path: String,
     pub quality: Option<u32>,            // 0-100
     pub format: Option<String>,          // "jpg", "png", "webp" ...

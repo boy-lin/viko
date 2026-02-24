@@ -4,28 +4,18 @@ import { MediaTaskType } from "@/types/tasks";
 import { analytics } from "@/lib/analytics";
 import { MediaTaskEvent } from "./mediaTaskEvent";
 import { FileType } from "@/types/tasks";
+import { ConvertVideoTaskArgs, ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertGifTaskArgs, CompressVideoTaskArgs, CompressAudioTaskArgs, CompressImageTaskArgs } from "./mediaTaskEvent";
 
 type TaskPriority = "high" | "normal" | "low";
 
 type ConvertTaskRequest = {
-  kind: MediaTaskType;
-  args: {
-    task_id?: string;
-    output_path?: string;
-    watermark?: unknown;
-    format?: unknown;
-    [key: string]: unknown;
-  };
+  type: MediaTaskType;
+  args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs | ConvertGifTaskArgs;
 };
 
 type CompressTaskRequest = {
-  kind: MediaTaskType;
-  args: {
-    task_id?: string;
-    format?: unknown;
-    watermark?: unknown;
-    [key: string]: unknown;
-  };
+  type: MediaTaskType;
+  args: CompressVideoTaskArgs | CompressAudioTaskArgs | CompressImageTaskArgs;
 };
 
 class MediaTaskQueue {
@@ -60,6 +50,9 @@ class MediaTaskQueue {
       if (!task.args.output_path) {
         throw new Error("Task output_path is required");
       }
+      if (task.args.input_path == task.args.output_path) {
+        throw new Error("Task input_path and output_path must be different");
+      }
       if (!task.args.task_id) {
         throw new Error("Task ID is required");
       }
@@ -77,9 +70,16 @@ class MediaTaskQueue {
     priority: TaskPriority = "normal"
   ): Promise<void> {
     tasks.forEach(task => {
-      if (task.args && task.args.task_id) {
-        this.pendingTaskIds.add(task.args.task_id);
+      if (!task.args.output_path) {
+        throw new Error("Task output_path is required");
       }
+      if (task.args.input_path == task.args.output_path) {
+        throw new Error("Task input_path and output_path must be different");
+      }
+      if (!task.args.task_id) {
+        throw new Error("Task ID is required");
+      }
+      this.pendingTaskIds.add(task.args.task_id);
     });
     this.ensureEventListener();
     this.trackTaskSubmit("tasks_submit_compress", tasks);
@@ -147,7 +147,7 @@ class MediaTaskQueue {
   }
 
   private async updateStoresFromEvent(payload: MediaTaskEvent): Promise<void> {
-    const { task_type, event_type, task_id, progress, error_message } = payload;
+    const { file_type, task_type, event_type, task_id, progress, error_message } = payload;
     const normalizedProgress = Math.min(100, Math.max(0, progress || 0));
 
     // if (['error', 'complete'].includes(event_type)) {
@@ -155,7 +155,7 @@ class MediaTaskQueue {
     // }
 
     if ([MediaTaskType.ConvertVideo, MediaTaskType.ConvertAudio, MediaTaskType.ConvertImage, MediaTaskType.ConvertGif].includes(task_type)) {
-      if (payload.media_type === FileType.Video) {
+      if (file_type === FileType.Video) {
         const { useConverterStore } = await import("@/pages/converter/videos/store");
         const store = useConverterStore.getState();
         const taskExists = store.convertingTasks.some(t => t.id === task_id);
@@ -180,7 +180,7 @@ class MediaTaskQueue {
           });
         }
         return;
-      } else if (payload.media_type === FileType.Image || payload.media_type === FileType.Gif) {
+      } else if (file_type === FileType.Image || file_type === FileType.Gif) {
         const { useConverterStore } = await import("@/pages/converter/images/store");
         const store = useConverterStore.getState();
         const taskExists = store.convertingTasks.some(t => t.id === task_id);
@@ -202,7 +202,7 @@ class MediaTaskQueue {
           });
         }
         return;
-      } else if (payload.media_type === FileType.Audio) {
+      } else if (file_type === FileType.Audio) {
         const { useConverterStore } = await import("@/pages/converter/audios/store");
         const store = useConverterStore.getState();
         const taskExists = store.convertingTasks.some(t => t.id === task_id);
@@ -226,7 +226,7 @@ class MediaTaskQueue {
         return;
       }
     } else if ([MediaTaskType.CompressVideo, MediaTaskType.CompressImage, MediaTaskType.CompressAudio].includes(task_type)) {
-      if (payload.media_type === FileType.Video) {
+      if (file_type === FileType.Video) {
         const { useCompressorStore } = await import("@/pages/compressor/videos/store");
         const store = useCompressorStore.getState();
         const taskExists = store.compressingTasks.some(t => t.id === task_id);
@@ -248,7 +248,7 @@ class MediaTaskQueue {
           });
         }
         return;
-      } else if (payload.media_type === FileType.Image) {
+      } else if (file_type === FileType.Image) {
         const { useCompressorStore } = await import("@/pages/compressor/images/store");
         const store = useCompressorStore.getState();
         const taskExists = store.compressingTasks.some(t => t.id === task_id);
@@ -270,7 +270,7 @@ class MediaTaskQueue {
           });
         }
         return;
-      } else if (payload.media_type === FileType.Audio) {
+      } else if (file_type === FileType.Audio) {
         const { useCompressorStore } = await import("@/pages/compressor/audios/store");
         const store = useCompressorStore.getState();
         const taskExists = store.compressingTasks.some(t => t.id === task_id);
@@ -323,13 +323,13 @@ class MediaTaskQueue {
 
   private trackTaskSubmit(
     eventName: "tasks_submit_convert" | "tasks_submit_compress",
-    tasks: Array<{ kind: MediaTaskType; args: unknown }>
+    tasks: Array<{ type: MediaTaskType; args: unknown }>
   ): void {
     analytics.track(eventName, {
       task_meta: tasks.map((task) => {
         const args = (task.args || {}) as Record<string, unknown>;
         return {
-          kind: task.kind,
+          type: task.type,
           format: typeof args.format === "string" ? args.format : undefined,
           has_watermark: Boolean(args.watermark),
         };
