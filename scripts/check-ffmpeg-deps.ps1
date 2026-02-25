@@ -184,15 +184,6 @@ function Install-Vcpkg {
         throw "git clone failed"
       }
       
-      # Checkout specific tag for FFmpeg 7.1 (2024.11.16 release)
-      Push-Location $targetDir
-      try {
-        Write-Info "切换到指定 vcpkg tag (2024.11.16 / b2cb0da)..."
-        git checkout b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
-      } finally {
-        Pop-Location
-      }
-
       Write-Info "运行 bootstrap-vcpkg..."
       $bootstrap = Join-Path $targetDir "bootstrap-vcpkg.bat"
       & $bootstrap
@@ -257,8 +248,8 @@ function Install-FFmpeg {
   }
 
   try {
-    Write-Info "正在安装 FFmpeg (包含 x264, x265)..."
-    & $vcpkgPath install "ffmpeg[gpl,x264,x265]:x64-windows" --recurse
+    Write-Info "正在安装 FFmpeg (包含 x264, x265, drawtext/freetype/fontconfig/fribidi)..."
+    & $vcpkgPath install "ffmpeg[gpl,x264,x265,drawtext,freetype,fontconfig,fribidi]:x64-windows" --recurse
     if ($LASTEXITCODE -eq 0) {
       Write-Info "FFmpeg 安装成功"
       Set-PkgConfigPath

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 自动检测和安装 FFmpeg 依赖脚本（适配 ffmpeg-next 7.1.x）
+# 自动检测和安装 FFmpeg 依赖脚本（适配 ffmpeg-next 8.x）
 
 set -euo pipefail
 
@@ -87,9 +87,6 @@ check_ffmpeg_libs() {
   fi
 
   if [ ${#missing[@]} -eq 0 ]; then
-    if [ -n "$FFMPEG_MAJOR" ] && [ "$FFMPEG_MAJOR" -ge 8 ]; then
-      log_warn "检测到 FFmpeg ${FFMPEG_MAJOR}.x，ffmpeg-next 7.1.x 推荐使用 FFmpeg 6.x/7.x，必要时请降级"
-    fi
     return 0
   fi
 
@@ -167,31 +164,16 @@ install_macos() {
   fi
 
   if [ "$need_ffmpeg" = true ]; then
-    log_info "$brew_cmd" install ffmpeg@7
+    log_info "$brew_cmd install ffmpeg"
     if ! "$brew_cmd" list --versions ffmpeg >/dev/null 2>&1; then
-      "$brew_cmd" install ffmpeg@7
+      "$brew_cmd" install ffmpeg
     else
       "$brew_cmd" upgrade ffmpeg || log_warn "升级 FFmpeg 失败，尝试保留现有版本"
-    fi
-
-    if "$brew_cmd" list --versions ffmpeg@7 >/dev/null 2>&1; then
-      log_warn "检测到 ffmpeg@7，如需固定版本请设置 PKG_CONFIG_PATH:"
-      log_warn "  export PKG_CONFIG_PATH=\"$("$brew_cmd" --prefix ffmpeg@7)/lib/pkgconfig:\$PKG_CONFIG_PATH\""
-    fi
-    if "$brew_cmd" list --versions ffmpeg@6 >/dev/null 2>&1; then
-      log_warn "检测到 ffmpeg@6，可使用:"
-      log_warn "  export PKG_CONFIG_PATH=\"$("$brew_cmd" --prefix ffmpeg@6)/lib/pkgconfig:\$PKG_CONFIG_PATH\""
     fi
   fi
 
   add_pkg_config_path "$("$brew_cmd" --prefix)/opt/ffmpeg/lib/pkgconfig"
   add_pkg_config_path "$("$brew_cmd" --prefix)/lib/pkgconfig"
-  if "$brew_cmd" list --versions ffmpeg@7 >/dev/null 2>&1; then
-    add_pkg_config_path "$("$brew_cmd" --prefix ffmpeg@7)/lib/pkgconfig"
-  fi
-  if "$brew_cmd" list --versions ffmpeg@6 >/dev/null 2>&1; then
-    add_pkg_config_path "$("$brew_cmd" --prefix ffmpeg@6)/lib/pkgconfig"
-  fi
   if [ -n "${PKG_CONFIG_PATH-}" ]; then
     log_info "已为脚本会话设置 PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
     printf "如需在当前终端复用上述路径，请执行:\n  export PKG_CONFIG_PATH=\"%s\"\n" "$PKG_CONFIG_PATH"
@@ -261,7 +243,7 @@ install_linux() {
 install_windows() {
   log_warn "检测到 Windows 系统"
   log_warn "请手动安装 FFmpeg 及 pkg-config，可选方案："
-  printf "  1) vcpkg: vcpkg install ffmpeg\n"
+  printf "  1) vcpkg: vcpkg install \"ffmpeg[gpl,x264,x265,drawtext,freetype,fontconfig,fribidi]:x64-windows\"\n"
   printf "  2) MSYS2: pacman -S mingw-w64-x86_64-ffmpeg\n"
   printf "  3) 预编译包: https://www.gyan.dev/ffmpeg/builds/\n\n"
   printf "安装后请设置 PKG_CONFIG_PATH 指向 FFmpeg 的 lib/pkgconfig 目录。\n"

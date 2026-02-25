@@ -45,7 +45,7 @@ zip = "0.6"
 tar = "0.4"
 xz2 = "0.1"
 libloading = "0.8"
-ffmpeg-next = { version = "7.1.0", features = ["codec", "format", "filter", "software-scaling", "software-resampling"] }
+ffmpeg-next = { version = "8.0.0", features = ["codec", "format", "filter", "software-scaling", "software-resampling"] }
 cpal = "0.15"
 bytemuck = { version = "1.14", features = ["derive"] }
 pollster = "0.3"

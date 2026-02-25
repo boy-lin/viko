@@ -313,7 +313,7 @@ pub fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
     })
 }
 
-// 注意：本项目使用 ffmpeg-next 7.1.0 并链接系统 FFmpeg 库
+// 注意：本项目使用 ffmpeg-next 8.x 并链接系统 FFmpeg 库
 #[command]
 pub fn get_media_info(path: String) -> Result<FileInfo, String> {
     // 初始化 FFmpeg
@@ -327,7 +327,7 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
 
     // 获取格式信息
     let format_name = ictx.format().name().to_string();
-    // ffmpeg-next 7.1.0: 使用 name() 获取格式名称
+    // ffmpeg-next 8.x: 使用 name() 获取格式名称
     let format_long_name = Some(format_name.clone());
     let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
     // bit_rate() 返回 i64

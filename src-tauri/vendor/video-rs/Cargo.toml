@@ -44,7 +44,7 @@ name = "video_rs"
 path = "src/lib.rs"
 
 [dependencies.ffmpeg-next]
-version = "7.1.0"
+version = "8.0.0"
 features = [
     "format",
     "codec",

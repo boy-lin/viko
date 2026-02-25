@@ -79,9 +79,7 @@ fn main() {
 
         // 3. 查找 FFmpeg Cellar 路径（版本化安装）
         let cellar_paths = vec![
-            "/opt/homebrew/Cellar/ffmpeg@7",
             "/opt/homebrew/Cellar/ffmpeg",
-            "/usr/local/Cellar/ffmpeg@7",
             "/usr/local/Cellar/ffmpeg",
         ];
 
@@ -314,9 +312,7 @@ fn detect_ffmpeg_lib_dir() -> Result<std::path::PathBuf, String> {
     let common_paths = vec![
         "/opt/homebrew/opt/ffmpeg/lib",
         "/usr/local/opt/ffmpeg/lib",
-        "/opt/homebrew/Cellar/ffmpeg@7",
         "/opt/homebrew/Cellar/ffmpeg",
-        "/usr/local/Cellar/ffmpeg@7",
         "/usr/local/Cellar/ffmpeg",
     ];
 
