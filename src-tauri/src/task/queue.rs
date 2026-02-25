@@ -22,7 +22,7 @@ use crate::storage::task_history::{self, TaskHistoryItem};
 use crate::task::cancel;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-#[serde(tag = "kind", content = "args")]
+#[serde(tag = "type", content = "args")]
 pub enum MediaTaskRequest {
     #[serde(rename = "convert-audio")]
     ConvertAudio(AudioConversionArgs),

@@ -13,6 +13,7 @@ import {
   Card,
   CardHeader,
   CardContent,
+  CardDescription,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -124,6 +125,8 @@ export default function TaskListPage({ mode }: TaskListPageProps) {
   return (
     <Card className="h-full w-full py-0 gap-0 bg-transparent border-none shadow-none flex flex-col">
       <CardHeader className="rounded-none px-0 flex-shrink-0">
+        <CardDescription>
+        </CardDescription>
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
           <Tabs
             value={mode}

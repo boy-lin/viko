@@ -18,7 +18,7 @@ import { formatDuration, getDurationSecondsFromTimestamps, formatDateTime } from
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { revealItemInDir } from "@/lib/revealItemInDir";
@@ -236,6 +236,8 @@ export default function TaskHistoryPage() {
       <CardHeader className="rounded-none px-4 flex-shrink-0">
         <div className="flex items-center justify-between gap-3">
           <CardTitle>{t("title")}</CardTitle>
+          <CardDescription>
+          </CardDescription>
           <div className="flex items-center gap-2">
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

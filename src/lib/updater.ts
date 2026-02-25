@@ -75,11 +75,14 @@ export async function resetUpdaterGuard() {
 }
 
 export async function initUpdater(options: InitUpdaterOptions = {}) {
+  // if (import.meta.env.DEV) {
+  //   console.warn("Updater is disabled in development mode");
+  //   return;
+  // }
   if (!isTauri()) return;
+
   const enableForceGuard = Boolean(options.enableForceGuard);
   const skipForceGate = Boolean(options.skipForceGate);
-
-
   try {
     const update = await check();
     if (enableForceGuard) {
@@ -90,10 +93,24 @@ export async function initUpdater(options: InitUpdaterOptions = {}) {
 
     const meta = await fetchUpdaterMeta();
     const isMandatory = Boolean(meta?.mandatory);
+    const startDownload = async () => {
+      let id = toast.loading("Updating...")
+      try {
+        await update.downloadAndInstall();
+        await relaunch();
+      } catch (error) {
+        toast.error("Update failed", {
+          id,
+          description: "Please try again later.",
+        });
+        throw error;
+      } finally {
+        if (id) toast.success("Update success", { id });
+      }
+    }
 
     if (isMandatory) {
-      await update.downloadAndInstall();
-      await relaunch();
+      await startDownload();
       return;
     }
 
@@ -102,22 +119,12 @@ export async function initUpdater(options: InitUpdaterOptions = {}) {
       description: meta?.notes ?? "Click to download and restart.",
       action: {
         label: "Update",
-        onClick: async () => {
-          try {
-            await update.downloadAndInstall();
-            await relaunch();
-          } catch (error) {
-            console.error("Failed to install update:", error);
-            toast("Update failed", {
-              description: "Please try again later.",
-            });
-          }
-        },
+        onClick: startDownload,
       },
       duration: 15000,
     });
   } catch (error) {
-    if (enableForceGuard) {
+    if (enableForceGuard && !skipForceGate) {
       const status = await updaterGuardReportFailure(
         error instanceof Error ? error.message : String(error)
       );
@@ -127,14 +134,5 @@ export async function initUpdater(options: InitUpdaterOptions = {}) {
       }
     }
     console.error("Updater check failed:" + JSON.stringify(error));
-  }
-
-
-  if (enableForceGuard && !skipForceGate) {
-    const currentStatus = await updaterGuardGetStatus();
-    if (currentStatus?.shouldForceUpdate) {
-      options.onForceUpdateRequired?.(currentStatus);
-      return;
-    }
   }
 }

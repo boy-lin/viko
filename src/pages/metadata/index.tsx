@@ -317,6 +317,8 @@ export default function MetadataEditorPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle>{t("fileSource")}</CardTitle>
+                            <CardDescription>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent>
                             {fileInfo ? (
@@ -348,6 +350,8 @@ export default function MetadataEditorPage() {
                         <Card>
                             <CardHeader>
                                 <CardTitle>{t("actions")}</CardTitle>
+                                <CardDescription>
+                                </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <Button
