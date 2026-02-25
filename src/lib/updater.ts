@@ -75,10 +75,10 @@ export async function resetUpdaterGuard() {
 }
 
 export async function initUpdater(options: InitUpdaterOptions = {}) {
-  // if (import.meta.env.DEV) {
-  //   console.warn("Updater is disabled in development mode");
-  //   return;
-  // }
+  if (import.meta.env.DEV) {
+    console.warn("Updater is disabled in development mode");
+    return;
+  }
   if (!isTauri()) return;
 
   const enableForceGuard = Boolean(options.enableForceGuard);

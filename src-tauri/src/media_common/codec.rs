@@ -26,7 +26,7 @@ pub fn select_video_encoder(name: Option<&str>, use_hw: bool) -> Option<ffmpeg::
             if cfg!(target_os = "macos") {
                 vec!["hevc_videotoolbox", "libx265"]
             } else if cfg!(target_os = "windows") {
-                vec!["hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_mf", "libx265"]
+                vec!["hevc_nvenc", "hevc_qsv", "hevc_amf", "libx265"]
             } else {
                 vec!["hevc_nvenc", "hevc_qsv", "hevc_vaapi", "libx265"]
             }

@@ -43,17 +43,6 @@ mod tests {
         path
     }
 
-    fn get_system_font() -> String {
-        // Windows typical font
-        let path = PathBuf::from("C:\\WINDOWS\\Fonts\\ARIAL.TTF");
-        if path.exists() {
-            return path.to_string_lossy().to_string();
-        }
-        // Fallback or skip if not found?
-        // Try generic linux path just in case
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf".to_string()
-    }
-
     #[test]
     fn test_video_watermark_text() {
         let input_opt = get_test_video_file();
@@ -65,11 +54,7 @@ mod tests {
         let output_dir = get_test_output_dir();
         let output_path = output_dir.join("video_text_wm.mp4");
 
-        let font_path = get_system_font();
-        if !std::path::Path::new(&font_path).exists() {
-            println!("SKIPPING: Font not found at {}", font_path);
-            return;
-        }
+        let font_path = "";
 
         let watermark = WatermarkConfig {
             text: Some(TextWatermark {
