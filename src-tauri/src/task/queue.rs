@@ -282,15 +282,21 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
     )?;
 
     let result = audio::convert_audio(emitter.clone(), params);
-    let (error, effective_params, output_size_hint) = match result {
+    let (error, final_output_path, effective_params, output_size_hint) = match result {
         Ok(report) => (
             None,
+            report.output_media.path.clone(),
             serde_json::to_value(&report).ok(),
             Some(report.output_media.size as i64),
         ),
         Err(e) => {
             emitter.emit("error", None, None, Some(e.clone()));
-            (Some(e), serde_json::to_value(&args).ok(), None)
+            (
+                Some(e),
+                output_path.clone(),
+                serde_json::to_value(&args).ok(),
+                None,
+            )
         }
     };
 
@@ -299,7 +305,7 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
         "convert-audio".into(),
         "audio".into(),
         args.input_path.clone(),
-        output_path,
+        final_output_path,
         start_time,
         error,
         args,
@@ -398,15 +404,21 @@ fn run_convert_video_with_task_type(
     let emitter = events::window_emitter(app, args.task_id.clone(), task_type.into(), file_type)?;
 
     let result = video::convert_video(emitter.clone(), params);
-    let (error, effective_params, output_size_hint) = match result {
+    let (error, final_output_path, effective_params, output_size_hint) = match result {
         Ok(report) => (
             None,
+            report.output_media.path.clone(),
             serde_json::to_value(&report).ok(),
             Some(report.output_media.size as i64),
         ),
         Err(e) => {
             emitter.emit("error", None, None, Some(e.clone()));
-            (Some(e), serde_json::to_value(&args).ok(), None)
+            (
+                Some(e),
+                output_path.clone(),
+                serde_json::to_value(&args).ok(),
+                None,
+            )
         }
     };
 
@@ -415,7 +427,7 @@ fn run_convert_video_with_task_type(
         task_type.into(),
         "video".into(),
         args.input_path.clone(),
-        output_path,
+        final_output_path,
         start_time,
         error,
         args,
@@ -479,15 +491,21 @@ fn run_convert_gif(app: &AppHandle, args: GifConversionArgs) -> Result<(), Strin
         events::window_emitter(app, args.task_id.clone(), "convert-gif".into(), file_type)?; // GIF treated as video/image hybrid.
 
     let result = gif::convert_video_to_gif(emitter.clone(), params);
-    let (error, effective_params, output_size_hint) = match result {
+    let (error, final_output_path, effective_params, output_size_hint) = match result {
         Ok(report) => (
             None,
+            report.output_media.path.clone(),
             serde_json::to_value(&report).ok(),
             Some(report.output_media.size as i64),
         ),
         Err(e) => {
             emitter.emit("error", None, None, Some(e.clone()));
-            (Some(e), serde_json::to_value(&args).ok(), None)
+            (
+                Some(e),
+                output_path.clone(),
+                serde_json::to_value(&args).ok(),
+                None,
+            )
         }
     };
 
@@ -496,7 +514,7 @@ fn run_convert_gif(app: &AppHandle, args: GifConversionArgs) -> Result<(), Strin
         "convert-gif".into(),
         "gif".into(),
         args.input_path.clone(),
-        output_path,
+        final_output_path,
         start_time,
         error,
         args,
@@ -631,15 +649,21 @@ fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(),
     )?;
 
     let result = crate::services::compress::video::compress_video_file(emitter.clone(), params);
-    let (error, effective_params, output_size_hint) = match result {
+    let (error, final_output_path, effective_params, output_size_hint) = match result {
         Ok(report) => (
             None,
+            report.output_media.path.clone(),
             serde_json::to_value(&report).ok(),
             Some(report.output_media.size as i64),
         ),
         Err(e) => {
             emitter.emit("error", None, None, Some(e.clone()));
-            (Some(e), serde_json::to_value(&args).ok(), None)
+            (
+                Some(e),
+                args.output_path.clone(),
+                serde_json::to_value(&args).ok(),
+                None,
+            )
         }
     };
 
@@ -648,7 +672,7 @@ fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(),
         "compress-video".into(),
         "video".into(),
         args.input_path.clone(),
-        args.output_path.clone(),
+        final_output_path,
         start_time,
         error,
         args,
@@ -696,15 +720,21 @@ fn run_compress_audio(app: &AppHandle, args: AudioCompressionArgs) -> Result<(),
     )?;
 
     let result = crate::services::compress::audio::compress_audio_file(emitter.clone(), params);
-    let (error, effective_params, output_size_hint) = match result {
+    let (error, final_output_path, effective_params, output_size_hint) = match result {
         Ok(report) => (
             None,
+            report.output_media.path.clone(),
             serde_json::to_value(&report).ok(),
             Some(report.output_media.size as i64),
         ),
         Err(e) => {
             emitter.emit("error", None, None, Some(e.clone()));
-            (Some(e), serde_json::to_value(&args).ok(), None)
+            (
+                Some(e),
+                args.output_path.clone(),
+                serde_json::to_value(&args).ok(),
+                None,
+            )
         }
     };
 
@@ -713,7 +743,7 @@ fn run_compress_audio(app: &AppHandle, args: AudioCompressionArgs) -> Result<(),
         "compress-audio".into(),
         "audio".into(),
         args.input_path.clone(),
-        args.output_path.clone(),
+        final_output_path,
         start_time,
         error,
         args,
@@ -762,15 +792,21 @@ fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(),
     )?;
 
     let result = crate::services::compress::image::compress_image_file(emitter.clone(), params);
-    let (error, effective_params, output_size_hint) = match result {
+    let (error, final_output_path, effective_params, output_size_hint) = match result {
         Ok(report) => (
             None,
+            report.output_media.path.clone(),
             serde_json::to_value(&report).ok(),
             Some(report.output_media.size as i64),
         ),
         Err(e) => {
             emitter.emit("error", None, None, Some(e.clone()));
-            (Some(e), serde_json::to_value(&args).ok(), None)
+            (
+                Some(e),
+                args.output_path.clone(),
+                serde_json::to_value(&args).ok(),
+                None,
+            )
         }
     };
 
@@ -779,7 +815,7 @@ fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(),
         "compress-image".into(),
         "image".into(),
         args.input_path.clone(),
-        args.output_path.clone(),
+        final_output_path,
         start_time,
         error,
         args,

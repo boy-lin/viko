@@ -40,7 +40,7 @@ const buildDefaultArgs = (task: CompressingTask, details: any) => {
     input_path: path,
   };
   const containerDefinition = formatToDefinition.get(outputArgs.format);
-  outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder;
+  outputArgs.codec = containerDefinition?.video?.defaultEncoder;
 
   return outputArgs;
 };

@@ -26,7 +26,7 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
       (e) => allowedEncoders.includes(e.value) || e.value === EncoderEnum.AUTO
     )
     : VIDEO_ENCODERS.filter((e) => [EncoderEnum.H264, EncoderEnum.H265, EncoderEnum.AUTO].includes(e.value));
-
+  console.log('allowedEncoders', value, filteredEncoders);
   return (
     <Select value={value ?? EncoderEnum.AUTO} onValueChange={onValueChange}>
       <SelectTrigger className="cursor-pointer">

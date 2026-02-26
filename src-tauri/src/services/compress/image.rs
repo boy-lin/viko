@@ -1,4 +1,5 @@
 use crate::events::TaskEmitter;
+use crate::media_common;
 use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, PngEncoder};
@@ -37,6 +38,8 @@ pub fn compress_image_file<E: TaskEmitter>(
     emitter: E,
     params: ImageCompressionParams,
 ) -> Result<ImageCompressionReport, String> {
+    let mut params = params;
+    params.output_path = media_common::ensure_unique_output_path(&params.output_path);
     // 发送初始进度
     emitter.emit("progress", Some(10.0), None, None);
 

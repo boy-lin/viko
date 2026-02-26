@@ -201,13 +201,40 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
 
   [FormatEnum.AVI]: {
     video: {
-      allowedEncoders: [EncoderEnum.MPEG4, EncoderEnum.MJPEG, EncoderEnum.H264], // H264 in AVI is non-standard but possible
+      allowedEncoders: [
+        EncoderEnum.MPEG4,
+        EncoderEnum.XVID,
+        EncoderEnum.MJPEG,
+        EncoderEnum.H264,
+        EncoderEnum.MPEG2VIDEO,
+      ],
       defaultEncoder: EncoderEnum.MPEG4,
     },
     audio: {
       allowedEncoders: [EncoderEnum.MP3, EncoderEnum.PCM_S16LE, EncoderEnum.AC3],
       defaultEncoder: EncoderEnum.MP3,
+    }
+  },
 
+  [FormatEnum.M4V]: {
+    video: {
+      allowedEncoders: [EncoderEnum.H264, EncoderEnum.H265, EncoderEnum.MPEG4],
+      defaultEncoder: EncoderEnum.H264,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.AAC, EncoderEnum.MP3, EncoderEnum.AC3],
+      defaultEncoder: EncoderEnum.AAC,
+    }
+  },
+
+  [FormatEnum.ASF]: {
+    video: {
+      allowedEncoders: [EncoderEnum.MPEG4, EncoderEnum.H264],
+      defaultEncoder: EncoderEnum.MPEG4,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.WMAV2, EncoderEnum.MP3, EncoderEnum.AAC],
+      defaultEncoder: EncoderEnum.WMAV2,
     }
   },
 
@@ -243,6 +270,28 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
       allowedEncoders: [EncoderEnum.AAC, EncoderEnum.AMR_NB, EncoderEnum.AMR_WB],
       defaultEncoder: EncoderEnum.AAC,
 
+    }
+  },
+
+  [FormatEnum.TS]: {
+    video: {
+      allowedEncoders: [EncoderEnum.H264, EncoderEnum.H265, EncoderEnum.MPEG2VIDEO],
+      defaultEncoder: EncoderEnum.H264,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.AAC, EncoderEnum.AC3, EncoderEnum.MP2, EncoderEnum.MP3],
+      defaultEncoder: EncoderEnum.AAC,
+    }
+  },
+
+  [FormatEnum.M2TS]: {
+    video: {
+      allowedEncoders: [EncoderEnum.H264, EncoderEnum.H265, EncoderEnum.MPEG2VIDEO],
+      defaultEncoder: EncoderEnum.H264,
+    },
+    audio: {
+      allowedEncoders: [EncoderEnum.AAC, EncoderEnum.AC3, EncoderEnum.MP2],
+      defaultEncoder: EncoderEnum.AAC,
     }
   },
 
@@ -386,6 +435,20 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
       allowedEncoders: [EncoderEnum.AAC, EncoderEnum.ALAC, EncoderEnum.PCM_S16LE],
       defaultEncoder: EncoderEnum.AAC,
 
+    }
+  },
+
+  [FormatEnum.OPUS]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.OPUS],
+      defaultEncoder: EncoderEnum.OPUS,
+    }
+  },
+
+  [FormatEnum.WMA]: {
+    audio: {
+      allowedEncoders: [EncoderEnum.WMAV2, EncoderEnum.MP3],
+      defaultEncoder: EncoderEnum.WMAV2,
     }
   },
 

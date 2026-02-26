@@ -87,6 +87,8 @@ pub fn compress_audio_file<E: TaskEmitter>(
     params: AudioCompressionParams,
 ) -> Result<AudioCompressionReport, String> {
     media_common::ensure_ffmpeg_init()?;
+    let mut params = params;
+    params.output_path = media_common::ensure_unique_output_path(&params.output_path);
 
     let mut ictx =
         format::input(&params.input_path).map_err(|e| format!("无法打开输入文件: {}", e))?;
@@ -345,6 +347,9 @@ pub fn compress_audio_file<E: TaskEmitter>(
         sample_rate: Some(target_rate as u32),
         bit_rate: Some(target_bitrate as i64),
     };
+    let actual_output_size = std::fs::metadata(&output_path)
+        .map(|m| m.len())
+        .unwrap_or(written_bytes);
     let output_media = MediaDetails {
         path: output_path.clone(),
         extension: std::path::Path::new(&output_path)
@@ -355,7 +360,7 @@ pub fn compress_audio_file<E: TaskEmitter>(
         format_names: params.codec.clone().unwrap_or_else(|| "audio".to_string()),
         format_long_name: None,
         duration,
-        size: written_bytes,
+        size: actual_output_size,
         streams: vec![stream],
         tags: HashMap::new(),
         stream_tags: Vec::new(),

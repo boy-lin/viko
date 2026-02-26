@@ -72,6 +72,8 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
     params: GifConversionParams,
 ) -> Result<GifConversionReport, String> {
     media_common::init_ffmpeg()?;
+    let mut params = params;
+    params.output_path = media_common::ensure_unique_output_path(&params.output_path);
 
     let mut ictx = media_common::open_input(&params.input_path)?;
 

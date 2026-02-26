@@ -314,6 +314,8 @@ pub fn convert_audio<E: TaskEmitter>(
     params: AudioConversionParams,
 ) -> Result<AudioConversionReport, String> {
     media_common::ensure_ffmpeg_init()?;
+    let mut params = params;
+    params.output_path = media_common::ensure_unique_output_path(&params.output_path);
 
     let use_hw = params.use_hardware_acceleration.unwrap_or(false);
     let output_format = resolve_format(&params);
@@ -505,5 +507,7 @@ pub fn generate_output_path(input_path: &str, format: &str) -> Result<String, St
     };
 
     let output_path = parent.join(format!("{}.{}", stem, extension));
-    Ok(output_path.to_string_lossy().to_string())
+    Ok(media_common::ensure_unique_output_path(
+        &output_path.to_string_lossy(),
+    ))
 }

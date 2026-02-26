@@ -108,6 +108,7 @@ pub async fn convert_image_file_with_report(
             .to_string_lossy()
             .to_string();
     }
+    args.output_path = media_common::ensure_unique_output_path(&args.output_path);
     if crate::task::cancel::is_cancelled() {
         return Err("Task cancelled".to_string());
     }

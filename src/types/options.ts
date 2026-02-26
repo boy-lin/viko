@@ -64,7 +64,7 @@ export interface FormatGroup {
  * 支持的容器格式枚举
  */
 export enum FormatEnum {
-  // Audio
+  // Audio Container / File Formats
   MP3 = "mp3",
   M4A = "m4a",
   WAV = "wav",
@@ -72,6 +72,7 @@ export enum FormatEnum {
   AIFF = "aiff",
   FLAC = "flac",
   OGG = "ogg",
+  OPUS = "opus",
   AAC = "aac",
   AC3 = "ac3",
   EAC3 = "eac3",
@@ -80,15 +81,22 @@ export enum FormatEnum {
   M4B = "m4b",
   APE = "ape",
   CAF = "caf",
+  WMA = "wma",
 
-  // Video
+  // Video Container Formats
   MP4 = "mp4",
+  M4V = "m4v",
   MOV = "mov",
   MKV = "mkv",
   AVI = "avi",
   WMV = "wmv",
+  ASF = "asf",
   WEBM = "webm",
   FLV = "flv",
+  TS = "ts",
+  M2TS = "m2ts",
+  // Keep both names for backward compatibility (historical typo: GP3)
+  THREE_GP = "3gp",
   GP3 = "3gp",
   MPG = "mpg",
   VOB = "vob",

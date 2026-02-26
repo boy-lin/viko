@@ -36,6 +36,39 @@ pub fn open_input(path: &str) -> Result<format::context::Input, String> {
     format::input(&path).map_err(|e| format!("无法打开输入文件: {}", e))
 }
 
+pub fn ensure_unique_output_path(output_path: &str) -> String {
+    if output_path.trim().is_empty() {
+        return output_path.to_string();
+    }
+
+    let path = std::path::Path::new(output_path);
+    if !path.exists() {
+        return output_path.to_string();
+    }
+
+    let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("output");
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+
+    let mut index = 1usize;
+    loop {
+        let candidate_name = if ext.is_empty() {
+            format!("{stem}({index})")
+        } else {
+            format!("{stem}({index}).{ext}")
+        };
+        let candidate = parent.join(candidate_name);
+        if !candidate.exists() {
+            return candidate.to_string_lossy().to_string();
+        }
+        index += 1;
+    }
+}
+
 pub fn detect_media_file_type(path: &std::path::Path) -> MediaFileType {
     let ext = path
         .extension()

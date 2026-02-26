@@ -1012,7 +1012,8 @@ pub fn convert_video<E: TaskEmitter + Clone>(
         })
         .collect();
 
-    let resolved = resolve_video_params(params, &input_audio_indices);
+    let mut resolved = resolve_video_params(params, &input_audio_indices);
+    resolved.output_path = media_common::ensure_unique_output_path(&resolved.output_path);
 
     let mut octx =
         format::output(&resolved.output_path).map_err(|e| format!("无法打开输出文件: {}", e))?;

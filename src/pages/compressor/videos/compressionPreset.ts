@@ -44,7 +44,7 @@ export const getVideoCompressionPresetByRatio = (
       tier: "high_compression",
       patch: {
         ratio: normalizedRatio,
-        codec: EncoderEnum.H265,
+        codec: EncoderEnum.H264,
         preset: "slow",
         audio_bitrate: 96,
         frame_rate: 24,
