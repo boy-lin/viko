@@ -30,7 +30,7 @@ function buildDefaultArgs(mediaInfo: MediaDetails, task: ConverterTask) {
         format = FormatEnum.WAV;
     }
     const containerDefinition = formatToDefinition.get(format);
-    const outputTitle = mediaInfo.title + '_converted';
+    const outputTitle = mediaInfo.title;
     const outputArgs: ConvertAudioTaskArgs = {
         ...task.args,
         task_id: task.args.task_id || task.id,
@@ -55,7 +55,8 @@ function buildDefaultArgs(mediaInfo: MediaDetails, task: ConverterTask) {
 
 export default function TaskItem({ task }: TaskItemProps) {
     const { t } = useTranslation("converter");
-    const { removeTask, updateTaskById } = useConverterStore();
+    const removeTask = useConverterStore((state) => state.removeTask);
+    const updateTaskById = useConverterStore((state) => state.updateTaskById);
     const [loadingDetails, setLoadingDetails] = useState(!task.mediaDetails);
     const [loadError, setLoadError] = useState<string | null>(null);
     const loadingStarted = useRef(false);

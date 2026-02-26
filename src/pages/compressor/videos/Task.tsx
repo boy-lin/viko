@@ -12,8 +12,7 @@ interface ConvertingTaskProps {
 export default function ConvertingTask({
   globalFilter = "",
 }: ConvertingTaskProps) {
-  const { compressingTasks } = useCompressorStore();
-  console.log("compressingTasks", compressingTasks);
+  const compressingTasks = useCompressorStore((state) => state.compressingTasks);
   const filteredTasks = useMemo(() => {
     const search = globalFilter?.trim().toLowerCase() || "";
     if (!search) return compressingTasks;
@@ -29,11 +28,9 @@ export default function ConvertingTask({
     <>
       <div className="space-y-3">
         {filteredTasks.length === 0 ? (
-          <div className="border border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
-            <UploadPanel
-              supportedExtensions={VIDEO_FORMATS}
-            />
-          </div>
+          <UploadPanel
+            supportedExtensions={VIDEO_FORMATS}
+          />
         ) : (
           filteredTasks.map((task) => {
             return (

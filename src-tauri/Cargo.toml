@@ -1,6 +1,6 @@
 [package]
 name = "viko"
-version = "0.1.3"
+version = "0.1.5"
 description = "A audio video kits app"
 authors = ["you"]
 edition = "2021"

@@ -44,6 +44,43 @@ pub struct AudioOutputSummary {
 }
 
 impl AudioTrackProcessor {
+    fn is_input_changed_error(err: &ffmpeg::Error) -> bool {
+        err.to_string().contains("Input changed")
+    }
+
+    fn rebuild_resampler_from_decoded(&mut self, decoded: &frame::Audio) -> Result<(), String> {
+        let mut input_layout = decoded.channel_layout();
+        if input_layout.is_empty() {
+            input_layout = ffmpeg::ChannelLayout::default(decoded.channels() as i32);
+        }
+        let input_rate = if decoded.rate() > 0 {
+            decoded.rate()
+        } else {
+            self.decoder.rate()
+        };
+
+        self.resampler = software::resampling::Context::get(
+            decoded.format(),
+            input_layout,
+            input_rate,
+            self.target_format,
+            self.target_layout,
+            self.target_rate,
+        )
+        .map_err(|e| format!("Operation failed: {}", e))?;
+
+        Ok(())
+    }
+
+    fn normalize_decoded_frame(&self, decoded: &mut frame::Audio) {
+        if decoded.channel_layout().is_empty() && decoded.channels() > 0 {
+            decoded.set_channel_layout(ffmpeg::ChannelLayout::default(decoded.channels() as i32));
+        }
+        if decoded.rate() == 0 && self.decoder.rate() > 0 {
+            decoded.set_rate(self.decoder.rate());
+        }
+    }
+
     pub fn new(
         ist: &format::stream::Stream,
         octx: &mut format::context::Output,
@@ -114,18 +151,22 @@ impl AudioTrackProcessor {
             .audio()
             .map_err(|e| format!("Operation failed: {}", e))?;
 
-        let configured_bit_rate = if let Some(br) = params.bitrate {
-            let kbps = br.max(1.0);
-            let bits = (kbps * 1000.0).round() as i64;
-            enc.set_bit_rate(bits as usize);
-            Some(bits)
+        let encoder_name = codec.name();
+        let is_aac_encoder = matches!(encoder_name, "aac" | "aac_at");
+        // AAC LC per-frame bit budget in FFmpeg is limited. Convert to bitrate cap by sample rate.
+        let aac_max_bit_rate = ((12_288_i64 * target_rate as i64) / 1024).max(64_000);
+        let mut chosen_bits = if let Some(br) = params.bitrate {
+            (br.max(1.0) * 1000.0).round() as i64
         } else if decoder.bit_rate() > 0 {
-            enc.set_bit_rate(decoder.bit_rate() as usize);
-            Some(decoder.bit_rate() as i64)
+            decoder.bit_rate() as i64
         } else {
-            enc.set_bit_rate(128_000);
-            Some(128_000)
+            128_000
         };
+        if is_aac_encoder && chosen_bits > aac_max_bit_rate {
+            chosen_bits = aac_max_bit_rate;
+        }
+        enc.set_bit_rate(chosen_bits as usize);
+        let configured_bit_rate = Some(chosen_bits);
 
         enc.set_rate(target_rate as i32);
         enc.set_channel_layout(target_layout);
@@ -212,18 +253,29 @@ impl AudioTrackProcessor {
     pub fn process_packet(
         &mut self,
         pkt: &packet::Packet,
-        input_time_base: Rational,
+        _input_time_base: Rational,
         ost_time_base: Rational,
         octx: &mut format::context::Output,
     ) -> Result<(), String> {
-        let mut p = pkt.clone();
-        p.rescale_ts(input_time_base, self.decoder.time_base());
+        let p = pkt.clone();
         self.decoder
             .send_packet(&p)
-            .map_err(|e| format!("Operation failed: {}", e))?;
+            .map_err(|e| {
+                format!(
+                    "send_packet failed: {} (ist={} pkt_pts={:?} pkt_dts={:?} pkt_size={} dec_tb={}/{})",
+                    e,
+                    self.source_stream_index,
+                    p.pts(),
+                    p.dts(),
+                    p.size(),
+                    self.decoder.time_base().numerator(),
+                    self.decoder.time_base().denominator()
+                )
+            })?;
 
         let mut decoded = frame::Audio::empty();
         while self.decoder.receive_frame(&mut decoded).is_ok() {
+            self.normalize_decoded_frame(&mut decoded);
             let mut resampled = frame::Audio::empty();
             resampled.set_channel_layout(self.target_layout);
             resampled.set_format(self.target_format);
@@ -231,7 +283,28 @@ impl AudioTrackProcessor {
 
             self.resampler
                 .run(&decoded, &mut resampled)
-                .map_err(|e| format!("Operation failed: {}", e))?;
+                .or_else(|e| {
+                    if Self::is_input_changed_error(&e) {
+                        self.rebuild_resampler_from_decoded(&decoded)?;
+                        self.resampler
+                            .run(&decoded, &mut resampled)
+                            .map_err(|err| {
+                                format!(
+                                    "resample(retry) failed: {} (decoded fmt={:?} rate={} channels={} layout_ch={} target fmt={:?} rate={} layout_ch={})",
+                                    err,
+                                    decoded.format(),
+                                    decoded.rate(),
+                                    decoded.channels(),
+                                    decoded.channel_layout().channels(),
+                                    self.target_format,
+                                    self.target_rate,
+                                    self.target_layout.channels()
+                                )
+                            })
+                    } else {
+                        Err(format!("resample failed: {}", e))
+                    }
+                })?;
 
             if !self.first_pts_set {
                 if let Some(pts) = decoded.pts() {
@@ -324,14 +397,14 @@ impl AudioTrackProcessor {
     ) -> Result<(), String> {
         self.encoder
             .send_frame(frame)
-            .map_err(|e| format!("Operation failed: {}", e))?;
+            .map_err(|e| format!("encode send_frame failed: {}", e))?;
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             encoded.set_stream(self.ost_index);
             encoded.rescale_ts(self.encoder_time_base, ost_time_base);
             encoded
                 .write_interleaved(octx)
-                .map_err(|e| format!("Operation failed: {}", e))?;
+                .map_err(|e| format!("encode write_interleaved failed: {}", e))?;
             self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
         }
         Ok(())

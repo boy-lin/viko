@@ -17,9 +17,11 @@ import { toast } from "sonner";
 export const CompressionFooter: React.FC = () => {
   const { t } = useTranslation("compressor");
   const imageConfig = useCompressorStore((state) => state.imageConfig);
-  const updateTaskById = useCompressorStore((state) => state.updateTaskById);
   const updateGlobalConfig = useCompressorStore(
     (state) => state.updateGlobalConfig
+  );
+  const applyConfigToAllTasks = useCompressorStore(
+    (state) => state.applyConfigToAllTasks
   );
   const clearCompressingTasks = useCompressorStore(
     (state) => state.clearCompressingTasks
@@ -28,16 +30,7 @@ export const CompressionFooter: React.FC = () => {
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
   const handleSaveConfig = (vals: CompressImageTaskArgs) => {
-    const pendingTasks = useCompressorStore.getState().compressingTasks;
-    // 为每个任务设置 config（浅拷贝 globalConfig）
-    for (const task of pendingTasks) {
-      updateTaskById(task.id, {
-        args: {
-          ...task.args,
-          ...vals
-        },
-      });
-    }
+    applyConfigToAllTasks(vals);
   };
 
   const handleCompressAll = async () => {

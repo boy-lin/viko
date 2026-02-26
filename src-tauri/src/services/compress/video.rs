@@ -55,10 +55,18 @@ fn calc_audio_bitrate(decoder_bitrate: i64, params: &VideoCompressionParams) -> 
     base.max(32_000) as usize
 }
 
+fn is_hardware_video_encoder(codec_name: &str) -> bool {
+    codec_name.contains("videotoolbox")
+        || codec_name.contains("_nvenc")
+        || codec_name.contains("_qsv")
+        || codec_name.contains("_vaapi")
+        || codec_name.contains("_amf")
+}
+
 struct VideoProcessor<E: TaskEmitter> {
     encoder: encoder::Video,
     decoder: codec::decoder::Video,
-    scaler: software::scaling::Context,
+    scaler: Option<software::scaling::Context>,
     ost_index: usize,
     ost_time_base: Rational,
     final_encoder_time_base: Rational,
@@ -96,6 +104,13 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             })
             .ok_or_else(|| "未找到匹配的视频编码器".to_string())?;
         let selected_codec_name = codec.name().to_string();
+        let effective_hw = use_hw && is_hardware_video_encoder(&selected_codec_name);
+        if use_hw && !effective_hw {
+            log::warn!(
+                "compress_video requested hardware acceleration but selected software encoder: {}",
+                selected_codec_name
+            );
+        }
 
         let mut video_ost = octx
             .add_stream(codec)
@@ -186,7 +201,7 @@ impl<E: TaskEmitter> VideoProcessor<E> {
         log::info!(
             "compress_video video init: codec={} hw={} src={}x{} src_pix_fmt={:?} dst={}x{} dst_pix_fmt={:?} target_bitrate={} frame_rate={:?} gop={} b:v={} maxrate={} bufsize={}",
             selected_codec_name,
-            use_hw,
+            effective_hw,
             decoder.width(),
             decoder.height(),
             decoder.format(),
@@ -211,16 +226,34 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             encoder_time_base
         };
 
-        let scaler = software::scaling::Context::get(
-            decoder.format(),
-            decoder.width(),
-            decoder.height(),
-            target_pixel_format,
-            target_w,
-            target_h,
-            software::scaling::flag::Flags::BILINEAR,
-        )
-        .map_err(|e| format!("无法创建视频缩放器: {}", e))?;
+        let needs_scaler = decoder.format() != target_pixel_format
+            || decoder.width() != target_w
+            || decoder.height() != target_h;
+        let scaler = if needs_scaler {
+            Some(
+                software::scaling::Context::get(
+                    decoder.format(),
+                    decoder.width(),
+                    decoder.height(),
+                    target_pixel_format,
+                    target_w,
+                    target_h,
+                    software::scaling::flag::Flags::BILINEAR,
+                )
+                .map_err(|e| format!("无法创建视频缩放器: {}", e))?,
+            )
+        } else {
+            log::debug!(
+                "compress_video scaler bypassed: src fmt={:?} {}x{} matches dst fmt={:?} {}x{}",
+                decoder.format(),
+                decoder.width(),
+                decoder.height(),
+                target_pixel_format,
+                target_w,
+                target_h
+            );
+            None
+        };
 
         Ok(Self {
             encoder,
@@ -256,14 +289,18 @@ impl<E: TaskEmitter> VideoProcessor<E> {
                 return Err("Task cancelled".to_string());
             }
             let mut scaled = frame::Video::empty();
-            self.scaler
-                .run(&decoded, &mut scaled)
-                .map_err(|e| format!("视频缩放失败: {}", e))?;
-
-            scaled.set_pts(decoded.pts());
+            let frame_to_encode: &mut frame::Video = if let Some(scaler) = self.scaler.as_mut() {
+                scaler
+                    .run(&decoded, &mut scaled)
+                    .map_err(|e| format!("视频缩放失败: {}", e))?;
+                scaled.set_pts(decoded.pts());
+                &mut scaled
+            } else {
+                &mut decoded
+            };
 
             self.encoder
-                .send_frame(&scaled)
+                .send_frame(frame_to_encode)
                 .map_err(|e| format!("发送视频帧失败: {}", e))?;
 
             self.receive_and_write_packets(octx)?;

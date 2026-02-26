@@ -8,10 +8,17 @@ import { getVideoOptionsByEncoder, formatToDefinition } from "@/data/capabilitie
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-export type VideoConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "video_encoder" | "video_bitrate" | "resolution" | "frame_rate">
+export type VideoConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "video_encoder" | "video_bitrate" | "resolution" | "frame_rate" | "color_space" | "color_range">
 
 export interface VideoSettingsSectionProps extends VideoConversionConfig {
   onChange?: (config: Partial<VideoConversionConfig>) => void;
@@ -23,6 +30,8 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
   video_bitrate,
   resolution,
   frame_rate,
+  color_space,
+  color_range,
   onChange,
 }) => {
   const { t } = useTranslation("common");
@@ -108,10 +117,32 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
             </Label>
           </div>
           <ColorSpaceSelect
-            value="auto"
-            onValueChange={() => { }}
+            value={color_space}
+            onValueChange={(v) => onChange?.({ color_space: v })}
             options={videoOptions.colorSpaces}
           />
+        </div>
+
+        <div className="space-y-2 pr-4">
+          <div className="flex gap-2 items-center">
+            <Info className="w-4 h-4 text-muted-foreground" />
+            <Label className="text-muted-foreground">
+              {t("video_advance.color_range", "Color Range")}
+            </Label>
+          </div>
+          <Select
+            value={color_range || "auto"}
+            onValueChange={(v) => onChange?.({ color_range: v })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("video_advance.color_range", "Color Range")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">{t("video_advance.auto", "Auto")}</SelectItem>
+              <SelectItem value="limited">{t("video_advance.limited", "Limited (TV/MPEG)")}</SelectItem>
+              <SelectItem value="full">{t("video_advance.full", "Full (PC/JPEG)")}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </div>

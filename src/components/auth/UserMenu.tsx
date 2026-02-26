@@ -92,6 +92,7 @@ export const UserMenu = () => {
       if (session?.user) {
         await signOut();
       }
+      analytics.reset();
       clearDesktopToken();
       setDesktopLoggedIn(false);
       clearUser();

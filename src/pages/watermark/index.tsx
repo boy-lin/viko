@@ -190,12 +190,11 @@ export default function WatermarkPage() {
 
     if (queueTasks.length === 0) {
         return (
-            <div className="flex-1 rounded-xl overflow-hidden">
+            <div className="p-4 flex-1 rounded-xl overflow-hidden">
                 <UploadPanel supportedExtensions={VIDEO_FORMATS.map((format) => format.toLowerCase())} />
             </div>
         );
     }
-
 
     return (
         <div className="flex h-[calc(100vh-4rem)] bg-background">

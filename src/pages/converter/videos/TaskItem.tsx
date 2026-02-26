@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -13,7 +13,6 @@ import { useConverterStore } from "./store";
 import { FormatEnum } from "@/types/options";
 import { formatToDefinition } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
-import { useSettingsStore } from "@/stores/settingsStore";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import TaskStatusLabel from "@/components/ui-biz/TaskStatusLabel";
@@ -112,20 +111,8 @@ export default function TaskItem({ task }: TaskItemProps) {
   const convertVideoTaskArgs = task.args as ConvertVideoTaskArgs;
 
   const handleOutputTitleChange = (nextTitle: string) => {
-    if (!task.mediaDetails?.path) {
-      console.error('mediaDetails.path is undefined');
-      return;
-    }
-    const outputDir = useSettingsStore.getState().getOutputDir(task.mediaDetails?.path);
-    const output_path = `${outputDir}/${nextTitle}.${task.args.format}`
-    startTransition(() => {
-      updateTaskById(task.id, {
-        outputTitle: nextTitle,
-        args: {
-          ...task.args,
-          output_path,
-        },
-      });
+    updateTaskById(task.id, {
+      outputTitle: nextTitle,
     });
   };
 

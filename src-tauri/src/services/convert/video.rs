@@ -36,6 +36,7 @@ pub struct VideoConversionParams {
     pub profile: Option<String>,
     pub tune: Option<String>,
     pub color_space: Option<String>,
+    pub color_range: Option<String>,
     pub bit_depth: Option<u32>,
     pub crop: Option<String>,
     // 多轨音频
@@ -82,6 +83,7 @@ struct ResolvedVideoParams {
     pub profile: Option<String>,
     pub tune: Option<String>,
     pub color_space: Option<String>,
+    pub color_range: Option<String>,
     pub bit_depth: Option<u32>,
     pub crop: Option<String>,
     pub audio_tracks: Vec<ResolvedAudioTrack>,
@@ -103,6 +105,43 @@ fn rational_to_rate_string(rate: Rational) -> Option<String> {
         "{:.2}",
         rate.numerator() as f64 / rate.denominator() as f64
     ))
+}
+
+fn fourcc(tag: &[u8; 4]) -> u32 {
+    (tag[0] as u32) | ((tag[1] as u32) << 8) | ((tag[2] as u32) << 16) | ((tag[3] as u32) << 24)
+}
+
+fn needs_hevc_hvc1_tag(codec_id: codec::Id, output_format: &str) -> bool {
+    if codec_id != codec::Id::HEVC {
+        return false;
+    }
+    matches!(output_format.to_ascii_lowercase().as_str(), "mov" | "mp4" | "m4v")
+}
+
+fn force_hevc_hvc1_tag(
+    ost: &mut format::stream::StreamMut<'_>,
+    codec_id: codec::Id,
+    output_format: &str,
+) {
+    if !needs_hevc_hvc1_tag(codec_id, output_format) {
+        return;
+    }
+
+    unsafe {
+        (*ost.parameters().as_mut_ptr()).codec_tag = fourcc(b"hvc1");
+    }
+    log::info!(
+        "convert_video forcing HEVC codec_tag to hvc1 for container={}",
+        output_format
+    );
+}
+
+fn is_hardware_video_encoder(codec_name: &str) -> bool {
+    codec_name.contains("videotoolbox")
+        || codec_name.contains("_nvenc")
+        || codec_name.contains("_qsv")
+        || codec_name.contains("_vaapi")
+        || codec_name.contains("_amf")
 }
 
 fn audio_summary_to_stream_details(summary: AudioOutputSummary) -> StreamDetails {
@@ -232,6 +271,7 @@ fn resolve_video_params(
         profile: params.profile,
         tune: params.tune,
         color_space: params.color_space,
+        color_range: params.color_range,
         bit_depth: params.bit_depth,
         crop: params.crop,
         audio_tracks,
@@ -247,7 +287,7 @@ struct Transcoder<E: TaskEmitter> {
     input_time_base: Rational,
     encoder: encoder::Video,
     encoder_time_base: Rational,
-    scaler: ffmpeg::software::scaling::Context,
+    scaler: Option<ffmpeg::software::scaling::Context>,
     frame_count: usize,
     duration: f64,
     emitter: E,
@@ -307,7 +347,16 @@ impl<E: TaskEmitter> Transcoder<E> {
         )
         .or_else(|| ffmpeg::encoder::find(codec::Id::H264))
         .ok_or("未找到合适的视频编码器")?;
+        let codec_id = codec.id();
         let codec_name = codec.name().to_string();
+        let effective_hw_accel =
+            params.use_hardware_acceleration && is_hardware_video_encoder(&codec_name);
+        if params.use_hardware_acceleration && !effective_hw_accel {
+            log::warn!(
+                "convert_video requested hardware acceleration but selected software encoder: {}",
+                codec_name
+            );
+        }
 
         let mut ost = octx
             .add_stream(codec)
@@ -491,7 +540,7 @@ impl<E: TaskEmitter> Transcoder<E> {
             encoder_time_base.numerator(),
             encoder_time_base.denominator(),
             params.video_bitrate,
-            params.use_hardware_acceleration,
+            effective_hw_accel,
             effective_rc_mode,
             effective_crf,
             params.preset,
@@ -504,6 +553,7 @@ impl<E: TaskEmitter> Transcoder<E> {
             .map_err(|e| format!("无法打开编码器: {}", e))?;
 
         ost.set_parameters(&encoder);
+        force_hevc_hvc1_tag(&mut ost, codec_id, params.format.as_str());
         let encoder_time_base = if encoder.time_base().numerator() > 0 {
             let tb = encoder.time_base();
             ost.set_time_base(tb);
@@ -515,16 +565,34 @@ impl<E: TaskEmitter> Transcoder<E> {
 
         // 4. 设置 Scaler (用于分辨率转换和像素格式转换)
         // Fallback: Use scaler for now as Filter Graph API is unstable
-        let scaler = ffmpeg::software::scaling::context::Context::get(
-            decoder.format(),
-            decoder.width(),
-            decoder.height(),
-            encoder.format(),
-            width,
-            height,
-            ffmpeg::software::scaling::flag::Flags::BILINEAR,
-        )
-        .map_err(|e| format!("无法创建Scaler: {}", e))?;
+        let needs_scaler = decoder.format() != encoder.format()
+            || decoder.width() != width
+            || decoder.height() != height;
+        let scaler = if needs_scaler {
+            Some(
+                ffmpeg::software::scaling::context::Context::get(
+                    decoder.format(),
+                    decoder.width(),
+                    decoder.height(),
+                    encoder.format(),
+                    width,
+                    height,
+                    ffmpeg::software::scaling::flag::Flags::BILINEAR,
+                )
+                .map_err(|e| format!("无法创建Scaler: {}", e))?,
+            )
+        } else {
+            log::debug!(
+                "convert_video scaler bypassed: src fmt={:?} {}x{} matches dst fmt={:?} {}x{}",
+                decoder.format(),
+                decoder.width(),
+                decoder.height(),
+                encoder.format(),
+                width,
+                height
+            );
+            None
+        };
 
         let mut filter_graph = None;
         let mut filter_enabled = false;
@@ -637,26 +705,28 @@ impl<E: TaskEmitter> Transcoder<E> {
                 }
             }
 
-            // Scale frame
-            let mut scaled_frame = frame::Video::empty();
-            self.scaler.run(&decoded, &mut scaled_frame).map_err(|e| {
-                format!(
-                    "Scaling failed: {} (decoded fmt={:?} {}x{} pts={:?} -> target fmt={:?} {}x{})",
-                    e,
-                    decoded.format(),
-                    decoded.width(),
-                    decoded.height(),
-                    decoded.pts(),
-                    self.encoder.format(),
-                    scaled_frame.width(),
-                    scaled_frame.height()
-                )
-            })?;
-
             let mut pts = decoded.pts().unwrap_or(0);
             if pts >= self.start_time {
                 pts -= self.start_time;
             }
+
+            let mut scaled_frame = frame::Video::empty();
+            let frame_to_encode: &mut frame::Video = if let Some(scaler) = self.scaler.as_mut() {
+                scaler.run(&decoded, &mut scaled_frame).map_err(|e| {
+                    format!(
+                        "Scaling failed: {} (decoded fmt={:?} {}x{} pts={:?} -> target fmt={:?})",
+                        e,
+                        decoded.format(),
+                        decoded.width(),
+                        decoded.height(),
+                        decoded.pts(),
+                        self.encoder.format()
+                    )
+                })?;
+                &mut scaled_frame
+            } else {
+                &mut decoded
+            };
 
             // Rescale PTS from Decoder TB to Encoder TB
             let mut rescaled_pts =
@@ -667,21 +737,21 @@ impl<E: TaskEmitter> Transcoder<E> {
 
             self.frame_count += 1;
             self.last_pts = rescaled_pts;
-            scaled_frame.set_pts(Some(rescaled_pts));
-            scaled_frame.set_kind(picture::Type::None);
+            frame_to_encode.set_pts(Some(rescaled_pts));
+            frame_to_encode.set_kind(picture::Type::None);
 
             if self.filter_enabled {
-                self.add_frame_to_filter(&scaled_frame)?;
+                self.add_frame_to_filter(frame_to_encode)?;
                 self.get_and_process_filtered_frames(octx, ost_time_base)?;
             } else {
-                self.send_frame_to_encoder(&scaled_frame).map_err(|e| {
+                self.send_frame_to_encoder(frame_to_encode).map_err(|e| {
                 format!(
                     "Encode send failed: {} (scaled fmt={:?} {}x{} pts={:?} rescaled_pts={} input_tb={}/{} encoder_fmt={:?} encoder_tb={}/{})",
                     e,
-                    scaled_frame.format(),
-                    scaled_frame.width(),
-                    scaled_frame.height(),
-                    scaled_frame.pts(),
+                    frame_to_encode.format(),
+                    frame_to_encode.width(),
+                    frame_to_encode.height(),
+                    frame_to_encode.pts(),
                     rescaled_pts,
                     self.input_time_base.0,
                     self.input_time_base.1,
@@ -695,7 +765,7 @@ impl<E: TaskEmitter> Transcoder<E> {
                         format!(
                             "Encode receive failed: {} (last pts={:?})",
                             e,
-                            scaled_frame.pts()
+                            frame_to_encode.pts()
                         )
                     })?;
             }
@@ -1267,6 +1337,7 @@ fn create_black_video_encoder(
     )
     .or_else(|| ffmpeg::encoder::find(codec::Id::H264))
     .ok_or("未找到合适的视频编码器")?;
+    let codec_id = codec.id();
 
     let mut ost = octx
         .add_stream(codec)
@@ -1339,6 +1410,7 @@ fn create_black_video_encoder(
         .map_err(|e| format!("无法打开编码器: {}", e))?;
 
     ost.set_parameters(&encoder);
+    force_hevc_hvc1_tag(&mut ost, codec_id, params.format.as_str());
     let ost_index = ost.index();
     let ost_time_base = ost.time_base();
 

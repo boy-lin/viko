@@ -9,7 +9,7 @@ use crate::events::TaskEmitter;
 use crate::media_common;
 pub use crate::services::convert::audio_transcode::AudioEncodingParams;
 use crate::services::convert::audio_transcode::{AudioOutputSummary, AudioTrackProcessor};
-use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
+use crate::services::ffmpeg::media_info::{self, MediaDetails, StreamDetails};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AudioTrackConfig {
@@ -178,6 +178,136 @@ fn resolve_audio_tracks(
     }
 }
 
+fn can_stream_copy_track(
+    track: &ResolvedAudioTrack,
+    ist: &format::stream::Stream,
+    _output_format: &str,
+) -> bool {
+    if track.encoding.bitrate.is_some()
+        || track.encoding.sample_rate.is_some()
+        || track.encoding.channels.is_some()
+        || track.encoding.bit_depth.is_some()
+        || track.encoding.quality.is_some()
+    {
+        return false;
+    }
+
+    let requested_codec = match track.encoding.codec.as_deref() {
+        Some(c) => c,
+        None => return false,
+    };
+    let input_codec = ist.parameters().id().name();
+    requested_codec.eq_ignore_ascii_case(input_codec)
+}
+
+fn try_stream_copy_audio<E: TaskEmitter>(
+    emitter: &E,
+    ictx: &mut format::context::Input,
+    octx: &mut format::context::Output,
+    resolved_tracks: &[ResolvedAudioTrack],
+    output_format: &str,
+    duration: f64,
+    output_path: &str,
+) -> Result<Option<AudioConversionReport>, String> {
+    if resolved_tracks.is_empty() {
+        return Ok(None);
+    }
+
+    let mut stream_mapping: HashMap<usize, usize> = HashMap::new();
+    for track in resolved_tracks {
+        if stream_mapping.contains_key(&track.source_stream_index) {
+            // Duplicate input stream mapping means this path cannot be a plain remux copy.
+            return Ok(None);
+        }
+        let ist = match ictx.stream(track.source_stream_index) {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+        if ist.parameters().medium() != ffmpeg::media::Type::Audio {
+            return Ok(None);
+        }
+        if !can_stream_copy_track(track, &ist, output_format) {
+            return Ok(None);
+        }
+
+        let mut ost = octx
+            .add_stream(ffmpeg::encoder::find(ffmpeg::codec::Id::None))
+            .map_err(|e| format!("添加输出音频流失败: {}", e));
+        let Ok(ref mut ost) = ost else {
+            return Ok(None);
+        };
+        ost.set_parameters(ist.parameters());
+        unsafe {
+            (*ost.parameters().as_mut_ptr()).codec_tag = 0;
+        }
+        stream_mapping.insert(track.source_stream_index, ost.index());
+    }
+
+    if stream_mapping.is_empty() {
+        return Ok(None);
+    }
+
+    if octx.write_header().is_err() {
+        return Ok(None);
+    }
+
+    let mut ost_time_bases: HashMap<usize, ffmpeg::Rational> = HashMap::new();
+    for (ist_index, ost_index) in &stream_mapping {
+        let ost_tb = octx
+            .stream(*ost_index)
+            .ok_or_else(|| format!("获取输出流失败: ost={}", ost_index))?
+            .time_base();
+        ost_time_bases.insert(*ist_index, ost_tb);
+    }
+
+    let mut packets_processed = 0u64;
+    for (stream, mut pkt) in ictx.packets() {
+        if crate::task::cancel::is_cancelled() {
+            return Err("Task cancelled".to_string());
+        }
+        let ist_index = stream.index();
+        let Some(&ost_index) = stream_mapping.get(&ist_index) else {
+            continue;
+        };
+        let Some(&ost_tb) = ost_time_bases.get(&ist_index) else {
+            return Err(format!("缺少输出流 time_base: ist={}", ist_index));
+        };
+        let input_pts = pkt.pts();
+        pkt.set_stream(ost_index);
+        pkt.rescale_ts(stream.time_base(), ost_tb);
+        pkt.write_interleaved(octx)
+            .map_err(|e| format!("写入音频包失败(直拷贝): {}", e))?;
+
+        packets_processed += 1;
+        if packets_processed % 50 == 0 && duration > 0.0 {
+            if let Some(pts) = input_pts {
+                let current_us = media_common::rescale_ts(
+                    pts,
+                    stream.time_base(),
+                    ffmpeg::Rational(1, ffmpeg::ffi::AV_TIME_BASE),
+                );
+                let progress =
+                    (current_us as f64 / (duration * ffmpeg::ffi::AV_TIME_BASE as f64) * 100.0)
+                        .clamp(0.0, 99.0);
+                emitter.emit("progress", Some(progress), None, None);
+            }
+        }
+    }
+
+    octx.write_trailer()
+        .map_err(|e| format!("写入文件尾失败(直拷贝): {}", e))?;
+
+    emitter.emit("complete", Some(100.0), Some(output_path.to_string()), None);
+
+    if !Path::new(output_path).exists() {
+        return Err(format!("转换完成但输出文件不存在: {}", output_path));
+    }
+
+    let output_media = media_info::get_media_details(output_path)?;
+    log::info!("音频转换完成(直拷贝): {}", output_path);
+    Ok(Some(AudioConversionReport { output_media }))
+}
+
 /// 执行音频转换（使用共享音频转码管线）
 pub fn convert_audio<E: TaskEmitter>(
     emitter: E,
@@ -209,6 +339,18 @@ pub fn convert_audio<E: TaskEmitter>(
     let resolved_tracks = resolve_audio_tracks(&params, &input_audio_indices, &codec_name, is_amr);
     if resolved_tracks.is_empty() {
         return Err("未解析出可用的音频轨道配置".to_string());
+    }
+
+    if let Some(report) = try_stream_copy_audio(
+        &emitter,
+        &mut ictx,
+        &mut octx,
+        &resolved_tracks,
+        &output_format,
+        duration,
+        &params.output_path,
+    )? {
+        return Ok(report);
     }
 
     if params.use_ultra_fast_speed.unwrap_or(false) {

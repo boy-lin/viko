@@ -380,6 +380,7 @@ fn run_convert_video_with_task_type(
         profile: args.profile.clone(),
         tune: args.tune.clone(),
         color_space: args.color_space.clone(),
+        color_range: args.color_range.clone(),
         bit_depth: args.bit_depth,
         crop: args.crop.clone(),
         audio_tracks: args.audio_tracks.clone(),

@@ -95,6 +95,7 @@ export interface ConvertVideoTaskArgs {
   profile?: string;
   tune?: string;
   color_space?: string;
+  color_range?: string;
   bit_depth?: number;
   crop?: string;
   audio_tracks?: AudioTrackConfig[];

@@ -18,6 +18,7 @@ import { FormatEnum } from "@/types/options";
 import { ConverterTask, FileType, MediaDetails, MediaTaskType } from "@/types/tasks";
 
 import { useConverterStore } from "./store";
+import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 
 interface TaskItemProps {
     task: ConverterTask;
@@ -45,12 +46,14 @@ function buildTaskDefaultsFromMedia(mediaInfo: MediaDetails, task: ConverterTask
         args: outputArgs,
         fileType: FileType.Image,
         taskType: MediaTaskType.ConvertImage,
+        outputTitle: mediaInfo.title,
     };
 }
 
 export default function TaskItem({ task }: TaskItemProps) {
     const { t } = useTranslation("converter");
-    const { removeTask, updateTaskById } = useConverterStore();
+    const removeTask = useConverterStore((state) => state.removeTask);
+    const updateTaskById = useConverterStore((state) => state.updateTaskById);
     const [loadingDetails, setLoadingDetails] = useState(!task.mediaDetails);
     const [loadError, setLoadError] = useState<string | null>(null);
     const loadingStarted = useRef(false);
@@ -88,6 +91,12 @@ export default function TaskItem({ task }: TaskItemProps) {
 
     const handleConvertSingle = async () => {
         await useConverterStore.getState().pushTasksToQueue([task])
+    };
+
+    const handleOutputTitleChange = (nextTitle: string) => {
+        updateTaskById(task.id, {
+            outputTitle: nextTitle,
+        });
     };
 
     const convertVideoTaskArgs = task.args as ConvertVideoTaskArgs;
@@ -155,7 +164,12 @@ export default function TaskItem({ task }: TaskItemProps) {
             </div>
 
             <div className="flex-1 min-w-0">
-                <div className="text-base font-semibold text-foreground">{t("targetInfo")}</div>
+                <div className="text-base font-semibold text-foreground">
+                    <OutputTitleEditor
+                        value={task.outputTitle}
+                        onChange={handleOutputTitleChange}
+                    />
+                </div>
                 <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground">
                     {targetInfoParts.map((p, idx) => (
                         <span key={idx}>{p || "auto"}</span>

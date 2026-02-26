@@ -1,13 +1,10 @@
 import { create } from "zustand";
-import {
-  FileType,
-  MediaTaskType,
-  CompressingTask,
-} from "../../../types/tasks";
+import { FileType, MediaTaskType, CompressingTask } from "../../../types/tasks";
 import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getImageCompressionPresetByQuality } from "./compressionPreset";
+import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
 
 const baseDefaultImageCompressionConfig = {
   format: "jpg",
@@ -16,149 +13,99 @@ const baseDefaultImageCompressionConfig = {
   dpi: 72,
   strip_metadata: true,
   keep_transparency: true,
-  crop_whitespace: false
+  crop_whitespace: false,
 } as CompressImageTaskArgs;
+
 export const defaultImageCompressionConfig = {
   ...baseDefaultImageCompressionConfig,
   ...getImageCompressionPresetByQuality(
     baseDefaultImageCompressionConfig.quality,
-    baseDefaultImageCompressionConfig.format
+    baseDefaultImageCompressionConfig.format,
   ).patch,
 } as CompressImageTaskArgs;
 
-interface CompressorState {
-  compressingTasks: CompressingTask[];
-  finishedTasks: CompressingTask[];
-  isLoading: boolean;
-  imageConfig: CompressImageTaskArgs;
-  addTasksByPaths: (paths: string[]) => Promise<void>;
-  clearCompressingTasks: () => Promise<void>;
-  updateTaskById: (id: string, updates: Partial<CompressingTask>) => void;
-  removeTask: (id: string) => void;
-  updateGlobalConfig: (config: Partial<CompressImageTaskArgs>) => void;
-  pushTasksToQueue: (tasks?: CompressingTask[]) => Promise<void>;
-}
+type CompressorStore = CreateTaskStoreState<
+  CompressingTask,
+  CompressImageTaskArgs,
+  Partial<CompressImageTaskArgs>,
+  "compressingTasks",
+  "imageConfig",
+  "clearCompressingTasks"
+>;
 
-export const useCompressorStore = create<CompressorState>((set, get) => ({
-  compressingTasks: [],
-  finishedTasks: [],
-  isLoading: true,
-  imageConfig: defaultImageCompressionConfig,
-  addTasksByPaths: async (paths) => {
-    const newTasks: CompressingTask[] = [];
-    for (const path of paths) {
-      if (!path) continue;
-      let outputArgs: any = {
-        ...get().imageConfig,
+export const useCompressorStore = create<CompressorStore>(
+  createTaskStore<
+    CompressingTask,
+    CompressImageTaskArgs,
+    Partial<CompressImageTaskArgs>,
+    "compressingTasks",
+    "imageConfig",
+    "clearCompressingTasks"
+  >({
+    tasksKey: "compressingTasks",
+    configKey: "imageConfig",
+    clearActionKey: "clearCompressingTasks",
+    defaultConfig: defaultImageCompressionConfig,
+    createTaskByPath: (path, config) => {
+      const outputArgs: CompressImageTaskArgs = {
+        ...config,
         task_id: crypto.randomUUID(),
         input_path: path,
-        output_path: '',
-        quality: get().imageConfig.quality,
-        format: get().imageConfig.format,
-        color_mode: get().imageConfig.color_mode,
-        dpi: get().imageConfig.dpi,
-        strip_metadata: get().imageConfig.strip_metadata,
-        keep_transparency: get().imageConfig.keep_transparency,
-        crop_whitespace: get().imageConfig.crop_whitespace,
-      }
-      let taskType = MediaTaskType.CompressImage;
-      newTasks.push({
+        output_path: "",
+      };
+      return {
         id: outputArgs.task_id,
         status: "idle",
         progress: 0,
         args: outputArgs,
         fileType: FileType.Image,
-        taskType
-      });
-
-    }
-    if (newTasks.length > 0) {
-      set((state) => ({
-        compressingTasks: [...state.compressingTasks, ...newTasks],
-      }));
-    }
-  },
-  clearCompressingTasks: async () => {
-    try {
-      set({
-        compressingTasks: [],
-      });
-    } catch (error) {
-      console.error("Failed to clear compressing tasks:", error);
-    }
-  },
-  updateTaskById: async (id, updates) => {
-    const { compressingTasks, finishedTasks } = get();
-    const task =
-      compressingTasks.find((t) => t.id === id) ||
-      finishedTasks.find((t) => t.id === id);
-    if (task) {
-      const updatedTask = {
-        ...task,
-        ...updates,
-        args: {
-          ...task.args, ...updates.args
-        }
+        taskType: MediaTaskType.CompressImage,
       };
-      const currentState = get();
-      if (["finished", "cancelled"].includes(updatedTask.status)) {
-        set({
-          compressingTasks: currentState.compressingTasks.filter(
-            (t) => t.id !== id
-          ),
-        });
-      } else {
-        set({
-          compressingTasks: currentState.compressingTasks.map((t) =>
-            t.id === id ? updatedTask : t
-          ),
-        });
-      }
-    }
+    },
+    mergeConfig: (current, patch) => {
+      const merged = {
+        ...current,
+        ...patch,
+      } as CompressImageTaskArgs;
 
-  },
-  updateGlobalConfig: (config) => {
-    const current = get().imageConfig;
-    const merged = {
-      ...current,
-      ...config,
-    } as CompressImageTaskArgs;
-    const presetPatch =
-      config.quality !== undefined
-        ? getImageCompressionPresetByQuality(config.quality, merged.format).patch
-        : {};
-    const next = {
-      ...current,
-      ...presetPatch,
-      ...config,
-    } as CompressImageTaskArgs;
-    set({ imageConfig: next });
-  },
-  removeTask: async (id: string) => {
-    const { compressingTasks } = get();
-    set({
-      compressingTasks: compressingTasks.filter((t) => t.id !== id),
-    });
-  },
-  pushTasksToQueue: async (tasks) => {
-    const { compressingTasks, imageConfig } = get()
-    const tasksToPush = tasks || compressingTasks
-    if (tasksToPush.length > 0 && imageConfig) {
-      const setting = useSettingsStore.getState()
-      const useHw = setting.useHardwareAcceleration
-      const useUFS = setting.useUltraFastSpeed
-      await getMediaTaskQueue().addCompressTasks(tasksToPush.map((task) => {
-        const outputDir = setting.getOutputDir(task.args.input_path);
-        return {
-          type: task.taskType,
-          args: {
-            ...task.args,
-            output_path: `${outputDir}/${task.args.title}.${task.args.format}`,
-            use_hardware_acceleration: useHw,
-            use_ultra_fast_speed: useUFS
-          }
-        }
-      }));
-    }
-  }
-}));
+      const presetPatch =
+        patch.quality !== undefined
+          ? getImageCompressionPresetByQuality(patch.quality, merged.format).patch
+          : {};
+
+      return {
+        ...current,
+        ...presetPatch,
+        ...patch,
+      } as CompressImageTaskArgs;
+    },
+    applyConfigToTask: (task, config) => ({
+      ...task,
+      args: {
+        ...task.args,
+        ...config,
+      },
+    }),
+    queueAdapter: async (tasks) => {
+      const settings = useSettingsStore.getState();
+      const useHw = settings.useHardwareAcceleration;
+      const useUFS = settings.useUltraFastSpeed;
+
+      await getMediaTaskQueue().addCompressTasks(
+        tasks.map((task) => {
+          const outputDir = settings.getOutputDir(task.args.input_path);
+          const outputTitle = resolveOutputTitle(task);
+          return {
+            type: task.taskType,
+            args: {
+              ...task.args,
+              output_path: `${outputDir}/${outputTitle}.${task.args.format}`,
+              use_hardware_acceleration: useHw,
+              use_ultra_fast_speed: useUFS,
+            },
+          };
+        }),
+      );
+    },
+  }),
+);

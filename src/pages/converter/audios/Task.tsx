@@ -12,7 +12,7 @@ interface ConvertingTaskProps {
 export default function ConvertingTask({
   globalFilter = "",
 }: ConvertingTaskProps) {
-  const { convertingTasks } = useConverterStore();
+  const convertingTasks = useConverterStore((state) => state.convertingTasks);
 
   const filteredTasks = useMemo(() => {
     const search = globalFilter?.trim().toLowerCase() || "";
@@ -27,11 +27,9 @@ export default function ConvertingTask({
     <>
       <div className="space-y-3">
         {filteredTasks.length === 0 ? (
-          <div className="border border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
-            <UploadPanel
-              supportedExtensions={AUDIO_FORMATS}
-            />
-          </div>
+          <UploadPanel
+            supportedExtensions={AUDIO_FORMATS}
+          />
         ) : (
           filteredTasks.map((task) => <TaskItem key={task.id} task={task} />)
         )}

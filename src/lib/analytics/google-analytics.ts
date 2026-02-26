@@ -4,8 +4,8 @@ const GA_ID = import.meta.env.VITE_GOOGLE_ANALYTICS_ID || '';
 
 declare global {
     interface Window {
-        dataLayer: any[];
-        gtag: (...args: any[]) => void;
+        dataLayer: unknown[];
+        gtag: (...args: unknown[]) => void;
     }
 }
 
@@ -30,7 +30,7 @@ export class GoogleAnalyticsProvider implements AnalyticsProvider {
 
         // Initialize dataLayer
         window.dataLayer = window.dataLayer || [];
-        function gtag(...args: any[]) {
+        function gtag(...args: unknown[]) {
             window.dataLayer.push(args);
         }
         window.gtag = gtag;
@@ -39,13 +39,13 @@ export class GoogleAnalyticsProvider implements AnalyticsProvider {
         gtag('config', GA_ID);
     }
 
-    track(eventName: string, properties?: Record<string, any>) {
+    track(eventName: string, properties?: Record<string, unknown>) {
         if (typeof window.gtag === 'function') {
             window.gtag('event', eventName, properties);
         }
     }
 
-    identify(userId: string, properties?: Record<string, any>) {
+    identify(userId: string, properties?: Record<string, unknown>) {
         if (typeof window.gtag === 'function') {
             window.gtag('set', 'user_properties', { ...properties, user_id: userId });
             // GA4 config update for user_id

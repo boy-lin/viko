@@ -19,11 +19,11 @@ export class PostHogAnalyticsProvider implements AnalyticsProvider {
         });
     }
 
-    track(eventName: string, properties?: Record<string, any>) {
+    track(eventName: string, properties?: Record<string, unknown>) {
         posthog.capture(eventName, properties);
     }
 
-    identify(userId: string, properties?: Record<string, any>) {
+    identify(userId: string, properties?: Record<string, unknown>) {
         posthog.identify(userId, properties);
     }
 

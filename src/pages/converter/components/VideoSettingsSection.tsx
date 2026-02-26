@@ -59,6 +59,8 @@ export default function VideoSettingsSection({
       {openAdvanced ? (
         <VideoAdvanceSetting
           format={config.format}
+          color_space={config.color_space}
+          color_range={config.color_range}
           video_encoder={config.video_encoder}
           resolution={config.resolution}
           frame_rate={config.frame_rate}

@@ -1,19 +1,16 @@
 import { create } from "zustand";
-import {
-  ConverterTask,
-  FileType,
-} from "@/types/tasks";
+import { ConverterTask, FileType, MediaTaskType } from "@/types/tasks";
 import { FormatEnum } from "@/types/options";
-import { MediaTaskType } from "@/types/tasks";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
+import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
+import { ConvertImageTaskArgs } from "@/lib/mediaTaskEvent";
 
 export enum ActiveCategoryEnum {
   Recents = "recents",
 }
 
-export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "args" | "activeCategory"> {
-}
+export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "args" | "activeCategory"> {}
 
 export const defaultVideoConfig: GlobalConverterConfig = {
   taskType: MediaTaskType.ConvertImage,
@@ -23,160 +20,83 @@ export const defaultVideoConfig: GlobalConverterConfig = {
   } as ConverterTask["args"],
 };
 
-interface ConverterState {
-  convertingTasks: ConverterTask[];
-  isLoading: boolean;
-  globalConfig: GlobalConverterConfig;
-  // addTasksByMediaList: (mediaList: MediaDetails[]) => void;
-  addTasksByPaths: (paths: string[]) => void;
-  clearConvertingTasks: () => Promise<void>;
-  updateTaskById: (id: string, updates: Partial<ConverterTask>) => void;
-  removeTask: (id: string) => void;
-  updateGlobalConfig: (config: Partial<GlobalConverterConfig>) => Promise<void>;
-  pushTasksToQueue: (tasks?: ConverterTask[]) => Promise<void>;
-}
+type ConverterStore = CreateTaskStoreState<
+  ConverterTask,
+  GlobalConverterConfig,
+  GlobalConverterConfig,
+  "convertingTasks",
+  "globalConfig",
+  "clearConvertingTasks"
+>;
 
-export const useConverterStore = create<ConverterState>((set, get) => ({
-  convertingTasks: [],
-  isLoading: true,
-  globalConfig: defaultVideoConfig,
-
-  // addTasksByMediaList: async (mediaList) => {
-  //   const newTasks: ConverterTask[] = [];
-  //   for (const mediaInfo of mediaList) {
-  //     if (!mediaInfo.path) continue;
-  //     let outputArgs: any = {
-  //       ...defaultVideoConfig.args,
-  //       task_id: crypto.randomUUID(),
-  //       title: mediaInfo.title,
-  //       input_path: mediaInfo.path,
-  //     }
-  //     outputArgs.format = FormatEnum.PNG
-  //     const containerDefinition = formatToDefinition.get(outputArgs.format);
-  //     outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder
-
-  //     newTasks.push({
-  //       id: outputArgs.task_id,
-  //       status: "idle",
-  //       progress: 0,
-  //       mediaDetails: mediaInfo,
-  //       args: outputArgs,
-  //       fileType: FileType.Image,
-  //       taskType: defaultVideoConfig.taskType,
-  //       activeCategory: defaultVideoConfig.activeCategory,
-  //     });
-
-  //   }
-
-  //   if (newTasks.length > 0) {
-  //     set((state) => ({
-  //       convertingTasks: [...state.convertingTasks, ...newTasks],
-  //     }));
-  //   }
-
-  // },
-  addTasksByPaths: async (paths) => {
-    const newTasks: ConverterTask[] = [];
-    for (const path of paths) {
-      if (!path) continue;
-      let outputArgs: any = {
-        ...get().globalConfig.args,
+export const useConverterStore = create<ConverterStore>(
+  createTaskStore<
+    ConverterTask,
+    GlobalConverterConfig,
+    GlobalConverterConfig,
+    "convertingTasks",
+    "globalConfig",
+    "clearConvertingTasks"
+  >({
+    tasksKey: "convertingTasks",
+    configKey: "globalConfig",
+    clearActionKey: "clearConvertingTasks",
+    defaultConfig: defaultVideoConfig,
+    createTaskByPath: (path, config) => {
+      const outputArgs: ConvertImageTaskArgs = {
+        ...config.args,
         task_id: crypto.randomUUID(),
         input_path: path,
-      }
-      outputArgs.format = FormatEnum.PNG
-      newTasks.push({
-        ...get().globalConfig,
+        format: FormatEnum.PNG,
+      };
+      return {
+        ...config,
         id: outputArgs.task_id,
         status: "idle",
         progress: 0,
         args: outputArgs,
         fileType: FileType.Image,
-      });
-
-    }
-    if (newTasks.length > 0) {
-      set((state) => ({
-        convertingTasks: [...state.convertingTasks, ...newTasks],
-      }));
-    }
-  },
-  clearConvertingTasks: async () => {
-    try {
-      // 从状态中删除
-      set({
-        convertingTasks: [],
-      });
-      // 停止task任务
-
-    } catch (error) {
-      console.error("Failed to clear processing tasks:", error);
-    }
-  },
-  updateTaskById: async (id, updates) => {
-    const { convertingTasks } = get();
-    const task =
-      convertingTasks.find((t) => t.id === id)
-    if (task) {
-      const updatedTask = {
-        ...task,
-        ...updates,
-        args: {
-          ...task.args, ...updates.args
-        }
       };
-
-      const currentState = get();
-      if (["finished", "cancelled"].includes(updatedTask.status)) {
-        set({
-          convertingTasks: currentState.convertingTasks.filter(
-            (t) => t.id !== id
-          ),
-        });
-      } else {
-        set({
-          convertingTasks: currentState.convertingTasks.map((t) =>
-            t.id === id ? updatedTask : t
-          ),
-        });
-      }
-    }
-  },
-  removeTask: async (id: string) => {
-    const { convertingTasks } = get();
-    set({
-      convertingTasks: convertingTasks.filter((t) => t.id !== id),
-    });
-  },
-  updateGlobalConfig: async (config) => {
-    const { args, ...rest } = get().globalConfig
-    set({
-      globalConfig: {
+    },
+    mergeConfig: (current, patch) => {
+      const { args, ...rest } = current;
+      return {
         ...rest,
-        ...config,
-        args: { ...args, ...config.args }
-      }
-    });
-  },
-  pushTasksToQueue: async (tasks) => {
-    const { convertingTasks, globalConfig } = get()
-    const tasksToPush = tasks || convertingTasks
-    if (tasksToPush.length > 0 && globalConfig) {
-      const setting = useSettingsStore.getState()
-      const useHw = setting.useHardwareAcceleration
-      const useUFS = setting.useUltraFastSpeed
-      await getMediaTaskQueue().addConvertTasks(tasksToPush.map((task) => {
-        const outputDir = setting.getOutputDir(task.args.input_path);
-        return {
-          type: task.taskType,
-          args: {
-            ...task.args,
-            output_path: `${outputDir}/${task.args.title}.${task.args.format}`,
-            use_hardware_acceleration: useHw,
-            use_ultra_fast_speed: useUFS
-          }
-        }
-      }));
-    }
-  }
-}));
+        ...patch,
+        args: {
+          ...args,
+          ...patch.args,
+        },
+      };
+    },
+    applyConfigToTask: (task, config) => ({
+      ...task,
+      taskType: config.taskType,
+      args: {
+        ...task.args,
+        ...config.args,
+      },
+    }),
+    queueAdapter: async (tasks) => {
+      const settings = useSettingsStore.getState();
+      const useHw = settings.useHardwareAcceleration;
+      const useUFS = settings.useUltraFastSpeed;
+
+      await getMediaTaskQueue().addConvertTasks(
+        tasks.map((task) => {
+          const outputDir = settings.getOutputDir(task.args.input_path);
+          const outputTitle = resolveOutputTitle(task);
+          return {
+            type: task.taskType,
+            args: {
+              ...task.args,
+              output_path: `${outputDir}/${outputTitle}.${task.args.format}`,
+              use_hardware_acceleration: useHw,
+              use_ultra_fast_speed: useUFS,
+            },
+          };
+        }),
+      );
+    },
+  }),
+);

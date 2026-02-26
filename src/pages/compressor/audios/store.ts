@@ -1,141 +1,97 @@
 import { create } from "zustand";
-import {
-  FileType,
-  MediaTaskType,
-  CompressingTask,
-} from "../../../types/tasks";
+import { FileType, MediaTaskType, CompressingTask } from "../../../types/tasks";
 import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { EncoderEnum } from "@/types/options";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getAudioCompressionPresetByRatio } from "./compressionPreset";
+import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
 
 export const defaultAudioCompressionConfig = {
   ...getAudioCompressionPresetByRatio(50, EncoderEnum.MP3).patch,
 } as CompressAudioTaskArgs;
 
-interface CompressorState {
-  compressingTasks: CompressingTask[];
-  isLoading: boolean;
-  audioConfig: CompressAudioTaskArgs;
-  addTasksByPaths: (paths: string[]) => Promise<void>;
-  clearCompressingTasks: () => Promise<void>;
-  updateTaskById: (id: string, updates: Partial<CompressingTask>) => void;
-  removeTask: (id: string) => void;
-  updateGlobalConfig: (config: Partial<CompressAudioTaskArgs>) => void;
-  pushTasksToQueue: (tasks?: CompressingTask[]) => Promise<void>;
-}
+type CompressorStore = CreateTaskStoreState<
+  CompressingTask,
+  CompressAudioTaskArgs,
+  Partial<CompressAudioTaskArgs>,
+  "compressingTasks",
+  "audioConfig",
+  "clearCompressingTasks"
+>;
 
-export const useCompressorStore = create<CompressorState>((set, get) => ({
-  compressingTasks: [],
-  isLoading: true,
-  audioConfig: defaultAudioCompressionConfig,
-  addTasksByPaths: async (paths) => {
-    const newTasks: CompressingTask[] = [];
-    for (const path of paths) {
-      if (!path) continue;
-      let outputArgs: any = {
-        ...get().audioConfig,
+export const useCompressorStore = create<CompressorStore>(
+  createTaskStore<
+    CompressingTask,
+    CompressAudioTaskArgs,
+    Partial<CompressAudioTaskArgs>,
+    "compressingTasks",
+    "audioConfig",
+    "clearCompressingTasks"
+  >({
+    tasksKey: "compressingTasks",
+    configKey: "audioConfig",
+    clearActionKey: "clearCompressingTasks",
+    defaultConfig: defaultAudioCompressionConfig,
+    createTaskByPath: (path, config) => {
+      const outputArgs: CompressAudioTaskArgs = {
+        ...config,
         task_id: crypto.randomUUID(),
         input_path: path,
-      }
-      newTasks.push({
+      };
+      return {
         id: outputArgs.task_id,
         status: "idle",
         progress: 0,
         args: outputArgs,
         fileType: FileType.Audio,
-        taskType: MediaTaskType.CompressAudio
-      });
-
-    }
-    if (newTasks.length > 0) {
-      set((state) => ({
-        compressingTasks: [...state.compressingTasks, ...newTasks],
-      }));
-    }
-  },
-  clearCompressingTasks: async () => {
-    try {
-      set({
-        compressingTasks: [],
-      });
-    } catch (error) {
-      console.error("Failed to clear compressing tasks:", error);
-    }
-  },
-  updateTaskById: async (id, updates) => {
-    const { compressingTasks } = get();
-    const task =
-      compressingTasks.find((t) => t.id === id)
-    if (task) {
-      const updatedTask = {
-        ...task,
-        ...updates,
-        args: {
-          ...task.args, ...updates.args
-        }
+        taskType: MediaTaskType.CompressAudio,
       };
-      const currentState = get();
-      if (["finished", "cancelled"].includes(updatedTask.status)) {
-        set({
-          compressingTasks: currentState.compressingTasks.filter(
-            (t) => t.id !== id
-          ),
-        });
-      } else {
-        set({
-          compressingTasks: currentState.compressingTasks.map((t) =>
-            t.id === id ? updatedTask : t
-          ),
-        });
-      }
-    }
-  },
-  updateGlobalConfig: (config) => {
-    const current = get().audioConfig;
-    const merged = {
-      ...current,
-      ...config,
-    } as CompressAudioTaskArgs;
+    },
+    mergeConfig: (current, patch) => {
+      const merged = {
+        ...current,
+        ...patch,
+      } as CompressAudioTaskArgs;
 
-    const presetPatch =
-      config.ratio !== undefined
-        ? getAudioCompressionPresetByRatio(config.ratio, merged.format).patch
-        : {};
+      const presetPatch =
+        patch.ratio !== undefined
+          ? getAudioCompressionPresetByRatio(patch.ratio, merged.format).patch
+          : {};
 
-    const next = {
-      ...current,
-      ...presetPatch,
-      ...config,
-    } as CompressAudioTaskArgs;
-    set({ audioConfig: next });
-  },
-  removeTask: async (id: string) => {
-    const { compressingTasks } = get();
-    set({
-      compressingTasks: compressingTasks.filter((t) => t.id !== id),
-    });
-  },
-  pushTasksToQueue: async (tasks) => {
-    const { compressingTasks, audioConfig } = get()
-    const tasksToPush = tasks || compressingTasks
-    if (tasksToPush.length > 0 && audioConfig) {
-      const setting = useSettingsStore.getState()
-      const useHw = setting.useHardwareAcceleration
-      const useUFS = setting.useUltraFastSpeed
-      await getMediaTaskQueue().addCompressTasks(tasksToPush.map((task) => {
-        const outputDir = setting.getOutputDir(task.args.input_path);
-        return {
-          type: task.taskType,
-          args: {
-            ...task.args,
-            output_path: `${outputDir}/${task.args.title}.${task.args.format}`,
-            use_hardware_acceleration: useHw,
-            use_ultra_fast_speed: useUFS
-          }
-        }
-      }));
-    }
-  }
-}));
+      return {
+        ...current,
+        ...presetPatch,
+        ...patch,
+      } as CompressAudioTaskArgs;
+    },
+    applyConfigToTask: (task, config) => ({
+      ...task,
+      args: {
+        ...task.args,
+        ...config,
+      },
+    }),
+    queueAdapter: async (tasks) => {
+      const settings = useSettingsStore.getState();
+      const useHw = settings.useHardwareAcceleration;
+      const useUFS = settings.useUltraFastSpeed;
+
+      await getMediaTaskQueue().addCompressTasks(
+        tasks.map((task) => {
+          const outputDir = settings.getOutputDir(task.args.input_path);
+          const outputTitle = resolveOutputTitle(task);
+          return {
+            type: task.taskType,
+            args: {
+              ...task.args,
+              output_path: `${outputDir}/${outputTitle}.${task.args.format}`,
+              use_hardware_acceleration: useHw,
+              use_ultra_fast_speed: useUFS,
+            },
+          };
+        }),
+      );
+    },
+  }),
+);

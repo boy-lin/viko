@@ -1029,6 +1029,7 @@ pub struct VideoConversionArgs {
     pub profile: Option<String>,
     pub tune: Option<String>,
     pub color_space: Option<String>,
+    pub color_range: Option<String>,
     pub bit_depth: Option<u32>,
     pub crop: Option<String>,
     pub audio_encoder: Option<String>,

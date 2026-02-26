@@ -16,15 +16,14 @@ import { toast } from "sonner";
 export const ConverterFooter: React.FC<{}> = () => {
   const { t } = useTranslation("converter");
   const globalConfig = useConverterStore((state) => state.globalConfig);
-  const convertingTasks = useConverterStore((state) => state.convertingTasks);
   const updateGlobalConfig = useConverterStore(
     (state) => state.updateGlobalConfig
   );
+  const applyConfigToAllTasks = useConverterStore(
+    (state) => state.applyConfigToAllTasks
+  );
   const clearConvertingTasks = useConverterStore(
     (state) => state.clearConvertingTasks
-  );
-  const updateTaskById = useConverterStore(
-    (state) => state.updateTaskById
   );
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
@@ -35,16 +34,8 @@ export const ConverterFooter: React.FC<{}> = () => {
     updateGlobalConfig(config);
   };
 
-  const applyConfigToAllTasks = async (config: GlobalConverterConfig) => {
-
-    const pendingTasks = convertingTasks;
-    // 为每个任务设置 config（浅拷贝 globalConfig）
-    for (const task of pendingTasks) {
-      updateTaskById(task.id, {
-        taskType: config.taskType,
-        args: config.args,
-      });
-    }
+  const handleApplyConfigToAllTasks = async (config: GlobalConverterConfig) => {
+    applyConfigToAllTasks(config);
   };
 
   const handleConvertAll = async () => {
@@ -92,7 +83,7 @@ export const ConverterFooter: React.FC<{}> = () => {
               config={globalConfig}
               recentKey="converter-audios-footer"
               onValueChange={handleFormatChange}
-              applyConfigToAllTasks={applyConfigToAllTasks}
+              applyConfigToAllTasks={handleApplyConfigToAllTasks}
             />
           </div>
         </div>

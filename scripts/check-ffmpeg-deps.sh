@@ -49,6 +49,50 @@ resolve_brew() {
   done
 }
 
+BREW_CMD=()
+HOMEBREW_FFMPEG_FORMULA="homebrew-ffmpeg/ffmpeg/ffmpeg"
+
+configure_brew_cmd() {
+  local brew_bin
+  brew_bin=$(resolve_brew || true)
+
+  if [ -z "$brew_bin" ]; then
+    BREW_CMD=()
+    return 1
+  fi
+
+  BREW_CMD=("$brew_bin")
+
+  if command -v arch >/dev/null 2>&1; then
+    if arch -arm64 "$brew_bin" --prefix >/dev/null 2>&1; then
+      BREW_CMD=(arch -arm64 "$brew_bin")
+      log_info "检测到可用的 ARM Homebrew，优先使用: arch -arm64 $brew_bin"
+    fi
+  fi
+
+  return 0
+}
+
+brew_run() {
+  "${BREW_CMD[@]}" "$@"
+}
+
+resolve_ffmpeg_bin() {
+  if [ ${#BREW_CMD[@]} -gt 0 ]; then
+    local brew_prefix
+    brew_prefix=$(brew_run --prefix 2>/dev/null || true)
+    if [ -n "$brew_prefix" ] && [ -x "${brew_prefix}/bin/ffmpeg" ]; then
+      echo "${brew_prefix}/bin/ffmpeg"
+      return
+    fi
+  fi
+
+  if command -v ffmpeg >/dev/null 2>&1; then
+    command -v ffmpeg
+    return
+  fi
+}
+
 FFMPEG_MAJOR=""
 
 check_pkg_config() {
@@ -90,6 +134,27 @@ check_ffmpeg_libs() {
     return 0
   fi
 
+  return 1
+}
+
+check_ffmpeg_drawtext() {
+  local ffmpeg_bin="${1:-}"
+
+  if [ -z "$ffmpeg_bin" ]; then
+    ffmpeg_bin=$(resolve_ffmpeg_bin || true)
+  fi
+
+  if [ -z "$ffmpeg_bin" ]; then
+    log_warn "未找到 ffmpeg 可执行文件，无法检测 drawtext"
+    return 1
+  fi
+
+  if "$ffmpeg_bin" -hide_banner -filters 2>/dev/null | grep -Eq '(^|[[:space:]])drawtext([[:space:]]|$)'; then
+    log_ok "FFmpeg 已启用 drawtext: ${ffmpeg_bin}"
+    return 0
+  fi
+
+  log_warn "FFmpeg 未启用 drawtext: ${ffmpeg_bin}"
   return 1
 }
 
@@ -141,39 +206,49 @@ persist_env_var() {
 install_macos() {
   log_info "检测到 macOS 系统，开始安装缺失依赖"
 
-  local brew_cmd
-  brew_cmd=$(resolve_brew || true)
-
-  if [ -z "$brew_cmd" ]; then
+  if ! configure_brew_cmd; then
     log_error "未找到 Homebrew，请先安装: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
     exit 1
   fi
 
-  log_info "使用 Homebrew 安装，命令路径: ${brew_cmd}"
+  log_info "使用 Homebrew 安装，命令: ${BREW_CMD[*]}"
 
   if ! check_pkg_config; then
     log_info "安装 pkg-config..."
-    "$brew_cmd" install pkg-config
+    brew_run install pkg-config
   fi
 
-  local need_ffmpeg=false
-  if ! check_ffmpeg_libs; then
-    need_ffmpeg=true
-  elif [ -n "$FFMPEG_MAJOR" ] && [ "$FFMPEG_MAJOR" -ge 8 ]; then
-    need_ffmpeg=true
+  log_info "安装 drawtext 相关依赖（freetype/fontconfig/fribidi）..."
+  brew_run install freetype fontconfig fribidi || log_warn "安装字体依赖失败，稍后将继续检测 drawtext"
+  log_info "注意：Homebrew 新版本不再支持 --with-* 选项，改为通过公式默认特性安装"
+
+  log_info "使用 Homebrew tap 版本 FFmpeg: ${HOMEBREW_FFMPEG_FORMULA}"
+  brew_run tap homebrew-ffmpeg/ffmpeg
+
+  # 避免 core ffmpeg 与 tap ffmpeg 混用
+  if brew_run list --versions ffmpeg >/dev/null 2>&1; then
+    log_warn "检测到 core ffmpeg，准备卸载以避免冲突"
+    brew_run uninstall ffmpeg || log_warn "卸载 core ffmpeg 失败，请手动处理"
   fi
 
-  if [ "$need_ffmpeg" = true ]; then
-    log_info "$brew_cmd install ffmpeg"
-    if ! "$brew_cmd" list --versions ffmpeg >/dev/null 2>&1; then
-      "$brew_cmd" install ffmpeg
-    else
-      "$brew_cmd" upgrade ffmpeg || log_warn "升级 FFmpeg 失败，尝试保留现有版本"
-    fi
+  if ! brew_run list --versions "${HOMEBREW_FFMPEG_FORMULA}" >/dev/null 2>&1; then
+    log_info "安装 ${HOMEBREW_FFMPEG_FORMULA}"
+    brew_run install "${HOMEBREW_FFMPEG_FORMULA}"
+  else
+    log_info "重装 ${HOMEBREW_FFMPEG_FORMULA} 以确保启用完整功能"
+    brew_run reinstall "${HOMEBREW_FFMPEG_FORMULA}" || \
+      log_warn "重装 tap ffmpeg 失败，尝试保留当前版本"
   fi
 
-  add_pkg_config_path "$("$brew_cmd" --prefix)/opt/ffmpeg/lib/pkgconfig"
-  add_pkg_config_path "$("$brew_cmd" --prefix)/lib/pkgconfig"
+  local ffmpeg_bin
+  ffmpeg_bin=$(resolve_ffmpeg_bin || true)
+  if ! check_ffmpeg_drawtext "$ffmpeg_bin"; then
+    log_error "tap ffmpeg 安装后仍未检测到 drawtext，请检查 Homebrew 输出日志"
+    exit 1
+  fi
+
+  add_pkg_config_path "$(brew_run --prefix)/opt/ffmpeg/lib/pkgconfig"
+  add_pkg_config_path "$(brew_run --prefix)/lib/pkgconfig"
   if [ -n "${PKG_CONFIG_PATH-}" ]; then
     log_info "已为脚本会话设置 PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
     printf "如需在当前终端复用上述路径，请执行:\n  export PKG_CONFIG_PATH=\"%s\"\n" "$PKG_CONFIG_PATH"

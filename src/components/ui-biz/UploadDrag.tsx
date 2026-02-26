@@ -87,7 +87,7 @@ export function UploadDrag({
   }, [handlePaths]);
 
   return (
-    <div>
+    <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
       {pending ? (
         <div className="mt-6 space-y-4">
           <div className="rounded-xl border border-border bg-background/70 p-4">
@@ -99,7 +99,7 @@ export function UploadDrag({
       ) : (
         <div
           className={clsx(
-            "mt-6 flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-all",
+            "mt-6 flex flex-col items-center justify-center gap-3 text-center transition-all",
             isDragging
               ? "border-primary bg-primary/10"
               : "border-muted-foreground/30 bg-background/60"

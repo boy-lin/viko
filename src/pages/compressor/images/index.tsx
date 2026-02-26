@@ -26,15 +26,13 @@ export default function ConverterPage() {
   }, []);
 
   return (
-    <Card className="h-full w-full py-0 gap-0 bg-transparent border-none shadow-none flex flex-col">
+    <Card className="h-full w-full py-0 px-4 gap-0 bg-transparent border-none shadow-none flex flex-col">
       <CardHeader className="rounded-none px-0 flex-shrink-0">
-        <CardDescription>
-        </CardDescription>
-        <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+        <CardDescription className="flex flex-col items-center gap-4 md:flex-row">
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="搜索文件名..."
+              placeholder={t("search.placeholder")}
               className="pl-9"
               value={globalFilter ?? ""}
               onChange={(e) => setGlobalFilter(e.target.value)}
@@ -42,13 +40,13 @@ export default function ConverterPage() {
           </div>
           <div>
             <UploadButton
-              name={t("file_picker.image")}
+              name={t("search.add_files")}
               multiple={true}
               extensions={IMAGE_FORMATS}
               onAddPaths={(paths) => useCompressorStore.getState().addTasksByPaths(paths)}
             />
           </div>
-        </div>
+        </CardDescription>
       </CardHeader>
       <CardContent className="px-0 flex flex-col flex-1 min-h-0">
         <div className="relative flex-1 overflow-auto">

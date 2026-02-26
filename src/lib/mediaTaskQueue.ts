@@ -150,15 +150,15 @@ class MediaTaskQueue {
     const { file_type, task_type, event_type, task_id, progress, error_message } = payload;
     const normalizedProgress = Math.min(100, Math.max(0, progress || 0));
 
-    // if (['error', 'complete'].includes(event_type)) {
-    console.log("Task event: " + event_type, payload);
-    // }
+    if (['error', 'complete'].includes(event_type)) {
+      console.log("Task event: " + event_type, payload);
+    }
 
     if ([MediaTaskType.ConvertVideo, MediaTaskType.ConvertAudio, MediaTaskType.ConvertImage, MediaTaskType.ConvertGif].includes(task_type)) {
       if (file_type === FileType.Video) {
         const { useConverterStore } = await import("@/pages/converter/videos/store");
         const store = useConverterStore.getState();
-        const taskExists = store.convertingTasks.some(t => t.id === task_id);
+        const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
 
         if (event_type === "progress") {
@@ -183,7 +183,7 @@ class MediaTaskQueue {
       } else if (file_type === FileType.Image || file_type === FileType.Gif) {
         const { useConverterStore } = await import("@/pages/converter/images/store");
         const store = useConverterStore.getState();
-        const taskExists = store.convertingTasks.some(t => t.id === task_id);
+        const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
 
         if (event_type === "progress") {
@@ -205,7 +205,7 @@ class MediaTaskQueue {
       } else if (file_type === FileType.Audio) {
         const { useConverterStore } = await import("@/pages/converter/audios/store");
         const store = useConverterStore.getState();
-        const taskExists = store.convertingTasks.some(t => t.id === task_id);
+        const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
 
         if (event_type === "progress") {
@@ -229,7 +229,7 @@ class MediaTaskQueue {
       if (file_type === FileType.Video) {
         const { useCompressorStore } = await import("@/pages/compressor/videos/store");
         const store = useCompressorStore.getState();
-        const taskExists = store.compressingTasks.some(t => t.id === task_id);
+        const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
 
         if (event_type === "progress") {
@@ -251,7 +251,7 @@ class MediaTaskQueue {
       } else if (file_type === FileType.Image) {
         const { useCompressorStore } = await import("@/pages/compressor/images/store");
         const store = useCompressorStore.getState();
-        const taskExists = store.compressingTasks.some(t => t.id === task_id);
+        const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
 
         if (event_type === "progress") {
@@ -273,7 +273,7 @@ class MediaTaskQueue {
       } else if (file_type === FileType.Audio) {
         const { useCompressorStore } = await import("@/pages/compressor/audios/store");
         const store = useCompressorStore.getState();
-        const taskExists = store.compressingTasks.some(t => t.id === task_id);
+        const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
 
         if (event_type === "progress") {
