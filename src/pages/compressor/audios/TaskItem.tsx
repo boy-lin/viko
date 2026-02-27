@@ -14,13 +14,13 @@ import { CompressionSettingsDialog } from "./SettingsDialog";
 import { useCompressorStore } from "./store";
 import { formatToDefinition } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
-import { useSettingsStore } from "@/stores/settingsStore";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { formatFileSize } from "@/lib/file";
 import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 import { extractFilenameFromPath } from "@/lib/utils";
 import { bridge } from "@/lib/bridge";
+import { formatBitrate } from "@/lib/utils";
 
 interface TaskItemProps {
   task: CompressingTask;
@@ -109,31 +109,21 @@ export default function TaskItem({ task }: TaskItemProps) {
   const firstAudioStream = task.mediaDetails?.streams?.find((s) => s.codec_type === "audio");
   const originalInfoParts = [
     task.mediaDetails?.extension?.toUpperCase?.(),
-    formatFileSize(task.mediaDetails?.size),
-    firstAudioStream?.bit_rate,
+    formatBitrate(firstAudioStream?.bit_rate),
     firstAudioStream?.sample_rate,
+    firstAudioStream?.channels,
   ];
   const targetInfoParts = [
     taskArgs.format?.toUpperCase?.(),
-    '-',
-    taskArgs.bitrate,
+    taskArgs.bitrate + 'kbps',
     taskArgs.sample_rate,
+    taskArgs.channels,
   ];
 
   const handleOutputTitleChange = (nextTitle: string) => {
-    if (!task.mediaDetails?.path) {
-      console.error('mediaDetails.path is undefined');
-      return;
-    }
-    const outputDir = useSettingsStore.getState().getOutputDir(task.mediaDetails?.path);
-    const output_path = `${outputDir}/${nextTitle}.${taskArgs.format}`
     startTransition(() => {
       updateTaskById(task.id, {
-        outputTitle: nextTitle,
-        args: {
-          ...taskArgs,
-          output_path,
-        },
+        outputTitle: nextTitle
       });
     });
   };

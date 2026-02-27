@@ -50,9 +50,6 @@ class MediaTaskQueue {
       if (!task.args.output_path) {
         throw new Error("Task output_path is required");
       }
-      if (task.args.input_path == task.args.output_path) {
-        throw new Error("Task input_path and output_path must be different");
-      }
       if (!task.args.task_id) {
         throw new Error("Task ID is required");
       }
@@ -72,9 +69,6 @@ class MediaTaskQueue {
     tasks.forEach(task => {
       if (!task.args.output_path) {
         throw new Error("Task output_path is required");
-      }
-      if (task.args.input_path == task.args.output_path) {
-        throw new Error("Task input_path and output_path must be different");
       }
       if (!task.args.task_id) {
         throw new Error("Task ID is required");

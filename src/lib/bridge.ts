@@ -281,13 +281,17 @@ class Bridge {
     limit: number = 50,
     offset: number = 0,
     taskType?: string,
-    keyword?: string
+    keyword?: string,
+    sortBy?: "created_at" | "output_name",
+    sortOrder?: "asc" | "desc"
   ): Promise<TaskHistoryItem[]> {
     return this.invoke<TaskHistoryItem[]>("get_task_history", {
       limit,
       offset,
       taskType,
       keyword,
+      sortBy,
+      sortOrder,
     });
   }
 

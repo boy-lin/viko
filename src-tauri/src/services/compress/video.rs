@@ -12,17 +12,17 @@ use std::time::Instant;
 pub struct VideoCompressionParams {
     pub input_path: String,
     pub output_path: String,
-    pub width: Option<u32>,             // 目标宽度
-    pub height: Option<u32>,            // 目标高度
-    pub bitrate: Option<u32>,           // 视频码率 kbps
-    pub frame_rate: Option<f32>,        // 目标帧率
-    pub codec: Option<String>,          // h264/h265/vp9/av1
-    pub keyframe_interval: Option<u32>, // GOP 间隔
-    pub color_depth: Option<u32>,       // 8/10/12 bit
-    pub aspect_ratio: Option<String>,   // 16:9 等
-    pub remove_audio: Option<bool>,     // 去除音轨
-    pub audio_bitrate: Option<u32>,     // 音频码率 kbps
-    pub preset: Option<String>,         // ultrafast/fast/medium/slow
+    pub width: Option<u32>,                      // 目标宽度
+    pub height: Option<u32>,                     // 目标高度
+    pub bitrate: Option<u32>,                    // 视频码率 kbps
+    pub frame_rate: Option<f32>,                 // 目标帧率
+    pub codec: Option<String>,                   // h264/h265/vp9/av1
+    pub keyframe_interval: Option<u32>,          // GOP 间隔
+    pub color_depth: Option<u32>,                // 8/10/12 bit
+    pub aspect_ratio: Option<String>,            // 16:9 等
+    pub remove_audio: Option<bool>,              // 去除音轨
+    pub audio_bitrate: Option<u32>,              // 音频码率 kbps
+    pub preset: Option<String>,                  // ultrafast/fast/medium/slow
     pub use_hardware_acceleration: Option<bool>, // 是否启用硬件编码（如可用）
 }
 
@@ -83,20 +83,7 @@ fn pick_video_encoder_for_compress(
         .or_else(|| encoder::find(fallback_id))
         .or_else(|| encoder::find_by_name(fallback_id.name()));
 
-    if let Some(selected) = codec {
-        let name = selected.name();
-        if name.ends_with("_mf") {
-            if (req == "h264" || req == "avc") && encoder::find_by_name("libx264").is_some() {
-                return encoder::find_by_name("libx264");
-            }
-            if (req == "h265" || req == "hevc") && encoder::find_by_name("libx265").is_some() {
-                return encoder::find_by_name("libx265");
-            }
-        }
-        return Some(selected);
-    }
-
-    None
+    codec
 }
 
 fn pick_audio_encoder_for_compress(fallback_id: codec::Id) -> Option<ffmpeg::Codec> {
@@ -110,9 +97,7 @@ fn pick_audio_encoder_for_compress(fallback_id: codec::Id) -> Option<ffmpeg::Cod
 
     for name in candidates {
         if let Some(codec) = encoder::find_by_name(name) {
-            if !codec.name().ends_with("_mf") {
-                return Some(codec);
-            }
+            return Some(codec);
         }
     }
 
@@ -139,6 +124,13 @@ struct VideoProcessor<E: TaskEmitter> {
 }
 
 impl<E: TaskEmitter> VideoProcessor<E> {
+    fn rescale_pts(pts: Option<i64>, src_tb: Rational, dst_tb: Rational) -> Option<i64> {
+        if src_tb.denominator() <= 0 || dst_tb.denominator() <= 0 {
+            return pts;
+        }
+        pts.map(|v| unsafe { ffmpeg::ffi::av_rescale_q(v, src_tb.into(), dst_tb.into()) })
+    }
+
     fn new(
         video_stream: &format::stream::Stream,
         octx: &mut format::context::Output,
@@ -159,7 +151,7 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             use_hw,
             video_stream.parameters().id(),
         )
-            .ok_or_else(|| "未找到匹配的视频编码器".to_string())?;
+        .ok_or_else(|| "未找到匹配的视频编码器".to_string())?;
         let selected_codec_name = codec.name().to_string();
         let effective_hw = use_hw && is_hardware_video_encoder(&selected_codec_name);
         if use_hw && !effective_hw {
@@ -377,14 +369,21 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             if crate::task::cancel::is_cancelled() {
                 return Err("Task cancelled".to_string());
             }
+            let progress_pts = decoded.pts();
+            let encoded_pts = Self::rescale_pts(
+                decoded.pts(),
+                self.stream_time_base,
+                self.final_encoder_time_base,
+            );
             let mut scaled = frame::Video::empty();
             let frame_to_encode: &mut frame::Video = if let Some(scaler) = self.scaler.as_mut() {
                 scaler
                     .run(&decoded, &mut scaled)
                     .map_err(|e| format!("视频缩放失败: {}", e))?;
-                scaled.set_pts(decoded.pts());
+                scaled.set_pts(encoded_pts);
                 &mut scaled
             } else {
+                decoded.set_pts(encoded_pts);
                 &mut decoded
             };
 
@@ -396,7 +395,7 @@ impl<E: TaskEmitter> VideoProcessor<E> {
 
             self.frame_count += 1;
 
-            self.emit_progress(decoded.pts());
+            self.emit_progress(progress_pts);
         }
         Ok(())
     }
@@ -443,17 +442,18 @@ impl<E: TaskEmitter> VideoProcessor<E> {
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             self.encoded_packets = self.encoded_packets.saturating_add(1);
+            let packet_size = encoded.size() as u64;
             encoded.set_stream(self.ost_index);
             encoded.rescale_ts(self.final_encoder_time_base, self.ost_time_base);
             encoded
                 .write_interleaved(octx)
                 .map_err(|e| format!("写入视频数据包失败: {}", e))?;
-            self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
+            self.written_bytes = self.written_bytes.saturating_add(packet_size);
             if self.encoded_packets <= 3 || self.encoded_packets % 120 == 0 {
                 log::info!(
                     "compress_video video packet: idx={} size={} pts={:?} dts={:?} duration={} key={} total_video_bytes={}",
                     self.encoded_packets,
-                    encoded.size(),
+                    packet_size,
                     encoded.pts(),
                     encoded.dts(),
                     encoded.duration(),
@@ -760,7 +760,6 @@ impl AudioProcessor {
         frame_samples: usize,
         octx: &mut format::context::Output,
     ) -> Result<(), String> {
-
         let mut frame = frame::Audio::new(self.target_format, frame_samples, self.target_layout);
         frame.set_rate(self.target_rate);
         frame.set_pts(Some(self.next_pts));
@@ -784,6 +783,7 @@ impl AudioProcessor {
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             self.encoded_packets = self.encoded_packets.saturating_add(1);
+            let packet_size = encoded.size() as u64;
             encoded.set_stream(self.ost_index);
             encoded.rescale_ts(self.encoder_time_base, self.ost_time_base);
 
@@ -801,12 +801,12 @@ impl AudioProcessor {
             encoded
                 .write_interleaved(octx)
                 .map_err(|e| format!("写入音频数据包失败: {}", e))?;
-            self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
+            self.written_bytes = self.written_bytes.saturating_add(packet_size);
             if self.encoded_packets <= 3 || self.encoded_packets % 200 == 0 {
                 log::info!(
                     "compress_video audio packet: idx={} size={} pts={:?} dts={:?} duration={} total_audio_bytes={}",
                     self.encoded_packets,
-                    encoded.size(),
+                    packet_size,
                     encoded.pts(),
                     encoded.dts(),
                     encoded.duration(),
@@ -894,14 +894,7 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
         format::output(&params.output_path).map_err(|e| format!("IO Output Error: {}", e))?;
 
     let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
-    let input_size = std::fs::metadata(&params.input_path)
-        .map(|m| m.len())
-        .unwrap_or(0);
-    log::info!(
-        "compress_video input media: input_size_bytes={} duration={:.3}s",
-        input_size,
-        duration
-    );
+    log::info!("compress_video input media: duration={:.3}s", duration);
 
     let video_stream = ictx
         .streams()
@@ -955,12 +948,6 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
     } else {
         None
     };
-    let actual_output_size = std::fs::metadata(&output_path).map(|m| m.len()).unwrap_or(0);
-    let actual_avg_bitrate = if duration > 0.0 {
-        Some(((actual_output_size as f64 * 8.0) / duration) as i64)
-    } else {
-        None
-    };
     let target_total_bitrate = video_proc.target_bitrate
         + audio_proc
             .as_ref()
@@ -972,14 +959,11 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
         None
     };
     log::info!(
-        "compress_video done: output={} duration={:.3}s input_size_bytes={} written_bytes={} actual_output_size_bytes={} estimated_avg_bitrate_bps={:?} actual_avg_bitrate_bps={:?} target_total_bitrate_bps={} estimated_target_size_bytes={:?}",
+        "compress_video done: output={} duration={:.3}s written_bytes={} avg_bitrate_bps={:?} target_total_bitrate_bps={} estimated_target_size_bytes={:?}",
         output_path,
         duration,
-        input_size,
         total_written_bytes,
-        actual_output_size,
         estimated_avg_bitrate,
-        actual_avg_bitrate,
         target_total_bitrate,
         estimated_target_size
     );
@@ -993,7 +977,7 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
         format_names: "video".to_string(),
         format_long_name: None,
         duration,
-        size: actual_output_size,
+        size: total_written_bytes,
         streams,
         tags: HashMap::new(),
         stream_tags: Vec::new(),

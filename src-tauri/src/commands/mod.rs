@@ -1379,12 +1379,16 @@ pub async fn get_task_history(
     offset: Option<u32>,
     task_type: Option<String>,
     keyword: Option<String>,
+    sort_by: Option<String>,
+    sort_order: Option<String>,
 ) -> Result<Vec<crate::storage::task_history::TaskHistoryItem>, String> {
     crate::storage::task_history::get_history(
         limit.unwrap_or(50) as usize,
         offset.unwrap_or(0) as usize,
         task_type,
         keyword,
+        sort_by,
+        sort_order,
     )
     .await
     .map_err(|e| e.to_string())

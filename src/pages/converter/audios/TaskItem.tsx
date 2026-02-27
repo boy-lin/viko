@@ -19,6 +19,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 
 import { useConverterStore } from "./store";
+import { formatBitrate } from "@/lib/utils";
 
 interface TaskItemProps {
     task: ConverterTask;
@@ -95,18 +96,8 @@ export default function TaskItem({ task }: TaskItemProps) {
 
 
     const handleOutputTitleChange = (nextTitle: string) => {
-        if (!task.mediaDetails?.path) {
-            console.error('mediaDetails.path is undefined');
-            return;
-        }
-        const outputDir = useSettingsStore.getState().getOutputDir(task.mediaDetails?.path);
-        const output_path = `${outputDir}/${nextTitle}.${task.args.format}`
         updateTaskById(task.id, {
             outputTitle: nextTitle,
-            args: {
-                ...task.args,
-                output_path,
-            },
         });
     };
 
@@ -120,14 +111,14 @@ export default function TaskItem({ task }: TaskItemProps) {
     const originalInfoParts = [
         taskMediaDetails?.extension,
         firstStream?.codec_name,
-        firstStream?.bit_rate,
+        formatBitrate(firstStream?.bit_rate),
         firstStream?.sample_rate,
     ];
 
     const targetInfoParts = [
         taskArgs.format,
         audioTrack?.codec,
-        audioTrack?.bitrate,
+        formatBitrate(audioTrack?.bitrate, 1),
         audioTrack?.sample_rate,
     ];
 

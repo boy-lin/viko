@@ -217,10 +217,20 @@ pub async fn get_history(
     offset: usize,
     task_type: Option<String>,
     keyword: Option<String>,
+    sort_by: Option<String>,
+    sort_order: Option<String>,
 ) -> Result<Vec<TaskHistoryItem>> {
     let pool = get_db().await?;
 
     let mut query = Query::select();
+    let sort_order = match sort_order
+        .as_deref()
+        .map(|s| s.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("asc") => Order::Asc,
+        _ => Order::Desc,
+    };
     query
         .columns([
             TaskHistory::Id,
@@ -238,9 +248,25 @@ pub async fn get_history(
             TaskHistory::ErrorMessage,
         ])
         .from(TaskHistory::Table)
-        .order_by(TaskHistory::FinishedAt, Order::Desc)
         .limit(limit as u64)
         .offset(offset as u64);
+    match sort_by
+        .as_deref()
+        .map(|s| s.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("output_name") | Some("name") => {
+            query
+                .order_by(TaskHistory::Title, sort_order.clone())
+                .order_by(TaskHistory::OutputPath, sort_order.clone())
+                .order_by(TaskHistory::Id, sort_order.clone());
+        }
+        _ => {
+            query
+                .order_by(TaskHistory::CreatedAt, sort_order.clone())
+                .order_by(TaskHistory::Id, sort_order.clone());
+        }
+    }
 
     if let Some(t_type) = task_type {
         if t_type == "convert" {

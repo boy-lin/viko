@@ -529,6 +529,18 @@ impl<E: TaskEmitter> Transcoder<E> {
         if let Some(crf) = effective_crf {
             opts.set("crf", crf.to_string().as_str());
         }
+        if effective_rc_mode != "crf" && matches!(codec_name.as_str(), "libx264" | "libx265") {
+            let fallback_kbps = configured_bit_rate
+                .map(|b| ((b.max(1) + 999) / 1000) as u32)
+                .unwrap_or(0);
+            let maxrate_kbps = params.max_bitrate.unwrap_or(fallback_kbps);
+            if maxrate_kbps > 0 {
+                let maxrate_s = format!("{}k", maxrate_kbps);
+                let bufsize_s = format!("{}k", maxrate_kbps.saturating_mul(2));
+                opts.set("maxrate", maxrate_s.as_str());
+                opts.set("bufsize", bufsize_s.as_str());
+            }
+        }
 
         eprintln!(
             "DEBUG: Encoder params: codec={}, width={}, height={}, pix_fmt={:?}, frame_rate={:?}, time_base={}/{} bitrate_kbps={:?}, hw_accel={}, rc_mode={}, crf={:?}, preset={:?}, profile={:?}, tune={:?}",
@@ -858,10 +870,11 @@ impl<E: TaskEmitter> Transcoder<E> {
         loop {
             match self.encoder.receive_packet(&mut encoded) {
                 Ok(()) => {
+                    let packet_size = encoded.size() as u64;
                     encoded.set_stream(self.ost_index);
                     encoded.rescale_ts(self.encoder_time_base, ost_time_base);
                     encoded.write_interleaved(octx).map_err(|e| e.to_string())?;
-                    self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
+                    self.written_bytes = self.written_bytes.saturating_add(packet_size);
                 }
                 Err(e) => {
                     if is_ffmpeg_again(&e) || e == ffmpeg::Error::Eof {
@@ -1215,13 +1228,14 @@ pub fn convert_video<E: TaskEmitter + Clone>(
             }
         } else {
             // Stream copy
+            let packet_size = packet.size() as u64;
             packet.rescale_ts(ist_time_bases[ist_index], ost_time_base);
             packet.set_position(-1);
             packet.set_stream(ost_idx);
             packet
                 .write_interleaved(&mut octx)
                 .map_err(|e| format!("Write packet failed: {}", e))?;
-            stream_copy_bytes = stream_copy_bytes.saturating_add(packet.size() as u64);
+            stream_copy_bytes = stream_copy_bytes.saturating_add(packet_size);
         }
     }
 
@@ -1536,12 +1550,13 @@ fn generate_black_video_frames(
         // 接收编码后的数据包
         let mut encoded = packet::Packet::empty();
         while encoder.receive_packet(&mut encoded).is_ok() {
+            let packet_size = encoded.size() as u64;
             encoded.set_stream(ost_index);
             encoded.rescale_ts(encoder_time_base, ost_time_base);
             encoded
                 .write_interleaved(octx)
                 .map_err(|e| format!("写入黑屏数据包失败: {}", e))?;
-            written_bytes = written_bytes.saturating_add(encoded.size() as u64);
+            written_bytes = written_bytes.saturating_add(packet_size);
         }
 
         frame_count += 1;
@@ -1572,12 +1587,13 @@ fn generate_black_video_frames(
 
     let mut encoded = packet::Packet::empty();
     while encoder.receive_packet(&mut encoded).is_ok() {
+        let packet_size = encoded.size() as u64;
         encoded.set_stream(ost_index);
         encoded.rescale_ts(encoder_time_base, ost_time_base);
         encoded
             .write_interleaved(octx)
             .map_err(|e| format!("写入最终黑屏数据包失败: {}", e))?;
-        written_bytes = written_bytes.saturating_add(encoded.size() as u64);
+        written_bytes = written_bytes.saturating_add(packet_size);
     }
 
     Ok(written_bytes)

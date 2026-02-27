@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getSortedRowModel,
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { FolderOpen, RefreshCw, Search } from "lucide-react";
+import { ArrowUpDown, FolderOpen, RefreshCw, Search } from "lucide-react";
 import { bridge, type TaskHistoryItem } from "@/lib/bridge";
 import { useSession } from "@/lib/auth-client";
 import {
@@ -43,7 +42,10 @@ export default function TaskHistoryPage() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [tasks, setTasks] = useState<TaskHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [isPending, startTransition] = useTransition();
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "created_at", desc: true },
+  ]);
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -51,6 +53,12 @@ export default function TaskHistoryPage() {
   const fetchData = async (targetPage: number = page) => {
     setLoading(true);
     try {
+      const primarySort = sorting[0];
+      const sortBy =
+        primarySort?.id === "output_name" || primarySort?.id === "created_at"
+          ? (primarySort.id as "output_name" | "created_at")
+          : "created_at";
+      const sortOrder: "asc" | "desc" = primarySort?.desc ? "desc" : "asc";
       const keyword = globalFilter.trim();
       try {
         await syncLocalTaskHistoryToRemote({
@@ -63,10 +71,14 @@ export default function TaskHistoryPage() {
         PAGE_SIZE + 1,
         targetPage * PAGE_SIZE,
         undefined,
-        keyword || undefined
+        keyword || undefined,
+        sortBy,
+        sortOrder
       );
-      setHasNextPage(history.length > PAGE_SIZE);
-      setTasks(history.slice(0, PAGE_SIZE));
+      startTransition(() => {
+        setHasNextPage(history.length > PAGE_SIZE);
+        setTasks(history.slice(0, PAGE_SIZE));
+      });
     } catch (error) {
       console.error("Failed to fetch task history:", error);
       toast.error(t("errors.fetch_local"));
@@ -77,7 +89,7 @@ export default function TaskHistoryPage() {
 
   useEffect(() => {
     fetchData(page);
-  }, [page, session?.user?.id]);
+  }, [page, session?.user?.id, sorting]);
 
   useEffect(() => {
     useAppStore.getState().resetUnreadFinishedCount();
@@ -143,16 +155,34 @@ export default function TaskHistoryPage() {
       },
       {
         accessorKey: "output_name",
-        header: t("table.output_name"),
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="h-auto p-0 hover:bg-transparent"
+          >
+            {t("table.output_name")}
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
         cell: ({ row }) => {
           const fileName = extractFilenameFromPath(row.original.output_path);
           return <EllipsisName name={fileName} className="text-left block max-w-[360px]" />;
         },
-        enableSorting: false,
+        enableSorting: true,
       },
       {
         accessorKey: "created_at",
-        header: t("table.started_at"),
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="h-auto p-0 hover:bg-transparent"
+          >
+            {t("table.started_at")}
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
         cell: ({ row }) => formatDateTime(row.original.created_at),
       },
       {
@@ -218,7 +248,7 @@ export default function TaskHistoryPage() {
         enableSorting: false,
       },
     ],
-    [page]
+    [page, now, t]
   );
 
   const table = useReactTable({
@@ -226,9 +256,9 @@ export default function TaskHistoryPage() {
     columns,
     state: { sorting },
     onSortingChange: setSorting,
+    manualSorting: true,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   });
 
   return (
@@ -250,8 +280,8 @@ export default function TaskHistoryPage() {
             </div>
             <Button variant="outline" onClick={handleSearch} disabled={loading}>{t("search.action")}</Button>
 
-            <Button variant="outline" onClick={handleRefresh} disabled={loading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <Button variant="outline" onClick={handleRefresh} disabled={loading || isPending}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading || isPending ? "animate-spin" : ""}`} />
               {t("refresh")}
             </Button>
           </div>
@@ -273,9 +303,17 @@ export default function TaskHistoryPage() {
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
-            {
-              loading ? (
+          <TableBody className={loading || isPending ? "opacity-80 transition-opacity" : "transition-opacity"}>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+            {loading && table.getRowModel().rows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="py-8">
                     <div className="flex items-center justify-center w-full">
@@ -283,16 +321,14 @@ export default function TaskHistoryPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            }
+            )}
+            {(loading || isPending) && table.getRowModel().rows.length > 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-2">
+                  {t("refresh")}
+                </TableCell>
+              </TableRow>
+            )}
             {!loading && table.getRowModel().rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-muted-foreground py-8">

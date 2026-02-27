@@ -21,6 +21,7 @@ import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { formatFileSize } from "@/lib/file";
 import { getVideoCompressionPresetByRatio } from "./compressionPreset";
 import { extractFilenameFromPath } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface TaskItemProps {
   task: CompressingTask;
@@ -85,7 +86,12 @@ export default function TaskItem({ task }: TaskItemProps) {
   }, [task.args?.input_path]);
 
   const handleConvertSingle = async () => {
-    await useCompressorStore.getState().pushTasksToQueue([task])
+    console.log('compress_video start', task);
+    try {
+      await useCompressorStore.getState().pushTasksToQueue([task])
+    } catch (e: any) {
+      toast.error(e.message)
+    }
   };
 
   if (loading) {
@@ -123,16 +129,8 @@ export default function TaskItem({ task }: TaskItemProps) {
       console.error('mediaDetails.path is undefined');
       return;
     }
-    const outputDir = useSettingsStore.getState().getOutputDir(task.mediaDetails?.path);
-    const output_path = `${outputDir}/${nextTitle}.${taskArgs.format}`
-    startTransition(() => {
-      updateTaskById(task.id, {
-        outputTitle: nextTitle,
-        args: {
-          ...taskArgs,
-          output_path,
-        },
-      });
+    updateTaskById(task.id, {
+      outputTitle: nextTitle,
     });
   };
 

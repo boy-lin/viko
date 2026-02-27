@@ -158,6 +158,7 @@ pub fn compress_audio_file<E: TaskEmitter>(
     let mut encoder = encoder_ctx
         .open_as(codec_id)
         .map_err(|e| format!("打开编码器失败: {}", e))?;
+    let encoder_time_base = encoder.time_base();
 
     let encoder_frame_size = encoder.frame_size() as usize;
     let mut audio_fifo = if encoder_frame_size > 0 {
@@ -182,10 +183,13 @@ pub fn compress_audio_file<E: TaskEmitter>(
 
     ost.set_parameters(&encoder);
     let ost_index = ost.index();
-    let ost_time_base = ost.time_base();
     drop(ost);
     octx.write_header()
         .map_err(|e| format!("写入输出头失败: {}", e))?;
+    let ost_time_base = octx
+        .stream(ost_index)
+        .ok_or_else(|| format!("输出流不存在: {}", ost_index))?
+        .time_base();
 
     let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
     let mut pts_counter: i64 = 0;
@@ -207,9 +211,18 @@ pub fn compress_audio_file<E: TaskEmitter>(
 
         let mut decoded = frame::Audio::empty();
         while decoder.receive_frame(&mut decoded).is_ok() {
-            let mut resampled = frame::Audio::empty();
-            resampled.set_channel_layout(target_layout);
-            resampled.set_format(target_format);
+            let in_rate = decoded.rate().max(1) as i64;
+            let out_rate = (target_rate as i64).max(1);
+            let out_samples = unsafe {
+                ffmpeg::ffi::av_rescale_rnd(
+                    decoded.samples() as i64,
+                    out_rate,
+                    in_rate,
+                    ffmpeg::ffi::AVRounding::AV_ROUND_UP,
+                )
+            }
+            .max(1) as usize;
+            let mut resampled = frame::Audio::new(target_format, out_samples, target_layout);
             resampled.set_rate(target_rate as u32);
 
             resampler
@@ -242,12 +255,23 @@ pub fn compress_audio_file<E: TaskEmitter>(
                         .send_frame(&output_frame)
                         .map_err(|e| format!("发送音频帧失败: {}", e))?;
                     while encoder.receive_packet(&mut encoded).is_ok() {
+                        let packet_size = encoded.size() as u64;
                         encoded.set_stream(ost_index);
-                        encoded.rescale_ts(decoder.time_base(), ost_time_base);
+                        encoded.rescale_ts(encoder_time_base, ost_time_base);
+                        if encoded.duration() <= 0 {
+                            let duration = unsafe {
+                                ffmpeg::ffi::av_rescale_q(
+                                    encoder_frame_size as i64,
+                                    encoder_time_base.into(),
+                                    ost_time_base.into(),
+                                )
+                            };
+                            encoded.set_duration(duration);
+                        }
                         encoded
                             .write_interleaved(&mut octx)
                             .map_err(|e| format!("写入数据包失败: {}", e))?;
-                        written_bytes = written_bytes.saturating_add(encoded.size() as u64);
+                        written_bytes = written_bytes.saturating_add(packet_size);
                     }
                 }
             } else {
@@ -259,12 +283,23 @@ pub fn compress_audio_file<E: TaskEmitter>(
                     .map_err(|e| format!("发送音频帧失败: {}", e))?;
 
                 while encoder.receive_packet(&mut encoded).is_ok() {
+                    let packet_size = encoded.size() as u64;
                     encoded.set_stream(ost_index);
-                    encoded.rescale_ts(decoder.time_base(), ost_time_base);
+                    encoded.rescale_ts(encoder_time_base, ost_time_base);
+                    if encoded.duration() <= 0 {
+                        let duration = unsafe {
+                            ffmpeg::ffi::av_rescale_q(
+                                resampled.samples() as i64,
+                                encoder_time_base.into(),
+                                ost_time_base.into(),
+                            )
+                        };
+                        encoded.set_duration(duration);
+                    }
                     encoded
                         .write_interleaved(&mut octx)
                         .map_err(|e| format!("写入数据包失败: {}", e))?;
-                    written_bytes = written_bytes.saturating_add(encoded.size() as u64);
+                    written_bytes = written_bytes.saturating_add(packet_size);
                 }
             }
 
@@ -296,12 +331,23 @@ pub fn compress_audio_file<E: TaskEmitter>(
                 .send_frame(&output_frame)
                 .map_err(|e| format!("发送音频帧失败: {}", e))?;
             while encoder.receive_packet(&mut encoded).is_ok() {
+                let packet_size = encoded.size() as u64;
                 encoded.set_stream(ost_index);
-                encoded.rescale_ts(decoder.time_base(), ost_time_base);
+                encoded.rescale_ts(encoder_time_base, ost_time_base);
+                if encoded.duration() <= 0 {
+                    let duration = unsafe {
+                        ffmpeg::ffi::av_rescale_q(
+                            remaining_samples as i64,
+                            encoder_time_base.into(),
+                            ost_time_base.into(),
+                        )
+                    };
+                    encoded.set_duration(duration);
+                }
                 encoded
                     .write_interleaved(&mut octx)
                     .map_err(|e| format!("写入尾部数据包失败: {}", e))?;
-                written_bytes = written_bytes.saturating_add(encoded.size() as u64);
+                written_bytes = written_bytes.saturating_add(packet_size);
             }
         }
     }
@@ -310,12 +356,19 @@ pub fn compress_audio_file<E: TaskEmitter>(
         .send_eof()
         .map_err(|e| format!("发送 EOF 失败: {}", e))?;
     while encoder.receive_packet(&mut encoded).is_ok() {
+        let packet_size = encoded.size() as u64;
         encoded.set_stream(ost_index);
-        encoded.rescale_ts(decoder.time_base(), ost_time_base);
+        encoded.rescale_ts(encoder_time_base, ost_time_base);
+        if encoded.duration() <= 0 {
+            let duration = unsafe {
+                ffmpeg::ffi::av_rescale_q(1152, encoder_time_base.into(), ost_time_base.into())
+            };
+            encoded.set_duration(duration);
+        }
         encoded
             .write_interleaved(&mut octx)
             .map_err(|e| format!("写入数据包失败: {}", e))?;
-        written_bytes = written_bytes.saturating_add(encoded.size() as u64);
+        written_bytes = written_bytes.saturating_add(packet_size);
     }
 
     octx.write_trailer()
@@ -359,7 +412,11 @@ pub fn compress_audio_file<E: TaskEmitter>(
             .unwrap_or_default(),
         format_names: params.codec.clone().unwrap_or_else(|| "audio".to_string()),
         format_long_name: None,
-        duration,
+        duration: if target_rate > 0 {
+            pts_counter as f64 / target_rate as f64
+        } else {
+            duration
+        },
         size: actual_output_size,
         streams: vec![stream],
         tags: HashMap::new(),

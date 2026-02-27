@@ -33,4 +33,10 @@ export const getExtension = (path?: string) => {
   return filename.slice(idx + 1).toLowerCase();
 };
 
+export const formatBitrate = (bitrate?: number, denominator = 1000) => {
+  if (!bitrate) return "auto";
+  return Math.round(bitrate / denominator) + 'kbps';
+};
+
+
 
