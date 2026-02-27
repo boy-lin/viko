@@ -8,3 +8,20 @@
   palettegen -> paletteuse=alpha=1”方案，需要在 GIF 转码中构建滤镜图（buffer→scale/fps→split→palettegen/              
   paletteuse→buffersink），让输出帧为 pal8 再送 GIF 编码器。                                                          
   工作量较大（涉及 filter::Graph 构建、buffer args、sink 像素格式、按帧推送/拉取），目前尚未动手，以免引入新的崩溃。
+
+  - 直接报错点：[h264_mf] could not set output type (MF_E_INVALIDMEDIATYPE)，随后才看到 aac Qavg: nan（连带
+    现象）。
+  - 你的目标分辨率是 1146x717，而编码像素格式是 NV12（4:2:0）。这类格式通常要求宽高至少为偶数，717 是奇数，
+  - 另外日志里“selected software encoder: h264_mf”是误判：h264_mf 实际是 Media Foundation 编码器，但硬编检 
+    测函数没把 _mf 计入：src-tauri/src/services/convert/video.rs:139。
+
+  结论
+
+  - 本次失败的根因：h264_mf + NV12 + 1146x717 参数组合非法（高度奇数最可疑）。
+  - aac Qavg: nan 是前面失败后的副产物，不是首因。
+
+  建议
+
+  - 先用偶数分辨率重试（如 1146x716 或 1146x718）。
+  - 代码层面应在编码前做对齐（至少偶数），并修正 _mf 硬编识别。
+    如果你同意，我可以直接给你打这两个修复补丁。

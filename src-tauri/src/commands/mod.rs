@@ -1205,7 +1205,7 @@ pub struct VideoCompressionArgs {
     pub color_depth: Option<u32>,                // 8/10/12 bit
     pub aspect_ratio: Option<String>,            // 16:9 等
     pub remove_audio: Option<bool>,              // 去除音轨
-    pub audio_bitrate: Option<u32>,              // 音频码率 kbps
+    pub audio_tracks: Option<Vec<crate::services::compress::video::AudioTrackConfig>>,
     pub preset: Option<String>,                  // ultrafast/fast/medium/slow
     pub use_hardware_acceleration: Option<bool>, // 硬件编码
 }
@@ -1229,7 +1229,7 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
             color_depth: args.color_depth,
             aspect_ratio: args.aspect_ratio,
             remove_audio: args.remove_audio,
-            audio_bitrate: args.audio_bitrate,
+            audio_tracks: args.audio_tracks,
             preset: args.preset,
             use_hardware_acceleration: args.use_hardware_acceleration,
         };

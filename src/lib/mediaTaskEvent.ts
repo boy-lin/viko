@@ -164,10 +164,11 @@ export interface CompressVideoTaskArgs {
   keyframe_interval?: number;
   color_depth?: number;
   remove_audio?: boolean;
-  audio_bitrate?: number;
+  // audio_bitrate?: number;
   preset?: string;
   use_hardware_acceleration?: boolean;
   /** 扩展待同步到rust */
+  audio_tracks?: AudioTrackConfig[];
   ratio: number;// only display 0-100，表示压缩到原文件的百分比
 }
 

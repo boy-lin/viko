@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { ConverterTask, FileType } from "@/types/tasks";
+import { ConverterTask, FileType, MediaDetails } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
@@ -26,26 +26,29 @@ interface TaskItemProps {
   task: ConverterTask;
 }
 
-const buildDefaultArgs = (taskId: string, path: string, mediaTitle: string, mediaDetails: any) => {
+const buildDefaultArgs = (task: ConverterTask, details: MediaDetails) => {
   let format = FormatEnum.MP4;
-  if (mediaDetails.extension === format) {
+  if (details.extension === format) {
     format = FormatEnum.MOV
   }
 
   const outputArgs: any = {
-    task_id: taskId,
-    title: mediaTitle,
+    task_id: task.id,
     format: format,
-    input_path: path,
+    input_path: details.path,
   };
   const containerDefinition = formatToDefinition.get(outputArgs.format);
   outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder;
   outputArgs.audio_tracks =
-    mediaDetails?.streams
+    details?.streams
       ?.filter((stream: any) => stream.codec_type === "audio")
       .map((stream: any) => ({
-        trackIndex: stream.index,
+        source_stream_index: stream.index,
         codec: containerDefinition?.audio?.defaultEncoder,
+        bitrate: 128,
+        sample_rate: 32000,
+        channels: stream.channels,
+        bit_depth: stream.bit_depth
       })) || [];
 
   return outputArgs;
@@ -70,7 +73,7 @@ export default function TaskItem({ task }: TaskItemProps) {
         const details = await bridge.getMediaDetails(task.args.input_path);
         if (!active) return;
         const title = details.title || extractFilenameFromPath(details.path);
-        const outputArgs = buildDefaultArgs(task.id, details.path, title, details);
+        const outputArgs = buildDefaultArgs(task, details);
         updateTaskById(task.id, {
           mediaDetails: details,
           args: outputArgs,
@@ -99,13 +102,23 @@ export default function TaskItem({ task }: TaskItemProps) {
     return <TaskLoadingCard />;
   }
 
-  const removeTask = async () => {
-    await getMediaTaskQueue().cancelTaskById(task.id);
+  const isQueuedOrProcessing = task.status === "queued" || task.status === "processing";
+
+  const handleDeleteOrCancel = async () => {
+    if (isQueuedOrProcessing) {
+      await getMediaTaskQueue().cancelTaskById(task.id);
+      updateTaskById(task.id, {
+        status: "idle",
+        progress: 0,
+        errorMessage: undefined,
+      });
+      return;
+    }
     useConverterStore.getState().removeTask(task.id);
   };
 
   if (loadError) {
-    return <TaskLoadErrorCard loadError={loadError} onRemove={removeTask} />;
+    return <TaskLoadErrorCard loadError={loadError} onRemove={handleDeleteOrCancel} />;
   }
 
   const convertVideoTaskArgs = task.args as ConvertVideoTaskArgs;
@@ -175,18 +188,19 @@ export default function TaskItem({ task }: TaskItemProps) {
               variant="outline"
               size="icon"
               className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
-              onClick={removeTask}
+              onClick={handleDeleteOrCancel}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{t("actions.delete")}</TooltipContent>
+          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "取消") : t("actions.delete")}</TooltipContent>
         </Tooltip>
 
         <Button
           variant="outline"
           className="cursor-pointer px-4"
           onClick={handleConvertSingle}
+          disabled={isQueuedOrProcessing}
         >
           {t("actions.convertSingle", "转换")}
         </Button>

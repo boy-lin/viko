@@ -24,11 +24,24 @@
         "bitDepthPlaceholder": "Select bit depth"
       }
     },
-    "image": { "title": "Image", "quality": "Quality:", "resolution": "Resolution:" }
+    "image": {
+      "title": "Image",
+      "quality": "Quality:",
+      "resolution": "Resolution:"
+    }
   },
   "common": { "cancel": "Cancel", "save": "Save" },
+  "status": {
+    "idle": "Idle",
+    "queued": "Queued",
+    "processing": "Processing",
+    "finished": "Finished",
+    "error": "Error",
+    "cancelled": "Cancelled"
+  },
   "actions": {
     "delete": "Delete",
+    "cancel": "Cancel",
     "convertSingle": "Convert",
     "compressSingle": "Compress"
   },
@@ -37,10 +50,6 @@
     "add_files": "Add Files",
     "add_folders": "Add Folder",
     "folder_no_supported": "No supported files found in the selected folder"
-  },
-  "file_picker": {
-    "video": "Video",
-    "images": "Images"
   },
   "footer": {
     "target_format": "Target Format",

@@ -18,6 +18,35 @@ type CompressorStore = CreateTaskStoreState<
   "clearCompressingTasks"
 >;
 
+type AudioTrackLike = {
+  source_stream_index?: number;
+  [key: string]: unknown;
+};
+
+const mergeAudioTracks = (currentTracks: AudioTrackLike[] = [], patchTracks: AudioTrackLike[] = []) => {
+  const mergedTracks = currentTracks.map((track) => ({ ...track }));
+
+  patchTracks.forEach((patchTrack, patchIndex) => {
+    const patchTrackKey = patchTrack.source_stream_index;
+    const matchedIndex = mergedTracks.findIndex((currentTrack, currentIndex) => {
+      const currentTrackKey = currentTrack.source_stream_index;
+      return patchTrackKey !== undefined ? currentTrackKey === patchTrackKey : currentIndex === patchIndex;
+    });
+
+    if (matchedIndex >= 0) {
+      mergedTracks[matchedIndex] = {
+        ...mergedTracks[matchedIndex],
+        ...patchTrack,
+      };
+      return;
+    }
+
+    mergedTracks.push({ ...patchTrack });
+  });
+
+  return mergedTracks;
+};
+
 export const useCompressorStore = create<CompressorStore>(
   createTaskStore<
     CompressingTask,
@@ -50,13 +79,22 @@ export const useCompressorStore = create<CompressorStore>(
       ...current,
       ...patch,
     }),
-    applyConfigToTask: (task, config) => ({
-      ...task,
-      args: {
-        ...task.args,
-        ...config,
-      },
-    }),
+    applyToTaskArgs: (task, config) => {
+      const clonedTask = structuredClone(task);
+      const clonedConfig = structuredClone(config);
+      const mergedAudioTracks = mergeAudioTracks(
+        (clonedTask.args as AudioTrackLike & { audio_tracks?: AudioTrackLike[] }).audio_tracks,
+        (clonedConfig as AudioTrackLike & { audio_tracks?: AudioTrackLike[] }).audio_tracks,
+      );
+
+      clonedTask.args = {
+        ...clonedTask.args,
+        ...clonedConfig,
+        ...(mergedAudioTracks.length > 0 ? { audio_tracks: mergedAudioTracks } : {}),
+      };
+
+      return clonedTask;
+    },
     queueAdapter: async (tasks) => {
       const settings = useSettingsStore.getState();
       const useHw = settings.useHardwareAcceleration;

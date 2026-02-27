@@ -43,7 +43,7 @@ type CreateTaskStoreOptions<
   defaultConfig: TConfig;
   createTaskByPath: (path: string, config: TConfig) => TTask | null;
   mergeConfig: (current: TConfig, patch: Partial<TConfig>) => TConfig;
-  applyConfigToTask: (task: TTask, config: TApplyConfig) => TTask;
+  applyToTaskArgs: (task: TTask, config: TApplyConfig) => TTask;
   queueAdapter: (tasks: TTask[]) => Promise<void>;
   shouldRemoveTask?: (task: TTask) => boolean;
 };
@@ -123,7 +123,7 @@ export function createTaskStore<
     defaultConfig,
     createTaskByPath,
     mergeConfig,
-    applyConfigToTask,
+    applyToTaskArgs,
     queueAdapter,
     shouldRemoveTask = (task) => ["finished", "cancelled"].includes(task.status),
   } = options;
@@ -284,7 +284,7 @@ export function createTaskStore<
       set((state) => {
         const tasks = state[tasksKey] as TTask[];
         return {
-          [tasksKey]: tasks.map((task) => applyConfigToTask(task, config)),
+          [tasksKey]: tasks.map((task) => applyToTaskArgs(task, config)),
         } as Partial<
           CreateTaskStoreState<
             TTask,
@@ -302,6 +302,13 @@ export function createTaskStore<
       const tasksToPush = tasks || (state[tasksKey] as TTask[]);
       if (tasksToPush.length === 0) return;
       await queueAdapter(tasksToPush);
+      tasksToPush.forEach((task) => {
+        get().updateTaskById(task.id, {
+          status: "queued",
+          progress: 0,
+          errorMessage: undefined,
+        } as unknown as Partial<TTask>);
+      });
     },
   }) as CreateTaskStoreState<
     TTask,

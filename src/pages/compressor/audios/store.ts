@@ -65,13 +65,17 @@ export const useCompressorStore = create<CompressorStore>(
         ...patch,
       } as CompressAudioTaskArgs;
     },
-    applyConfigToTask: (task, config) => ({
-      ...task,
-      args: {
-        ...task.args,
-        ...config,
-      },
-    }),
+    applyToTaskArgs: (task, config) => {
+      const clonedTask = structuredClone(task);
+      const clonedConfig = structuredClone(config);
+
+      clonedTask.args = {
+        ...clonedTask.args,
+        ...clonedConfig,
+      };
+
+      return clonedTask;
+    },
     queueAdapter: async (tasks) => {
       const settings = useSettingsStore.getState();
       const useHw = settings.useHardwareAcceleration;

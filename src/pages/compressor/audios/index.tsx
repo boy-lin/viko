@@ -14,10 +14,10 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import ConvertingTask from "./Task";
 import { AUDIO_FORMATS } from "@/data/formats";
 import { UploadButton } from "@/components/ui-biz/UploadButton";
-import { t } from "i18next";
+import { useTranslation } from "react-i18next";
 
 export default function ConverterPage() {
-
+  const { t } = useTranslation("common");
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 

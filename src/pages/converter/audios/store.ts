@@ -12,13 +12,42 @@ export enum ActiveCategoryEnum {
 
 export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "args" | "activeCategory"> {}
 
+type AudioTrackLike = {
+  source_stream_index?: number;
+  [key: string]: unknown;
+};
+
+const mergeAudioTracks = (currentTracks: AudioTrackLike[] = [], patchTracks: AudioTrackLike[] = []) => {
+  const mergedTracks = currentTracks.map((track) => ({ ...track }));
+
+  patchTracks.forEach((patchTrack, patchIndex) => {
+    const patchTrackKey = patchTrack.source_stream_index;
+    const matchedIndex = mergedTracks.findIndex((currentTrack, currentIndex) => {
+      const currentTrackKey = currentTrack.source_stream_index;
+      return patchTrackKey !== undefined ? currentTrackKey === patchTrackKey : currentIndex === patchIndex;
+    });
+
+    if (matchedIndex >= 0) {
+      mergedTracks[matchedIndex] = {
+        ...mergedTracks[matchedIndex],
+        ...patchTrack,
+      };
+      return;
+    }
+
+    mergedTracks.push({ ...patchTrack });
+  });
+
+  return mergedTracks;
+};
+
 export const defaultAudioConfig: GlobalConverterConfig = {
   taskType: MediaTaskType.ConvertAudio,
   activeCategory: FileType.Audio,
   args: {
     format: FormatEnum.MP3,
     audio_tracks: [{
-      trackIndex: 0,
+      source_stream_index: 0,
       codec: AudioEncoderEnum.MP3,
     }],
   } as ConverterTask["args"],
@@ -72,14 +101,24 @@ export const useConverterStore = create<ConverterStore>(
         },
       };
     },
-    applyConfigToTask: (task, config) => ({
-      ...task,
-      taskType: config.taskType,
-      args: {
-        ...task.args,
-        ...config.args,
-      },
-    }),
+    applyToTaskArgs: (task, config) => {
+      const clonedTask = structuredClone(task);
+      const clonedArgs = structuredClone(config.args);
+
+      clonedTask.taskType = config.taskType;
+      const mergedAudioTracks = mergeAudioTracks(
+        (clonedTask.args as AudioTrackLike & { audio_tracks?: AudioTrackLike[] }).audio_tracks,
+        (clonedArgs as AudioTrackLike & { audio_tracks?: AudioTrackLike[] }).audio_tracks,
+      );
+
+      clonedTask.args = {
+        ...clonedTask.args,
+        ...clonedArgs,
+        ...(mergedAudioTracks.length > 0 ? { audio_tracks: mergedAudioTracks } : {}),
+      };
+
+      return clonedTask;
+    },
     queueAdapter: async (tasks) => {
       const settings = useSettingsStore.getState();
       const useHw = settings.useHardwareAcceleration;

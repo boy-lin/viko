@@ -12,6 +12,7 @@ import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
 
 import { bridge } from "@/lib/bridge";
+import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent"
 import { formatToDefinition } from "@/data/capabilities";
 import { FormatEnum } from "@/types/options";
@@ -93,6 +94,21 @@ export default function TaskItem({ task }: TaskItemProps) {
         await useConverterStore.getState().pushTasksToQueue([task])
     };
 
+    const isQueuedOrProcessing = task.status === "queued" || task.status === "processing";
+
+    const handleDeleteOrCancel = async () => {
+        if (isQueuedOrProcessing) {
+            await getMediaTaskQueue().cancelTaskById(task.id);
+            updateTaskById(task.id, {
+                status: "idle",
+                progress: 0,
+                errorMessage: undefined,
+            });
+            return;
+        }
+        removeTask(task.id);
+    };
+
     const handleOutputTitleChange = (nextTitle: string) => {
         updateTaskById(task.id, {
             outputTitle: nextTitle,
@@ -129,7 +145,7 @@ export default function TaskItem({ task }: TaskItemProps) {
                 loadError={loadError}
                 onRemove={() => {
                     startTransition(() => {
-                        removeTask(task.id);
+                        void handleDeleteOrCancel();
                     });
                 }}
             />
@@ -207,20 +223,20 @@ export default function TaskItem({ task }: TaskItemProps) {
                             size="icon"
                             className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
                             onClick={() => {
-                                removeTask(task.id);
+                                void handleDeleteOrCancel();
                             }}
                         >
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent>{t("actions.delete")}</TooltipContent>
+                    <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "取消") : t("actions.delete")}</TooltipContent>
                 </Tooltip>
 
                 <Button
                     variant="outline"
                     className="cursor-pointer px-4"
                     onClick={handleConvertSingle}
-                    disabled={loadingDetails || !!loadError}
+                    disabled={loadingDetails || !!loadError || isQueuedOrProcessing}
                 >
                     {t("actions.convertSingle")}
                 </Button>

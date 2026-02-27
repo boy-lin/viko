@@ -43,6 +43,56 @@ pub struct AudioOutputSummary {
     pub bit_rate: Option<i64>,
 }
 
+fn codec_family_candidates(name: &str) -> Option<&'static [&'static str]> {
+    match name.to_ascii_lowercase().as_str() {
+        "mp3" | "libmp3lame" | "libshine" | "mp3_mf" => {
+            Some(&["libmp3lame", "libshine", "mp3_mf", "mp3"])
+        }
+        "aac" | "libfdk_aac" | "aac_at" => Some(&["aac", "libfdk_aac", "aac_at"]),
+        "opus" | "libopus" => Some(&["libopus", "opus"]),
+        "vorbis" | "libvorbis" => Some(&["libvorbis", "vorbis"]),
+        _ => None,
+    }
+}
+
+fn pick_audio_encoder(
+    requested_codec_name: Option<&str>,
+    fallback_id: codec::Id,
+) -> Option<ffmpeg::Codec> {
+    if let Some(name) = requested_codec_name {
+        if let Some(codec) = encoder::find_by_name(name) {
+            return Some(codec);
+        }
+
+        if let Some(candidates) = codec_family_candidates(name) {
+            for candidate in candidates {
+                if let Some(codec) = encoder::find_by_name(candidate) {
+                    return Some(codec);
+                }
+            }
+        }
+
+        // Caller explicitly requested an encoder (or encoder family) but none exists.
+        // Do not silently fall back to input codec family (e.g. AAC) and create container mismatch.
+        return None;
+    }
+
+    let fallback_name = fallback_id.name();
+    if let Some(candidates) = codec_family_candidates(fallback_name) {
+        for candidate in candidates {
+            if let Some(codec) = encoder::find_by_name(candidate) {
+                return Some(codec);
+            }
+        }
+    }
+
+    if let Some(codec) = encoder::find_by_name(fallback_name) {
+        return Some(codec);
+    }
+
+    encoder::find(fallback_id).or_else(|| encoder::find_by_name(fallback_name))
+}
+
 impl AudioTrackProcessor {
     fn is_input_changed_error(err: &ffmpeg::Error) -> bool {
         err.to_string().contains("Input changed")
@@ -101,12 +151,24 @@ impl AudioTrackProcessor {
             input_layout = ffmpeg::ChannelLayout::default(decoder.channels() as i32);
         }
 
-        let codec = if let Some(name) = params.codec.as_deref() {
-            ffmpeg::encoder::find_by_name(name)
-        } else {
-            ffmpeg::encoder::find(ist.parameters().id())
+        let requested_codec = params.codec.as_deref();
+        let codec = pick_audio_encoder(requested_codec, ist.parameters().id())
+            .ok_or_else(|| {
+                if let Some(req) = requested_codec {
+                    format!("Requested audio encoder is unavailable in current FFmpeg build: {}", req)
+                } else {
+                    "No suitable audio encoder found".to_string()
+                }
+            })?;
+        if let Some(req) = requested_codec {
+            if !codec.name().eq_ignore_ascii_case(req) {
+                log::warn!(
+                    "audio encoder fallback: requested={} selected={}",
+                    req,
+                    codec.name()
+                );
+            }
         }
-        .ok_or_else(|| "No suitable audio encoder found".to_string())?;
 
         let global_header = octx
             .format()
@@ -123,7 +185,7 @@ impl AudioTrackProcessor {
             .map(|c| c.contains("amr"))
             .unwrap_or(false);
         let desired_sample_rate = if is_amr { 8000 } else { desired_sample_rate };
-        let target_rate =
+        let mut target_rate =
             media_common::pick_sample_rate(&codec, desired_sample_rate, input_sample_rate);
 
         let desired_layout = if is_amr {
@@ -152,6 +214,10 @@ impl AudioTrackProcessor {
             .map_err(|e| format!("Operation failed: {}", e))?;
 
         let encoder_name = codec.name();
+        if encoder_name.contains("mp3") && target_rate < 16_000 {
+            // AMR inputs are often 8kHz; many MP3 encoders (notably Windows MF) reject this.
+            target_rate = media_common::pick_sample_rate(&codec, 44_100, target_rate);
+        }
         let is_aac_encoder = matches!(encoder_name, "aac" | "aac_at");
         // AAC LC per-frame bit budget in FFmpeg is limited. Convert to bitrate cap by sample rate.
         let aac_max_bit_rate = ((12_288_i64 * target_rate as i64) / 1024).max(64_000);
@@ -164,6 +230,17 @@ impl AudioTrackProcessor {
         };
         if is_aac_encoder && chosen_bits > aac_max_bit_rate {
             chosen_bits = aac_max_bit_rate;
+        }
+        if encoder_name.contains("mp3") && chosen_bits < 32_000 {
+            chosen_bits = 64_000;
+        }
+        if encoder_name.contains("mp3") {
+            log::debug!(
+                "mp3 encoder params: encoder={} sample_rate={} bit_rate={}",
+                encoder_name,
+                target_rate,
+                chosen_bits
+            );
         }
         enc.set_bit_rate(chosen_bits as usize);
         let configured_bit_rate = Some(chosen_bits);
@@ -363,27 +440,40 @@ impl AudioTrackProcessor {
         if let Some(fifo) = self.fifo.as_mut() {
             let remaining_samples = fifo.available_samples();
             if remaining_samples > 0 {
+                let frame_samples = self.frame_size.max(remaining_samples);
+                if frame_samples != remaining_samples {
+                    log::debug!(
+                        "audio tail padding: ist={} remaining_samples={} padded_to={}",
+                        self.source_stream_index,
+                        remaining_samples,
+                        frame_samples
+                    );
+                }
                 let mut output_frame =
-                    frame::Audio::new(self.target_format, remaining_samples, self.target_layout);
+                    frame::Audio::new(self.target_format, frame_samples, self.target_layout);
                 output_frame.set_rate(self.target_rate);
                 let data = fifo.drain_remaining();
-                fifo.fill_frame(&mut output_frame, &data, remaining_samples);
+                let channels = self.target_layout.channels() as usize;
+                let mut padded = vec![0.0f32; frame_samples * channels];
+                let copy_len = padded.len().min(data.len());
+                padded[..copy_len].copy_from_slice(&data[..copy_len]);
+                fifo.fill_frame(&mut output_frame, &padded, frame_samples);
                 output_frame.set_pts(Some(self.next_pts));
-                self.next_pts += remaining_samples as i64;
+                self.next_pts += frame_samples as i64;
                 self.encode_and_write(&output_frame, ost_time_base, octx)?;
             }
         }
 
         self.encoder
             .send_eof()
-            .map_err(|e| format!("Operation failed: {}", e))?;
+            .map_err(|e| format!("encode send_eof failed: {}", e))?;
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
             encoded.set_stream(self.ost_index);
             encoded.rescale_ts(self.encoder_time_base, ost_time_base);
             encoded
                 .write_interleaved(octx)
-                .map_err(|e| format!("Operation failed: {}", e))?;
+                .map_err(|e| format!("encode flush write_interleaved failed: {}", e))?;
             self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
         }
         Ok(())

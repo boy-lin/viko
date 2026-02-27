@@ -54,11 +54,11 @@ class MediaTaskQueue {
         throw new Error("Task ID is required");
       }
       this.pendingTaskIds.add(task.args.task_id);
+      console.log("Adding convert task args", JSON.stringify(task.args));
     });
 
     this.ensureEventListener();
     this.trackTaskSubmit("tasks_submit_convert", tasks);
-    console.log("Adding convert tasks", tasks);
     await invoke("media_task_submit", { tasks, priority });
   }
 
@@ -74,10 +74,10 @@ class MediaTaskQueue {
         throw new Error("Task ID is required");
       }
       this.pendingTaskIds.add(task.args.task_id);
+      console.log("Adding compress task args", JSON.stringify(task.args));
     });
     this.ensureEventListener();
     this.trackTaskSubmit("tasks_submit_compress", tasks);
-    console.log("Adding compress tasks", tasks);
     await invoke("media_task_submit", { tasks, priority });
   }
 
@@ -144,8 +144,8 @@ class MediaTaskQueue {
     const { file_type, task_type, event_type, task_id, progress, error_message } = payload;
     const normalizedProgress = Math.min(100, Math.max(0, progress || 0));
 
-    if (['error', 'complete'].includes(event_type)) {
-      console.log("Task event: " + event_type, payload);
+    if (['error'].includes(event_type)) {
+      console.log("Task event: " + event_type, payload.error_message);
     }
 
     if ([MediaTaskType.ConvertVideo, MediaTaskType.ConvertAudio, MediaTaskType.ConvertImage, MediaTaskType.ConvertGif].includes(task_type)) {
@@ -169,8 +169,9 @@ class MediaTaskQueue {
           useAppStore.getState().incrementUnreadFinishedCount();
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
-            status: error_message === "Task cancelled" ? "cancelled" : "error",
-            errorMessage: error_message,
+            status: error_message === "Task cancelled" ? "idle" : "error",
+            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
@@ -191,8 +192,9 @@ class MediaTaskQueue {
           useAppStore.getState().incrementUnreadFinishedCount();
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
-            status: error_message === "Task cancelled" ? "cancelled" : "error",
-            errorMessage: error_message,
+            status: error_message === "Task cancelled" ? "idle" : "error",
+            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
@@ -213,8 +215,9 @@ class MediaTaskQueue {
           useAppStore.getState().incrementUnreadFinishedCount();
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
-            status: error_message === "Task cancelled" ? "cancelled" : "error",
-            errorMessage: error_message,
+            status: error_message === "Task cancelled" ? "idle" : "error",
+            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
@@ -237,8 +240,9 @@ class MediaTaskQueue {
           useAppStore.getState().incrementUnreadFinishedCount();
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
-            status: error_message === "Task cancelled" ? "cancelled" : "error",
-            errorMessage: error_message,
+            status: error_message === "Task cancelled" ? "idle" : "error",
+            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
@@ -259,8 +263,9 @@ class MediaTaskQueue {
           useAppStore.getState().incrementUnreadFinishedCount();
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
-            status: error_message === "Task cancelled" ? "cancelled" : "error",
-            errorMessage: error_message,
+            status: error_message === "Task cancelled" ? "idle" : "error",
+            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
@@ -281,8 +286,9 @@ class MediaTaskQueue {
           useAppStore.getState().incrementUnreadFinishedCount();
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
-            status: error_message === "Task cancelled" ? "cancelled" : "error",
-            errorMessage: error_message,
+            status: error_message === "Task cancelled" ? "idle" : "error",
+            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
@@ -307,8 +313,9 @@ class MediaTaskQueue {
         useAppStore.getState().incrementUnreadFinishedCount();
       } else if (event_type === "error") {
         store.updateTaskById(task_id, {
-          status: error_message === "Task cancelled" ? "cancelled" : "error",
-          errorMessage: error_message,
+          status: error_message === "Task cancelled" ? "idle" : "error",
+          progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
+          errorMessage: error_message === "Task cancelled" ? undefined : error_message,
         });
       }
       return;

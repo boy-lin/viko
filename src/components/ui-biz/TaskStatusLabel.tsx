@@ -13,6 +13,7 @@ export default function TaskStatusLabel({
   const { t } = useTranslation("converter");
   const errorMessage = task.errorMessage;
   const map = {
+    queued: { text: t("status.queued", "已入队"), color: "text-amber-600", badge: "bg-amber-100" },
     idle: { text: t("status.idle", "等待中"), color: "text-gray-600", badge: "bg-gray-100" },
     processing: { text: t("status.processing", "处理中"), color: "text-blue-600", badge: "bg-blue-100" },
     finished: { text: t("status.finished", "已完成"), color: "text-green-600", badge: "bg-green-100" },

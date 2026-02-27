@@ -69,14 +69,18 @@ export const useConverterStore = create<ConverterStore>(
         },
       };
     },
-    applyConfigToTask: (task, config) => ({
-      ...task,
-      taskType: config.taskType,
-      args: {
-        ...task.args,
-        ...config.args,
-      },
-    }),
+    applyToTaskArgs: (task, config) => {
+      const clonedTask = structuredClone(task);
+      const clonedArgs = structuredClone(config.args);
+
+      clonedTask.taskType = config.taskType;
+      clonedTask.args = {
+        ...clonedTask.args,
+        ...clonedArgs,
+      };
+
+      return clonedTask;
+    },
     queueAdapter: async (tasks) => {
       const settings = useSettingsStore.getState();
       const useHw = settings.useHardwareAcceleration;

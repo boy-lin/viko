@@ -1,78 +1,87 @@
 {
-    "app": {
-        "title": "FigureX",
-        "description": "强大的媒体工具箱"
-    },
-    "nav": {
-        "home": "首页",
-        "tasks": "任务",
-        "my_files": "我的文件",
-        "batch": "批量处理",
-        "converter": "转换器",
-        "compressor": "压缩器",
-        "metadata": "元数据",
-        "ai_tools": "AI 工具",
-        "downloader": "下载器",
-        "audio_test": "音频测试",
-        "home_v1": "首页 V1",
-        "video_player": "视频播放器"
-    },
-    "sidebar": {
-        "quick_access": "快捷访问",
-        "pin": "固定到顶部",
-        "unpin": "取消固定",
-        "feature_in_development": "功能开发中",
-        "coming_soon": "功能即将上线",
-        "collapse": "收起侧边栏",
-        "expand": "展开侧边栏",
-        "brand_name": "Viko",
-        "brand_tagline": "AudioVideoKits"
-    },
-    "quick": {
-        "converter": "转换器",
-        "converter_videos": "视频转换器",
-        "converter_audios": "音频转换器",
-        "converter_images": "图片转换器",
-        "watermark": "水印生成器",
-        "metadata": "元数据编辑器",
-        "compressor_videos": "视频压缩器",
-        "compressor_audios": "音频压缩器",
-        "compressor_images": "图片压缩器"
-    },
-    "common": {
-        "loading": "加载中...",
-        "save": "保存",
-        "cancel": "取消",
-        "confirm": "确认",
-        "delete": "删除",
-        "edit": "编辑",
-        "add": "添加",
-        "select_file": "选择文件",
-        "recents": "最近",
-        "apply_all": "应用到所有"
-    },
-    "upload_drag": {
-        "picker_name": "媒体文件",
-        "title": "拖拽文件或文件夹到此处",
-        "support_hint": "支持 {{hint}}"
-    },
-    "acceleration": {
-        "badge_high": "高速",
-        "title": "加速设置",
-        "description": "配置硬件加速选项。",
-        "ultra_fast_label": "启用极速模式",
-        "ultra_fast_desc": "优化转换/压缩设置以获得最大速度。",
-        "gpu_label": "启用 GPU 加速",
-        "checking": "正在检查硬件支持...",
-        "gpu_desc_available": "可用时使用硬件编码器 (如 NVENC, QSV, VideoToolbox)。",
-        "gpu_desc_unavailable": "未检测到支持的硬件编码器。"
-    },
-    "video_advance": {
-        "missing": "格式或编码器未设置",
-        "encoder": "编码器",
-        "resolution": "分辨率",
-        "frame_rate": "帧率",
-        "bitrate": "码率",
-        "color_space": "色彩空间"
-    }
+  "app": {
+    "title": "FigureX",
+    "description": "强大的媒体工具箱"
+  },
+  "nav": {
+    "home": "首页",
+    "tasks": "任务",
+    "my_files": "我的文件",
+    "batch": "批量处理",
+    "converter": "转换器",
+    "compressor": "压缩器",
+    "metadata": "元数据",
+    "ai_tools": "AI 工具",
+    "downloader": "下载器",
+    "audio_test": "音频测试",
+    "home_v1": "首页 V1",
+    "video_player": "视频播放器"
+  },
+  "sidebar": {
+    "quick_access": "快捷访问",
+    "pin": "固定到顶部",
+    "unpin": "取消固定",
+    "feature_in_development": "功能开发中",
+    "coming_soon": "功能即将上线",
+    "collapse": "收起侧边栏",
+    "expand": "展开侧边栏",
+    "brand_name": "Viko",
+    "brand_tagline": "AudioVideoKits"
+  },
+  "quick": {
+    "converter": "转换器",
+    "converter_videos": "视频转换器",
+    "converter_audios": "音频转换器",
+    "converter_images": "图片转换器",
+    "watermark": "水印生成器",
+    "metadata": "元数据编辑器",
+    "compressor_videos": "视频压缩器",
+    "compressor_audios": "音频压缩器",
+    "compressor_images": "图片压缩器"
+  },
+  "common": {
+    "loading": "加载中...",
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑",
+    "add": "添加",
+    "select_file": "选择文件",
+    "recents": "最近",
+    "apply_all": "应用到所有"
+  },
+  "upload_drag": {
+    "picker_name": "媒体文件",
+    "title": "拖拽文件或文件夹到此处",
+    "support_hint": "支持 {{hint}}"
+  },
+  "acceleration": {
+    "badge_high": "高速",
+    "title": "加速设置",
+    "description": "配置硬件加速选项。",
+    "ultra_fast_label": "启用极速模式",
+    "ultra_fast_desc": "优化转换/压缩设置以获得最大速度。",
+    "gpu_label": "启用 GPU 加速",
+    "checking": "正在检查硬件支持...",
+    "gpu_desc_available": "可用时使用硬件编码器 (如 NVENC, QSV, VideoToolbox)。",
+    "gpu_desc_unavailable": "未检测到支持的硬件编码器。"
+  },
+  "video_advance": {
+    "missing": "格式或编码器未设置",
+    "encoder": "编码器",
+    "resolution": "分辨率",
+    "frame_rate": "帧率",
+    "bitrate": "码率",
+    "color_space": "色彩空间"
+  },
+  "file_picker": {
+    "video": "视频",
+    "audios": "音频",
+    "images": "图片",
+    "folders": "文件夹"
+  },
+  "search": {
+    "placeholder": "搜索文件名..."
+  }
 }

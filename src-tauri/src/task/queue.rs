@@ -1,6 +1,8 @@
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{LazyLock, Mutex};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
@@ -42,9 +44,40 @@ pub enum MediaTaskRequest {
     Watermark(VideoConversionArgs),
 }
 
-static TASK_RUNNING: AtomicBool = AtomicBool::new(false);
-static CURRENT_TASK_KIND: Mutex<Option<String>> = Mutex::new(None);
-static CURRENT_TASK_ID: Mutex<Option<String>> = Mutex::new(None);
+static WORKER_RUNNING: AtomicBool = AtomicBool::new(false);
+static ACTIVE_TASKS: LazyLock<Mutex<HashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+static ACTIVE_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+fn worker_parallelism() -> usize {
+    let env_limit = std::env::var("FIGUREX_TASK_PARALLELISM")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(0);
+
+    if env_limit > 0 {
+        return env_limit.clamp(1, 32);
+    }
+
+    let cpus = std::thread::available_parallelism()
+        .map(|v| v.get())
+        .unwrap_or(4);
+    cpus.clamp(2, 8)
+}
+
+fn active_task_ids_by_type(task_type: Option<&str>) -> Vec<String> {
+    let tasks = ACTIVE_TASKS.lock().unwrap();
+    tasks
+        .iter()
+        .filter_map(|(id, kind)| {
+            if task_type.is_none() || Some(kind.as_str()) == task_type {
+                Some(id.clone())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
 
 fn task_kind(task: &MediaTaskRequest) -> &'static str {
     match task {
@@ -89,7 +122,7 @@ pub async fn submit_tasks(app: AppHandle, tasks: Vec<MediaTaskRequest>) -> Resul
 
 pub async fn has_running(task_type: Option<String>) -> bool {
     if task_type.is_none() {
-        if TASK_RUNNING.load(Ordering::SeqCst) {
+        if WORKER_RUNNING.load(Ordering::SeqCst) || ACTIVE_COUNT.load(Ordering::SeqCst) > 0 {
             return true;
         }
         return media_queue::count().await.map(|c| c > 0).unwrap_or(false);
@@ -97,9 +130,9 @@ pub async fn has_running(task_type: Option<String>) -> bool {
 
     let task_type = task_type.unwrap_or_default();
 
-    if TASK_RUNNING.load(Ordering::SeqCst) {
-        let current = CURRENT_TASK_KIND.lock().unwrap();
-        if current.as_deref() == Some(task_type.as_str()) {
+    {
+        let active = ACTIVE_TASKS.lock().unwrap();
+        if active.values().any(|kind| kind == &task_type) {
             return true;
         }
     }
@@ -119,13 +152,9 @@ pub async fn clear_pending_with_cancel(
     stop_running: bool,
 ) -> Result<usize, String> {
     if stop_running {
-        if let Some(t_type) = task_type.as_ref() {
-            let current = CURRENT_TASK_KIND.lock().unwrap();
-            if current.as_deref() == Some(t_type.as_str()) {
-                cancel::request_cancel();
-            }
-        } else {
-            cancel::request_cancel();
+        let target_ids = active_task_ids_by_type(task_type.as_deref());
+        for task_id in target_ids {
+            cancel::request_cancel_task(&task_id);
         }
     }
 
@@ -141,11 +170,8 @@ pub async fn clear_pending_with_cancel(
 }
 
 pub async fn cancel_task(task_id: String) -> Result<(), String> {
-    {
-        let current = CURRENT_TASK_ID.lock().unwrap();
-        if current.as_deref() == Some(task_id.as_str()) {
-            cancel::request_cancel();
-        }
+    if ACTIVE_TASKS.lock().unwrap().contains_key(&task_id) {
+        cancel::request_cancel_task(&task_id);
     }
     media_queue::remove_by_task_id(&task_id)
         .await
@@ -155,33 +181,49 @@ pub async fn cancel_task(task_id: String) -> Result<(), String> {
 
 fn start_worker(app: AppHandle) {
     println!("start_worker");
-    if TASK_RUNNING.swap(true, Ordering::SeqCst) {
+    if WORKER_RUNNING.swap(true, Ordering::SeqCst) {
         return;
     }
 
+    let max_parallel = worker_parallelism();
+    log::info!("media queue worker started with parallelism={}", max_parallel);
+
     tauri::async_runtime::spawn(async move {
         loop {
-            let task = match media_queue::dequeue().await {
-                Ok(t) => t,
-                Err(e) => {
-                    log::error!("Failed to dequeue task: {}", e);
-                    None
+            while ACTIVE_COUNT.load(Ordering::SeqCst) < max_parallel {
+                let task = match media_queue::dequeue().await {
+                    Ok(t) => t,
+                    Err(e) => {
+                        log::error!("Failed to dequeue task: {}", e);
+                        None
+                    }
+                };
+
+                let Some(task) = task else {
+                    break;
+                };
+
+                let app_clone = app.clone();
+                let kind = task_kind(&task).to_string();
+                let id = task_id(&task);
+
+                if let Some(task_id) = id.as_ref() {
+                    ACTIVE_TASKS
+                        .lock()
+                        .unwrap()
+                        .insert(task_id.clone(), kind.clone());
+                    cancel::clear_cancel_task(task_id);
                 }
-            };
-            println!("task: {:?}", task);
-            match task {
-                Some(task) => {
-                    let kind = task_kind(&task).to_string();
-                    let id = task_id(&task);
-                    *CURRENT_TASK_KIND.lock().unwrap() = Some(kind);
-                    *CURRENT_TASK_ID.lock().unwrap() = id;
-                    cancel::reset_cancel();
-                    // Run execution in blocking thread to avoid stalling async runtime
-                    let app_clone = app.clone();
-                    // We spawn a blocking task to handle the actual processing
-                    // This allows valid mixing of async and sync code without blocking the main runtime
+
+                ACTIVE_COUNT.fetch_add(1, Ordering::SeqCst);
+
+                tauri::async_runtime::spawn(async move {
+                    let id_for_cancel = id.clone();
                     let result = tauri::async_runtime::spawn_blocking(move || {
-                        if let Err(err) = execute_task(&app_clone, task) {
+                        cancel::set_current_task(id_for_cancel.clone());
+                        let execute_result = execute_task(&app_clone, task);
+                        cancel::clear_current_task();
+                        if let Err(err) = execute_result {
                             log::error!("media task failed: {}", err);
                         }
                     })
@@ -190,25 +232,38 @@ fn start_worker(app: AppHandle) {
                     if let Err(e) = result {
                         log::error!("Worker thread join error: {}", e);
                     }
-                    *CURRENT_TASK_KIND.lock().unwrap() = None;
-                    *CURRENT_TASK_ID.lock().unwrap() = None;
-                    cancel::reset_cancel();
+
+                    if let Some(task_id) = id {
+                        ACTIVE_TASKS.lock().unwrap().remove(&task_id);
+                        cancel::clear_cancel_task(&task_id);
+                    }
+
+                    ACTIVE_COUNT.fetch_sub(1, Ordering::SeqCst);
+                });
+            }
+
+            let pending_count = media_queue::count().await.unwrap_or(0);
+            let active_count = ACTIVE_COUNT.load(Ordering::SeqCst);
+            if pending_count == 0 && active_count == 0 {
+                WORKER_RUNNING.store(false, Ordering::SeqCst);
+
+                let latest_pending = media_queue::count().await.unwrap_or(0);
+                if latest_pending == 0 {
+                    break;
                 }
-                None => {
-                    println!("No task found, breaking loop");
-                    TASK_RUNNING.store(false, Ordering::SeqCst);
-                    *CURRENT_TASK_KIND.lock().unwrap() = None;
-                    *CURRENT_TASK_ID.lock().unwrap() = None;
-                    cancel::reset_cancel();
-                    let count = media_queue::count().await.unwrap_or(0);
-                    if count == 0 {
-                        break;
-                    }
-                    if !TASK_RUNNING.swap(true, Ordering::SeqCst) {
-                        continue;
-                    }
+
+                if !WORKER_RUNNING.swap(true, Ordering::SeqCst) {
+                    continue;
                 }
             }
+
+            tokio::time::sleep(Duration::from_millis(80)).await;
+        }
+
+        if ACTIVE_COUNT.load(Ordering::SeqCst) == 0 {
+            cancel::reset_cancel();
+            ACTIVE_TASKS.lock().unwrap().clear();
+            WORKER_RUNNING.store(false, Ordering::SeqCst);
         }
     });
 }
@@ -632,7 +687,7 @@ fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(),
         color_depth: args.color_depth,
         aspect_ratio: args.aspect_ratio.clone(),
         remove_audio: args.remove_audio,
-        audio_bitrate: args.audio_bitrate,
+        audio_tracks: args.audio_tracks.clone(),
         preset: args.preset.clone(),
         use_hardware_acceleration: args.use_hardware_acceleration,
     };

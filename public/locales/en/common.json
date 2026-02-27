@@ -74,5 +74,14 @@
         "encoder": "Encoder",
         "frame_rate": "Frame Rate",
         "bitrate": "Bitrate"
+    },
+    "file_picker": {
+        "video": "Video",
+        "audios": "Audios",
+        "images": "Images",
+        "folders": "Folders"
+    },
+    "search": {
+        "placeholder": "Search file name..."
     }
 }

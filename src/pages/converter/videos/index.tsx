@@ -18,16 +18,13 @@ import { UploadButton } from "@/components/ui-biz/UploadButton";
 import { useConverterStore } from "./store";
 
 export default function ConvertionVideoPage() {
-  const { t } = useTranslation("converter");
+  const { t } = useTranslation("common");
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 
   useEffect(() => {
     initSettings();
   }, [initSettings]);
-
-  console.log('ConvertionVideoPage')
-
 
   return (
     <Card className="h-full w-full py-0 px-4 gap-0 bg-transparent border-none shadow-none flex flex-col">

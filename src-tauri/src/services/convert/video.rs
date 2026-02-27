@@ -200,6 +200,7 @@ fn resolve_audio_tracks(
             let src_idx = cfg
                 .source_stream_index
                 .or_else(|| input_audio_indices.get(i).copied())
+                .or_else(|| input_audio_indices.first().copied())
                 .unwrap_or(0);
             let merged_encoding = AudioEncodingParams {
                 codec: cfg
@@ -1048,6 +1049,14 @@ pub fn convert_video<E: TaskEmitter + Clone>(
     let mut audio_map: HashMap<usize, Vec<usize>> = HashMap::new();
     for track in &resolved.audio_tracks {
         if let Some(ist) = ictx.stream(track.source_stream_index) {
+            if ist.parameters().medium() != media::Type::Audio {
+                log::warn!(
+                    "convert_video skip non-audio source stream for audio track: source_stream_index={} medium={:?}",
+                    track.source_stream_index,
+                    ist.parameters().medium()
+                );
+                continue;
+            }
             let proc =
                 AudioTrackProcessor::new(&ist, &mut octx, &track.encoding, global_start_time)?;
             let idx = audio_processors.len();

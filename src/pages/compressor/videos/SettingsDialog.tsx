@@ -15,7 +15,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { AudioBitrateSelect } from "@/components/biz-form/AudioBitrateSelect";
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { VideoColorDepthSelect } from "@/components/biz-form/VideoColorDepthSelect";
 import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
@@ -87,7 +86,8 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           onValueChange={(ratio: number[]) => {
             const next = getVideoCompressionPresetByRatio(
               ratio[0],
-              config.format
+              config.format,
+              config.audio_tracks
             );
             onConfigChange(next.patch);
           }}
@@ -157,17 +157,20 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           }
         />
       </div>
-      <div className="space-y-2">
+      {/* <div className="space-y-2">
         <Label>音频码率 (kbps)</Label>
         <AudioBitrateSelect
-          value={config.audio_bitrate === undefined ? "auto" : String(config.audio_bitrate)}
+          value={config.audio_tracks?.[0]?.bitrate === undefined ? "auto" : String(config.audio_tracks?.[0]?.bitrate)}
           onValueChange={(val) =>
             onConfigChange({
-              audio_bitrate: val === "auto" ? undefined : parseOptionalInt(val),
+              audio_tracks: [{
+                ...config.audio_tracks?.[0],
+                bitrate: val === "auto" ? undefined : parseOptionalInt(val),
+              }],
             })
           }
         />
-      </div>
+      </div> */}
       <div className="space-y-2">
         <Label>压缩模式</Label>
         <VideoPresetSelect

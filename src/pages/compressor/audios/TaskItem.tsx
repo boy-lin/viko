@@ -16,7 +16,6 @@ import { formatToDefinition } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
-import { formatFileSize } from "@/lib/file";
 import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 import { extractFilenameFromPath } from "@/lib/utils";
 import { bridge } from "@/lib/bridge";
@@ -94,15 +93,27 @@ export default function TaskItem({ task }: TaskItemProps) {
     return <TaskLoadingCard />;
   }
 
-  const removeTask = async () => {
-    await getMediaTaskQueue().cancelTaskById(task.id);
+  const isQueuedOrProcessing = task.status === "queued" || task.status === "processing";
+
+  const handleDeleteOrCancel = async () => {
+    if (isQueuedOrProcessing) {
+      await getMediaTaskQueue().cancelTaskById(task.id);
+      startTransition(() => {
+        updateTaskById(task.id, {
+          status: "idle",
+          progress: 0,
+          errorMessage: undefined,
+        });
+      });
+      return;
+    }
     startTransition(() => {
       useCompressorStore.getState().removeTask(task.id);
     });
   };
 
   if (loadError) {
-    return <TaskLoadErrorCard loadError={loadError} onRemove={removeTask} />;
+    return <TaskLoadErrorCard loadError={loadError} onRemove={handleDeleteOrCancel} />;
   }
 
   const taskArgs = task.args as CompressAudioTaskArgs;
@@ -193,18 +204,19 @@ export default function TaskItem({ task }: TaskItemProps) {
               variant="outline"
               size="icon"
               className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
-              onClick={removeTask}
+              onClick={handleDeleteOrCancel}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{t("actions.delete")}</TooltipContent>
+          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "取消") : t("actions.delete")}</TooltipContent>
         </Tooltip>
 
         <Button
           variant="outline"
           className="cursor-pointer px-4"
           onClick={handleConvertSingle}
+          disabled={isQueuedOrProcessing}
         >
           {t("actions.compressSingle", "压缩")}
         </Button>

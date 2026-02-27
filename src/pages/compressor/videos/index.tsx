@@ -17,7 +17,7 @@ import { UploadButton } from "@/components/ui-biz/UploadButton";
 import { useTranslation } from "react-i18next";
 
 export default function ConverterPage() {
-  const { t } = useTranslation("compressor");
+  const { t } = useTranslation("common");
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 

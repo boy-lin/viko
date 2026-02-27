@@ -11,11 +11,11 @@ import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
 import { bridge } from "@/lib/bridge";
+import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { ConvertAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { formatToDefinition } from "@/data/capabilities";
-import { FormatEnum } from "@/types/options";
+import {  FormatEnum } from "@/types/options";
 import { ConverterTask, FileType, MediaDetails, MediaTaskType } from "@/types/tasks";
-import { useSettingsStore } from "@/stores/settingsStore";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 
 import { useConverterStore } from "./store";
@@ -38,10 +38,10 @@ function buildDefaultArgs(mediaInfo: MediaDetails, task: ConverterTask) {
         title: outputTitle,
         input_path: mediaInfo.path,
         format,
-        audio_tracks: mediaInfo.streams.filter((stream) => stream.codec_type === "audio").map((stream) => {
+        audio_tracks: mediaInfo.streams.filter((stream: any) => stream.codec_type === "audio").map((stream: any) => {
             return {
-                trackIndex: stream.index,
-                codec: containerDefinition?.audio?.defaultEncoder
+                source_stream_index: stream.index,
+                codec: containerDefinition?.audio?.defaultEncoder,
             }
         })
     };
@@ -94,6 +94,21 @@ export default function TaskItem({ task }: TaskItemProps) {
         await useConverterStore.getState().pushTasksToQueue([task])
     };
 
+    const isQueuedOrProcessing = task.status === "queued" || task.status === "processing";
+
+    const handleDeleteOrCancel = async () => {
+        if (isQueuedOrProcessing) {
+            await getMediaTaskQueue().cancelTaskById(task.id);
+            updateTaskById(task.id, {
+                status: "idle",
+                progress: 0,
+                errorMessage: undefined,
+            });
+            return;
+        }
+        removeTask(task.id);
+    };
+
 
     const handleOutputTitleChange = (nextTitle: string) => {
         updateTaskById(task.id, {
@@ -131,7 +146,7 @@ export default function TaskItem({ task }: TaskItemProps) {
             <TaskLoadErrorCard
                 loadError={loadError}
                 onRemove={() => {
-                    removeTask(task.id);
+                    void handleDeleteOrCancel();
                 }}
             />
         );
@@ -208,20 +223,20 @@ export default function TaskItem({ task }: TaskItemProps) {
                             size="icon"
                             className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
                             onClick={() => {
-                                removeTask(task.id);
+                                void handleDeleteOrCancel();
                             }}
                         >
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent>{t("actions.delete")}</TooltipContent>
+                    <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "取消") : t("actions.delete")}</TooltipContent>
                 </Tooltip>
 
                 <Button
                     variant="outline"
                     className="cursor-pointer px-4"
                     onClick={handleConvertSingle}
-                    disabled={loadingDetails || !!loadError}
+                    disabled={loadingDetails || !!loadError || isQueuedOrProcessing}
                 >
                     {t("actions.convertSingle")}
                 </Button>
