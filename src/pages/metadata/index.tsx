@@ -206,6 +206,10 @@ export default function MetadataEditorPage() {
         loading,
         message,
         details,
+        setFileInfo,
+        setMetadata,
+        setStreamTags,
+        setDetails,
         setLoading,
         setMessage,
         setMetadataField,
@@ -256,6 +260,13 @@ export default function MetadataEditorPage() {
         setMetadataField(key, value);
     };
 
+    const resetEditorState = useCallback(() => {
+        setFileInfo(null);
+        setMetadata({});
+        setStreamTags([]);
+        setDetails(null);
+    }, [setDetails, setFileInfo, setMetadata, setStreamTags]);
+
     const handleSave = async (overwrite: boolean) => {
         if (!fileInfo) return;
 
@@ -292,6 +303,7 @@ export default function MetadataEditorPage() {
                 text: t("saveSuccess", { path: outputPath }),
                 outputPath
             });
+            resetEditorState();
         } catch (e: any) {
             console.error(e);
             setMessage({ type: "error", text: t("saveError", { error: String(e) }) });
@@ -311,143 +323,112 @@ export default function MetadataEditorPage() {
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Left Column: File Info & Actions */}
-                <div className="md:col-span-1 space-y-6">
+            {!fileInfo ? (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{t("fileSource")}</CardTitle>
+                        <CardDescription />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-center py-8 space-y-4">
+                            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
+                                <Upload className="w-8 h-8 text-muted-foreground" />
+                            </div>
+                            <p className="text-sm text-muted-foreground">{t("noFile")}</p>
+                            <Button onClick={handleSelectFile}>{t("selectFile")}</Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            ) : (
+                <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>{t("fileSource")}</CardTitle>
-                            <CardDescription>
-                            </CardDescription>
+                            <CardTitle>Metadata Tags</CardTitle>
+                            <CardDescription>{t("metadataDesc")}</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            {fileInfo ? (
-                                <div className="space-y-4">
-                                    <div className="p-4 bg-muted rounded-lg">
-                                        <p className="font-medium text-sm text-foreground line-clamp-2 break-all">{fileInfo.path}</p>
-                                        <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                                            <span>{(fileInfo.size / 1024 / 1024).toFixed(2)} MB</span>
-                                            <span className="uppercase">{fileInfo.format}</span>
-                                        </div>
-                                    </div>
-                                    <Button variant="outline" className="w-full" onClick={handleSelectFile}>
-                                        {t("changeFile")}
-                                    </Button>
+                        <CardContent className="space-y-4">
+                            <div className="p-4 bg-muted rounded-lg">
+                                <p className="font-medium text-sm text-foreground line-clamp-2 break-all">{fileInfo.path}</p>
+                                <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                                    <span>{(fileInfo.size / 1024 / 1024).toFixed(2)} MB</span>
+                                    <span className="uppercase">{fileInfo.format}</span>
                                 </div>
-                            ) : (
-                                <div className="text-center py-8 space-y-4">
-                                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
-                                        <Upload className="w-8 h-8 text-muted-foreground" />
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">{t("noFile")}</p>
-                                    <Button onClick={handleSelectFile}>{t("selectFile")}</Button>
-                                </div>
+                            </div>
+                            {mediaType === "video" && fileInfo.path && (
+                                <MediaThumbnail
+                                    path={fileInfo.path}
+                                    fileType={getFileType(fileInfo.format)}
+                                    title={t("videoPreview")}
+                                    className="w-full h-48"
+                                />
+                            )}
+                            {mediaType === "audio" && (
+                                <AudioMetadataEditor
+                                    metadata={metadata}
+                                    streamTags={streamTags}
+                                    onChange={handleMetadataChange}
+                                    t={t}
+                                />
+                            )}
+                            {mediaType === "video" && (
+                                <VideoMetadataEditor
+                                    metadata={metadata}
+                                    streamTags={streamTags}
+                                    onChange={handleMetadataChange}
+                                    t={t}
+                                />
+                            )}
+                            {mediaType === "other" && (
+                                <GenericMetadataEditor
+                                    mediaType={mediaType}
+                                    metadata={metadata}
+                                    streamTags={streamTags}
+                                    onChange={handleMetadataChange}
+                                    t={t}
+                                />
                             )}
                         </CardContent>
                     </Card>
 
-                    {fileInfo && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>{t("actions")}</CardTitle>
-                                <CardDescription>
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <Button
-                                    className="w-full"
-                                    onClick={() => handleSave(false)}
-                                    disabled={loading}
-                                >
-                                    <Save className="w-4 h-4 mr-2" />
-                                    {t("saveAsCopy")}
-                                </Button>
-                                {/* <Button
-                                    variant="secondary"
-                                    className="w-full"
-                                    onClick={() => handleSave(true)}
-                                    disabled={loading}
-                                >
-                                    {t("overwrite")}
-                                </Button> */}
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {message && (
-                        <Alert variant={message.type === "error" ? "destructive" : "default"} className={message.type === "success" ? "border-green-500 text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400" : ""}>
-                            {message.type === "error" ? <AlertCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
-                            <AlertTitle>{message.type === "error" ? t("error") : t("success")}</AlertTitle>
-                            <AlertDescription>
-
-                                {message.text}
-                                <Button
-                                    variant="outline"
-                                    className="ml-2"
-                                    onClick={() => handleOpenFolder(message.outputPath)}
-                                >
-                                    {t("openFolder")}
-                                </Button>
-                            </AlertDescription>
-                        </Alert>
-                    )}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t("actions")}</CardTitle>
+                            <CardDescription />
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <Button variant="outline" className="w-full" onClick={handleSelectFile} disabled={loading}>
+                                {t("changeFile")}
+                            </Button>
+                            <Button className="w-full" onClick={() => handleSave(false)} disabled={loading}>
+                                <Save className="w-4 h-4 mr-2" />
+                                {t("saveAsCopy")}
+                            </Button>
+                        </CardContent>
+                    </Card>
                 </div>
+            )}
 
-                {/* Right Column: Metadata Form */}
-                <div className="md:col-span-2">
-                    {fileInfo ? (
-                        <Card className="h-full">
-                            <CardHeader>
-                                <CardTitle>Metadata Tags</CardTitle>
-                                <CardDescription>{t("metadataDesc")}</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {mediaType === "video" && fileInfo?.path && (
-                                    <MediaThumbnail
-                                        path={fileInfo.path}
-                                        fileType={getFileType(fileInfo.format)}
-                                        title={t("videoPreview")}
-                                        className="w-full h-48"
-                                    />
-                                )}
-                                {mediaType === "audio" && (
-                                    <AudioMetadataEditor
-                                        metadata={metadata}
-                                        streamTags={streamTags}
-                                        onChange={handleMetadataChange}
-                                        t={t}
-                                    />
-                                )}
-                                {mediaType === "video" && (
-                                    <VideoMetadataEditor
-                                        metadata={metadata}
-                                        streamTags={streamTags}
-                                        onChange={handleMetadataChange}
-                                        t={t}
-                                    />
-                                )}
-                                {mediaType === "other" && (
-                                    <GenericMetadataEditor
-                                        mediaType={mediaType}
-                                        metadata={metadata}
-                                        streamTags={streamTags}
-                                        onChange={handleMetadataChange}
-                                        t={t}
-                                    />
-                                )}
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="h-full flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/50 p-12">
-                            <div className="text-center text-muted-foreground">
-                                <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                <h3 className="text-lg font-medium">{t("fileNotSelectedTitle")}</h3>
-                                <p>{t("fileNotSelectedDesc")}</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
+            {message && (
+                <Alert
+                    variant={message.type === "error" ? "destructive" : "default"}
+                    className={`mt-6 ${message.type === "success" ? "border-green-500 text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400" : ""}`}
+                >
+                    {message.type === "error" ? <AlertCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                    <AlertTitle>{message.type === "error" ? t("error") : t("success")}</AlertTitle>
+                    <AlertDescription>
+                        {message.text}
+                        {message.outputPath && (
+                            <Button
+                                variant="outline"
+                                className="ml-2"
+                                onClick={() => handleOpenFolder(message.outputPath)}
+                            >
+                                {t("openFolder")}
+                            </Button>
+                        )}
+                    </AlertDescription>
+                </Alert>
+            )}
         </div>
     );
 }

@@ -107,14 +107,39 @@ fn pick_video_encoder_for_compress(
 fn pick_audio_encoder_for_compress(
     requested_codec_name: Option<&str>,
     fallback_id: codec::Id,
+    output_ext: &str,
 ) -> Option<ffmpeg::Codec> {
+    let output_ext = output_ext.to_ascii_lowercase();
+    let is_webm = output_ext == "webm";
+
+    if let Some(name) = requested_codec_name {
+        if is_webm {
+            let lowered = name.to_ascii_lowercase();
+            let supported = matches!(lowered.as_str(), "libopus" | "opus" | "libvorbis" | "vorbis");
+            if !supported {
+                log::warn!(
+                    "compress_video audio codec '{}' incompatible with webm container, fallback to webm-compatible codec",
+                    name
+                );
+            } else if let Some(codec) = encoder::find_by_name(name) {
+                return Some(codec);
+            }
+        } else if let Some(codec) = encoder::find_by_name(name) {
+            return Some(codec);
+        }
+    }
+
+    let mut candidates: Vec<&str> = Vec::new();
+    if is_webm {
+        candidates.extend(["libopus", "opus", "libvorbis", "vorbis"]);
+    }
+
     if let Some(name) = requested_codec_name {
         if let Some(codec) = encoder::find_by_name(name) {
             return Some(codec);
         }
     }
 
-    let mut candidates: Vec<&str> = Vec::new();
     match fallback_id.name() {
         "mp3" => candidates.extend(["libmp3lame", "libshine", "mp3"]),
         "aac" => candidates.extend(["aac", "libfdk_aac", "aac_at"]),
@@ -695,6 +720,7 @@ impl AudioProcessor {
         audio_stream: &format::stream::Stream,
         octx: &mut format::context::Output,
         selected_track: Option<&AudioTrackConfig>,
+        output_ext: &str,
     ) -> Result<Self, String> {
         let stream_index = audio_stream.index();
         let codec_id = audio_stream.parameters().id();
@@ -702,6 +728,7 @@ impl AudioProcessor {
         let codec = pick_audio_encoder_for_compress(
             audio_encoding.and_then(|enc| enc.codec.as_deref()),
             codec_id,
+            output_ext,
         )
             .ok_or_else(|| format!("未找到音频编码器: {:?}", codec_id))?;
 
@@ -1398,6 +1425,11 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
         format::input(&params.input_path).map_err(|e| format!("IO Input Error: {}", e))?;
     let mut octx =
         format::output(&params.output_path).map_err(|e| format!("IO Output Error: {}", e))?;
+    let output_ext = Path::new(&params.output_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_default();
 
     let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
     log::info!("compress_video input media: duration={:.3}s", duration);
@@ -1444,6 +1476,7 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
                 &audio_stream,
                 &mut octx,
                 selected_audio_track,
+                output_ext.as_str(),
             )?);
         }
     }

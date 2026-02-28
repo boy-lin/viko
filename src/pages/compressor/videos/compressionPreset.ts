@@ -26,6 +26,7 @@ export const getVideoCompressionPresetByRatio = (
 ): VideoCompressionPresetResult => {
   const normalizedRatio = clampRatio(ratio);
   const containerDefinition = formatToDefinition.get(format)
+  const defaultVideoCodec = containerDefinition?.video?.allowedEncoders.includes(EncoderEnum.H264) ? EncoderEnum.H264 : containerDefinition?.video?.defaultEncoder
   const audioTracks = audio_tracks ? audio_tracks : [{
     source_stream_index: 0,
     codec: EncoderEnum.AAC,
@@ -43,7 +44,7 @@ export const getVideoCompressionPresetByRatio = (
       tier: "extreme_compression",
       patch: {
         ratio: 20,
-        codec: containerDefinition?.video?.allowedEncoders?.includes(EncoderEnum.AV1) ? EncoderEnum.AV1 : EncoderEnum.H264,
+        codec: containerDefinition?.video?.allowedEncoders?.includes(EncoderEnum.AV1) ? EncoderEnum.AV1 : defaultVideoCodec,
         preset: "slow",
         frame_rate: 24,
         keyframe_interval: 120,
@@ -61,7 +62,7 @@ export const getVideoCompressionPresetByRatio = (
       tier: "high_compression",
       patch: {
         ratio: normalizedRatio,
-        codec: EncoderEnum.H264,
+        codec: defaultVideoCodec,
         preset: "slow",
         frame_rate: 24,
         keyframe_interval: 120,
@@ -79,7 +80,7 @@ export const getVideoCompressionPresetByRatio = (
       tier: "balanced",
       patch: {
         ratio: normalizedRatio,
-        codec: EncoderEnum.H264,
+        codec: defaultVideoCodec,
         preset: "medium",
         frame_rate: 30,
         keyframe_interval: 250,
@@ -93,7 +94,7 @@ export const getVideoCompressionPresetByRatio = (
     tier: "high_quality",
     patch: {
       ratio: normalizedRatio,
-      codec: EncoderEnum.H264,
+      codec: defaultVideoCodec,
       preset: "fast",
       frame_rate: 30,
       keyframe_interval: 250,
