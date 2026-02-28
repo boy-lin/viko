@@ -2,14 +2,30 @@ import { create } from "zustand";
 import { FileType, MediaTaskType, CompressingTask } from "../../../types/tasks";
 import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { EncoderEnum } from "@/types/options";
+import { FormatEnum } from "@/types/options";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
 
-export const defaultAudioCompressionConfig = {
-  ...getAudioCompressionPresetByRatio(50, EncoderEnum.MP3).patch,
-} as CompressAudioTaskArgs;
+const DEFAULT_AUDIO_COMPRESSION_FORMAT = FormatEnum.OGG;
+const baseAudioCompressionConfig: CompressAudioTaskArgs = {
+  task_id: "",
+  input_path: "",
+  input_file_type: FileType.Audio,
+  output_path: "",
+  format: DEFAULT_AUDIO_COMPRESSION_FORMAT,
+  codec: EncoderEnum.OPUS,
+  ratio: 50,
+};
+
+export const defaultAudioCompressionConfig: CompressAudioTaskArgs = {
+  ...baseAudioCompressionConfig,
+  ...getAudioCompressionPresetByRatio(
+    baseAudioCompressionConfig.ratio,
+    baseAudioCompressionConfig.format,
+  ).patch,
+};
 
 type CompressorStore = CreateTaskStoreState<
   CompressingTask,
@@ -73,7 +89,6 @@ export const useCompressorStore = create<CompressorStore>(
         ...clonedTask.args,
         ...clonedConfig,
       };
-
       return clonedTask;
     },
     queueAdapter: async (tasks) => {
@@ -85,11 +100,14 @@ export const useCompressorStore = create<CompressorStore>(
         tasks.map((task) => {
           const outputDir = settings.getOutputDir(task.args.input_path);
           const outputTitle = resolveOutputTitle(task);
+          const outputFormat = task.args.format || DEFAULT_AUDIO_COMPRESSION_FORMAT;
+          console.log("Compressing task media details", JSON.stringify(task.mediaDetails));
           return {
             type: task.taskType,
             args: {
               ...task.args,
-              output_path: `${outputDir}/${outputTitle}.${task.args.format}`,
+              format: outputFormat,
+              output_path: `${outputDir}/${outputTitle}.${outputFormat}`,
               use_hardware_acceleration: useHw,
               use_ultra_fast_speed: useUFS,
             },

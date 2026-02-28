@@ -1,136 +1,138 @@
-import { EncoderOption, EncoderEnum, FormatEnum } from "@/types/options";
+import { EncoderOption, EncoderEnum } from "@/types/options";
 
 export const AUDIO_ENCODERS: EncoderOption[] = [
   {
     value: EncoderEnum.AUTO,
     label: "Auto",
     description: "Automatically select best encoder",
-    formats: []
   },
-  { value: EncoderEnum.COPY, label: "Copy", description: "Direct stream copy", formats: [] },
   {
     value: EncoderEnum.AAC,
     label: "AAC",
     description: "Advanced Audio Coding",
-    formats: [
-      FormatEnum.M4R,
-      FormatEnum.MP4,
-      FormatEnum.MOV,
-      FormatEnum.MKV,
-      FormatEnum.M4A,
-      FormatEnum.GP3,
-      FormatEnum.AAC,
-      FormatEnum.M4B
-    ],
   },
   {
     value: EncoderEnum.MP3,
     label: "MP3 (LAME)",
     description: "MP3 Audio",
-    formats: [
-      FormatEnum.MP3,
-      FormatEnum.MP4,
-      FormatEnum.MKV,
-      FormatEnum.AVI,
-      FormatEnum.MOV,
-    ],
   },
   {
     value: EncoderEnum.OPUS,
     label: "Opus",
     description: "Opus Audio",
-    formats: [FormatEnum.OGG, FormatEnum.WEBM, FormatEnum.MKV, FormatEnum.MP4],
   },
   {
     value: EncoderEnum.FLAC,
     label: "FLAC",
     description: "Free Lossless Audio Codec",
-    formats: [
-      FormatEnum.FLAC,
-      FormatEnum.OGG,
-      FormatEnum.MKV,
-      FormatEnum.MP4,
-      FormatEnum.MOV,
-    ],
   },
   {
     value: EncoderEnum.ALAC,
     label: "ALAC",
     description: "Apple Lossless Audio Codec",
-    formats: [
-      FormatEnum.M4A,
-      FormatEnum.MOV,
-      FormatEnum.MP4,
-      FormatEnum.MKV,
-      FormatEnum.CAF
-    ],
   },
   {
     value: EncoderEnum.VORBIS,
     label: "Vorbis",
     description: "Vorbis Audio",
-    formats: [FormatEnum.OGG, FormatEnum.WEBM, FormatEnum.MKV, FormatEnum.MP4],
   },
   {
     value: EncoderEnum.AC3,
     label: "AC-3",
     description: "Dolby Digital",
-    formats: [
-      FormatEnum.AC3,
-      FormatEnum.MP4,
-      FormatEnum.MKV,
-      FormatEnum.MOV,
-      FormatEnum.AVI,
-    ],
+    
   },
   {
     value: EncoderEnum.EAC3,
     label: "E-AC-3",
     description: "Dolby Digital Plus",
-    formats: [FormatEnum.EAC3, FormatEnum.MP4, FormatEnum.MKV, FormatEnum.MOV],
   },
   {
     value: EncoderEnum.PCM_S16LE,
     label: "PCM 16-bit",
     description: "Uncompressed PCM 16-bit",
-    formats: [
-      FormatEnum.WAV,
-      FormatEnum.AIFF,
-      FormatEnum.MOV,
-      FormatEnum.MKV,
-      FormatEnum.AVI,
-      FormatEnum.CAF
-    ],
+    
   },
   {
     value: EncoderEnum.PCM_S24LE,
     label: "PCM 24-bit",
     description: "Uncompressed PCM 24-bit",
-    formats: [
-      FormatEnum.WAV,
-      FormatEnum.AIFF,
-      FormatEnum.MOV,
-      FormatEnum.MKV,
-      FormatEnum.AVI,
-    ],
+   
   },
   {
     value: EncoderEnum.AMR_NB,
     label: "AMR NB",
     description: "AMR Narrowband",
-    formats: [FormatEnum.AMR]
+  },
+  {
+    value: EncoderEnum.AMR_WB,
+    label: "AMR WB",
+    description: "AMR Wideband",
+  },
+  {
+    value: EncoderEnum.APE,
+    label: "APE",
+    description: "Monkey's Audio",
   },
   {
     value: EncoderEnum.MP2,
     label: "MP2",
     description: "MP2 Audio",
-    formats: [FormatEnum.MP2],
+  },
+  {
+    value: EncoderEnum.WMAV2,
+    label: "WMA V2",
+    description: "Windows Media Audio 2",
   },
   {
     value: EncoderEnum.PCM_S16BE,
     label: "PCM 16-bit Big Endian",
     description: "Uncompressed PCM 16-bit Big Endian",
-    formats: [FormatEnum.VOB],
+  },
+  {
+    value: EncoderEnum.PCM_S24BE,
+    label: "PCM 24-bit Big Endian",
+    description: "Uncompressed PCM 24-bit Big Endian",
+  },
+  {
+    value: EncoderEnum.PCM_S32BE,
+    label: "PCM 32-bit Big Endian",
+    description: "Uncompressed PCM 32-bit Big Endian",
+  },
+  {
+    value: EncoderEnum.PCM_F32BE,
+    label: "PCM 32-bit Floating Point Big Endian",
+    description: "Uncompressed PCM 32-bit Floating Point Big Endian",
+  },
+  {
+    value: EncoderEnum.PCM_F64BE,
+    label: "PCM 64-bit Floating Point Big Endian",
+    description: "Uncompressed PCM 64-bit Floating Point Big Endian",
+  },
+  {
+    value: EncoderEnum.PCM_ALAW,
+    label: "PCM A-Law",
+    description: "Uncompressed PCM A-Law",
+  },
+  {
+    value: EncoderEnum.PCM_MULAW,
+    label: "PCM μ-Law",
+    description: "Uncompressed PCM μ-Law",
+  },
+  {
+    value: EncoderEnum.ADPCM_MS,
+    label: "ADPCM Microsoft",
+    description: "ADPCM Microsoft",
+  },
+  {
+    value: EncoderEnum.ADPCM_IMA_WAV,
+    label: "ADPCM IMA WAV",
+    description: "ADPCM IMA WAV",
+  },
+  {
+    value: EncoderEnum.GSM_MS,
+    label: "GSM Microsoft",
+    description: "GSM Microsoft",
   },
 ];
 

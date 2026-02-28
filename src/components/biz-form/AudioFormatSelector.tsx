@@ -7,19 +7,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { IMAGE_FORMAT_OPTIONS } from "@/data/formats";
+import { AUDIO_FORMAT_OPTIONS } from "@/data/formats";
 
-interface ImageFormatSelectProps {
+interface AudioFormatSelectorProps {
   value?: string;
   onValueChange: (value?: string) => void;
+  placeholder?: string;
   label?: string;
   hideLabel?: boolean;
   className?: string;
 }
 
-export const ImageFormatSelect: React.FC<ImageFormatSelectProps> = ({
+export const AudioFormatSelector: React.FC<AudioFormatSelectorProps> = ({
   value,
   onValueChange,
+  placeholder,
   label = "输出格式",
   hideLabel = false,
   className,
@@ -31,14 +33,14 @@ export const ImageFormatSelect: React.FC<ImageFormatSelectProps> = ({
       {!hideLabel && <Label>{label}</Label>}
       <Select
         value={selectValue}
-        onValueChange={(v) => onValueChange(v === "auto" ? undefined : v)}
+        onValueChange={(next) => onValueChange(next === "auto" ? undefined : next)}
       >
-        <SelectTrigger className="w-full" size="sm">
-          <SelectValue placeholder="保持原始" />
+        <SelectTrigger className="cursor-pointer">
+          <SelectValue placeholder={placeholder ?? "选择音频格式"} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="auto">保持原始</SelectItem>
-          {IMAGE_FORMAT_OPTIONS.map((item) => (
+          <SelectItem value="auto">自动</SelectItem>
+          {AUDIO_FORMAT_OPTIONS.map((item) => (
             <SelectItem key={item.id} value={item.id}>
               {item.label}
             </SelectItem>

@@ -26,33 +26,42 @@ interface TaskItemProps {
   task: CompressingTask;
 }
 
-const buildDefaultArgs = (task: CompressingTask, details: any) => {
+const buildDefaultArgs = (task: CompressingTask, details: any): { args: CompressVideoTaskArgs; title: string } => {
   const title = details.title || extractFilenameFromPath(details.path);
   const taskId = task.id;
   const path = task.args.input_path;
-  const format = details.extension;
+  const format = (details.extension || task.args.format || "mp4").toLowerCase();
+  const initialAudioTracks =
+    details?.streams
+      ?.filter((stream: any) => stream.codec_type === "audio")
+      .map((stream: any) => ({
+        source_stream_index: stream.index,
+        channels: stream.channels,
+        bit_depth: stream.bit_depth,
+      })) || [];
 
-  const outputArgs: any = {
-    ...getVideoCompressionPresetByRatio(task.args.ratio, format).patch,
+  const outputArgs: CompressVideoTaskArgs = {
+    ...(task.args as CompressVideoTaskArgs),
+    ...getVideoCompressionPresetByRatio(task.args.ratio, format, initialAudioTracks).patch,
     task_id: taskId,
-    title,
     format,
     input_path: path,
+    ratio: task.args.ratio,
   };
   const containerDefinition = formatToDefinition.get(outputArgs.format);
-  outputArgs.codec = containerDefinition?.video?.defaultEncoder;
+  outputArgs.codec = outputArgs.codec || containerDefinition?.video?.allowedEncoders[0];
   outputArgs.audio_tracks =
     details?.streams
       ?.filter((stream: any) => stream.codec_type === "audio")
       .map((stream: any) => ({
         source_stream_index: stream.index,
-        codec: containerDefinition?.audio?.defaultEncoder,
+        codec: containerDefinition?.audio?.allowedEncoders[0],
         bitrate: 128,
         sample_rate: 32000,
         channels: stream.channels,
         bit_depth: stream.bit_depth
       })) || [];
-  return outputArgs;
+  return { args: outputArgs, title };
 };
 
 export default function TaskItem({ task }: TaskItemProps) {
@@ -73,13 +82,13 @@ export default function TaskItem({ task }: TaskItemProps) {
       try {
         const details = await bridge.getMediaDetails(task.args.input_path);
         if (!active) return;
-        const outputArgs = buildDefaultArgs(task, details);
+        const { args: outputArgs, title } = buildDefaultArgs(task, details);
         updateTaskById(task.id, {
           mediaDetails: details,
           args: outputArgs,
           fileType: FileType.Video,
           taskType: MediaTaskType.CompressVideo,
-          outputTitle: outputArgs.title,
+          outputTitle: title,
         });
       } catch (error: any) {
         if (!active) return;

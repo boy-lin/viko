@@ -3,6 +3,7 @@ use ffmpeg_next as ffmpeg;
 use std::sync::Once;
 
 pub mod codec;
+pub mod audio_transcode;
 pub mod fifo;
 pub mod resolution;
 

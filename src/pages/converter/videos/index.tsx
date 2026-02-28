@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { VIDEO_FORMATS } from "@/data/formats";
+import { VIDEO_SUPPORT_FORMATS } from "@/data/formats";
 import { useTranslation } from "react-i18next";
 
 import { ConverterFooter } from "./Footer";
@@ -46,7 +46,7 @@ export default function ConvertionVideoPage() {
             <UploadButton
               name={t("file_picker.video")}
               multiple={true}
-              extensions={VIDEO_FORMATS}
+              extensions={VIDEO_SUPPORT_FORMATS}
               onAddPaths={(paths) => useConverterStore.getState().addTasksByPaths(paths)}
             />
           </div>

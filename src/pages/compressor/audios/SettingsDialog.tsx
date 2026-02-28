@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,29 +17,23 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { AudioFormatSelector } from "@/components/biz-form/AudioFormatSelector";
 import { AudioBitrateSelect } from "@/components/biz-form/AudioBitrateSelect";
 import { AudioChannelSelect } from "@/components/biz-form/AudioChannelSelect";
 import { AudioEncoderSelect } from "@/components/biz-form/AudioEncoderSelect";
 import { AudioBitDepthSelect } from "@/components/biz-form/AudioBitDepthSelect";
+import { AudioSampleRateSelect } from "@/components/biz-form/AudioSampleRateSelect";
 import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Info, Settings } from "lucide-react";
-import type { SelectOption } from "@/types/options";
+import { Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getAudioCompressionPresetByRatio } from "./compressionPreset";
-const AUDIO_BITRATES = [64, 96, 128, 160, 192, 256, 320];
-const AUDIO_BITRATE_OPTIONS: SelectOption[] = [
-  { value: "auto", label: "自动" },
-  ...AUDIO_BITRATES.map((rate) => ({
-    value: String(rate),
-    label: `${rate} kbps`,
-  })),
-];
-const AUDIO_CHANNEL_OPTIONS: SelectOption[] = [
-  { value: "auto", label: "自动" },
-  { value: "2", label: "立体声" },
-  { value: "1", label: "单声道" },
-];
+import {
+  AUDIO_ENCODER_DEFINITIONS,
+  formatToDefinition,
+} from "@/data/capabilities";
+import { parseOptionalInt } from "@/lib/utils";
+import { AudioEncoderEnum } from "@/types/options";
 
 interface CompressionSettingsFormProps {
   config: CompressAudioTaskArgs;
@@ -55,18 +49,21 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   onConfigChange,
 }) => {
   const { t } = useTranslation("converter");
-  const renderAudioFieldLabel = (text: string) => (
-    <div className="flex items-center gap-2">
-      <Info className="w-4 h-4 text-muted-foreground" />
-      <Label className="text-muted-foreground">{text}</Label>
-    </div>
-  );
+  const formatDefinition = useMemo(() => {
+    if (!config.format) return undefined;
+    const definition = formatToDefinition.get(config.format);
+    const allowedEncoders = definition?.audio?.allowedEncoders ?? [];
+    if (allowedEncoders.length > 0 && !allowedEncoders.includes(config.codec as AudioEncoderEnum)) {
+      onConfigChange({ codec: allowedEncoders[0] as AudioEncoderEnum });
+    }
+    return definition;
+  }, [config.format]);
 
-  const parseOptionalInt = (value: string) => {
-    if (!value.trim()) return undefined;
-    const parsed = Number.parseInt(value, 10);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  };
+
+  const encoderDefinition = useMemo(() => {
+    const def = AUDIO_ENCODER_DEFINITIONS[config.codec as AudioEncoderEnum]
+    return def;
+  }, [config.codec]);
 
   const parseOptionalFloat = (value: string) => {
     if (!value.trim()) return undefined;
@@ -97,72 +94,88 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
               />
             </div>
             <div className="space-y-2">
-              {renderAudioFieldLabel(t("settings.audio.fields.encoder"))}
-              <AudioEncoderSelect
-                format={config.format}
-                value={config.codec}
-                placeholder={t("settings.audio.fields.encoderPlaceholder")}
-                onValueChange={(val) => onConfigChange({ codec: val })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>采样率</Label>
-              <Input
-                type="number"
-                placeholder="自动"
-                value={config.sample_rate ?? ""}
-                onChange={(e) =>
+              <AudioFormatSelector
+                value={config.format}
+                onValueChange={(nextFormat) => {
+                  if (!nextFormat) return;
+                  const defaultAudioEncoder =
+                    formatToDefinition.get(nextFormat)?.audio?.allowedEncoders[0];
                   onConfigChange({
-                    sample_rate: parseOptionalInt(e.target.value)
-                  })
+                    format: nextFormat,
+                    codec: defaultAudioEncoder ?? config.codec,
+                  });
+                }}
+              />
+            </div>
+            <AudioEncoderSelect
+              className="space-y-2"
+              label={t("settings.audio.fields.encoder")}
+              hideLabel={false}
+              allowedEncoders={formatDefinition?.audio?.allowedEncoders}
+              value={config.codec}
+              placeholder={t("settings.audio.fields.encoderPlaceholder")}
+              onValueChange={(val) => onConfigChange({ codec: val })}
+            />
+            <AudioSampleRateSelect
+              className="space-y-2"
+              label={t("settings.audio.fields.sampleRate")}
+              hideLabel={false}
+              value={config.sample_rate === undefined ? "auto" : String(config.sample_rate)}
+              maxSampleRate={encoderDefinition?.maxSampleRate}
+              placeholder={t("settings.audio.fields.sampleRatePlaceholder")}
+              onValueChange={(val) => {
+                if (val === "auto") {
+                  onConfigChange({ sample_rate: undefined });
+                  return;
                 }
-              />
-            </div>
-            <div className="space-y-2">
-              {renderAudioFieldLabel(t("settings.audio.fields.bitrate"))}
-              <AudioBitrateSelect
-                value={config.bitrate === undefined ? "auto" : String(config.bitrate)}
-                options={AUDIO_BITRATE_OPTIONS}
-                placeholder={t("settings.audio.fields.bitratePlaceholder")}
-                onValueChange={(val) => {
-                  if (val === "auto") {
-                    onConfigChange({ bitrate: undefined });
-                    return;
-                  }
-                  onConfigChange({ bitrate: parseOptionalInt(val) });
-                }}
-              />
-            </div>
+                onConfigChange({ sample_rate: parseOptionalInt(val) });
+              }}
+            />
+            <AudioBitrateSelect
+              className="space-y-2"
+              label={t("settings.audio.fields.bitrate")}
+              hideLabel={false}
+              value={config.bitrate === undefined ? "auto" : String(config.bitrate)}
+              maxBitrate={encoderDefinition?.maxBitrate}
+              placeholder={t("settings.audio.fields.bitratePlaceholder")}
+              onValueChange={(val) => {
+                if (val === "auto") {
+                  onConfigChange({ bitrate: undefined });
+                  return;
+                }
+                onConfigChange({ bitrate: parseOptionalInt(val) });
+              }}
+            />
 
-            <div className="space-y-2">
-              {renderAudioFieldLabel(t("settings.audio.fields.channel"))}
-              <AudioChannelSelect
-                value={config.channels === undefined ? "auto" : String(config.channels)}
-                options={AUDIO_CHANNEL_OPTIONS}
-                placeholder={t("settings.audio.fields.channelPlaceholder")}
-                onValueChange={(val) => {
-                  if (val === "auto") {
-                    onConfigChange({ channels: undefined });
-                    return;
-                  }
-                  onConfigChange({ channels: parseOptionalInt(val) });
-                }}
-              />
-            </div>
-            <div className="space-y-2">
-              {renderAudioFieldLabel(t("settings.audio.fields.bitDepth"))}
-              <AudioBitDepthSelect
-                value={config.bit_depth === undefined ? "auto" : String(config.bit_depth)}
-                placeholder={t("settings.audio.fields.bitDepthPlaceholder")}
-                onValueChange={(val) => {
-                  if (val === "auto") {
-                    onConfigChange({ bit_depth: undefined });
-                    return;
-                  }
-                  onConfigChange({ bit_depth: parseOptionalInt(val) });
-                }}
-              />
-            </div>
+            <AudioChannelSelect
+              className="space-y-2"
+              label={t("settings.audio.fields.channel")}
+              hideLabel={false}
+              value={config.channels === undefined ? "auto" : String(config.channels)}
+              allowedChannels={encoderDefinition?.allowedChannels}
+              placeholder={t("settings.audio.fields.channelPlaceholder")}
+              onValueChange={(val) => {
+                if (val === "auto") {
+                  onConfigChange({ channels: undefined });
+                  return;
+                }
+                onConfigChange({ channels: parseOptionalInt(val) });
+              }}
+            />
+            <AudioBitDepthSelect
+              className="space-y-2"
+              label={t("settings.audio.fields.bitDepth")}
+              hideLabel={false}
+              value={config.bit_depth === undefined ? "auto" : String(config.bit_depth)}
+              placeholder={t("settings.audio.fields.bitDepthPlaceholder")}
+              onValueChange={(val) => {
+                if (val === "auto") {
+                  onConfigChange({ bit_depth: undefined });
+                  return;
+                }
+                onConfigChange({ bit_depth: parseOptionalInt(val) });
+              }}
+            />
             <div className="space-y-2">
               <Label>静音阈值 (dB)</Label>
               <Input

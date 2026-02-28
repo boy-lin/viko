@@ -249,7 +249,7 @@ function Install-FFmpeg {
 
   try {
     Write-Info "正在安装 FFmpeg (包含 x264, x265, drawtext/freetype/fontconfig/fribidi)..."
-    & $vcpkgPath install "ffmpeg[gpl,x264,x265,drawtext,freetype,fontconfig,fribidi]:x64-windows" --recurse
+    & $vcpkgPath install "ffmpeg[opencore-amr,mp3lame,gpl,x264,x265,drawtext,freetype,fontconfig,fribidi]:x64-windows" --recurse
     if ($LASTEXITCODE -eq 0) {
       Write-Info "FFmpeg 安装成功"
       Set-PkgConfigPath

@@ -11,10 +11,17 @@
             "id": "945aabc281db3bf9",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
-              "icon": "lucide-file",
-              "title": "新标签页"
+              "type": "canvas",
+              "state": {
+                "file": "docs/audio-compress-convert-flow.canvas",
+                "viewState": {
+                  "x": 532.2149457936032,
+                  "y": 558.1032701999773,
+                  "zoom": 0.45886421541719197
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "audio-compress-convert-flow"
             }
           }
         ]
@@ -181,25 +188,28 @@
   },
   "active": "945aabc281db3bf9",
   "lastOpenFiles": [
-    "dist/index.html",
-    "dist/assets/browser-ponyfill-CYRezPyr.js",
-    "dist/assets/index-DQZ4PMHL.js",
-    "dist/assets/index-DfPT9b1f.css",
+    "src/pages/compressor/audios/Untitled",
+    "src-tauri/target/debug/deps/viko.pdb",
+    "src-tauri/target/debug/deps/viko.exe",
+    "src-tauri/target/debug/incremental/viko-0cb1jfdmzys0j/s-hg7r0mtsc6-0k2bqpb-d7k26rhhmimwx21ieyuk14rp0/work-products.bin",
+    "src-tauri/target/debug/incremental/viko-0cb1jfdmzys0j/s-hg7r0mtsc6-0k2bqpb-d7k26rhhmimwx21ieyuk14rp0/query-cache.bin",
+    "src-tauri/target/debug/incremental/viko-0cb1jfdmzys0j/s-hg7r0mtsc6-0k2bqpb-d7k26rhhmimwx21ieyuk14rp0/evb1kc2ecqakztmo8aqyz4q7m.o",
+    "src-tauri/target/debug/incremental/viko-0cb1jfdmzys0j/s-hg7r0mtsc6-0k2bqpb-d7k26rhhmimwx21ieyuk14rp0/dep-graph.bin",
+    "src-tauri/target/debug/incremental/viko-0cb1jfdmzys0j/s-hg7r0mtsc6-0k2bqpb-d7k26rhhmimwx21ieyuk14rp0/9nkmprryos7nkzm90zy02yohz.o",
+    "src-tauri/target/debug/incremental/viko-0cb1jfdmzys0j/s-hg7r0mtsc6-0k2bqpb-d7k26rhhmimwx21ieyuk14rp0/9h62br3bh45kpyhzkkroflats.o",
+    "src-tauri/target/debug/incremental/viko-0cb1jfdmzys0j/s-hg7r0mtsc6-0k2bqpb-d7k26rhhmimwx21ieyuk14rp0/97erp87i4fj56n1ltkb3ncrv3.o",
+    "src-tauri/target/debug/incremental/viko-0cb1jfdmzys0j/s-hg7r0mtsc6-0k2bqpb-d7k26rhhmimwx21ieyuk14rp0/0jrs9bgxz7bm20vvvonvsr0av.o",
+    "docs/figurex-arch.canvas",
+    "docs/figurex-rust-ffmpeg-queue-arch.canvas",
+    "docs/audio-compress-convert-flow.canvas",
     "dist/assets/av-downloader-DliIKWD6.jpg",
     "dist/assets/av-compressor-BeZbAomD.jpg",
     "dist/assets/av-converter-8Fa43erK.jpg",
-    "dist/assets",
     "dist/logo.png",
-    "dist/locales/zh/common.json",
-    "dist/locales/en/common.json",
-    "dist/locales/zh",
-    "dist/locales/en",
-    "dist/locales",
     "dist/ios/AppIcon.appiconset/icon-83.5@2x.png",
     "dist/ios/AppIcon.appiconset/icon-76@2x.png",
     "dist/ios/AppIcon.appiconset/icon-68@2x.png",
     "dist/ios/AppIcon.appiconset/icon-64@3x.png",
-    "dist/ios/AppIcon.appiconset/Contents.json",
     "docs/TROUBLESHOOTING_TRANSCODE.md",
     "docs/TAURI_DRAG_DROP.md",
     "docs/SEEK_AUDIO_DEBUG.md",
@@ -215,8 +225,6 @@
     "docs/AUDIO_EARLY_END_ANALYSIS.md",
     "docs/ai/init.md",
     "docs/ai/imp.md",
-    "docs/figurex-arch.canvas",
-    "docs/figurex-rust-ffmpeg-queue-arch.canvas",
     "docs/bilitools-src-tauri-arch.canvas"
   ]
 }

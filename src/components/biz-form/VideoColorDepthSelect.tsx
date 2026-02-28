@@ -1,4 +1,5 @@
 import React from "react";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -20,6 +21,9 @@ interface VideoColorDepthSelectProps {
   onValueChange: (value: string) => void;
   options?: SelectOption[];
   placeholder?: string;
+  label?: string;
+  hideLabel?: boolean;
+  className?: string;
 }
 
 export const VideoColorDepthSelect: React.FC<VideoColorDepthSelectProps> = ({
@@ -27,22 +31,28 @@ export const VideoColorDepthSelect: React.FC<VideoColorDepthSelectProps> = ({
   onValueChange,
   options,
   placeholder,
+  label,
+  hideLabel = true,
+  className,
 }) => {
   const colorDepthOptions = options ?? DEFAULT_COLOR_DEPTH_OPTIONS;
 
   return (
-    <Select value={value ?? "auto"} onValueChange={onValueChange}>
-      <SelectTrigger className="cursor-pointer">
-        <SelectValue placeholder={placeholder ?? "选择色深"} />
-      </SelectTrigger>
-      <SelectContent>
-        {colorDepthOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className={className ?? "space-y-2"}>
+      {!hideLabel && label && <Label>{label}</Label>}
+      <Select value={value ?? "auto"} onValueChange={onValueChange}>
+        <SelectTrigger className="cursor-pointer">
+          <SelectValue placeholder={placeholder ?? "选择色深"} />
+        </SelectTrigger>
+        <SelectContent>
+          {colorDepthOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 };
 

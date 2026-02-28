@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Check, Clock, Search } from "lucide-react";
+import { Check, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { FORMAT_DATA, FORMAT_CATEGORIES, FORMAT_GROUPS } from "@/data/formats";
-import { FormatOption } from "@/types/options";
+import { FORMAT_CATEGORIES, FORMAT_OPTIONS } from "@/data/formats";
 import {
   AudioSettingsSection,
 } from "@/pages/converter/components/AudioSettingsSection";
@@ -33,26 +32,6 @@ export default function FormatSelectorContent({
   const [activeGroup, setActiveGroup] = useState<FormatGroup | undefined>();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredItems = React.useMemo(() => {
-    if (searchQuery) {
-      return FORMAT_DATA.filter(
-        (item) =>
-          item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.groupId?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (config.activeCategory === ActiveCategoryEnum.Recents) {
-      return FORMAT_DATA.filter((item) => formatRecents.some((f) => f.id === item.id));
-    }
-
-    if (config.activeCategory) {
-      return FORMAT_DATA.filter((item) => item.groupId === config.activeCategory);
-    }
-
-    return FORMAT_DATA.filter((item) => item.category === config.activeCategory);
-  }, [searchQuery, config.activeCategory, formatRecents]);
-
   const activeCategory = useMemo(() => {
     let category = config.activeCategory
     if (category === ActiveCategoryEnum.Recents && formatRecents && formatRecents[0]) {
@@ -63,13 +42,13 @@ export default function FormatSelectorContent({
 
   const formatGroups = React.useMemo(() => {
     if (config.activeCategory === ActiveCategoryEnum.Recents) {
-      return FORMAT_GROUPS.filter((item) => formatRecents.some((f) => f.groupId === item.id));
+      return FORMAT_OPTIONS.filter((item) => formatRecents.some((f) => f.category === item.category));
     }
-    const groups = FORMAT_GROUPS.filter(
+    const groups = FORMAT_OPTIONS.filter(
       (item) => item.category === config.activeCategory
     );
     return groups;
-  }, [config.activeCategory, filteredItems]);
+  }, [config.activeCategory]);
 
 
   useEffect(() => {
@@ -88,7 +67,7 @@ export default function FormatSelectorContent({
   }, [formatGroups, config?.args?.format]);
 
   useEffect(() => {
-    const item = FORMAT_DATA.find((it) => it.extension === activeGroup?.id);
+    const item = FORMAT_OPTIONS.find((it) => it.id === activeGroup?.id);
     if (!item) return;
 
     applySelection(item, {
@@ -101,7 +80,7 @@ export default function FormatSelectorContent({
 
 
   const applySelection = (
-    formatOpt: FormatOption,
+    formatOpt: FormatGroup,
     options: { close?: boolean; addRecent?: boolean; resetSearch?: boolean } = {}
   ) => {
     const { close = true, addRecent = true, resetSearch = true } = options;
@@ -109,9 +88,9 @@ export default function FormatSelectorContent({
     if (close) onClose();
     if (resetSearch) setSearchQuery("");
 
-    if (!formatOpt.extension) return;
-    const definition = formatToDefinition.get(formatOpt.extension);
-    const audioCodec = definition?.audio?.defaultEncoder;
+    if (!formatOpt.id) return;
+    const definition = formatToDefinition.get(formatOpt.id);
+    const audioCodec = definition?.audio?.allowedEncoders[0];
 
     let audioTracks = config.args?.audio_tracks as AudioTrackConfig[]
     if (audioTracks) {
@@ -127,7 +106,7 @@ export default function FormatSelectorContent({
       ...config,
       args: {
         ...config.args,
-        format: formatOpt.extension,
+        format: formatOpt.id,
       },
     };
 
@@ -136,17 +115,16 @@ export default function FormatSelectorContent({
       updates.args.audio_tracks = audioTracks;
     } else if (formatOpt.category === FileType.Video) {
       updates.taskType = MediaTaskType.ConvertVideo;
-      updates.args.video_encoder = definition?.video?.defaultEncoder;
+      updates.args.video_encoder = definition?.video?.allowedEncoders[0];
       updates.args.audio_tracks = audioTracks;
     } else if (formatOpt.category === FileType.Image) {
-      if (formatOpt.extension === FormatEnum.GIF) {
+      if (formatOpt.id === FormatEnum.GIF) {
         updates.taskType = MediaTaskType.ConvertGif;
       } else {
         updates.taskType = MediaTaskType.ConvertImage;
       }
-      updates.args.image_encoder = definition?.image?.defaultEncoder;
+      updates.args.image_encoder = definition?.image?.allowedEncoders[0];
     }
-    console.log('updates22', updates)
     onValueChange(updates);
   };
 
@@ -261,7 +239,7 @@ export default function FormatSelectorContent({
   return (
     <div className="flex bg-popover h-[400px] overflow-hidden rounded-md border text-popover-foreground">
       <div className="w-[140px] border-r bg-muted/20 flex flex-col">
-        <div className="p-2 border-b">
+        {/* <div className="p-2 border-b">
           <div className="flex items-center px-2 py-2 text-sm font-medium text-muted-foreground">
             <Search className="w-4 h-4 mr-2" />
             <input
@@ -271,7 +249,7 @@ export default function FormatSelectorContent({
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-        </div>
+        </div> */}
 
         <div className="flex-1 space-y-1 py-2">
           <CategoryItem

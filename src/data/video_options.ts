@@ -1,5 +1,4 @@
 import { ColorSpaceOption, SelectOption } from "@/types/options";
-import { EncoderEnum } from "@/types/options";
 
 /**
  * 颜色空间选项
@@ -15,19 +14,16 @@ export const COLOR_SPACES: ColorSpaceOption[] = [
     value: "rec709",
     label: "SDR-Rec.709",
     description: "Standard Dynamic Range (Rec. 709)",
-    supportedEncoders: [EncoderEnum.H264, EncoderEnum.H265],
   },
   {
     value: "rec2100hlg",
     label: "HDR-Rec.2100HLG",
     description: "High Dynamic Range (Rec. 2100 HLG)",
-    supportedEncoders: [EncoderEnum.H264, EncoderEnum.H265],
   },
   {
     value: "rec2100pq",
     label: "HDR-Rec.2100PQ",
     description: "High Dynamic Range (Rec. 2100 PQ)",
-    supportedEncoders: [EncoderEnum.H264, EncoderEnum.H265],
   },
 ];
 

@@ -39,7 +39,7 @@ function buildTaskDefaultsFromMedia(mediaInfo: MediaDetails, task: ConverterTask
         title: mediaInfo.title,
         input_path: mediaInfo.path,
         format,
-        image_encoder: containerDefinition?.image?.defaultEncoder,
+        image_encoder: containerDefinition?.image?.allowedEncoders[0],
     };
 
     return {

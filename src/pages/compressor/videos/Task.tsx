@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { VIDEO_FORMATS } from "@/data/formats";
+import { VIDEO_SUPPORT_FORMATS } from "@/data/formats";
 
 import { UploadPanel } from "./UploadPanel";
 import { useCompressorStore } from "./store";
@@ -29,7 +29,7 @@ export default function ConvertingTask({
       <div className="space-y-3">
         {filteredTasks.length === 0 ? (
           <UploadPanel
-            supportedExtensions={VIDEO_FORMATS}
+            supportedExtensions={VIDEO_SUPPORT_FORMATS}
           />
         ) : (
           filteredTasks.map((task) => {

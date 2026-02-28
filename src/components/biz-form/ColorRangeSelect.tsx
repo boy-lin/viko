@@ -7,40 +7,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { SelectOption } from "@/types/options";
-import { VIDEO_BITRATES } from "@/data/video_options";
 
-interface VideoBitrateSelectProps {
+interface ColorRangeSelectProps {
   value?: string;
   onValueChange: (value: string) => void;
-  options?: SelectOption[];
+  placeholder?: string;
+  autoLabel?: string;
+  limitedLabel?: string;
+  fullLabel?: string;
   label?: string;
   hideLabel?: boolean;
   className?: string;
 }
 
-export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
+export const ColorRangeSelect: React.FC<ColorRangeSelectProps> = ({
   value,
   onValueChange,
-  options,
+  placeholder = "Color Range",
+  autoLabel = "Auto",
+  limitedLabel = "Limited (TV/MPEG)",
+  fullLabel = "Full (PC/JPEG)",
   label,
   hideLabel = true,
   className,
 }) => {
-  const bitrateOptions = options ?? VIDEO_BITRATES;
   return (
     <div className={className ?? "space-y-2"}>
       {!hideLabel && label && <Label>{label}</Label>}
       <Select value={value ?? "auto"} onValueChange={onValueChange}>
         <SelectTrigger className="cursor-pointer">
-          <SelectValue placeholder="Select bitrate" />
+          <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {bitrateOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
+          <SelectItem value="auto">{autoLabel}</SelectItem>
+          <SelectItem value="limited">{limitedLabel}</SelectItem>
+          <SelectItem value="full">{fullLabel}</SelectItem>
         </SelectContent>
       </Select>
     </div>

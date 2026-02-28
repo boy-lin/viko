@@ -1,4 +1,5 @@
 import React from "react";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -7,35 +8,43 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AUDIO_BITRATES } from "@/data/audio_options";
-import type { SelectOption } from "@/types/options";
 
 interface AudioBitrateSelectProps {
   value: string;
   onValueChange: (value: string) => void;
-  options?: SelectOption[];
+  maxBitrate?: number;
   placeholder?: string;
+  label?: string;
+  hideLabel?: boolean;
+  className?: string;
 }
 
 export const AudioBitrateSelect: React.FC<AudioBitrateSelectProps> = ({
   value,
   onValueChange,
-  options,
+  maxBitrate,
   placeholder,
+  label,
+  hideLabel = true,
+  className,
 }) => {
-  const bitrateOptions = options ?? AUDIO_BITRATES;
+  const bitrateOptions = maxBitrate ? AUDIO_BITRATES.filter(opt => opt.value === "auto" || opt.value <= maxBitrate) : AUDIO_BITRATES;
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="cursor-pointer">
-        <SelectValue placeholder={placeholder ?? "Select bitrate"} />
-      </SelectTrigger>
-      <SelectContent>
-        {bitrateOptions.map((rate) => (
-          <SelectItem key={rate.value} value={rate.value}>
-            {rate.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className={className ?? "space-y-2"}>
+      {!hideLabel && label && <Label>{label}</Label>}
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="cursor-pointer">
+          <SelectValue placeholder={placeholder ?? "Select bitrate"} />
+        </SelectTrigger>
+        <SelectContent>
+          {bitrateOptions.map((rate) => (
+            <SelectItem key={rate.value} value={rate.value}>
+              {rate.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 };

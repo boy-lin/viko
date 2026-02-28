@@ -50,7 +50,36 @@ mod tests {
             println!();
             println!("filter count: {}", count);
             println!("has drawtext: {}", has_drawtext);
+
+            println!();
+            println!("--- ffmpeg encoders (from av_codec_iterate) ---");
+            let mut codec_opaque: *mut std::ffi::c_void = std::ptr::null_mut();
+            let mut encoder_count = 0usize;
+
+            loop {
+                let codec = ffmpeg::ffi::av_codec_iterate(&mut codec_opaque);
+                if codec.is_null() {
+                    break;
+                }
+
+                if ffmpeg::ffi::av_codec_is_encoder(codec) == 0 {
+                    continue;
+                }
+
+                let codec_name = CStr::from_ptr((*codec).name).to_string_lossy().to_string();
+                let codec_desc = if (*codec).long_name.is_null() {
+                    String::new()
+                } else {
+                    CStr::from_ptr((*codec).long_name)
+                        .to_string_lossy()
+                        .to_string()
+                };
+                println!("{} - {}", codec_name, codec_desc);
+                encoder_count += 1;
+            }
+
+            println!();
+            println!("encoder count: {}", encoder_count);
         }
     }
 }
-

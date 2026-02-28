@@ -1,10 +1,10 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { FormatOption } from "@/types/options";
+import { FormatGroup } from "@/types/options";
 
 interface FormatSelectorStore {
-  recentsByKey: Record<string, FormatOption[]>;
-  addToRecents: (key: string, format: FormatOption) => void;
+  recentsByKey: Record<string, FormatGroup[]>;
+  addToRecents: (key: string, format: FormatGroup) => void;
   clearRecents: (key: string) => void;
 }
 

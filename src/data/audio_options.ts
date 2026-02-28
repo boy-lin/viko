@@ -20,6 +20,9 @@ export const AUDIO_BITRATES: SelectOption[] = [
 export const AUDIO_SAMPLE_RATES: SelectOption[] = [
   { value: "auto", label: "Auto" },
   { value: "8000", label: "8000 Hz" },
+  { value: "11025", label: "11025 Hz" },
+  { value: "12000", label: "12000 Hz" },
+  { value: "16000", label: "16000 Hz" },
   { value: "48000", label: "48000 Hz" },
   { value: "44100", label: "44100 Hz" },
   { value: "32000", label: "32000 Hz" },
@@ -28,6 +31,14 @@ export const AUDIO_SAMPLE_RATES: SelectOption[] = [
 
 export const AUDIO_CHANNELS: SelectOption[] = [
   { value: "auto", label: "Auto" },
-  { value: "2", label: "Stereo" },
-  { value: "1", label: "Mono" },
+  { value: "1", label: "Mono（1）" },
+  { value: "2", label: "Stereo（2）" },
+  { value: "3", label: "3.0（3）" },
+  { value: "4", label: "4.0（4）" },
+  { value: "5", label: "5.0（5）" },
+  { value: "6", label: "6.0（6）" },
+  { value: "7", label: "7.0（7）" },
+  { value: "8", label: "8.0（8）" },
+  { value: "9", label: "9.0（9）" },
+  { value: "10", label: "10.0（10）" },
 ];

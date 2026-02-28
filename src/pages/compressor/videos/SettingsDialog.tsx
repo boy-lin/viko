@@ -26,7 +26,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Settings } from "lucide-react";
 import { getVideoCompressionPresetByRatio } from "./compressionPreset";
 import { formatToDefinition, getVideoOptionsByEncoder } from "@/data/capabilities";
-import type { SelectOption } from "@/types/options";
+import type { SelectOption } from "@/types/options"; 
+import { parseOptionalInt } from "@/lib/utils";
 
 interface CompressionSettingsFormProps {
   config: CompressVideoTaskArgs;
@@ -34,7 +35,7 @@ interface CompressionSettingsFormProps {
 }
 
 interface CompressionSettingsProps extends CompressionSettingsFormProps {
-  onSave: (config: CompressVideoTaskArgs) => void;
+  onSave: (config: Partial<CompressVideoTaskArgs>) => void;
 }
 
 const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
@@ -42,11 +43,6 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   onConfigChange,
 }) => {
 
-  const parseOptionalInt = (value: string) => {
-    if (!value.trim()) return undefined;
-    const parsed = Number.parseInt(value, 10);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  };
 
 
   const GOP_OPTIONS: SelectOption[] = [
@@ -75,7 +71,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
     { value: "slow", label: "slow" },
   ];
   const containerDefinition = formatToDefinition.get(config.format);
-  const effectiveVideoEncoder = config.codec || containerDefinition?.video?.defaultEncoder;
+  const effectiveVideoEncoder = config.codec || containerDefinition?.video?.allowedEncoders[0];
   const videoOptions = getVideoOptionsByEncoder(effectiveVideoEncoder);
 
   return (
@@ -97,66 +93,66 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           className="w-full cursor-pointer"
         />
       </div>
-      <div className="space-y-2">
-        <Label>码率 (kbps)</Label>
-        <VideoBitrateSelect
-          value={config.bitrate === undefined ? "auto" : String(config.bitrate)}
-          options={videoOptions.bitrates}
-          onValueChange={(val) =>
-            onConfigChange({
-              bitrate: val === "auto" ? undefined : parseOptionalInt(val),
-            })
-          }
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>帧率</Label>
-        <VideoFrameRateSelect
-          value={config.frame_rate === undefined ? "auto" : String(config.frame_rate)}
-          options={videoOptions.frameRates}
-          onValueChange={(val) =>
-            onConfigChange({
-              frame_rate: val === "auto" ? undefined : Number.parseFloat(val),
-            })
-          }
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>编码器</Label>
-        <VideoEncoderSelect
-          value={config.codec}
-          allowedEncoders={containerDefinition?.video?.allowedEncoders}
-          onValueChange={(val) =>
-            onConfigChange({
-              codec: val,
-            })
-          }
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>GOP 间隔</Label>
-        <VideoGopSelect
-          value={config.keyframe_interval === undefined ? "auto" : String(config.keyframe_interval)}
-          options={GOP_OPTIONS}
-          onValueChange={(val) =>
-            onConfigChange({
-              keyframe_interval: val === "auto" ? undefined : parseOptionalInt(val),
-            })
-          }
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>色深 (bit)</Label>
-        <VideoColorDepthSelect
-          value={config.color_depth === undefined ? "auto" : String(config.color_depth)}
-          options={COLOR_DEPTHS}
-          onValueChange={(val) =>
-            onConfigChange({
-              color_depth: val === "auto" ? undefined : parseOptionalInt(val),
-            })
-          }
-        />
-      </div>
+      <VideoBitrateSelect
+        className="space-y-2"
+        label="码率 (kbps)"
+        hideLabel={false}
+        value={config.bitrate === undefined ? "auto" : String(config.bitrate)}
+        options={videoOptions.bitrates}
+        onValueChange={(val) =>
+          onConfigChange({
+            bitrate: val === "auto" ? undefined : parseOptionalInt(val),
+          })
+        }
+      />
+      <VideoFrameRateSelect
+        className="space-y-2"
+        label="帧率"
+        hideLabel={false}
+        value={config.frame_rate === undefined ? "auto" : String(config.frame_rate)}
+        options={videoOptions.frameRates}
+        onValueChange={(val) =>
+          onConfigChange({
+            frame_rate: val === "auto" ? undefined : Number.parseFloat(val),
+          })
+        }
+      />
+      <VideoEncoderSelect
+        className="space-y-2"
+        label="编码器"
+        hideLabel={false}
+        value={config.codec}
+        allowedEncoders={containerDefinition?.video?.allowedEncoders}
+        onValueChange={(val) =>
+          onConfigChange({
+            codec: val,
+          })
+        }
+      />
+      <VideoGopSelect
+        className="space-y-2"
+        label="GOP 间隔"
+        hideLabel={false}
+        value={config.keyframe_interval === undefined ? "auto" : String(config.keyframe_interval)}
+        options={GOP_OPTIONS}
+        onValueChange={(val) =>
+          onConfigChange({
+            keyframe_interval: val === "auto" ? undefined : parseOptionalInt(val),
+          })
+        }
+      />
+      <VideoColorDepthSelect
+        className="space-y-2"
+        label="色深 (bit)"
+        hideLabel={false}
+        value={config.color_depth === undefined ? "auto" : String(config.color_depth)}
+        options={COLOR_DEPTHS}
+        onValueChange={(val) =>
+          onConfigChange({
+            color_depth: val === "auto" ? undefined : parseOptionalInt(val),
+          })
+        }
+      />
       {/* <div className="space-y-2">
         <Label>音频码率 (kbps)</Label>
         <AudioBitrateSelect
@@ -171,18 +167,18 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           }
         />
       </div> */}
-      <div className="space-y-2">
-        <Label>压缩模式</Label>
-        <VideoPresetSelect
-          value={config.preset}
-          options={VIDEO_PRESETS}
-          onValueChange={(val) =>
-            onConfigChange({
-              preset: val === "auto" ? undefined : val,
-            })
-          }
-        />
-      </div>
+      <VideoPresetSelect
+        className="space-y-2"
+        label="压缩模式"
+        hideLabel={false}
+        value={config.preset}
+        options={VIDEO_PRESETS}
+        onValueChange={(val) =>
+          onConfigChange({
+            preset: val === "auto" ? undefined : val,
+          })
+        }
+      />
 
       <div className="col-span-2 flex items-center gap-2">
 

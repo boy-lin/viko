@@ -4,13 +4,13 @@ import { Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogHeader, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FormatOption } from "@/types/options";
+import { FormatGroup } from "@/types/options";
 
 import FormatSelectorContent from "./FormatSelectorContent";
 import { FormatSelectorProps } from "./types";
 import { useFormatSelectorStore } from "./store";
 
-const EMPTY_RECENTS: FormatOption[] = [];
+const EMPTY_RECENTS: FormatGroup[] = [];
 
 export default function FormatSelectorDialog(props: FormatSelectorProps) {
   const {

@@ -41,7 +41,7 @@ function buildDefaultArgs(mediaInfo: MediaDetails, task: ConverterTask) {
         audio_tracks: mediaInfo.streams.filter((stream: any) => stream.codec_type === "audio").map((stream: any) => {
             return {
                 source_stream_index: stream.index,
-                codec: containerDefinition?.audio?.defaultEncoder,
+                codec: containerDefinition?.audio?.allowedEncoders[0],
             }
         })
     };

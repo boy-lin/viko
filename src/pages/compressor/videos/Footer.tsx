@@ -29,7 +29,7 @@ export const CompressionFooter: React.FC = () => {
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
-  const handleSaveConfig = (vals: CompressVideoTaskArgs) => {
+  const handleSaveConfig = (vals: Partial<CompressVideoTaskArgs>) => {
     applyConfigToAllTasks(vals);
   };
 

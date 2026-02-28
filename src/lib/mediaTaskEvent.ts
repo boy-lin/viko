@@ -155,27 +155,30 @@ export interface CompressVideoTaskArgs {
   task_id: string;
   input_path: string;
   input_file_type?: FileType;
-  format: string;
-  codec: string;
-  resolution: string;
-  bitrate: number;
-  frame_rate: number;
+  codec?: string;
+  resolution?: string;
+  bitrate?: number;
+  quality?: number;
+  frame_rate?: number;
   output_path?: string;
   keyframe_interval?: number;
   color_depth?: number;
   remove_audio?: boolean;
-  // audio_bitrate?: number;
   preset?: string;
   use_hardware_acceleration?: boolean;
-  /** 扩展待同步到rust */
+  /** 与 Rust AudioTrackConfig flatten 对齐 */
   audio_tracks?: AudioTrackConfig[];
-  ratio: number;// only display 0-100，表示压缩到原文件的百分比
+  /** 仅用于前端展示/输出文件后缀，Rust compress-video 不读取该字段 */
+  format: string;
+  /** only display: 0-100，表示压缩到原文件的百分比 */
+  ratio: number;
 }
 
 export interface CompressAudioTaskArgs {
   task_id: string;
   input_path: string;
   input_file_type?: FileType;
+  /** 输出容器格式（后端 compress_audio_file 会据此修正输出扩展名并选择 muxer） */
   format: string;
   codec: string;
   sample_rate?: number

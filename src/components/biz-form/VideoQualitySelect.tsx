@@ -1,4 +1,5 @@
 import React from "react";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -13,12 +14,18 @@ interface VideoQualitySelectProps {
   value?: number;
   onValueChange: (value: number | undefined) => void;
   options?: SelectOption[];
+  label?: string;
+  hideLabel?: boolean;
+  className?: string;
 }
 
 export const VideoQualitySelect: React.FC<VideoQualitySelectProps> = ({
   value,
   onValueChange,
   options,
+  label,
+  hideLabel = true,
+  className,
 }) => {
   const qualityOptions = options ?? VIDEO_QUALITIES;
 
@@ -29,26 +36,29 @@ export const VideoQualitySelect: React.FC<VideoQualitySelectProps> = ({
   const currentValue = value !== undefined ? value.toString() : "auto";
 
   return (
-    <Select
-      value={currentValue}
-      onValueChange={(val) => {
-        if (val === "auto") {
-          onValueChange(undefined);
-        } else {
-          onValueChange(parseInt(val, 10));
-        }
-      }}
-    >
-      <SelectTrigger className="cursor-pointer" >
-        <SelectValue placeholder="Select quality" />
-      </SelectTrigger>
-      <SelectContent>
-        {qualityOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className={className ?? "space-y-2"}>
+      {!hideLabel && label && <Label>{label}</Label>}
+      <Select
+        value={currentValue}
+        onValueChange={(val) => {
+          if (val === "auto") {
+            onValueChange(undefined);
+          } else {
+            onValueChange(parseInt(val, 10));
+          }
+        }}
+      >
+        <SelectTrigger className="cursor-pointer" >
+          <SelectValue placeholder="Select quality" />
+        </SelectTrigger>
+        <SelectContent>
+          {qualityOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 };

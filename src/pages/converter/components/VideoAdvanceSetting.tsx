@@ -4,18 +4,9 @@ import { VideoResolutionSelect } from "@/components/biz-form/VideoResolutionSele
 import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect";
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
+import { ColorRangeSelect } from "@/components/biz-form/ColorRangeSelect";
 import { getVideoOptionsByEncoder, formatToDefinition } from "@/data/capabilities";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
-
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export type VideoConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "video_encoder" | "video_bitrate" | "resolution" | "frame_rate" | "color_space" | "color_range">
@@ -52,98 +43,63 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
   return (
     <div className="flex-1 p-2 space-y-4">
       <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-        <div className="space-y-2">
-          <div className="flex gap-2 items-center">
-            <Info className="w-4 h-4 text-muted-foreground" />
-            <Label className="text-muted-foreground">
-              {t("video_advance.encoder", "Encoder")}
-            </Label>
-          </div>
-          <VideoEncoderSelect
-            value={video_encoder}
-            onValueChange={(v) => onChange?.({ video_encoder: v })}
-            allowedEncoders={containerDefinition.video?.allowedEncoders}
-          />
-        </div>
+        <VideoEncoderSelect
+          className="space-y-2"
+          label={t("video_advance.encoder", "Encoder")}
+          hideLabel={false}
+          value={video_encoder}
+          onValueChange={(v) => onChange?.({ video_encoder: v })}
+          allowedEncoders={containerDefinition.video?.allowedEncoders}
+        />
 
-        <div className="space-y-2">
-          <div className="flex gap-2 items-center">
-            <Info className="w-4 h-4 text-muted-foreground" />
-            <Label className="text-muted-foreground">
-              {t("video_advance.resolution", "Resolution")}
-            </Label>
-          </div>
-          <VideoResolutionSelect
-            value={resolution}
-            onValueChange={(v) => onChange?.({ resolution: v })}
-            groups={videoOptions.resolutions}
-          />
-        </div>
+        <VideoResolutionSelect
+          wrapperClassName="space-y-2"
+          label={t("video_advance.resolution", "Resolution")}
+          hideLabel={false}
+          value={resolution}
+          onValueChange={(v) => onChange?.({ resolution: v })}
+          groups={videoOptions.resolutions}
+        />
 
 
-        <div className="space-y-2">
-          <div className="flex gap-2 items-center">
-            <Info className="w-4 h-4 text-muted-foreground" />
-            <Label className="text-muted-foreground">
-              {t("video_advance.frame_rate", "Frame Rate")}
-            </Label>
-          </div>
-          <VideoFrameRateSelect
-            value={frame_rate}
-            onValueChange={(v) => onChange?.({ frame_rate: v })}
-            options={videoOptions.frameRates}
-          />
-        </div>
+        <VideoFrameRateSelect
+          className="space-y-2"
+          label={t("video_advance.frame_rate", "Frame Rate")}
+          hideLabel={false}
+          value={frame_rate}
+          onValueChange={(v) => onChange?.({ frame_rate: v })}
+          options={videoOptions.frameRates}
+        />
 
-        <div className="space-y-2">
-          <div className="flex gap-2 items-center">
-            <Info className="w-4 h-4 text-muted-foreground" />
-            <Label className="text-muted-foreground">
-              {t("video_advance.bitrate", "Bitrate")}
-            </Label>
-          </div>
-          <VideoBitrateSelect
-            value={String(video_bitrate || "auto")}
-            onValueChange={(v) => onChange?.({ video_bitrate: parseInt(v) })}
-            options={videoOptions.bitrates}
-          />
-        </div>
+        <VideoBitrateSelect
+          className="space-y-2"
+          label={t("video_advance.bitrate", "Bitrate")}
+          hideLabel={false}
+          value={String(video_bitrate || "auto")}
+          onValueChange={(v) => onChange?.({ video_bitrate: parseInt(v) })}
+          options={videoOptions.bitrates}
+        />
 
-        <div className="space-y-2 pr-4">
-          <div className="flex gap-2 items-center">
-            <Info className="w-4 h-4 text-muted-foreground" />
-            <Label className="text-muted-foreground">
-              {t("video_advance.color_space", "Color Space")}
-            </Label>
-          </div>
-          <ColorSpaceSelect
-            value={color_space}
-            onValueChange={(v) => onChange?.({ color_space: v })}
-            options={videoOptions.colorSpaces}
-          />
-        </div>
+        <ColorSpaceSelect
+          className="space-y-2 pr-4"
+          label={t("video_advance.color_space", "Color Space")}
+          hideLabel={false}
+          value={color_space}
+          onValueChange={(v) => onChange?.({ color_space: v })}
+          options={videoOptions.colorSpaces}
+        />
 
-        <div className="space-y-2 pr-4">
-          <div className="flex gap-2 items-center">
-            <Info className="w-4 h-4 text-muted-foreground" />
-            <Label className="text-muted-foreground">
-              {t("video_advance.color_range", "Color Range")}
-            </Label>
-          </div>
-          <Select
-            value={color_range || "auto"}
-            onValueChange={(v) => onChange?.({ color_range: v })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t("video_advance.color_range", "Color Range")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="auto">{t("video_advance.auto", "Auto")}</SelectItem>
-              <SelectItem value="limited">{t("video_advance.limited", "Limited (TV/MPEG)")}</SelectItem>
-              <SelectItem value="full">{t("video_advance.full", "Full (PC/JPEG)")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <ColorRangeSelect
+          className="space-y-2 pr-4"
+          label={t("video_advance.color_range", "Color Range")}
+          hideLabel={false}
+          value={color_range}
+          onValueChange={(v) => onChange?.({ color_range: v })}
+          placeholder={t("video_advance.color_range", "Color Range")}
+          autoLabel={t("video_advance.auto", "Auto")}
+          limitedLabel={t("video_advance.limited", "Limited (TV/MPEG)")}
+          fullLabel={t("video_advance.full", "Full (PC/JPEG)")}
+        />
       </div>
     </div>
   );

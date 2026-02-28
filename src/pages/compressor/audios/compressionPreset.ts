@@ -1,6 +1,6 @@
 import { formatToDefinition } from "@/data/capabilities";
 import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
-import { EncoderEnum } from "@/types/options";
+import { AudioEncoderEnum } from "@/types/options";
 
 export type AudioCompressionTier =
   | "extreme_compression"
@@ -28,7 +28,7 @@ const pickSupportedAudioEncoder = (
 
   if (allowed && allowed.length > 0) {
     for (const codec of preferred) {
-      if (allowed.includes(codec as EncoderEnum)) return codec;
+      if (allowed.includes(codec as AudioEncoderEnum)) return codec;
     }
     return allowed[0];
   }
@@ -36,7 +36,7 @@ const pickSupportedAudioEncoder = (
   for (const codec of preferred) {
     if (codec) return codec;
   }
-  return EncoderEnum.MP3;
+  return AudioEncoderEnum.MP3;
 };
 
 export const getAudioCompressionPresetByRatio = (
@@ -51,10 +51,10 @@ export const getAudioCompressionPresetByRatio = (
       patch: {
         ratio: 20,
         codec: pickSupportedAudioEncoder(format, [
-          EncoderEnum.OPUS,
-          EncoderEnum.AAC,
-          EncoderEnum.VORBIS,
-          EncoderEnum.MP3,
+          AudioEncoderEnum.OPUS,
+          AudioEncoderEnum.AAC,
+          AudioEncoderEnum.VORBIS,
+          AudioEncoderEnum.MP3,
         ]),
         bitrate: 64,
         sample_rate: 32000,
@@ -70,10 +70,10 @@ export const getAudioCompressionPresetByRatio = (
       patch: {
         ratio: normalizedRatio,
         codec: pickSupportedAudioEncoder(format, [
-          EncoderEnum.OPUS,
-          EncoderEnum.AAC,
-          EncoderEnum.MP3,
-          EncoderEnum.VORBIS,
+          AudioEncoderEnum.OPUS,
+          AudioEncoderEnum.AAC,
+          AudioEncoderEnum.MP3,
+          AudioEncoderEnum.VORBIS,
         ]),
         bitrate: 96,
         sample_rate: 44100,
@@ -89,10 +89,10 @@ export const getAudioCompressionPresetByRatio = (
       patch: {
         ratio: normalizedRatio,
         codec: pickSupportedAudioEncoder(format, [
-          EncoderEnum.AAC,
-          EncoderEnum.OPUS,
-          EncoderEnum.MP3,
-          EncoderEnum.VORBIS,
+          AudioEncoderEnum.AAC,
+          AudioEncoderEnum.OPUS,
+          AudioEncoderEnum.MP3,
+          AudioEncoderEnum.VORBIS,
         ]),
         bitrate: 128,
         sample_rate: 44100,
@@ -107,10 +107,10 @@ export const getAudioCompressionPresetByRatio = (
     patch: {
       ratio: normalizedRatio,
       codec: pickSupportedAudioEncoder(format, [
-        EncoderEnum.AAC,
-        EncoderEnum.OPUS,
-        EncoderEnum.FLAC,
-        EncoderEnum.MP3,
+        AudioEncoderEnum.AAC,
+        AudioEncoderEnum.OPUS,
+        AudioEncoderEnum.FLAC,
+        AudioEncoderEnum.MP3,
       ]),
       bitrate: 192,
       sample_rate: 48000,

@@ -12,7 +12,7 @@ import { CompressionFooter } from "./Footer";
 import { useCompressorStore } from "./store";
 import { useSettingsStore } from "@/stores/settingsStore";
 import ConvertingTask from "./Task";
-import { AUDIO_FORMATS } from "@/data/formats";
+import { AUDIO_SUPPORT_FORMATS } from "@/data/formats";
 import { UploadButton } from "@/components/ui-biz/UploadButton";
 import { useTranslation } from "react-i18next";
 
@@ -42,7 +42,7 @@ export default function ConverterPage() {
             <UploadButton
               name={t("file_picker.audio")}
               multiple={true}
-              extensions={AUDIO_FORMATS}
+              extensions={AUDIO_SUPPORT_FORMATS}
               onAddPaths={(paths) => useCompressorStore.getState().addTasksByPaths(paths)}
             />
           </div>

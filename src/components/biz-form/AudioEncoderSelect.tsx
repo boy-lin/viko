@@ -1,4 +1,5 @@
 import React from "react";
+import { Label } from "@/components/ui/label";
 import { AUDIO_ENCODERS } from "@/data/encoders";
 import {
   Select,
@@ -7,45 +8,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatToDefinition } from "@/data/capabilities";
-import { EncoderEnum } from "@/types/options";
+import { AudioEncoderEnum } from "@/types/options";
 
 interface AudioEncoderSelectProps {
-  format?: string;
+  allowedEncoders?: AudioEncoderEnum[];
   value?: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
+  label?: string;
+  hideLabel?: boolean;
+  className?: string;
 }
 
 export const AudioEncoderSelect: React.FC<AudioEncoderSelectProps> = ({
-  format,
+  allowedEncoders,
   value,
   onValueChange,
   placeholder,
+  label,
+  hideLabel = true,
+  className,
 }) => {
-  const filteredEncoders = React.useMemo(() => {
-    if (!format) return AUDIO_ENCODERS;
-    const containerDefinition = formatToDefinition.get(format);
-    if (!containerDefinition) {
-      return AUDIO_ENCODERS;
-    }
-    return AUDIO_ENCODERS.filter((encoder) => {
-      return containerDefinition.audio?.allowedEncoders.includes(encoder.value as EncoderEnum);
-    });
-  }, [format]);
+  const filteredEncoders = allowedEncoders && allowedEncoders.length 
+  ? AUDIO_ENCODERS.filter((encoder) => allowedEncoders.includes(encoder.value)) 
+  : AUDIO_ENCODERS;
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="cursor-pointer">
-        <SelectValue placeholder={placeholder ?? "Select encoder"} />
-      </SelectTrigger>
-      <SelectContent>
-        {filteredEncoders.map((encoder) => (
-          <SelectItem key={encoder.value} value={encoder.value}>
-            {encoder.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className={className ?? "space-y-2"}>
+      {!hideLabel && label && <Label>{label}</Label>}
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="cursor-pointer">
+          <SelectValue placeholder={placeholder ?? "Select encoder"} />
+        </SelectTrigger>
+        <SelectContent>
+          {filteredEncoders.map((encoder) => (
+            <SelectItem key={encoder.value} value={encoder.value}>
+              {encoder.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 };

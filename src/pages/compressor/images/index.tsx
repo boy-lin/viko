@@ -12,7 +12,7 @@ import { CompressionFooter } from "./Footer";
 import { useCompressorStore } from "./store";
 import { useSettingsStore } from "@/stores/settingsStore";
 import ConvertingTask from "./Task";
-import { IMAGE_FORMATS } from "@/data/formats";
+import { IMAGE_SUPPORT_FORMATS } from "@/data/formats";
 import { UploadButton } from "@/components/ui-biz/UploadButton";
 import { useTranslation } from "react-i18next";
 
@@ -42,7 +42,7 @@ export default function ConverterPage() {
             <UploadButton
               name={t("search.add_files")}
               multiple={true}
-              extensions={IMAGE_FORMATS}
+              extensions={IMAGE_SUPPORT_FORMATS}
               onAddPaths={(paths) => useCompressorStore.getState().addTasksByPaths(paths)}
             />
           </div>

@@ -9,7 +9,7 @@ import { CompressorLayer } from "@/components/icons/CompressorLayer";
 import { useAnalytics } from "@/lib/analytics";
 import { MenuItems } from "@/layout/sidebar/menu";
 import { useTranslation } from "react-i18next";
-import { AUDIO_FORMATS, VIDEO_FORMATS, IMAGE_FORMATS } from "@/data/formats";
+import { AUDIO_SUPPORT_FORMATS, VIDEO_SUPPORT_FORMATS, IMAGE_SUPPORT_FORMATS } from "@/data/formats";
 import { bridge } from "@/lib/bridge";
 
 type HeroCardAction = {
@@ -152,7 +152,7 @@ export function HeroCard() {
       const paths = await bridge.addFilesOrFolders({
         name: "Video",
         multiple: true,
-        extensions: VIDEO_FORMATS,
+        extensions: VIDEO_SUPPORT_FORMATS,
 
       })
       if (paths && paths.length > 0) {
@@ -164,7 +164,7 @@ export function HeroCard() {
       const paths = await bridge.addFilesOrFolders({
         name: "Audio",
         multiple: true,
-        extensions: AUDIO_FORMATS,
+        extensions: AUDIO_SUPPORT_FORMATS,
       })
       if (paths && paths.length > 0) {
         const { useConverterStore } = await import("@/pages/converter/audios/store")
@@ -175,7 +175,7 @@ export function HeroCard() {
       const paths = await bridge.addFilesOrFolders({
         name: "Image",
         multiple: true,
-        extensions: IMAGE_FORMATS,
+        extensions: IMAGE_SUPPORT_FORMATS,
 
       });
       if (paths && paths.length > 0) {
@@ -187,7 +187,7 @@ export function HeroCard() {
       const paths = await bridge.addFilesOrFolders({
         name: "Compressor",
         multiple: true,
-        extensions: VIDEO_FORMATS,
+        extensions: VIDEO_SUPPORT_FORMATS,
 
       });
       if (paths && paths.length > 0) {
@@ -199,7 +199,7 @@ export function HeroCard() {
       const paths = await bridge.addFilesOrFolders({
         name: "Compressor",
         multiple: true,
-        extensions: AUDIO_FORMATS,
+        extensions: AUDIO_SUPPORT_FORMATS,
 
       });
       if (paths && paths.length > 0) {
@@ -211,7 +211,7 @@ export function HeroCard() {
       const paths = await bridge.addFilesOrFolders({
         name: "Compressor",
         multiple: true,
-        extensions: IMAGE_FORMATS,
+        extensions: IMAGE_SUPPORT_FORMATS,
 
       });
       if (paths && paths.length > 0) {
@@ -220,7 +220,7 @@ export function HeroCard() {
         navigate(MenuItems.compressorImages);
       }
     } else if (actionId === "watermark-add") {
-      const videoAndImageFormats = [...VIDEO_FORMATS, ...IMAGE_FORMATS];
+      const videoAndImageFormats = [...VIDEO_SUPPORT_FORMATS, ...IMAGE_SUPPORT_FORMATS];
       const { useWatermarkStore } = await import("@/pages/watermark/store")
       const paths = await bridge.addFilesOrFolders({
         name: "Watermark",

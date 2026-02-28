@@ -13,7 +13,6 @@ export interface SelectOption {
  * 编码器选项接口
  */
 export interface EncoderOption extends SelectOption {
-  formats?: string[]; // 支持的容器格式
   sampleRateOptions?: SelectOption[]; // 支持的采样率
   channelsOptions?: SelectOption[]; // 支持的声道数
   bitrateOptions?: SelectOption[]; // 支持的码率
@@ -23,7 +22,6 @@ export interface EncoderOption extends SelectOption {
  * 颜色空间选项接口
  */
 export interface ColorSpaceOption extends SelectOption {
-  supportedEncoders?: string[]; // 支持的编码器
 }
 
 /**
@@ -33,21 +31,6 @@ export interface FormatCategory {
   id: string;
   label: string;
   icon: any;
-}
-
-/**
- * 格式选项接口
- */
-export interface FormatOption {
-  id: string;
-  label: string;
-  category: FileType;
-  groupId: string;
-  description?: string;
-  extension?: string;
-  videoResolution?: string;
-  imageResolution?: string;
-  audioBitrate?: string;
 }
 
 /**

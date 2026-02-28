@@ -1,7 +1,6 @@
-import { CompressVideoTaskArgs } from "@/lib/mediaTaskEvent";
-import { EncoderEnum } from "@/types/options";
+﻿import { AudioTrackConfig, CompressVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { formatToDefinition } from "@/data/capabilities";
-import { AudioTrackConfig } from "@/lib/mediaTaskEvent";
+import { VideoEncoderEnum, AudioEncoderEnum } from "@/types/options";
 
 export type VideoCompressionTier =
   | "extreme_compression"
@@ -19,31 +18,57 @@ const clampRatio = (ratio: number) => {
   return Math.max(0, Math.min(100, Math.round(ratio)));
 };
 
+const ratioToQuality = (ratio: number) => Math.max(1, Math.min(100, Math.round(ratio)));
+
+const cloneAudioTracks = (audioTracks?: AudioTrackConfig[]): AudioTrackConfig[] => {
+  const source = audioTracks && audioTracks.length > 0
+    ? audioTracks
+    : [
+      {
+        source_stream_index: 0,
+        codec: AudioEncoderEnum.AAC,
+        bitrate: 128,
+        sample_rate: 32000,
+        channels: 2,
+        bit_depth: 16,
+      },
+    ];
+
+  return source.map((track) => ({ ...track }));
+};
+
+const scaleTrackBitrate = (
+  track: AudioTrackConfig,
+  minBitrate: number,
+  factor: number,
+): AudioTrackConfig => {
+  const base = Math.max(minBitrate, track.bitrate ?? 128);
+  return {
+    ...track,
+    bitrate: Math.round(base * factor),
+  };
+};
+
 export const getVideoCompressionPresetByRatio = (
   ratio: number,
   format: string,
-  audio_tracks?: AudioTrackConfig[]
+  audio_tracks?: AudioTrackConfig[],
 ): VideoCompressionPresetResult => {
   const normalizedRatio = clampRatio(ratio);
-  const containerDefinition = formatToDefinition.get(format)
-  const audioTracks = audio_tracks ? audio_tracks : [{
-    source_stream_index: 0,
-    codec: EncoderEnum.AAC,
-    bitrate: 128,
-    sample_rate: 32000,
-    channels: 2,
-    bit_depth: 16,
-  }]
+  const containerDefinition = formatToDefinition.get(format);
+  const baseTracks = cloneAudioTracks(audio_tracks);
 
   if (normalizedRatio < 20) {
-    audioTracks.forEach(track => {
-      track.bitrate = Math.max(64, track.bitrate ?? 128) * 0.5;
-    });
+    const appliedRatio = 20;
+    const audioTracks = baseTracks.map((track) => scaleTrackBitrate(track, 64, 0.5));
     return {
       tier: "extreme_compression",
       patch: {
-        ratio: 20,
-        codec: containerDefinition?.video?.allowedEncoders?.includes(EncoderEnum.AV1) ? EncoderEnum.AV1 : EncoderEnum.H264,
+        ratio: appliedRatio,
+        quality: ratioToQuality(appliedRatio),
+        codec: containerDefinition?.video?.allowedEncoders?.includes(VideoEncoderEnum.AV1)
+          ? VideoEncoderEnum.AV1
+          : VideoEncoderEnum.H264,
         preset: "slow",
         frame_rate: 24,
         keyframe_interval: 120,
@@ -54,14 +79,13 @@ export const getVideoCompressionPresetByRatio = (
   }
 
   if (normalizedRatio <= 40) {
-    audioTracks.forEach(track => {
-      track.bitrate = Math.max(96, track.bitrate ?? 128) * 0.5;
-    });
+    const audioTracks = baseTracks.map((track) => scaleTrackBitrate(track, 96, 0.5));
     return {
       tier: "high_compression",
       patch: {
         ratio: normalizedRatio,
-        codec: EncoderEnum.H264,
+        quality: ratioToQuality(normalizedRatio),
+        codec: VideoEncoderEnum.H264,
         preset: "slow",
         frame_rate: 24,
         keyframe_interval: 120,
@@ -72,14 +96,13 @@ export const getVideoCompressionPresetByRatio = (
   }
 
   if (normalizedRatio <= 70) {
-    audioTracks.forEach(track => {
-      track.bitrate = Math.max(96, track.bitrate ?? 128) * 0.5;
-    });
+    const audioTracks = baseTracks.map((track) => scaleTrackBitrate(track, 96, 0.5));
     return {
       tier: "balanced",
       patch: {
         ratio: normalizedRatio,
-        codec: EncoderEnum.H264,
+        quality: ratioToQuality(normalizedRatio),
+        codec: VideoEncoderEnum.H264,
         preset: "medium",
         frame_rate: 30,
         keyframe_interval: 250,
@@ -93,12 +116,13 @@ export const getVideoCompressionPresetByRatio = (
     tier: "high_quality",
     patch: {
       ratio: normalizedRatio,
-      codec: EncoderEnum.H264,
+      quality: ratioToQuality(normalizedRatio),
+      codec: VideoEncoderEnum.H264,
       preset: "fast",
       frame_rate: 30,
       keyframe_interval: 250,
       bitrate: undefined,
-      audio_tracks: audioTracks,
+      audio_tracks: baseTracks,
     },
   };
 };

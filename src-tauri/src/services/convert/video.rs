@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::events::TaskEmitter;
 use crate::media_common;
-use crate::services::convert::audio_transcode::{
+use crate::media_common::audio_transcode::{
     AudioEncodingParams, AudioOutputSummary, AudioTrackProcessor,
 };
 use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};

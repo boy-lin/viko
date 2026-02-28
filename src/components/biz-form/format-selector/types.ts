@@ -1,4 +1,4 @@
-import { FormatOption } from "@/types/options";
+import { FormatGroup } from "@/types/options";
 import { GlobalConverterConfig } from "@/pages/converter/videos/store";
 
 export interface FormatSelectorValue {
@@ -27,8 +27,8 @@ export interface FormatSelectorProps {
 
 export interface FormatSelectorContentProps {
   config: GlobalConverterConfig;
-  formatRecents: FormatOption[];
-  addToRecents: (format: FormatOption) => void;
+  formatRecents: FormatGroup[];
+  addToRecents: (format: FormatGroup) => void;
   onValueChange: (config: GlobalConverterConfig) => void;
   applyConfigToAllTasks: (config: GlobalConverterConfig) => void;
   onClose: () => void;

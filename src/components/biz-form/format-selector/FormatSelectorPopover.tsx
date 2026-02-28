@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FileType } from "@/types/tasks";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
-import { FormatOption } from "@/types/options";
+import { FormatGroup } from "@/types/options";
 
 import FormatSelectorContent from "./FormatSelectorContent";
 import { FormatSelectorProps } from "./types";
 import { useFormatSelectorStore } from "./store";
 
-const EMPTY_RECENTS: FormatOption[] = [];
+const EMPTY_RECENTS: FormatGroup[] = [];
 
 export default function FormatSelectorPopover(props: FormatSelectorProps) {
   const {

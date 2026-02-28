@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { AUDIO_FORMATS } from "@/data/formats";
+import { AUDIO_SUPPORT_FORMATS } from "@/data/formats";
 
 import { ConverterFooter } from "./Footer";
 import ConvertingTask from "./Task";
@@ -43,7 +43,7 @@ export default function ConvertionImagePage() {
             <UploadButton
               name={t("file_picker.audio")}
               multiple={true}
-              extensions={AUDIO_FORMATS}
+              extensions={AUDIO_SUPPORT_FORMATS}
               onAddPaths={(paths) => useConverterStore.getState().addTasksByPaths(paths)}
             />
           </div>

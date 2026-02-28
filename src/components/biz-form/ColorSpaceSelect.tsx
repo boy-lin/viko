@@ -1,4 +1,5 @@
 import React from "react";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -13,6 +14,9 @@ interface ColorSpaceSelectProps {
   value?: string;
   onValueChange?: (value: string) => void;
   options?: ColorSpaceOption[];
+  label?: string;
+  hideLabel?: boolean;
+  className?: string;
 }
 
 /**
@@ -25,22 +29,27 @@ export const ColorSpaceSelect: React.FC<ColorSpaceSelectProps> = ({
   value = "auto",
   onValueChange,
   options,
+  label,
+  hideLabel = true,
+  className,
 }) => {
   const colorSpaceOptions = options ?? COLOR_SPACES;
 
   return (
-
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger>
-        <SelectValue className="cursor-pointer" placeholder="Select color space" />
-      </SelectTrigger>
-      <SelectContent>
-        {colorSpaceOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className={className ?? "space-y-2"}>
+      {!hideLabel && label && <Label>{label}</Label>}
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="cursor-pointer">
+          <SelectValue placeholder="Select color space" />
+        </SelectTrigger>
+        <SelectContent>
+          {colorSpaceOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 };

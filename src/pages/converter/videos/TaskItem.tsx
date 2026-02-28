@@ -38,13 +38,13 @@ const buildDefaultArgs = (task: ConverterTask, details: MediaDetails) => {
     input_path: details.path,
   };
   const containerDefinition = formatToDefinition.get(outputArgs.format);
-  outputArgs.video_encoder = containerDefinition?.video?.defaultEncoder;
+  outputArgs.video_encoder = containerDefinition?.video?.allowedEncoders[0];
   outputArgs.audio_tracks =
     details?.streams
       ?.filter((stream: any) => stream.codec_type === "audio")
       .map((stream: any) => ({
         source_stream_index: stream.index,
-        codec: containerDefinition?.audio?.defaultEncoder,
+        codec: containerDefinition?.audio?.allowedEncoders[0],
         bitrate: 128,
         sample_rate: 32000,
         channels: stream.channels,

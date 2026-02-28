@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { WatermarkConfig } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
-import { VIDEO_FORMATS } from "@/data/formats";
+import { VIDEO_SUPPORT_FORMATS } from "@/data/formats";
 import { toast } from "sonner";
 import { MediaTaskType } from "@/types/tasks";
 import { useWatermarkStore } from "./store";
@@ -191,7 +191,7 @@ export default function WatermarkPage() {
     if (queueTasks.length === 0) {
         return (
             <div className="p-4 flex-1 rounded-xl overflow-hidden">
-                <UploadPanel supportedExtensions={VIDEO_FORMATS.map((format) => format.toLowerCase())} />
+                <UploadPanel supportedExtensions={VIDEO_SUPPORT_FORMATS.map((format) => format.toLowerCase())} />
             </div>
         );
     }

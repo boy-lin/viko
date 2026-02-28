@@ -1,4 +1,5 @@
 import React from "react";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -26,6 +27,9 @@ interface VideoGopSelectProps {
   onValueChange: (value: string) => void;
   options?: SelectOption[];
   placeholder?: string;
+  label?: string;
+  hideLabel?: boolean;
+  className?: string;
 }
 
 export const VideoGopSelect: React.FC<VideoGopSelectProps> = ({
@@ -33,22 +37,28 @@ export const VideoGopSelect: React.FC<VideoGopSelectProps> = ({
   onValueChange,
   options,
   placeholder,
+  label,
+  hideLabel = true,
+  className,
 }) => {
   const gopOptions = options ?? DEFAULT_GOP_OPTIONS;
 
   return (
-    <Select value={value ?? "auto"} onValueChange={onValueChange}>
-      <SelectTrigger className="cursor-pointer">
-        <SelectValue placeholder={placeholder ?? "选择 GOP"} />
-      </SelectTrigger>
-      <SelectContent>
-        {gopOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className={className ?? "space-y-2"}>
+      {!hideLabel && label && <Label>{label}</Label>}
+      <Select value={value ?? "auto"} onValueChange={onValueChange}>
+        <SelectTrigger className="cursor-pointer">
+          <SelectValue placeholder={placeholder ?? "选择 GOP"} />
+        </SelectTrigger>
+        <SelectContent>
+          {gopOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 };
 

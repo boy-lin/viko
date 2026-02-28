@@ -1,5 +1,5 @@
 ﻿import { useMemo } from "react";
-import { IMAGE_FORMATS } from "@/data/formats";
+import { IMAGE_SUPPORT_FORMATS } from "@/data/formats";
 
 import { UploadPanel } from "./UploadPanel";
 import { useConverterStore } from "./store";
@@ -28,7 +28,7 @@ export default function ConvertingTask({
       <div className="space-y-3">
         {filteredTasks.length === 0 ? (
           <UploadPanel
-            supportedExtensions={IMAGE_FORMATS}
+            supportedExtensions={IMAGE_SUPPORT_FORMATS}
           />
         ) : (
           filteredTasks.map((task) => <TaskItem key={task.id} task={task} />)

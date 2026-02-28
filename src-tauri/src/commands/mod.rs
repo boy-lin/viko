@@ -1040,7 +1040,7 @@ pub struct VideoConversionArgs {
     pub audio_quality: Option<u32>,
     pub audio_tracks: Option<Vec<crate::services::convert::video::AudioTrackConfig>>,
     pub default_audio_params:
-        Option<crate::services::convert::audio_transcode::AudioEncodingParams>,
+        Option<crate::media_common::audio_transcode::AudioEncodingParams>,
     pub use_hardware_acceleration: Option<bool>,
     pub use_ultra_fast_speed: Option<bool>,
     pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
@@ -1255,11 +1255,10 @@ pub struct AudioCompressionArgs {
     pub input_path: String,
     pub input_file_type: Option<String>,
     pub output_path: String,
-    pub sample_rate: Option<u32>,
-    pub bitrate: Option<u32>,
-    pub codec: Option<String>,
-    pub channels: Option<u32>,
-    pub bit_depth: Option<u32>,
+    #[serde(flatten)]
+    pub encoding: crate::media_common::audio_transcode::AudioEncodingParams,
+    /// 输出容器格式（用于修正输出扩展名与选择输出 muxer）
+    pub format: Option<String>,
     pub remove_silence: Option<bool>,
     pub silence_threshold: Option<f32>,
     pub volume_gain: Option<f32>,
@@ -1275,11 +1274,8 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
         let params = crate::services::compress::audio::AudioCompressionParams {
             input_path: args.input_path,
             output_path: args.output_path.clone(),
-            sample_rate: args.sample_rate,
-            bitrate: args.bitrate,
-            codec: args.codec,
-            channels: args.channels,
-            bit_depth: args.bit_depth,
+            format: args.format,
+            encoding: args.encoding,
             remove_silence: args.remove_silence,
             silence_threshold: args.silence_threshold,
             volume_gain: args.volume_gain,

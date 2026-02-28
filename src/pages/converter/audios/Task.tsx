@@ -1,5 +1,5 @@
 ﻿import { useMemo } from "react";
-import { AUDIO_FORMATS } from "@/data/formats";
+import { AUDIO_SUPPORT_FORMATS } from "@/data/formats";
 
 import { UploadPanel } from "./UploadPanel";
 import { useConverterStore } from "./store";
@@ -28,7 +28,7 @@ export default function ConvertingTask({
       <div className="space-y-3">
         {filteredTasks.length === 0 ? (
           <UploadPanel
-            supportedExtensions={AUDIO_FORMATS}
+            supportedExtensions={AUDIO_SUPPORT_FORMATS}
           />
         ) : (
           filteredTasks.map((task) => <TaskItem key={task.id} task={task} />)

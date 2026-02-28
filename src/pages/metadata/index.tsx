@@ -9,7 +9,7 @@ import { FileText, Save, Upload, AlertCircle, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { bridge } from "@/lib/bridge";
 import { MediaDetails } from "@/types/tasks";
-import { AUDIO_FORMATS, VIDEO_FORMATS } from "@/data/formats";
+import { AUDIO_SUPPORT_FORMATS, VIDEO_SUPPORT_FORMATS } from "@/data/formats";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { useTranslation } from "react-i18next";
 import { useMetadataStore, type Metadata } from "./store";
@@ -220,7 +220,7 @@ export default function MetadataEditorPage() {
                 multiple: false,
                 filters: [{
                     name: "Media Files",
-                    extensions: Array.from([...AUDIO_FORMATS, ...VIDEO_FORMATS].map(format => format.toLowerCase()))
+                    extensions: Array.from([...AUDIO_SUPPORT_FORMATS, ...VIDEO_SUPPORT_FORMATS].map(format => format.toLowerCase()))
                 }],
             });
 
