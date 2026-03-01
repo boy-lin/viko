@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { AUDIO_ENCODERS } from "@/data/encoders";
 import {
@@ -9,11 +9,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AudioEncoderEnum } from "@/types/options";
+import { cn } from "@/lib/utils";
 
 interface AudioEncoderSelectProps {
   allowedEncoders?: AudioEncoderEnum[];
-  value?: string;
-  onValueChange: (value: string) => void;
+  value?: AudioEncoderEnum;
+  onValueChange: (value: AudioEncoderEnum) => void;
   placeholder?: string;
   label?: string;
   hideLabel?: boolean;
@@ -29,15 +30,27 @@ export const AudioEncoderSelect: React.FC<AudioEncoderSelectProps> = ({
   hideLabel = true,
   className,
 }) => {
-  const filteredEncoders = allowedEncoders && allowedEncoders.length 
-  ? AUDIO_ENCODERS.filter((encoder) => allowedEncoders.includes(encoder.value)) 
-  : AUDIO_ENCODERS;
+  const filteredEncoders = React.useMemo(() => {
+    return allowedEncoders && allowedEncoders.length
+      ? AUDIO_ENCODERS.filter((encoder) => allowedEncoders.includes(encoder.value) || encoder.value === "auto")
+      : AUDIO_ENCODERS;
+  }, [allowedEncoders]);
 
+  useEffect(() => {
+    console.log("filteredEncoders", value, allowedEncoders);
+
+    if (!allowedEncoders || !allowedEncoders.length) return;
+
+    if (!value || !allowedEncoders.includes(value)) {
+
+      onValueChange(allowedEncoders[0]);
+    }
+  }, [allowedEncoders, value]);
   return (
-    <div className={className ?? "space-y-2"}>
+    <div className={cn("space-y-2", className)}>
       {!hideLabel && label && <Label>{label}</Label>}
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer">
+        <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder={placeholder ?? "Select encoder"} />
         </SelectTrigger>
         <SelectContent>

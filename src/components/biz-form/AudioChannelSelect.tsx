@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AUDIO_CHANNELS } from "@/data/audio_options";
+import { cn } from "@/lib/utils";
 
 interface AudioChannelSelectProps {
   value?: string;
@@ -28,15 +29,23 @@ export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
   hideLabel = true,
   className,
 }) => {
-  const channelOptions = allowedChannels && allowedChannels.length > 0
-    ? AUDIO_CHANNELS.filter(opt => allowedChannels.includes(opt.value))
-    : AUDIO_CHANNELS;
+  const channelOptions = useMemo(() => {
+    if (!allowedChannels || !allowedChannels.length) return AUDIO_CHANNELS;
+    return AUDIO_CHANNELS.filter(opt => allowedChannels.includes(opt.value));
+  }, [allowedChannels]);
+
+  useEffect(() => {
+    if (!channelOptions || !channelOptions.length) return;
+    if (!channelOptions.some(opt => opt.value === value)) {
+      onValueChange(channelOptions[0].value);
+    }
+  }, [channelOptions, value]);
 
   return (
-    <div className={className ?? "space-y-2"}>
+    <div className={cn("space-y-2", className)}>
       {!hideLabel && label && <Label>{label}</Label>}
       <Select value={value ?? "auto"} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer">
+        <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder={placeholder ?? "Select channels"} />
         </SelectTrigger>
         <SelectContent>

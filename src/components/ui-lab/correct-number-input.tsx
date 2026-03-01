@@ -10,6 +10,9 @@ interface CorrectNumberInputProps {
   label?: string
   className?: string
   min?: number
+  max?: number
+  step?: number
+  placeholder?: string
 }
 
 export default function CorrectNumberInput({
@@ -18,27 +21,47 @@ export default function CorrectNumberInput({
   label,
   className,
   min = 0,
+  max,
+  step,
+  placeholder,
 }: CorrectNumberInputProps) {
   const id = useId()
 
-  const increment = () => onChange((value || 0) + 1)
-  const decrement = () => onChange((value || 0) > min ? (value || 0) - 1 : min)
+  const effectiveStep = typeof step === "number" && step > 0 ? step : 1
+  const clampValue = (next: number) => {
+    const withMin = Math.max(min, next)
+    if (typeof max === "number") {
+      return Math.min(max, withMin)
+    }
+    return withMin
+  }
+
+  const increment = () => onChange(clampValue((value || 0) + effectiveStep))
+  const decrement = () => onChange(clampValue((value || 0) - effectiveStep))
 
   return (
     <div className={cn("w-full max-w-xs", className)}>
       <div className="relative">
         <input
           id={id}
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
+          type="number"
+          inputMode={effectiveStep % 1 === 0 ? "numeric" : "decimal"}
+          min={min}
+          max={max}
+          step={effectiveStep}
           value={value === 0 ? "" : value}
           onChange={(e) => {
             const val = e.target.value
-            onChange(val === "" ? 0 : Number(val))
+            if (val === "") {
+              onChange(0)
+              return
+            }
+            const parsed = Number(val)
+            if (Number.isNaN(parsed)) return
+            onChange(clampValue(parsed))
           }}
-          className="peer w-full h-9 pl-4 pr-10 text-foreground bg-muted/30 border border-muted-foreground/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 transition-all"
-          placeholder={label ? " " : ""}
+          className="peer w-full h-9 pl-2 pr-6 text-foreground bg-muted/30 border border-muted-foreground/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:m-0"
+          placeholder={label ? " " : (placeholder ?? "")}
         />
 
         {label && (

@@ -64,10 +64,8 @@ export const IMAGE_FORMAT_OPTIONS: FormatGroup[] = [
 export const FORMAT_OPTIONS: FormatGroup[] = [
   // Audio
   ...AUDIO_FORMAT_OPTIONS,
-
   // Video Generic
   ...VIDEO_FORMAT_OPTIONS,
-
   // Images
   ...IMAGE_FORMAT_OPTIONS,
 ];

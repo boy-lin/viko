@@ -12,7 +12,7 @@ import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useTranslation } from "react-i18next";
 import { CompressionSettingsDialog } from "./SettingsDialog";
 import { useCompressorStore } from "./store";
-import { formatToDefinition } from "@/data/capabilities";
+import { AUDIO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
@@ -29,7 +29,7 @@ interface CompressibilityAssessment {
   score: number;
   text: string;
   colorClass: string;
-  recommendedFormat: string;
+  recommendedFormat: FormatEnum;
 }
 
 const LOSSLESS_CODECS = new Set([
@@ -58,12 +58,12 @@ const toNumber = (value: unknown): number | undefined => {
 
 const clampScore = (score: number) => Math.max(0, Math.min(100, Math.round(score)));
 
-const pickBestCompressionFormat = (score: number, originalExtension?: string): string => {
+const pickBestCompressionFormat = (score: number, originalExtension?: string): FormatEnum => {
   const original = (originalExtension ?? "").toLowerCase();
   if (score >= 75) return FormatEnum.OGG;
   if (score >= 55) return FormatEnum.M4A;
   if ([FormatEnum.MP3, FormatEnum.M4A, FormatEnum.OGG, FormatEnum.AAC].includes(original as FormatEnum)) {
-    return original;
+    return original as FormatEnum;
   }
   return FormatEnum.M4A;
 };
@@ -109,7 +109,7 @@ const assessCompressibility = (details: any): CompressibilityAssessment => {
   if (normalizedScore >= 80) {
     return {
       score: normalizedScore,
-      text: `压缩潜力极高 (${normalizedScore})`,
+      text: `压缩潜力极高`,
       colorClass: "text-emerald-600",
       recommendedFormat,
     };
@@ -117,7 +117,7 @@ const assessCompressibility = (details: any): CompressibilityAssessment => {
   if (normalizedScore >= 60) {
     return {
       score: normalizedScore,
-      text: `压缩潜力高 (${normalizedScore})`,
+      text: `压缩潜力高`,
       colorClass: "text-sky-600",
       recommendedFormat,
     };
@@ -125,14 +125,14 @@ const assessCompressibility = (details: any): CompressibilityAssessment => {
   if (normalizedScore >= 40) {
     return {
       score: normalizedScore,
-      text: `可适度压缩 (${normalizedScore})`,
+      text: `可适度压缩`,
       colorClass: "text-amber-600",
       recommendedFormat,
     };
   }
   return {
     score: normalizedScore,
-    text: `压缩空间有限 (${normalizedScore})`,
+    text: `压缩空间有限`,
     colorClass: "text-rose-600",
     recommendedFormat,
   };
@@ -154,10 +154,10 @@ const buildDefaultArgs = (task: CompressingTask, details: any): CompressAudioTas
     output_path: (task.args as CompressAudioTaskArgs).output_path ?? "",
   };
 
-  const containerDefinition = formatToDefinition.get(format);
+  const containerDefinition = AUDIO_CONTAINER_DEFINITIONS[format];
   outputArgs.codec =
     outputArgs.codec ||
-    containerDefinition?.audio?.allowedEncoders[0] ||
+    containerDefinition?.allowedEncoders[0] ||
     (task.args as CompressAudioTaskArgs).codec;
 
   return outputArgs;
@@ -263,7 +263,7 @@ export default function TaskItem({ task }: TaskItemProps) {
 
   return (
     <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm">
-      <div className="w-28 flex flex-col items-start gap-2 flex-shrink-0 relative">
+      <div className="flex flex-col items-start gap-2 flex-shrink-0 relative">
         <div className="w-20 h-20 rounded-lg overflow-hidden">
           <MediaThumbnail
             path={task.mediaDetails?.path}
@@ -272,7 +272,7 @@ export default function TaskItem({ task }: TaskItemProps) {
             className="w-full h-full"
           />
         </div>
-        <span className={`absolute top-0 right-0 w-full text-xs font-medium ${compressibility.colorClass}`}>
+        <span className={`absolute top-1 right-0 w-full text-xs text-center font-medium ${compressibility.colorClass}`}>
           {compressibility.text}
         </span>
       </div>

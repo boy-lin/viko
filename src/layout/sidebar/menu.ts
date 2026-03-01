@@ -1,7 +1,12 @@
-import ConversionLinear from "@/components/icons/ConversionLinear";
+import ConversionAudioLinear from "@/components/icons/ConversionAudioLinear";
+import ConversionVideoLinear from "@/components/icons/ConversionVideoLinear";
+import ConversionImageLinear from "@/components/icons/ConversionImageLinear";
+
 import SeityMetadata from "@/components/icons/SeityMetadata";
-import CompressionLinear from "@/components/icons/CompressionLinear";
-import PinLinear from "@/components/icons/PinLinear";
+import CompressionVideoLinear from "@/components/icons/CompressionVideoLinear";
+import CompressionAudioLinear from "@/components/icons/CompressionAudioLinear";
+import CompressionImageLinear from "@/components/icons/CompressionImageLinear";
+import { GlassWater } from "lucide-react";
 
 export type QuickAccessItem = {
   label: string;
@@ -35,21 +40,21 @@ export enum MenuItems {
 export const QUICK_ACCESS_CONFIG: QuickAccessItem[] = [
   {
     label: "quick.converter_videos",
-    icon: ConversionLinear,
+    icon: ConversionVideoLinear,
     color: "bg-indigo-50 text-indigo-600",
     activeGradient: "from-[#8B5CF6] to-[#6366F1]",
     href: MenuItems.converterVideos,
   },
   {
     label: "quick.converter_audios",
-    icon: ConversionLinear,
+    icon: ConversionAudioLinear,
     color: "bg-indigo-50 text-indigo-600",
     activeGradient: "from-[#8B5CF6] to-[#6366F1]",
     href: MenuItems.converterAudios,
   },
   {
     label: "quick.converter_images",
-    icon: ConversionLinear,
+    icon: ConversionImageLinear,
     color: "bg-indigo-50 text-indigo-600",
     activeGradient: "from-[#8B5CF6] to-[#6366F1]",
     href: MenuItems.converterImages,
@@ -63,28 +68,28 @@ export const QUICK_ACCESS_CONFIG: QuickAccessItem[] = [
   },
   {
     label: "quick.compressor_videos",
-    icon: CompressionLinear,
+    icon: CompressionVideoLinear,
     color: "bg-rose-50 text-rose-600",
     activeGradient: "from-[#F43F5E] to-[#F97316]",
     href: MenuItems.compressorVideos,
   },
   {
     label: "quick.compressor_audios",
-    icon: CompressionLinear,
+    icon: CompressionAudioLinear,
     color: "bg-rose-50 text-rose-600",
     activeGradient: "from-[#F43F5E] to-[#F97316]",
     href: MenuItems.compressorAudios,
   },
   {
     label: "quick.compressor_images",
-    icon: CompressionLinear,
+    icon: CompressionImageLinear,
     color: "bg-rose-50 text-rose-600",
     activeGradient: "from-[#F43F5E] to-[#F97316]",
     href: MenuItems.compressorImages,
   },
   {
     label: "quick.watermark",
-    icon: PinLinear,
+    icon: GlassWater,
     color: "bg-rose-50 text-rose-600",
     activeGradient: "from-[#F43F5E] to-[#F97316]",
     href: MenuItems.watermark,

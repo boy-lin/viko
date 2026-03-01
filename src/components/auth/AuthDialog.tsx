@@ -10,6 +10,7 @@ import {
 } from "@/lib/desktop-auth";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type AuthDialogProps = {
   open: boolean;
@@ -35,6 +36,7 @@ const CALLBACK_TIMEOUT_MS = 90_000;
 const CALLBACK_TIMEOUT_SECONDS = CALLBACK_TIMEOUT_MS / 1000;
 
 export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) => {
+  const { t } = useTranslation("common");
   const [phase, setPhase] = useState<LoginPhase>("idle");
   const [desktopCode, setDesktopCode] = useState("");
   const [lastError, setLastError] = useState<string>("");
@@ -46,16 +48,16 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
   const canStart = phase === "idle" || phase === "timeout" || phase === "error";
   const pendingText = useMemo(() => {
     if (phase === "exchanging") {
-      return "已收到回调，正在完成登录...";
+      return t("auth.dialog.pending.exchanging");
     }
     if (phase === "pending_callback") {
-      return "请在浏览器完成授权，应用会自动登录";
+      return t("auth.dialog.pending.waiting_callback");
     }
     if (phase === "timeout") {
-      return "长时间未收到回调，你可以重试登录";
+      return t("auth.dialog.pending.timeout");
     }
     return "";
-  }, [phase]);
+  }, [phase, t]);
   const countdownProgress = useMemo(() => {
     const consumed = CALLBACK_TIMEOUT_SECONDS - remainingSeconds;
     const ratio = Math.min(100, Math.max(0, (consumed / CALLBACK_TIMEOUT_SECONDS) * 100));
@@ -76,10 +78,10 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
       setRemainingSeconds(CALLBACK_TIMEOUT_SECONDS);
       await startDesktopOAuthLogin();
       setPhase("pending_callback");
-      toast.success("已打开浏览器，请完成授权");
+      toast.success(t("auth.dialog.toast.browser_opened"));
     } catch (error) {
       setPhase("error");
-      const message = (error as Error).message || "打开网页登录失败";
+      const message = (error as Error).message || t("auth.dialog.error.open_browser_failed");
       setLastError(message);
       toast.error(message);
     }
@@ -88,7 +90,7 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
   const handleDesktopOAuthFinish = async () => {
     if (loading) return;
     if (!desktopCode.trim()) {
-      toast.error("请先输入授权 code");
+      toast.error(t("auth.dialog.error.input_code_first"));
       return;
     }
     try {
@@ -96,9 +98,9 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
       await finishDesktopOAuthLogin(desktopCode.trim());
       setDesktopCode("");
       handleSuccess();
-      toast.success("登录成功");
+      toast.success(t("auth.dialog.toast.login_success"));
     } catch (error) {
-      const message = (error as Error).message || "桌面登录失败";
+      const message = (error as Error).message || t("auth.dialog.error.desktop_login_failed");
       setLastError(message);
       setPhase("error");
       toast.error(message);
@@ -128,7 +130,7 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
     }
     const timer = window.setTimeout(() => {
       setPhase("timeout");
-      setLastError("授权超时，请点击重试");
+      setLastError(t("auth.dialog.error.timeout_retry"));
     }, CALLBACK_TIMEOUT_MS);
     const countdownTimer = window.setInterval(() => {
       setRemainingSeconds((prev) => Math.max(0, prev - 1));
@@ -137,7 +139,7 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
       window.clearTimeout(timer);
       window.clearInterval(countdownTimer);
     };
-  }, [open, pending]);
+  }, [open, pending, t]);
 
   useEffect(() => {
     if (!open) {
@@ -154,7 +156,7 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
     };
     const onError = (event: Event) => {
       const detail = (event as CustomEvent<DesktopAuthErrorDetail>).detail;
-      const message = detail?.message || "桌面登录失败";
+      const message = detail?.message || t("auth.dialog.error.desktop_login_failed");
       setLastError(message);
       setPhase("error");
       toast.error(message);
@@ -167,13 +169,13 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
       window.removeEventListener("desktop-auth:success", onSuccess);
       window.removeEventListener("desktop-auth:error", onError as EventListener);
     };
-  }, [open]);
+  }, [open, t]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-lg">登录</DialogTitle>
+          <DialogTitle className="text-lg">{t("auth.dialog.title")}</DialogTitle>
         </DialogHeader>
         {desktopOauthEnabled && (
           <div className="space-y-2">
@@ -183,12 +185,14 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
               disabled={loading || !canStart}
               onClick={handleDesktopOAuthStart}
             >
-              {phase === "timeout" || phase === "error" ? "重新发起浏览器登录" : "使用浏览器登录"}
+              {phase === "timeout" || phase === "error"
+                ? t("auth.dialog.actions.retry_browser_login")
+                : t("auth.dialog.actions.browser_login")}
             </Button>
             {(phase === "opening" || phase === "exchanging") && (
               <div className="flex items-center text-sm text-muted-foreground gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                {pendingText || "处理中..."}
+                {pendingText || t("auth.dialog.pending.processing")}
               </div>
             )}
             {pendingText && phase !== "opening" && phase !== "exchanging" && (
@@ -202,18 +206,20 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
                     style={{ width: `${countdownProgress}%` }}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">剩余 {remainingSeconds}s</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("auth.dialog.pending.remaining_seconds", { seconds: remainingSeconds })}
+                </p>
               </div>
             )}
             {(pending || loading) && (
               <Button variant="ghost" className="w-full" disabled={loading} onClick={handleCancel}>
-                取消本次登录
+                {t("auth.dialog.actions.cancel_current_login")}
               </Button>
             )}
             {debugManualInputEnabled && (
               <>
                 <Input
-                  placeholder="调试：粘贴授权/回调 URL 或 code"
+                  placeholder={t("auth.dialog.debug.placeholder")}
                   value={desktopCode}
                   onChange={(e) => setDesktopCode(e.target.value)}
                   disabled={loading}
@@ -223,7 +229,7 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
                   disabled={loading || !desktopCode.trim()}
                   onClick={handleDesktopOAuthFinish}
                 >
-                  调试提交 URL/code
+                  {t("auth.dialog.debug.submit")}
                 </Button>
               </>
             )}
@@ -234,7 +240,7 @@ export const AuthDialog = ({ open, onOpenChange, onSuccess }: AuthDialogProps) =
         )}
         {!desktopOauthEnabled && (
           <p className="text-sm text-muted-foreground">
-            当前环境未启用 Desktop OAuth，请检查 OAuth 环境变量配置。
+            {t("auth.dialog.desktop_oauth_unavailable")}
           </p>
         )}
       </DialogContent>

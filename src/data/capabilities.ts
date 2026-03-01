@@ -1,14 +1,12 @@
 ﻿import {
-  AudioEncoderEnum,
-  EncoderEnum,
-  FormatEnum,
   ImageEncoderEnum,
   SelectOption,
   VideoEncoderEnum,
+  ColorSpaceOption,
+  FormatEnum,
 } from "@/types/options";
-import { AUDIO_BITRATES, AUDIO_CHANNELS, AUDIO_SAMPLE_RATES } from "@/data/audio_options";
+import { AudioEncoderEnum } from "@/types/options";
 import { COLOR_SPACES, VIDEO_BITRATES } from "@/data/video_options";
-import { ColorSpaceOption } from "@/types/options";
 import { RESOLUTION_OPTIONS, ResolutionGroup } from "./resolution";
 
 
@@ -44,11 +42,19 @@ export interface VideoEncoderDefinition {
     maxBitrate?: number;
     pixelFormats?: string[];
     colorSpaces?: string[];
+    allowedColorRanges?: string[];
+    gopOptions?: string[];
+    allowedColorDepths?: number[];
   };
 }
 
 const SDR_COLOR_SPACE_VALUES = ["auto", "rec709"];
 const HDR_COLOR_SPACE_VALUES = ["auto", "rec709", "rec2100hlg", "rec2100pq"];
+const FULL_COLOR_RANGE_VALUES = ["auto", "limited", "full"];
+const LIMITED_COLOR_RANGE_VALUES = ["auto", "limited"];
+const COMMON_GOP_VALUES = ["12", "15", "18", "24", "30", "48", "60", "120", "250"];
+const LOW_LATENCY_GOP_VALUES = ["12", "15", "18", "24", "30", "48", "60"];
+const INTRA_ONLY_GOP_VALUES = ["1"];
 
 export const VIDEO_ENCODER_DEFINITIONS: Partial<Record<VideoEncoderEnum, VideoEncoderDefinition>> = {
   // --- Video Encoders ---
@@ -59,6 +65,9 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<Record<VideoEncoderEnum, VideoEn
       minBitrate: 256,
       maxBitrate: 50000,
       colorSpaces: HDR_COLOR_SPACE_VALUES,
+      allowedColorRanges: FULL_COLOR_RANGE_VALUES,
+      gopOptions: COMMON_GOP_VALUES,
+      allowedColorDepths: [8, 10],
     },
   },
   [VideoEncoderEnum.H265]: {
@@ -69,6 +78,9 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<Record<VideoEncoderEnum, VideoEn
       minBitrate: 256,
       maxBitrate: 80000,
       colorSpaces: HDR_COLOR_SPACE_VALUES,
+      allowedColorRanges: FULL_COLOR_RANGE_VALUES,
+      gopOptions: COMMON_GOP_VALUES,
+      allowedColorDepths: [8, 10, 12],
     },
   },
   [VideoEncoderEnum.VP9]: {
@@ -79,6 +91,9 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<Record<VideoEncoderEnum, VideoEn
       minBitrate: 256,
       maxBitrate: 50000,
       colorSpaces: SDR_COLOR_SPACE_VALUES,
+      allowedColorRanges: FULL_COLOR_RANGE_VALUES,
+      gopOptions: COMMON_GOP_VALUES,
+      allowedColorDepths: [8, 10, 12],
     },
   },
   [VideoEncoderEnum.AV1]: {
@@ -89,6 +104,9 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<Record<VideoEncoderEnum, VideoEn
       minBitrate: 256,
       maxBitrate: 50000,
       colorSpaces: SDR_COLOR_SPACE_VALUES,
+      allowedColorRanges: FULL_COLOR_RANGE_VALUES,
+      gopOptions: COMMON_GOP_VALUES,
+      allowedColorDepths: [8, 10, 12],
     },
   },
   [VideoEncoderEnum.MPEG4]: {
@@ -99,6 +117,9 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<Record<VideoEncoderEnum, VideoEn
       minBitrate: 128,
       maxBitrate: 50000,
       colorSpaces: SDR_COLOR_SPACE_VALUES,
+      allowedColorRanges: LIMITED_COLOR_RANGE_VALUES,
+      gopOptions: COMMON_GOP_VALUES,
+      allowedColorDepths: [8],
     },
   },
   [VideoEncoderEnum.MPEG2VIDEO]: {
@@ -110,6 +131,9 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<Record<VideoEncoderEnum, VideoEn
       maxBitrate: 50000,
       pixelFormats: ['yuv420p', 'yuv422p'],
       colorSpaces: SDR_COLOR_SPACE_VALUES,
+      allowedColorRanges: LIMITED_COLOR_RANGE_VALUES,
+      gopOptions: COMMON_GOP_VALUES,
+      allowedColorDepths: [8],
     },
   },
   [VideoEncoderEnum.PRORES]: {
@@ -120,6 +144,9 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<Record<VideoEncoderEnum, VideoEn
       minBitrate: 1000,
       maxBitrate: 200000,
       colorSpaces: SDR_COLOR_SPACE_VALUES,
+      allowedColorRanges: FULL_COLOR_RANGE_VALUES,
+      gopOptions: INTRA_ONLY_GOP_VALUES,
+      allowedColorDepths: [10, 12],
     },
   },
   [VideoEncoderEnum.MJPEG]: {
@@ -130,6 +157,9 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<Record<VideoEncoderEnum, VideoEn
       minBitrate: 500,
       maxBitrate: 50000,
       colorSpaces: SDR_COLOR_SPACE_VALUES,
+      allowedColorRanges: FULL_COLOR_RANGE_VALUES,
+      gopOptions: LOW_LATENCY_GOP_VALUES,
+      allowedColorDepths: [8],
     },
   },
 };
@@ -140,6 +170,7 @@ export interface AudioEncoderDefinition {
   maxBitrate?: number;
   minBitrate?: number;
   allowedChannels?: string[];
+  allowedBitDepths?: number[];
 }
 
 export const AUDIO_ENCODER_DEFINITIONS: Partial<Record<AudioEncoderEnum, AudioEncoderDefinition>> = {
@@ -149,6 +180,7 @@ export const AUDIO_ENCODER_DEFINITIONS: Partial<Record<AudioEncoderEnum, AudioEn
     maxBitrate: 320,
     minBitrate: 32,
     allowedChannels: ['1', '2', '3', '4', '5', '6'],
+    allowedBitDepths: [16],
   },
   [AudioEncoderEnum.MP3]: {
     maxSampleRate: 48000,
@@ -156,6 +188,7 @@ export const AUDIO_ENCODER_DEFINITIONS: Partial<Record<AudioEncoderEnum, AudioEn
     maxBitrate: 320,
     minBitrate: 32,
     allowedChannels: ['1', '2'],
+    allowedBitDepths: [16],
   },
   [AudioEncoderEnum.OPUS]: {
     maxSampleRate: 48000,
@@ -163,6 +196,15 @@ export const AUDIO_ENCODER_DEFINITIONS: Partial<Record<AudioEncoderEnum, AudioEn
     maxBitrate: 320,
     minBitrate: 32,
     allowedChannels: ['1', '2'],
+    allowedBitDepths: [16],
+  },
+  [AudioEncoderEnum.VORBIS]: {
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: ['1', '2'],
+    allowedBitDepths: [16],
   },
   [AudioEncoderEnum.AC3]: {
     maxSampleRate: 48000,
@@ -170,6 +212,7 @@ export const AUDIO_ENCODER_DEFINITIONS: Partial<Record<AudioEncoderEnum, AudioEn
     maxBitrate: 320,
     minBitrate: 32,
     allowedChannels: ['1', '2', '6'],
+    allowedBitDepths: [16],
   },
   [AudioEncoderEnum.FLAC]: {
     maxSampleRate: 48000,
@@ -177,6 +220,7 @@ export const AUDIO_ENCODER_DEFINITIONS: Partial<Record<AudioEncoderEnum, AudioEn
     maxBitrate: 320,
     minBitrate: 32,
     allowedChannels: ['1', '2', '3', '4', '5', '6', '7', '8'],
+    allowedBitDepths: [16, 24],
   },
   [AudioEncoderEnum.AMR_NB]: {
     maxSampleRate: 8000,
@@ -184,6 +228,7 @@ export const AUDIO_ENCODER_DEFINITIONS: Partial<Record<AudioEncoderEnum, AudioEn
     maxBitrate: 320,
     minBitrate: 32,
     allowedChannels: ['1'],
+    allowedBitDepths: [16],
   },
   [AudioEncoderEnum.AMR_WB]: {
     maxSampleRate: 16000,
@@ -191,6 +236,7 @@ export const AUDIO_ENCODER_DEFINITIONS: Partial<Record<AudioEncoderEnum, AudioEn
     maxBitrate: 320,
     minBitrate: 32,
     allowedChannels: ['1'],
+    allowedBitDepths: [16],
   },
 };
 export interface ImageEncoderDefinition {
@@ -209,19 +255,16 @@ export const IMAGE_ENCODER_DEFINITIONS: Partial<Record<ImageEncoderEnum, ImageEn
 };
 
 // ================= DATA: CONTAINER RULES =================
-export interface ContainerDefinition {
+export interface VideoContainerDefinition {
   video?: {
     allowedEncoders: VideoEncoderEnum[];
   };
   audio?: {
     allowedEncoders: AudioEncoderEnum[];
   };
-  image?: {
-    allowedEncoders: ImageEncoderEnum[];
-  };
 }
 
-export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
+export const VIDEO_CONTAINER_DEFINITIONS: Partial<Record<FormatEnum, VideoContainerDefinition>> = {
   [FormatEnum.MP4]: {
     video: {
       allowedEncoders: [
@@ -354,7 +397,6 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
       allowedEncoders: [AudioEncoderEnum.AAC, AudioEncoderEnum.AC3, AudioEncoderEnum.MP2],
     }
   },
-
   [FormatEnum.MPG]: {
     video: {
       allowedEncoders: [VideoEncoderEnum.MPEG2VIDEO],
@@ -401,145 +443,108 @@ export const CONTAINER_DEFINITIONS: Record<string, ContainerDefinition> = {
       allowedEncoders: [AudioEncoderEnum.AAC],
     }
   },
+}
 
-  //audo
+interface AudioContainerDefinition {
+  allowedEncoders: AudioEncoderEnum[];
+}
+export const AUDIO_CONTAINER_DEFINITIONS: Partial<Record<FormatEnum, AudioContainerDefinition>> = {
   [FormatEnum.MP3]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.MP3],
-    }
+    allowedEncoders: [AudioEncoderEnum.MP3],
   },
   [FormatEnum.AAC]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.AAC],
-    }
+    allowedEncoders: [AudioEncoderEnum.AAC],
   },
   [FormatEnum.WAV]: {
-    audio: {
-      allowedEncoders: [
-        AudioEncoderEnum.PCM_S16LE, AudioEncoderEnum.PCM_S24LE, AudioEncoderEnum.PCM_S32LE,
-        AudioEncoderEnum.PCM_F32LE, AudioEncoderEnum.PCM_F64LE, AudioEncoderEnum.PCM_U8,
-        AudioEncoderEnum.PCM_ALAW, AudioEncoderEnum.PCM_MULAW, AudioEncoderEnum.ADPCM_MS, AudioEncoderEnum.ADPCM_IMA_WAV
-      ],
-    }
+    allowedEncoders: [
+      AudioEncoderEnum.PCM_S16LE, AudioEncoderEnum.PCM_S24LE, AudioEncoderEnum.PCM_S32LE,
+      AudioEncoderEnum.PCM_F32LE, AudioEncoderEnum.PCM_F64LE, AudioEncoderEnum.PCM_U8,
+      AudioEncoderEnum.PCM_ALAW, AudioEncoderEnum.PCM_MULAW, AudioEncoderEnum.ADPCM_MS, AudioEncoderEnum.ADPCM_IMA_WAV
+    ],
   },
   [FormatEnum.AIFF]: {
-    audio: {
-      allowedEncoders: [
-        AudioEncoderEnum.PCM_S16BE, AudioEncoderEnum.PCM_S24BE, AudioEncoderEnum.PCM_S32BE,
-        AudioEncoderEnum.PCM_F32BE, AudioEncoderEnum.PCM_F64BE
-      ],
-
-    }
+    allowedEncoders: [
+      AudioEncoderEnum.PCM_S16BE, AudioEncoderEnum.PCM_S24BE, AudioEncoderEnum.PCM_S32BE,
+      AudioEncoderEnum.PCM_F32BE, AudioEncoderEnum.PCM_F64BE
+    ],
   },
   [FormatEnum.FLAC]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.FLAC],
-
-    }
+    allowedEncoders: [AudioEncoderEnum.FLAC],
   },
   [FormatEnum.OGG]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.OPUS, AudioEncoderEnum.VORBIS, AudioEncoderEnum.FLAC],
-
-    }
+    allowedEncoders: [AudioEncoderEnum.OPUS, AudioEncoderEnum.VORBIS, AudioEncoderEnum.FLAC],
   },
   [FormatEnum.AC3]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.AC3],
-    }
+    allowedEncoders: [AudioEncoderEnum.AC3],
   },
   [FormatEnum.EAC3]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.EAC3],
-    }
+    allowedEncoders: [AudioEncoderEnum.EAC3],
   },
   [FormatEnum.AMR]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.AMR_NB, AudioEncoderEnum.AMR_WB],
-    }
+    allowedEncoders: [AudioEncoderEnum.AMR_NB, AudioEncoderEnum.AMR_WB],
   },
   [FormatEnum.MP2]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.MP2],
-
-    }
+    allowedEncoders: [AudioEncoderEnum.MP2],
   },
   [FormatEnum.APE]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.APE],
-
-    }
+    allowedEncoders: [AudioEncoderEnum.APE],
   },
   [FormatEnum.CAF]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.AAC, AudioEncoderEnum.ALAC, AudioEncoderEnum.PCM_S16BE],
-
-    }
+    allowedEncoders: [AudioEncoderEnum.AAC, AudioEncoderEnum.ALAC, AudioEncoderEnum.PCM_S16BE],
   },
-
   [FormatEnum.OPUS]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.OPUS],
-    }
+    allowedEncoders: [AudioEncoderEnum.OPUS],
   },
-
   [FormatEnum.WMA]: {
-    audio: {
-      allowedEncoders: [AudioEncoderEnum.WMAV2, AudioEncoderEnum.MP3],
-    }
+    allowedEncoders: [AudioEncoderEnum.WMAV2, AudioEncoderEnum.MP3],
   },
+  [FormatEnum.M4A]: {
+    allowedEncoders: [AudioEncoderEnum.AAC],
+  },
+  [FormatEnum.M4B]: {
+    allowedEncoders: [AudioEncoderEnum.AAC],
+  },
+  [FormatEnum.M4R]: {
+    allowedEncoders: [AudioEncoderEnum.AAC],
+  },
+}
 
+interface ImageContainerDefinition {
+  allowedEncoders: ImageEncoderEnum[];
+}
+
+export const IMAGE_CONTAINER_DEFINITIONS: Record<string, ImageContainerDefinition> = {
   [FormatEnum.PNG]: {
-    image: {
-      allowedEncoders: [ImageEncoderEnum.PNG],
-    }
+    allowedEncoders: [ImageEncoderEnum.PNG],
   },
   [FormatEnum.JPG]: {
-    image: {
-      allowedEncoders: [ImageEncoderEnum.JPEG],
-    }
+    allowedEncoders: [ImageEncoderEnum.JPEG],
   },
   [FormatEnum.WEBP]: {
-    image: {
-      allowedEncoders: [ImageEncoderEnum.WEBP],
-    }
+    allowedEncoders: [ImageEncoderEnum.WEBP],
   },
   [FormatEnum.AVIF]: {
-    image: {
-      allowedEncoders: [ImageEncoderEnum.AVIF],
-    }
+    allowedEncoders: [ImageEncoderEnum.AVIF],
   },
   [FormatEnum.GIF]: {
-    image: {
-      allowedEncoders: [ImageEncoderEnum.GIF],
-    }
+    allowedEncoders: [ImageEncoderEnum.GIF],
   },
   [FormatEnum.HEIC]: {
-    image: {
-      allowedEncoders: [ImageEncoderEnum.HEIC],
-    }
+    allowedEncoders: [ImageEncoderEnum.HEIC],
   },
   [FormatEnum.TIFF]: {
-    image: {
-      allowedEncoders: [ImageEncoderEnum.TIFF],
-    }
+    allowedEncoders: [ImageEncoderEnum.TIFF],
   },
   [FormatEnum.BMP]: {
-    image: {
-      allowedEncoders: [ImageEncoderEnum.BMP],
-    }
+    allowedEncoders: [ImageEncoderEnum.BMP],
   },
   [FormatEnum.ICO]: {
-    image: {
-      allowedEncoders: [ImageEncoderEnum.ICO],
-    }
+    allowedEncoders: [ImageEncoderEnum.ICO],
   },
 };
 
-export const formatToDefinition = new Map<string, ContainerDefinition>(Object.entries(CONTAINER_DEFINITIONS));
 
 // ================= HELPERS =================
-
 export const VIDEO_FRAME_RATES: SelectOption[] = [
   { value: "auto", label: "Auto" },
   { value: "120", label: "120 FPS" },
@@ -551,37 +556,6 @@ export const VIDEO_FRAME_RATES: SelectOption[] = [
   { value: "24", label: "24 FPS" },
   { value: "23.976", label: "23.976 FPS" },
 ];
-
-/**
- * Get valid video encoders for a given Container Group
- */
-export function getValidVideoEncoders(group: string): VideoEncoderEnum[] {
-  const caps = CONTAINER_DEFINITIONS[group];
-  if (caps?.video) {
-    return caps.video.allowedEncoders;
-  }
-  // Fallback default
-  return [VideoEncoderEnum.H264, VideoEncoderEnum.H265];
-}
-
-/**
- * Get valid audio encoders for a given Container Group
- */
-export function getValidAudioEncoders(group: string): AudioEncoderEnum[] {
-  const caps = CONTAINER_DEFINITIONS[group];
-  if (caps?.audio) {
-    return caps.audio.allowedEncoders;
-  }
-  return [AudioEncoderEnum.AAC, AudioEncoderEnum.MP3];
-}
-
-export function getDefaultVideoEncoder(group: string): VideoEncoderEnum {
-  return CONTAINER_DEFINITIONS[group]?.video?.allowedEncoders[0] ?? VideoEncoderEnum.H264;
-}
-
-export function getDefaultAudioEncoder(group: string): AudioEncoderEnum {
-  return CONTAINER_DEFINITIONS[group]?.audio?.allowedEncoders[0] ?? AudioEncoderEnum.AAC;
-}
 
 // ================= OPTION HELPERS =================
 
@@ -646,4 +620,3 @@ export function getVideoOptionsByEncoder(encoderId?: string): VideoEncoderOption
     colorSpaces,
   };
 }
-

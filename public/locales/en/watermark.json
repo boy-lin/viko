@@ -1,0 +1,43 @@
+{
+  "title": "Video Watermark",
+  "subtitle": "Add text or image watermark to video",
+  "messages": {
+    "selectAtLeastOneVideo": "Please select at least one video file.",
+    "enterWatermarkText": "Please enter watermark text.",
+    "selectWatermarkImage": "Please select a watermark image.",
+    "submitFailed": "Failed to submit tasks: {{message}}",
+    "cancelFailed": "Failed to cancel tasks: {{message}}"
+  },
+  "settings": {
+    "title": "Configuration",
+    "tabs": {
+      "text": "Text",
+      "image": "Image"
+    },
+    "text": {
+      "content": "Content",
+      "contentPlaceholder": "Enter watermark text",
+      "fontSize": "Font Size ({{value}}px)"
+    },
+    "image": {
+      "filterName": "Images",
+      "change": "Change",
+      "clickToUpload": "Click to upload image",
+      "scale": "Scale ({{value}}%)"
+    },
+    "common": {
+      "opacity": "Opacity ({{value}}%)",
+      "rotation": "Rotation ({{value}}°)",
+      "position": "Position",
+      "notSupported": "Not supported in backend yet"
+    }
+  },
+  "toolbar": {
+    "processingSummary": "Processing {{processingCount}} / {{selectedCount}} (Finished {{finishedCount}})",
+    "selectedCount": "{{count}} file(s) selected",
+    "cancelling": "Cancelling...",
+    "cancelProcessing": "Cancel Processing",
+    "reselect": "Reselect",
+    "startTask": "Start Task"
+  }
+}

@@ -1,13 +1,14 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
 import { VideoResolutionSelect } from "@/components/biz-form/VideoResolutionSelect";
 import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect";
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
 import { ColorRangeSelect } from "@/components/biz-form/ColorRangeSelect";
-import { getVideoOptionsByEncoder, formatToDefinition } from "@/data/capabilities";
+import { VIDEO_CONTAINER_DEFINITIONS, VIDEO_ENCODER_DEFINITIONS } from "@/data/capabilities";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { useTranslation } from "react-i18next";
+import { FormatEnum, VideoEncoderEnum } from "@/types/options";
 
 export type VideoConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "video_encoder" | "video_bitrate" | "resolution" | "frame_rate" | "color_space" | "color_range">
 
@@ -30,12 +31,20 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
     console.log("format or encoder is not set", format, video_encoder);
     return <div>{t("video_advance.missing", "format or encoder is not set")}</div>
   }
-  const containerDefinition = formatToDefinition.get(format);
-  const videoOptions = getVideoOptionsByEncoder(video_encoder);
 
-  if (!containerDefinition || !videoOptions) {
-    console.log("format or encoder or videoOptions is not set", {
-      containerDefinition, videoOptions, video_encoder
+  const formatDefinition = useMemo(() => {
+    if (!format) return undefined;
+    return VIDEO_CONTAINER_DEFINITIONS[format as FormatEnum];
+  }, [format]);
+
+  const encoderDef = useMemo(() => {
+    const def = VIDEO_ENCODER_DEFINITIONS[video_encoder as VideoEncoderEnum];
+    return def;
+  }, [video_encoder]);
+
+  if (!formatDefinition || !encoderDef) {
+    console.log("format or encoder is not set", {
+      formatDefinition, encoderDef, video_encoder
     });
     return <div>{t("video_advance.missing", "format or encoder is not set")}</div>
   }
@@ -49,7 +58,7 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           hideLabel={false}
           value={video_encoder}
           onValueChange={(v) => onChange?.({ video_encoder: v })}
-          allowedEncoders={containerDefinition.video?.allowedEncoders}
+          allowedEncoders={formatDefinition.video?.allowedEncoders}
         />
 
         <VideoResolutionSelect
@@ -58,9 +67,8 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           hideLabel={false}
           value={resolution}
           onValueChange={(v) => onChange?.({ resolution: v })}
-          groups={videoOptions.resolutions}
+          maxResolution={encoderDef.video?.maxResolution}
         />
-
 
         <VideoFrameRateSelect
           className="space-y-2"
@@ -68,7 +76,7 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           hideLabel={false}
           value={frame_rate}
           onValueChange={(v) => onChange?.({ frame_rate: v })}
-          options={videoOptions.frameRates}
+          maxFrameRate={encoderDef.video?.maxFrameRate}
         />
 
         <VideoBitrateSelect
@@ -77,28 +85,26 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           hideLabel={false}
           value={String(video_bitrate || "auto")}
           onValueChange={(v) => onChange?.({ video_bitrate: parseInt(v) })}
-          options={videoOptions.bitrates}
+          maxBitrate={encoderDef.video?.maxBitrate}
         />
 
         <ColorSpaceSelect
-          className="space-y-2 pr-4"
+          className="space-y-2"
           label={t("video_advance.color_space", "Color Space")}
           hideLabel={false}
           value={color_space}
           onValueChange={(v) => onChange?.({ color_space: v })}
-          options={videoOptions.colorSpaces}
+          allowedColorSpaces={encoderDef.video?.colorSpaces}
         />
 
         <ColorRangeSelect
-          className="space-y-2 pr-4"
+          className="space-y-2"
           label={t("video_advance.color_range", "Color Range")}
           hideLabel={false}
           value={color_range}
           onValueChange={(v) => onChange?.({ color_range: v })}
+          allowedColorRanges={encoderDef.video?.allowedColorRanges}
           placeholder={t("video_advance.color_range", "Color Range")}
-          autoLabel={t("video_advance.auto", "Auto")}
-          limitedLabel={t("video_advance.limited", "Limited (TV/MPEG)")}
-          fullLabel={t("video_advance.full", "Full (PC/JPEG)")}
         />
       </div>
     </div>

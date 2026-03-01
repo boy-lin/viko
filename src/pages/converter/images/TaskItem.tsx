@@ -14,7 +14,7 @@ import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
 import { bridge } from "@/lib/bridge";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent"
-import { formatToDefinition } from "@/data/capabilities";
+import { IMAGE_CONTAINER_DEFINITIONS } from "@/data/capabilities";
 import { FormatEnum } from "@/types/options";
 import { ConverterTask, FileType, MediaDetails, MediaTaskType } from "@/types/tasks";
 
@@ -32,14 +32,14 @@ function buildTaskDefaultsFromMedia(mediaInfo: MediaDetails, task: ConverterTask
     } else {
         format = FormatEnum.JPG;
     }
-    const containerDefinition = formatToDefinition.get(format);
+    const containerDefinition = IMAGE_CONTAINER_DEFINITIONS[format as FormatEnum];
     const outputArgs: any = {
         ...task.args,
         task_id: task.args.task_id || task.id,
         title: mediaInfo.title,
         input_path: mediaInfo.path,
         format,
-        image_encoder: containerDefinition?.image?.allowedEncoders[0],
+        image_encoder: containerDefinition?.allowedEncoders[0],
     };
 
     return {

@@ -13,8 +13,8 @@ import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
 import { bridge } from "@/lib/bridge";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { ConvertAudioTaskArgs } from "@/lib/mediaTaskEvent";
-import { formatToDefinition } from "@/data/capabilities";
-import {  FormatEnum } from "@/types/options";
+import { AUDIO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
+import { FormatEnum } from "@/types/options";
 import { ConverterTask, FileType, MediaDetails, MediaTaskType } from "@/types/tasks";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 
@@ -30,7 +30,7 @@ function buildDefaultArgs(mediaInfo: MediaDetails, task: ConverterTask) {
     if (mediaInfo.extension === format) {
         format = FormatEnum.WAV;
     }
-    const containerDefinition = formatToDefinition.get(format);
+    const containerDefinition = AUDIO_CONTAINER_DEFINITIONS[format];
     const outputTitle = mediaInfo.title;
     const outputArgs: ConvertAudioTaskArgs = {
         ...task.args,
@@ -41,7 +41,7 @@ function buildDefaultArgs(mediaInfo: MediaDetails, task: ConverterTask) {
         audio_tracks: mediaInfo.streams.filter((stream: any) => stream.codec_type === "audio").map((stream: any) => {
             return {
                 source_stream_index: stream.index,
-                codec: containerDefinition?.audio?.allowedEncoders[0],
+                codec: containerDefinition?.allowedEncoders[0],
             }
         })
     };

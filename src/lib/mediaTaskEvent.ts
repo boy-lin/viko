@@ -1,3 +1,4 @@
+import { AudioEncoderEnum, FormatEnum } from "@/types/options";
 import { FileType, MediaTaskType } from "@/types/tasks";
 
 export type MediaTaskEvent = {
@@ -15,7 +16,7 @@ export type MediaTaskEvent = {
 
 /** 与 Rust AudioEncodingParams 对应 */
 export interface AudioEncodingParams {
-  codec?: string;
+  codec?: AudioEncoderEnum;
   bitrate?: number;
   sample_rate?: number;
   channels?: number;
@@ -27,7 +28,7 @@ export interface AudioEncodingParams {
 export interface AudioTrackConfig {
   source_stream_index?: number;
   /** flatten: 与 AudioEncodingParams 字段一致 */
-  codec?: string;
+  codec?: AudioEncoderEnum;
   bitrate?: number;
   sample_rate?: number;
   channels?: number;
@@ -179,8 +180,8 @@ export interface CompressAudioTaskArgs {
   input_path: string;
   input_file_type?: FileType;
   /** 输出容器格式（后端 compress_audio_file 会据此修正输出扩展名并选择 muxer） */
-  format: string;
-  codec: string;
+  format: FormatEnum;
+  codec: AudioEncoderEnum;
   sample_rate?: number
   bitrate?: number
   remove_silence?: boolean;

@@ -26,7 +26,7 @@ export const useAppStore = create<AppState>()(
         if (!path) return;
         set((state) => {
           const without = state.pinnedPaths.filter((p) => p !== path);
-          const next = [path, ...without].slice(0, 5);
+          const next = [...without, path]
           return { pinnedPaths: next };
         });
       },

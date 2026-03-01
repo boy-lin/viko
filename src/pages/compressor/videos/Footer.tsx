@@ -76,7 +76,7 @@ export const CompressionFooter: React.FC = () => {
             <div className="w-[10em]">
               <div className="space-y-2">
                 <CompressionSettingsPopover
-                  config={videoConfig}
+                  config={videoConfig as CompressVideoTaskArgs}
                   onConfigChange={updateGlobalConfig}
                   onSave={handleSaveConfig}
                 />

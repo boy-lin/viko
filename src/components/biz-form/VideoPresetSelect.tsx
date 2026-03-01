@@ -8,14 +8,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { SelectOption } from "@/types/options";
-
-const DEFAULT_PRESET_OPTIONS: SelectOption[] = [
-  { value: "auto", label: "默认" },
-  { value: "ultrafast", label: "ultrafast" },
-  { value: "fast", label: "fast" },
-  { value: "medium", label: "medium" },
-  { value: "slow", label: "slow" },
-];
+import { VIDEO_PRESETS } from "@/data/video_options";
+import { cn } from "@/lib/utils";
 
 interface VideoPresetSelectProps {
   value?: string;
@@ -36,13 +30,13 @@ export const VideoPresetSelect: React.FC<VideoPresetSelectProps> = ({
   hideLabel = true,
   className,
 }) => {
-  const presetOptions = options ?? DEFAULT_PRESET_OPTIONS;
+  const presetOptions = options ?? VIDEO_PRESETS;
 
   return (
-    <div className={className ?? "space-y-2"}>
+    <div className={cn("space-y-2", className)}>
       {!hideLabel && label && <Label>{label}</Label>}
       <Select value={value ?? "auto"} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer">
+        <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder={placeholder ?? "选择压缩模式"} />
         </SelectTrigger>
         <SelectContent>

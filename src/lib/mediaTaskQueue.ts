@@ -74,7 +74,8 @@ class MediaTaskQueue {
         throw new Error("Task ID is required");
       }
       this.pendingTaskIds.add(task.args.task_id);
-      console.log("Adding compress task args", JSON.stringify(task.args));
+      // console.log("Adding compress task args", JSON.stringify(task.args));
+      console.log("Adding compress task args", task.args);
     });
     this.ensureEventListener();
     this.trackTaskSubmit("tasks_submit_compress", tasks);

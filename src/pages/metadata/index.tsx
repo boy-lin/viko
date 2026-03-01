@@ -313,32 +313,33 @@ export default function MetadataEditorPage() {
     };
     return (
         <div className="container mx-auto p-6 max-w-5xl">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold flex items-center gap-2">
-                    <FileText className="w-8 h-8 text-primary" />
-                    {t("title")}
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                    {t("subtitle")}
-                </p>
-            </div>
-
             {!fileInfo ? (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{t("fileSource")}</CardTitle>
-                        <CardDescription />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-center py-8 space-y-4">
-                            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
-                                <Upload className="w-8 h-8 text-muted-foreground" />
+                <>
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-bold flex items-center gap-2">
+                            <FileText className="w-8 h-8 text-primary" />
+                            {t("title")}
+                        </h1>
+                        <p className="text-muted-foreground mt-2">
+                            {t("subtitle")}
+                        </p>
+                    </div>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t("fileSource")}</CardTitle>
+                            <CardDescription />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-center py-8 space-y-4">
+                                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
+                                    <Upload className="w-8 h-8 text-muted-foreground" />
+                                </div>
+                                <p className="text-sm text-muted-foreground">{t("noFile")}</p>
+                                <Button onClick={handleSelectFile}>{t("selectFile")}</Button>
                             </div>
-                            <p className="text-sm text-muted-foreground">{t("noFile")}</p>
-                            <Button onClick={handleSelectFile}>{t("selectFile")}</Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                </>
             ) : (
                 <div className="space-y-6">
                     <Card>

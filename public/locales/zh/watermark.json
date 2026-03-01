@@ -1,0 +1,43 @@
+{
+  "title": "视频加水印",
+  "subtitle": "为视频添加文字或图片水印",
+  "messages": {
+    "selectAtLeastOneVideo": "请至少选择一个视频文件。",
+    "enterWatermarkText": "请输入水印文字。",
+    "selectWatermarkImage": "请选择水印图片。",
+    "submitFailed": "提交任务失败：{{message}}",
+    "cancelFailed": "取消任务失败：{{message}}"
+  },
+  "settings": {
+    "title": "参数设置",
+    "tabs": {
+      "text": "文字",
+      "image": "图片"
+    },
+    "text": {
+      "content": "内容",
+      "contentPlaceholder": "输入水印文字",
+      "fontSize": "字体大小（{{value}}px）"
+    },
+    "image": {
+      "filterName": "图片",
+      "change": "更换",
+      "clickToUpload": "点击上传图片",
+      "scale": "缩放（{{value}}%）"
+    },
+    "common": {
+      "opacity": "透明度（{{value}}%）",
+      "rotation": "旋转（{{value}}°）",
+      "position": "位置",
+      "notSupported": "后端暂不支持"
+    }
+  },
+  "toolbar": {
+    "processingSummary": "处理中 {{processingCount}} / {{selectedCount}}（已完成 {{finishedCount}}）",
+    "selectedCount": "已选择 {{count}} 个文件",
+    "cancelling": "取消中...",
+    "cancelProcessing": "取消处理",
+    "reselect": "重新选择",
+    "startTask": "开始任务"
+  }
+}

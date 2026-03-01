@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -7,13 +7,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { SelectOption } from "@/types/options";
 import { VIDEO_FRAME_RATES } from "@/data/capabilities";
+import { cn } from "@/lib/utils";
 
 interface VideoFrameRateSelectProps {
   value?: string;
   onValueChange: (value: string) => void;
-  options?: SelectOption[];
+  maxFrameRate?: number;
   label?: string;
   hideLabel?: boolean;
   className?: string;
@@ -22,18 +22,26 @@ interface VideoFrameRateSelectProps {
 export const VideoFrameRateSelect: React.FC<VideoFrameRateSelectProps> = ({
   value,
   onValueChange,
-  options,
+  maxFrameRate,
   label,
   hideLabel = true,
   className,
 }) => {
-  const frameRateOptions = options ?? VIDEO_FRAME_RATES
+  const frameRateOptions = useMemo(() => {
+    return maxFrameRate ? VIDEO_FRAME_RATES.filter((option) => option.value === "auto" || Number(option.value) <= maxFrameRate) : VIDEO_FRAME_RATES;
+  }, [maxFrameRate]);
+
+  useEffect(() => {
+    if (value && !frameRateOptions.some((option) => option.value === value)) {
+      onValueChange("auto");
+    }
+  }, [frameRateOptions, value, onValueChange])
 
   return (
-    <div className={className ?? "space-y-2"}>
+    <div className={cn("space-y-2", className)}>
       {!hideLabel && label && <Label>{label}</Label>}
       <Select value={value ?? "auto"} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer">
+        <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder="Select frame rate" />
         </SelectTrigger>
         <SelectContent>

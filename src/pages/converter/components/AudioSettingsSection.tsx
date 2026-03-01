@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,10 +8,10 @@ import { AudioEncoderSelect } from "@/components/biz-form/AudioEncoderSelect";
 import { AudioChannelSelect } from "@/components/biz-form/AudioChannelSelect";
 import { AudioSampleRateSelect } from "@/components/biz-form/AudioSampleRateSelect";
 import { AudioBitrateSelect } from "@/components/biz-form/AudioBitrateSelect";
-import { AUDIO_ENCODER_DEFINITIONS, formatToDefinition } from "@/data/capabilities";
+import { AUDIO_CONTAINER_DEFINITIONS, AUDIO_ENCODER_DEFINITIONS } from "@/data/capabilities";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { AudioEncoderEnum } from "@/types/options";
+import { AudioEncoderEnum, FormatEnum } from "@/types/options";
 
 type AudioConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "audio_tracks">
 
@@ -38,7 +38,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
     onAudioTracksChange(newTracks);
   };
 
-  
+
   const onReset = () => {
     onAudioTracksChange([]);
   }
@@ -60,10 +60,9 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
     );
   }
 
-  const audioAllowedEncoders = React.useMemo(() => {
+  const deencoderDef = React.useMemo(() => {
     if (!format) return undefined;
-    const containerDefinition = formatToDefinition.get(format);
-    return containerDefinition?.audio?.allowedEncoders
+    return AUDIO_CONTAINER_DEFINITIONS[format as FormatEnum]
   }, [format]);
 
   // 单轨道模式（audio 类型）
@@ -77,7 +76,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
             className="space-y-2"
             label={t("settings.audio.fields.encoder")}
             hideLabel={false}
-            allowedEncoders={audioAllowedEncoders}
+            allowedEncoders={deencoderDef?.allowedEncoders}
             value={track.codec}
             onValueChange={(v) => updateTrack(0, "codec", v)}
             placeholder={t("settings.audio.fields.encoderPlaceholder")}
@@ -148,7 +147,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
               className="space-y-2"
               label={t("settings.audio.fields.encoder")}
               hideLabel={false}
-              allowedEncoders={audioAllowedEncoders}
+              allowedEncoders={deencoderDef?.allowedEncoders}
               value={track.codec}
               onValueChange={(v) => updateTrack(index, "codec", v)}
               placeholder={t("settings.audio.fields.encoderPlaceholder")}

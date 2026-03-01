@@ -12,9 +12,13 @@ import { SettingsPanel } from "./SettingsPanel";
 import { defaultWatermarkConfig, positionMap } from "./types";
 import { UploadPanel } from "./UploadPanel";
 import { bridge } from "@/lib/bridge";
+import { useTranslation } from "react-i18next";
 
 export default function WatermarkPage() {
+    const { t } = useTranslation("watermark");
+
     const [config, setConfig] = useState(defaultWatermarkConfig);
+    const [isCancelling, setIsCancelling] = useState(false);
     const [previewFrame, setPreviewFrame] = useState<{
         dataUrl: string;
         width: number;
@@ -24,16 +28,25 @@ export default function WatermarkPage() {
 
     const queueTasks = useWatermarkStore((state) => state.queueTasks);
     const clearTasks = useWatermarkStore((state) => state.clearTasks);
+    const updateTaskById = useWatermarkStore((state) => state.updateTaskById);
     const runningTasks = useMemo(
         () => queueTasks.filter((task) => task.status === "processing"),
         [queueTasks]
     );
+    const finishedTasks = useMemo(
+        () => queueTasks.filter((task) => task.status === "finished"),
+        [queueTasks]
+    );
     const isRunning = runningTasks.length > 0;
     const progress = useMemo(() => {
-        if (!runningTasks.length) return 0;
-        const total = runningTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
-        return total / runningTasks.length;
-    }, [runningTasks]);
+        if (!queueTasks.length) return 0;
+        const total = queueTasks.reduce((sum, task) => {
+            if (task.status === "finished") return sum + 100;
+            if (task.status === "processing") return sum + (task.progress || 0);
+            return sum;
+        }, 0);
+        return total / queueTasks.length;
+    }, [queueTasks]);
     const firstVideoPath = useMemo(
         () => queueTasks[0]?.args?.input_path as string | undefined,
         [queueTasks]
@@ -104,7 +117,7 @@ export default function WatermarkPage() {
             return;
         }
         if (queueTasks.length === 0) {
-            toast.error("Please select at least one video file.");
+            toast.error(t("messages.selectAtLeastOneVideo"));
             return;
         }
 
@@ -117,7 +130,7 @@ export default function WatermarkPage() {
 
         if (config.type === "text") {
             if (!config.text) {
-                toast.error("Please enter watermark text.");
+                toast.error(t("messages.enterWatermarkText"));
                 return;
             }
             watermarkConfig.text = {
@@ -135,7 +148,7 @@ export default function WatermarkPage() {
             };
         } else {
             if (!config.imagePath) {
-                toast.error("Please select a watermark image.");
+                toast.error(t("messages.selectWatermarkImage"));
                 return;
             }
             watermarkConfig.image = {
@@ -183,7 +196,29 @@ export default function WatermarkPage() {
             // Optional: navigate to tasks page
         } catch (e: any) {
             console.error(e);
-            toast.error("Failed to submit tasks: " + e.message);
+            toast.error(t("messages.submitFailed", { message: e.message }));
+        }
+    };
+
+    const handleCancelWork = async () => {
+        if (!runningTasks.length) return;
+        try {
+            setIsCancelling(true);
+            await Promise.allSettled(
+                runningTasks.map((task) => getMediaTaskQueue().cancelTaskById(task.id))
+            );
+            runningTasks.forEach((task) => {
+                updateTaskById(task.id, {
+                    status: "idle",
+                    progress: 0,
+                    errorMessage: undefined,
+                });
+            });
+        } catch (e: any) {
+            console.error(e);
+            toast.error(t("messages.cancelFailed", { message: e.message }));
+        } finally {
+            setIsCancelling(false);
         }
     };
 
@@ -191,6 +226,14 @@ export default function WatermarkPage() {
     if (queueTasks.length === 0) {
         return (
             <div className="p-4 flex-1 rounded-xl overflow-hidden">
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold flex items-center gap-2">
+                        {t("title")}
+                    </h1>
+                    <p className="text-muted-foreground mt-2">
+                        {t("subtitle")}
+                    </p>
+                </div>
                 <UploadPanel supportedExtensions={VIDEO_SUPPORT_FORMATS.map((format) => format.toLowerCase())} />
             </div>
         );
@@ -212,9 +255,13 @@ export default function WatermarkPage() {
                 </div>
                 <BottomToolbar
                     selectedCount={queueTasks.length}
+                    processingCount={runningTasks.length}
+                    finishedCount={finishedTasks.length}
                     onClear={clearTasks}
                     onExport={handleStartWork}
+                    onCancel={handleCancelWork}
                     isRunning={isRunning}
+                    isCancelling={isCancelling}
                     progress={progress}
                 />
             </div>

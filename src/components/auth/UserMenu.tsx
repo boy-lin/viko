@@ -17,8 +17,10 @@ import { clearDesktopToken, hasDesktopAccessToken } from "@/lib/desktop-auth";
 import { useUserStore } from "@/stores/user";
 import { toast } from "sonner";
 import { analytics } from "@/lib/analytics";
+import { useTranslation } from "react-i18next";
 
 export const UserMenu = () => {
+  const { t } = useTranslation("common");
   const { data: session, isPending } = useSession();
   const { userInfo, isTokenPreview, isProfileRefreshing, fetchUserInfo, clearUser } = useUserStore();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -26,16 +28,16 @@ export const UserMenu = () => {
   const prevRefreshingRef = useRef(false);
   const isLoggedIn = Boolean(session?.user) || desktopLoggedIn;
   const displayName = useMemo(
-    () => userInfo?.name || session?.user?.name || session?.user?.email || "User",
-    [session?.user, userInfo]
+    () => userInfo?.name || session?.user?.name || session?.user?.email || t("auth.user_menu.default_user"),
+    [session?.user, t, userInfo]
   );
   useEffect(() => {
     if (isLoggedIn) {
       fetchUserInfo().catch((e: any) => {
-        toast.error(e.message || "获取用户信息失败");
+        toast.error(e.message || t("auth.user_menu.toast.fetch_user_failed"));
       });
     }
-  }, [isLoggedIn, fetchUserInfo]);
+  }, [isLoggedIn, fetchUserInfo, t]);
 
   useEffect(() => {
     setDesktopLoggedIn(hasDesktopAccessToken());
@@ -45,12 +47,12 @@ export const UserMenu = () => {
     const handleDesktopAuthSuccess = () => {
       setDesktopLoggedIn(true);
       setDialogOpen(false);
-      toast.success("桌面登录成功");
+      toast.success(t("auth.user_menu.toast.desktop_login_success"));
     };
 
     const handleDesktopAuthError = (event: Event) => {
       const detail = (event as CustomEvent<{ message?: string }>).detail;
-      toast.error(detail?.message || "桌面登录失败");
+      toast.error(detail?.message || t("auth.user_menu.toast.desktop_login_failed"));
     };
 
     window.addEventListener("desktop-auth:success", handleDesktopAuthSuccess);
@@ -59,7 +61,7 @@ export const UserMenu = () => {
       window.removeEventListener("desktop-auth:success", handleDesktopAuthSuccess);
       window.removeEventListener("desktop-auth:error", handleDesktopAuthError as EventListener);
     };
-  }, [fetchUserInfo]);
+  }, [fetchUserInfo, t]);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -73,10 +75,10 @@ export const UserMenu = () => {
     if (prevRefreshingRef.current) {
       prevRefreshingRef.current = false;
       if (!isTokenPreview) {
-        toast.success("用户资料已同步");
+        toast.success(t("auth.user_menu.toast.profile_synced"));
       }
     }
-  }, [isLoggedIn, isProfileRefreshing, isTokenPreview]);
+  }, [isLoggedIn, isProfileRefreshing, isTokenPreview, t]);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -96,9 +98,9 @@ export const UserMenu = () => {
       clearDesktopToken();
       setDesktopLoggedIn(false);
       clearUser();
-      toast.success("已退出登录");
+      toast.success(t("auth.user_menu.toast.signed_out"));
     } catch (e) {
-      toast.error("退出失败");
+      toast.error(t("auth.user_menu.toast.sign_out_failed"));
     }
   };
 
@@ -119,7 +121,7 @@ export const UserMenu = () => {
           className="h-9 cursor-pointer shadow-none font-medium px-3"
           onClick={() => setDialogOpen(true)}
         >
-          登录
+          {t("auth.user_menu.actions.login")}
         </Button>
         <AuthDialog
           open={dialogOpen}
@@ -149,12 +151,12 @@ export const UserMenu = () => {
           )}
           {isProfileRefreshing && (
             <Badge variant="outline" className="mt-2 w-fit text-[10px] px-1.5 py-0.5">
-              正在同步资料
+              {t("auth.user_menu.status.syncing_profile")}
             </Badge>
           )}
           {!isProfileRefreshing && isTokenPreview && (
             <Badge variant="secondary" className="mt-2 w-fit text-[10px] px-1.5 py-0.5">
-              基础资料模式
+              {t("auth.user_menu.status.basic_profile_mode")}
             </Badge>
           )}
         </DropdownMenuLabel>
@@ -164,7 +166,7 @@ export const UserMenu = () => {
           onClick={handleLogout}
         >
           <LogOut className="w-4 h-4 mr-2" />
-          退出登录
+          {t("auth.user_menu.actions.logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

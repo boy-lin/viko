@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -7,13 +7,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { SelectOption } from "@/types/options";
+import {
+  InputGroup,
+  InputGroupAddon,
+} from "@/components/ui/input-group";
+import CorrectNumberInput from "@/components/ui-lab/correct-number-input";
 import { VIDEO_BITRATES } from "@/data/video_options";
+import { cn, parseOptionalInt } from "@/lib/utils";
 
 interface VideoBitrateSelectProps {
   value?: string;
   onValueChange: (value: string) => void;
-  options?: SelectOption[];
+  minBitrate?: number;
+  maxBitrate?: number;
+  placeholder?: string;
   label?: string;
   hideLabel?: boolean;
   className?: string;
@@ -22,27 +29,99 @@ interface VideoBitrateSelectProps {
 export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
   value,
   onValueChange,
-  options,
+  minBitrate,
+  maxBitrate,
+  placeholder,
   label,
   hideLabel = true,
   className,
 }) => {
-  const bitrateOptions = options ?? VIDEO_BITRATES;
+  const bitrateOptions = useMemo(() => {
+    return VIDEO_BITRATES.filter((option) => {
+      if (option.value === "auto") return true;
+      const numeric = Number(option.value);
+      if (!Number.isFinite(numeric)) return false;
+      if (minBitrate !== undefined && numeric < minBitrate) return false;
+      if (maxBitrate !== undefined && numeric > maxBitrate) return false;
+      return true;
+    });
+  }, [maxBitrate, minBitrate]);
+
+  const numericValue = value && value !== "auto" ? parseOptionalInt(value) : undefined;
+  const clampedNumericValue = numericValue === undefined
+    ? undefined
+    : Math.min(
+      maxBitrate ?? Number.MAX_SAFE_INTEGER,
+      Math.max(minBitrate ?? 0, numericValue),
+    );
+  const selectValue = value && bitrateOptions.some((option) => option.value === value) ? value : "auto";
+
+  useEffect(() => {
+    if (numericValue !== undefined && clampedNumericValue !== numericValue) {
+      onValueChange(String(clampedNumericValue));
+    }
+  }, [clampedNumericValue, numericValue]);
+
   return (
-    <div className={className ?? "space-y-2"}>
+    <div className={cn("space-y-2", className)}>
       {!hideLabel && label && <Label>{label}</Label>}
-      <Select value={value ?? "auto"} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer">
-          <SelectValue placeholder="Select bitrate" />
-        </SelectTrigger>
-        <SelectContent>
-          {bitrateOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <InputGroup>
+        <CorrectNumberInput
+          min={minBitrate}
+          max={maxBitrate}
+          step={100}
+          placeholder={placeholder ?? "输入码率"}
+          value={clampedNumericValue}
+          onChange={(nextValue) => {
+            const parsed = nextValue;
+            if (parsed === undefined) return;
+            const clamped = Math.min(
+              maxBitrate ?? Number.MAX_SAFE_INTEGER,
+              Math.max(minBitrate ?? 0, parsed),
+            );
+            onValueChange(String(clamped));
+          }}
+        />
+        {/* <InputGroupInput
+          type="number"
+          min={minBitrate}
+          max={maxBitrate}
+          step={100}
+          placeholder={placeholder ?? "输入码率"}
+          value={clampedNumericValue ?? ""}
+          onChange={(e) => {
+            const nextValue = e.target.value.trim();
+            if (!nextValue) {
+              onValueChange("auto");
+              return;
+            }
+            const parsed = parseOptionalInt(nextValue);
+            if (parsed === undefined) return;
+            const clamped = Math.min(
+              maxBitrate ?? Number.MAX_SAFE_INTEGER,
+              Math.max(minBitrate ?? 0, parsed),
+            );
+            onValueChange(String(clamped));
+          }}
+        /> */}
+        <InputGroupAddon align="inline-end" className="pr-1">
+          <Select
+            value={selectValue}
+            onValueChange={(next) => onValueChange(next)}
+          >
+            <SelectTrigger className="h-7 w-[6em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
+              <SelectValue placeholder="常用值" />
+            </SelectTrigger>
+            <SelectContent>
+              {bitrateOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </InputGroupAddon>
+      </InputGroup>
     </div>
   );
 };

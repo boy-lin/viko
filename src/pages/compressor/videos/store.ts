@@ -7,15 +7,15 @@ import { getVideoCompressionPresetByRatio } from "./compressionPreset";
 import { FormatEnum } from "@/types/options";
 import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
 
-const baseVideoCompressionConfig: CompressVideoTaskArgs = {
-  task_id: "",
-  input_path: "",
+export type BaseVideoCompressionConfig = Omit<CompressVideoTaskArgs, "input_path" | "task_id">;
+
+const baseVideoCompressionConfig: BaseVideoCompressionConfig = {
   format: FormatEnum.MP4,
   ratio: 50,
   remove_audio: false,
 };
 
-export const defaultVideoCompressionConfig: CompressVideoTaskArgs = {
+export const defaultVideoCompressionConfig: BaseVideoCompressionConfig = {
   ...baseVideoCompressionConfig,
   ...getVideoCompressionPresetByRatio(
     baseVideoCompressionConfig.ratio,
@@ -25,7 +25,7 @@ export const defaultVideoCompressionConfig: CompressVideoTaskArgs = {
 
 type CompressorStore = CreateTaskStoreState<
   CompressingTask,
-  CompressVideoTaskArgs,
+  BaseVideoCompressionConfig,
   Partial<CompressVideoTaskArgs>,
   "compressingTasks",
   "videoConfig",
@@ -64,7 +64,7 @@ const mergeAudioTracks = (currentTracks: AudioTrackLike[] = [], patchTracks: Aud
 export const useCompressorStore = create<CompressorStore>(
   createTaskStore<
     CompressingTask,
-    CompressVideoTaskArgs,
+    BaseVideoCompressionConfig,
     Partial<CompressVideoTaskArgs>,
     "compressingTasks",
     "videoConfig",

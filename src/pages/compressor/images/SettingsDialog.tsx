@@ -27,6 +27,7 @@ import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Settings } from "lucide-react";
 import { getImageCompressionPresetByQuality } from "./compressionPreset";
+import { FormatEnum } from "@/types/options";
 const IMAGE_DPI = [72, 96, 150, 300, 600];
 
 interface CompressionSettingsFormProps {
@@ -90,20 +91,20 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-4 px-4">
       <div className="col-span-2 py-2">
         <Slider
-          value={[config.quality]}
+          value={[config.quality ?? 0]}
           onValueChange={(value) => {
             const next = getImageCompressionPresetByQuality(
               value[0],
-              config.format
+              config.format ?? FormatEnum.JPG
             );
             onConfigChange(next.patch);
           }}
           min={10}
           max={100}
-          step={5}
+          step={2}
           className="w-full"
         />
         <p className="text-xs text-muted-foreground mt-1">
@@ -183,7 +184,7 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
               <DialogDescription>仅修改当前任务的压缩参数</DialogDescription>
             </div>
           </DialogHeader>
-          <div className="flex overflow-hidden flex-col px-4">
+          <div className="flex overflow-hidden flex-col">
             <ScrollArea className="flex-1">
               <CompressionSettingsForm
                 config={config}
@@ -220,11 +221,11 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
               className="h-9 w-[10em] cursor-pointer"
             >
               <Slider
-                value={[config.quality]}
+                value={[config.quality ?? 10]}
                 disabled
                 min={10}
                 max={100}
-                step={5}
+                step={2}
                 className="w-full"
               />
               <Settings className="w-4 h-4 text-muted-foreground" />

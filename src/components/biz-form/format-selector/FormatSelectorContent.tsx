@@ -13,7 +13,7 @@ import { ImageSettingsSection } from "@/pages/converter/components/ImageSettings
 import { GifSettingsSection } from "@/pages/converter/components/GifSettingsSection";
 import { FormatGroup, FormatEnum } from "@/types/options";
 import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
-import { formatToDefinition } from "@/data/capabilities";
+import { AUDIO_CONTAINER_DEFINITIONS, IMAGE_CONTAINER_DEFINITIONS, VIDEO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
 import { useTranslation } from "react-i18next";
 import { AudioTrackConfig, ConvertAudioTaskArgs, ConvertGifTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 
@@ -89,18 +89,6 @@ export default function FormatSelectorContent({
     if (resetSearch) setSearchQuery("");
 
     if (!formatOpt.id) return;
-    const definition = formatToDefinition.get(formatOpt.id);
-    const audioCodec = definition?.audio?.allowedEncoders[0];
-
-    let audioTracks = config.args?.audio_tracks as AudioTrackConfig[]
-    if (audioTracks) {
-      audioTracks = audioTracks.map((track) => {
-        return {
-          ...track,
-          codec: audioCodec,
-        };
-      });
-    }
 
     const updates = {
       ...config,
@@ -112,10 +100,33 @@ export default function FormatSelectorContent({
 
     if (formatOpt.category === FileType.Audio) {
       updates.taskType = MediaTaskType.ConvertAudio;
+      const definition = AUDIO_CONTAINER_DEFINITIONS[formatOpt.id as FormatEnum];
+      const audioCodec = definition?.allowedEncoders[0];
+      let audioTracks = config.args?.audio_tracks as AudioTrackConfig[]
+      if (audioTracks) {
+        audioTracks = audioTracks.map((track) => {
+          return {
+            ...track,
+            codec: audioCodec,
+          };
+        });
+      }
       updates.args.audio_tracks = audioTracks;
     } else if (formatOpt.category === FileType.Video) {
       updates.taskType = MediaTaskType.ConvertVideo;
-      updates.args.video_encoder = definition?.video?.allowedEncoders[0];
+      const definition = VIDEO_CONTAINER_DEFINITIONS[formatOpt.id as FormatEnum];
+      const videoEncoder = definition?.video?.allowedEncoders[0];
+      const audioCodec = definition?.audio?.allowedEncoders[0];
+      updates.args.video_encoder = videoEncoder;
+      let audioTracks = config.args?.audio_tracks as AudioTrackConfig[]
+      if (audioTracks) {
+        audioTracks = audioTracks.map((track) => {
+          return {
+            ...track,
+            codec: audioCodec,
+          };
+        });
+      }
       updates.args.audio_tracks = audioTracks;
     } else if (formatOpt.category === FileType.Image) {
       if (formatOpt.id === FormatEnum.GIF) {
@@ -123,7 +134,9 @@ export default function FormatSelectorContent({
       } else {
         updates.taskType = MediaTaskType.ConvertImage;
       }
-      updates.args.image_encoder = definition?.image?.allowedEncoders[0];
+      const definition = IMAGE_CONTAINER_DEFINITIONS[formatOpt.id as FormatEnum];
+      const imageEncoder = definition?.allowedEncoders[0];
+      updates.args.image_encoder = imageEncoder;
     }
     onValueChange(updates);
   };

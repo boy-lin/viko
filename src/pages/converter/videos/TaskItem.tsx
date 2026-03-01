@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
 import { useConverterStore } from "./store";
 import { FormatEnum } from "@/types/options";
-import { formatToDefinition } from "@/data/capabilities";
+import { VIDEO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
@@ -37,7 +37,7 @@ const buildDefaultArgs = (task: ConverterTask, details: MediaDetails) => {
     format: format,
     input_path: details.path,
   };
-  const containerDefinition = formatToDefinition.get(outputArgs.format);
+  const containerDefinition = VIDEO_CONTAINER_DEFINITIONS[format as FormatEnum];
   outputArgs.video_encoder = containerDefinition?.video?.allowedEncoders[0];
   outputArgs.audio_tracks =
     details?.streams

@@ -45,7 +45,6 @@ const router = createHashRouter([
     element: <AuthLayout />,
     errorElement: <ErrorPage />,
     hydrateFallbackElement,
-    loader: preloadI18nNamespaces(["common"]),
     children: [
       {
         path: "/",
@@ -94,8 +93,8 @@ const router = createHashRouter([
           //     { path: "audio-test", element: withSuspense(<AudioTestPage />) },
           //   ],
           // },
-          { path: "metadata", element: withSuspense(<MetadataEditorPage />) },
-          { path: "watermark", element: withSuspense(<WatermarkPage />) },
+          { path: "metadata", element: withSuspense(<MetadataEditorPage />), loader: preloadI18nNamespaces(["metadata"]) },
+          { path: "watermark", element: withSuspense(<WatermarkPage />), loader: preloadI18nNamespaces(["watermark"]) },
         ],
       },
     ],

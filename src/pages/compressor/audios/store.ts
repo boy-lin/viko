@@ -1,25 +1,25 @@
 import { create } from "zustand";
 import { FileType, MediaTaskType, CompressingTask } from "../../../types/tasks";
 import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
-import { EncoderEnum } from "@/types/options";
-import { FormatEnum } from "@/types/options";
+import { AUDIO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
+import { FormatEnum, AudioEncoderEnum } from "@/types/options";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
 
-const DEFAULT_AUDIO_COMPRESSION_FORMAT = FormatEnum.OGG;
-const baseAudioCompressionConfig: CompressAudioTaskArgs = {
-  task_id: "",
-  input_path: "",
+type BaseAudioCompressionConfig = Omit<CompressAudioTaskArgs, "task_id" | "input_path" | "output_path">;
+const format = FormatEnum.OGG;
+const codec = AUDIO_CONTAINER_DEFINITIONS[format]?.allowedEncoders[0] as AudioEncoderEnum;
+
+const baseAudioCompressionConfig: BaseAudioCompressionConfig = {
   input_file_type: FileType.Audio,
-  output_path: "",
-  format: DEFAULT_AUDIO_COMPRESSION_FORMAT,
-  codec: EncoderEnum.OPUS,
+  format: format,
+  codec: codec,
   ratio: 50,
 };
 
-export const defaultAudioCompressionConfig: CompressAudioTaskArgs = {
+export const defaultAudioCompressionConfig: BaseAudioCompressionConfig = {
   ...baseAudioCompressionConfig,
   ...getAudioCompressionPresetByRatio(
     baseAudioCompressionConfig.ratio,
@@ -29,7 +29,7 @@ export const defaultAudioCompressionConfig: CompressAudioTaskArgs = {
 
 type CompressorStore = CreateTaskStoreState<
   CompressingTask,
-  CompressAudioTaskArgs,
+  BaseAudioCompressionConfig,
   Partial<CompressAudioTaskArgs>,
   "compressingTasks",
   "audioConfig",
@@ -39,7 +39,7 @@ type CompressorStore = CreateTaskStoreState<
 export const useCompressorStore = create<CompressorStore>(
   createTaskStore<
     CompressingTask,
-    CompressAudioTaskArgs,
+    BaseAudioCompressionConfig,
     Partial<CompressAudioTaskArgs>,
     "compressingTasks",
     "audioConfig",
@@ -54,7 +54,9 @@ export const useCompressorStore = create<CompressorStore>(
         ...config,
         task_id: crypto.randomUUID(),
         input_path: path,
+        output_path: "",
       };
+
       return {
         id: outputArgs.task_id,
         status: "idle",
@@ -100,7 +102,7 @@ export const useCompressorStore = create<CompressorStore>(
         tasks.map((task) => {
           const outputDir = settings.getOutputDir(task.args.input_path);
           const outputTitle = resolveOutputTitle(task);
-          const outputFormat = task.args.format || DEFAULT_AUDIO_COMPRESSION_FORMAT;
+          const outputFormat = task.args.format || defaultAudioCompressionConfig.format;
           console.log("Compressing task media details", JSON.stringify(task.mediaDetails));
           return {
             type: task.taskType,

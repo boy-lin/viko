@@ -77,11 +77,64 @@
     },
     "file_picker": {
         "video": "Video",
+        "audio": "Audio",
+        "image": "Image",
         "audios": "Audios",
         "images": "Images",
         "folders": "Folders"
     },
     "search": {
         "placeholder": "Search file name..."
+    },
+    "auth": {
+        "dialog": {
+            "title": "Sign In",
+            "desktop_oauth_unavailable": "Desktop OAuth is not enabled in the current environment. Please check OAuth environment variables.",
+            "actions": {
+                "browser_login": "Sign in with browser",
+                "retry_browser_login": "Retry browser sign-in",
+                "cancel_current_login": "Cancel current sign-in"
+            },
+            "pending": {
+                "exchanging": "Callback received, completing sign-in...",
+                "waiting_callback": "Please complete authorization in browser, the app will sign in automatically",
+                "timeout": "No callback received for a while, you can retry",
+                "processing": "Processing...",
+                "remaining_seconds": "{{seconds}}s remaining"
+            },
+            "debug": {
+                "placeholder": "Debug: paste auth/callback URL or code",
+                "submit": "Debug submit URL/code"
+            },
+            "toast": {
+                "browser_opened": "Browser opened, please complete authorization",
+                "login_success": "Signed in successfully"
+            },
+            "error": {
+                "open_browser_failed": "Failed to open browser login page",
+                "input_code_first": "Please input authorization code first",
+                "desktop_login_failed": "Desktop sign-in failed",
+                "timeout_retry": "Authorization timed out, please retry"
+            }
+        },
+        "user_menu": {
+            "default_user": "User",
+            "actions": {
+                "login": "Sign In",
+                "logout": "Sign Out"
+            },
+            "status": {
+                "syncing_profile": "Syncing profile",
+                "basic_profile_mode": "Basic profile mode"
+            },
+            "toast": {
+                "fetch_user_failed": "Failed to fetch user info",
+                "desktop_login_success": "Desktop sign-in succeeded",
+                "desktop_login_failed": "Desktop sign-in failed",
+                "profile_synced": "Profile synced",
+                "signed_out": "Signed out",
+                "sign_out_failed": "Sign out failed"
+            }
+        }
     }
 }

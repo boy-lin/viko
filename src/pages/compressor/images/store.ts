@@ -6,7 +6,9 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { getImageCompressionPresetByQuality } from "./compressionPreset";
 import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
 
-const baseDefaultImageCompressionConfig = {
+type BaseImageCompressionConfig = Omit<CompressImageTaskArgs, "input_path" | "task_id">;
+
+const baseDefaultImageCompressionConfig: BaseImageCompressionConfig = {
   format: "jpg",
   quality: 80,
   color_mode: "RGB",
@@ -14,19 +16,19 @@ const baseDefaultImageCompressionConfig = {
   strip_metadata: true,
   keep_transparency: true,
   crop_whitespace: false,
-} as CompressImageTaskArgs;
+};
 
-export const defaultImageCompressionConfig = {
+export const defaultImageCompressionConfig: BaseImageCompressionConfig = {
   ...baseDefaultImageCompressionConfig,
   ...getImageCompressionPresetByQuality(
     baseDefaultImageCompressionConfig.quality,
     baseDefaultImageCompressionConfig.format,
   ).patch,
-} as CompressImageTaskArgs;
+};
 
 type CompressorStore = CreateTaskStoreState<
   CompressingTask,
-  CompressImageTaskArgs,
+  BaseImageCompressionConfig,
   Partial<CompressImageTaskArgs>,
   "compressingTasks",
   "imageConfig",
@@ -36,7 +38,7 @@ type CompressorStore = CreateTaskStoreState<
 export const useCompressorStore = create<CompressorStore>(
   createTaskStore<
     CompressingTask,
-    CompressImageTaskArgs,
+    BaseImageCompressionConfig,
     Partial<CompressImageTaskArgs>,
     "compressingTasks",
     "imageConfig",

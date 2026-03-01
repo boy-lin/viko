@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +30,7 @@ import { useTranslation } from "react-i18next";
 import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 import {
   AUDIO_ENCODER_DEFINITIONS,
-  formatToDefinition,
+  AUDIO_CONTAINER_DEFINITIONS,
 } from "@/data/capabilities";
 import { parseOptionalInt } from "@/lib/utils";
 import { AudioEncoderEnum } from "@/types/options";
@@ -51,14 +51,8 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   const { t } = useTranslation("converter");
   const formatDefinition = useMemo(() => {
     if (!config.format) return undefined;
-    const definition = formatToDefinition.get(config.format);
-    const allowedEncoders = definition?.audio?.allowedEncoders ?? [];
-    if (allowedEncoders.length > 0 && !allowedEncoders.includes(config.codec as AudioEncoderEnum)) {
-      onConfigChange({ codec: allowedEncoders[0] as AudioEncoderEnum });
-    }
-    return definition;
+    return AUDIO_CONTAINER_DEFINITIONS[config.format];
   }, [config.format]);
-
 
   const encoderDefinition = useMemo(() => {
     const def = AUDIO_ENCODER_DEFINITIONS[config.codec as AudioEncoderEnum]
@@ -72,7 +66,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   };
 
   return (
-    <div className="flex flex-col space-y-4">
+    <div className="flex flex-col space-y-4 px-4">
       <div className="space-y-4">
         <div className="space-y-4">
 
@@ -89,35 +83,33 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
                 }}
                 min={10}
                 max={100}
-                step={5}
+                step={2}
                 className="w-full"
               />
             </div>
             <div className="space-y-2">
               <AudioFormatSelector
+                className="w-full"
                 value={config.format}
                 onValueChange={(nextFormat) => {
                   if (!nextFormat) return;
-                  const defaultAudioEncoder =
-                    formatToDefinition.get(nextFormat)?.audio?.allowedEncoders[0];
                   onConfigChange({
                     format: nextFormat,
-                    codec: defaultAudioEncoder ?? config.codec,
                   });
                 }}
               />
             </div>
             <AudioEncoderSelect
-              className="space-y-2"
+              className="space-y-2 w-full"
               label={t("settings.audio.fields.encoder")}
               hideLabel={false}
-              allowedEncoders={formatDefinition?.audio?.allowedEncoders}
+              allowedEncoders={formatDefinition?.allowedEncoders}
               value={config.codec}
               placeholder={t("settings.audio.fields.encoderPlaceholder")}
               onValueChange={(val) => onConfigChange({ codec: val })}
             />
             <AudioSampleRateSelect
-              className="space-y-2"
+              className="space-y-2 w-full"
               label={t("settings.audio.fields.sampleRate")}
               hideLabel={false}
               value={config.sample_rate === undefined ? "auto" : String(config.sample_rate)}
@@ -132,7 +124,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
               }}
             />
             <AudioBitrateSelect
-              className="space-y-2"
+              className="space-y-2 w-full"
               label={t("settings.audio.fields.bitrate")}
               hideLabel={false}
               value={config.bitrate === undefined ? "auto" : String(config.bitrate)}
@@ -148,7 +140,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
             />
 
             <AudioChannelSelect
-              className="space-y-2"
+              className="space-y-2 w-full"
               label={t("settings.audio.fields.channel")}
               hideLabel={false}
               value={config.channels === undefined ? "auto" : String(config.channels)}
@@ -163,10 +155,12 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
               }}
             />
             <AudioBitDepthSelect
-              className="space-y-2"
+              className="space-y-2 w-full"
               label={t("settings.audio.fields.bitDepth")}
               hideLabel={false}
               value={config.bit_depth === undefined ? "auto" : String(config.bit_depth)}
+              allowedBitDepths={encoderDefinition?.allowedBitDepths}
+              autoLabel={t("common.auto")}
               placeholder={t("settings.audio.fields.bitDepthPlaceholder")}
               onValueChange={(val) => {
                 if (val === "auto") {
@@ -237,10 +231,8 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
               <DialogDescription>仅修改当前任务的压缩参数</DialogDescription>
             </div>
           </DialogHeader>
-          <div className="flex overflow-hidden flex-col px-4">
+          <div className="flex overflow-hidden flex-col">
             <ScrollArea className="flex-1">
-
-
               <CompressionSettingsForm
                 config={config}
                 onConfigChange={onConfigChange}
@@ -279,7 +271,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
               disabled
               min={10}
               max={100}
-              step={5}
+              step={2}
               className="w-full"
             />
             <Settings className="w-4 h-4 text-muted-foreground" />

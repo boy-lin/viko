@@ -76,7 +76,7 @@ export const CompressionFooter: React.FC = () => {
             <div className="w-[10em]">
               <div className="space-y-2">
                 <CompressionSettingsPopover
-                  config={audioConfig}
+                  config={audioConfig as CompressAudioTaskArgs}
                   onConfigChange={updateGlobalConfig}
                   onSave={handleSaveConfig}
                 />

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AUDIO_SAMPLE_RATES } from "@/data/audio_options";
+import { cn } from "@/lib/utils";
 
 interface AudioSampleRateSelectProps {
   value: string;
@@ -28,13 +29,23 @@ export const AudioSampleRateSelect: React.FC<AudioSampleRateSelectProps> = ({
   hideLabel = true,
   className,
 }) => {
-  const rateOptions = maxSampleRate ? AUDIO_SAMPLE_RATES.filter(opt => opt.value === "auto" || opt.value <= maxSampleRate) : AUDIO_SAMPLE_RATES;
+  const rateOptions = useMemo(() => {
+    if (!maxSampleRate) return AUDIO_SAMPLE_RATES;
+    return AUDIO_SAMPLE_RATES.filter(opt => opt.value === "auto" || opt.value <= maxSampleRate);
+  }, [maxSampleRate]);
+
+  useEffect(() => {
+    if (!rateOptions || !rateOptions.length) return;
+    if (!rateOptions.some(opt => opt.value === value)) {
+      onValueChange(rateOptions[0].value);
+    }
+  }, [rateOptions]);
 
   return (
-    <div className={className ?? "space-y-2"}>
+    <div className={cn("space-y-2", className)}>
       {!hideLabel && label && <Label>{label}</Label>}
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer">
+        <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder={placeholder ?? "Select sample rate"} />
         </SelectTrigger>
         <SelectContent>

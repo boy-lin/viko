@@ -30,7 +30,7 @@
       "resolution": "Resolution:"
     }
   },
-  "common": { "cancel": "Cancel", "save": "Save" },
+  "common": { "cancel": "Cancel", "save": "Save", "auto": "Auto" },
   "status": {
     "idle": "Idle",
     "queued": "Queued",

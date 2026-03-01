@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AUDIO_BITRATES } from "@/data/audio_options";
+import { cn } from "@/lib/utils";
 
 interface AudioBitrateSelectProps {
   value: string;
@@ -28,13 +29,23 @@ export const AudioBitrateSelect: React.FC<AudioBitrateSelectProps> = ({
   hideLabel = true,
   className,
 }) => {
-  const bitrateOptions = maxBitrate ? AUDIO_BITRATES.filter(opt => opt.value === "auto" || opt.value <= maxBitrate) : AUDIO_BITRATES;
+  const bitrateOptions = useMemo(() => {
+    if (!maxBitrate) return AUDIO_BITRATES;
+    return AUDIO_BITRATES.filter(opt => opt.value === "auto" || opt.value <= maxBitrate);
+  }, [maxBitrate]);
+
+  useEffect(() => {
+    if (!bitrateOptions || !bitrateOptions.length) return;
+    if (!bitrateOptions.some(opt => opt.value === value)) {
+      onValueChange(bitrateOptions[0].value);
+    }
+  }, [bitrateOptions, value]);
 
   return (
-    <div className={className ?? "space-y-2"}>
+    <div className={cn("space-y-2", className)}>
       {!hideLabel && label && <Label>{label}</Label>}
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer">
+        <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder={placeholder ?? "Select bitrate"} />
         </SelectTrigger>
         <SelectContent>

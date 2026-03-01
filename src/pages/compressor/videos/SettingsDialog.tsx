@@ -19,15 +19,17 @@ import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { VideoColorDepthSelect } from "@/components/biz-form/VideoColorDepthSelect";
 import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
 import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect";
+import { VideoFormatSelector } from "@/components/biz-form/VideoFormatSelector";
 import { VideoGopSelect } from "@/components/biz-form/VideoGopSelect";
 import { VideoPresetSelect } from "@/components/biz-form/VideoPresetSelect";
 import { CompressVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Settings } from "lucide-react";
 import { getVideoCompressionPresetByRatio } from "./compressionPreset";
-import { formatToDefinition, getVideoOptionsByEncoder } from "@/data/capabilities";
-import type { SelectOption } from "@/types/options"; 
+import { VIDEO_CONTAINER_DEFINITIONS, VIDEO_ENCODER_DEFINITIONS } from "@/data/capabilities";
 import { parseOptionalInt } from "@/lib/utils";
+import { FormatEnum, VideoEncoderEnum } from "@/types/options";
+import { useMemo } from "react";
 
 interface CompressionSettingsFormProps {
   config: CompressVideoTaskArgs;
@@ -42,40 +44,18 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   config,
   onConfigChange,
 }) => {
+  const formatDefinition = useMemo(() => {
+    if (!config.format) return undefined;
+    return VIDEO_CONTAINER_DEFINITIONS[config.format as FormatEnum];
+  }, [config.format]);
 
-
-
-  const GOP_OPTIONS: SelectOption[] = [
-    { value: "auto", label: "自动" },
-    { value: "12", label: "12" },
-    { value: "15", label: "15" },
-    { value: "18", label: "18" },
-    { value: "24", label: "24" },
-    { value: "30", label: "30" },
-    { value: "48", label: "48" },
-    { value: "60", label: "60" },
-    { value: "120", label: "120" },
-    { value: "250", label: "250" },
-  ];
-  const COLOR_DEPTHS: SelectOption[] = [
-    { value: "auto", label: "自动" },
-    { value: "8", label: "8-bit" },
-    { value: "10", label: "10-bit" },
-    { value: "12", label: "12-bit" },
-  ];
-  const VIDEO_PRESETS: SelectOption[] = [
-    { value: "auto", label: "默认" },
-    { value: "ultrafast", label: "ultrafast" },
-    { value: "fast", label: "fast" },
-    { value: "medium", label: "medium" },
-    { value: "slow", label: "slow" },
-  ];
-  const containerDefinition = formatToDefinition.get(config.format);
-  const effectiveVideoEncoder = config.codec || containerDefinition?.video?.allowedEncoders[0];
-  const videoOptions = getVideoOptionsByEncoder(effectiveVideoEncoder);
+  const encoderDef = useMemo(() => {
+    const def = VIDEO_ENCODER_DEFINITIONS[config.codec as VideoEncoderEnum];
+    return def;
+  }, [config.codec]);
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-4 px-4">
       <div className="col-span-2 py-4">
         <Slider
           value={[config.ratio]}
@@ -89,16 +69,41 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           }}
           min={10}
           max={100}
-          step={5}
+          step={2}
           className="w-full cursor-pointer"
         />
       </div>
+      <VideoFormatSelector
+        className="space-y-2 w-full"
+        value={config.format as FormatEnum}
+        onValueChange={(val) => {
+          if (!val) return;
+          onConfigChange({
+            format: val,
+          });
+        }}
+      />
+      <VideoEncoderSelect
+        className="space-y-2 w-full"
+        label="编码器"
+        hideLabel={false}
+        value={config.codec}
+        allowedEncoders={formatDefinition?.video?.allowedEncoders}
+        onValueChange={(val) =>
+          onConfigChange({
+            codec: val,
+          })
+        }
+      />
+
       <VideoBitrateSelect
-        className="space-y-2"
+        className="space-y-2 w-full"
         label="码率 (kbps)"
         hideLabel={false}
+        minBitrate={encoderDef?.video?.minBitrate}
+        maxBitrate={encoderDef?.video?.maxBitrate}
+        placeholder={`自动 (${encoderDef?.video?.minBitrate ?? 100}-${encoderDef?.video?.maxBitrate ?? 50000})`}
         value={config.bitrate === undefined ? "auto" : String(config.bitrate)}
-        options={videoOptions.bitrates}
         onValueChange={(val) =>
           onConfigChange({
             bitrate: val === "auto" ? undefined : parseOptionalInt(val),
@@ -106,35 +111,23 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         }
       />
       <VideoFrameRateSelect
-        className="space-y-2"
+        className="space-y-2 w-full"
         label="帧率"
         hideLabel={false}
+        maxFrameRate={encoderDef?.video?.maxFrameRate}
         value={config.frame_rate === undefined ? "auto" : String(config.frame_rate)}
-        options={videoOptions.frameRates}
         onValueChange={(val) =>
           onConfigChange({
             frame_rate: val === "auto" ? undefined : Number.parseFloat(val),
           })
         }
       />
-      <VideoEncoderSelect
-        className="space-y-2"
-        label="编码器"
-        hideLabel={false}
-        value={config.codec}
-        allowedEncoders={containerDefinition?.video?.allowedEncoders}
-        onValueChange={(val) =>
-          onConfigChange({
-            codec: val,
-          })
-        }
-      />
       <VideoGopSelect
-        className="space-y-2"
+        className="space-y-2 w-full"
         label="GOP 间隔"
         hideLabel={false}
+        gopOptions={encoderDef?.video?.gopOptions}
         value={config.keyframe_interval === undefined ? "auto" : String(config.keyframe_interval)}
-        options={GOP_OPTIONS}
         onValueChange={(val) =>
           onConfigChange({
             keyframe_interval: val === "auto" ? undefined : parseOptionalInt(val),
@@ -142,11 +135,11 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         }
       />
       <VideoColorDepthSelect
-        className="space-y-2"
+        className="space-y-2 w-full"
         label="色深 (bit)"
         hideLabel={false}
+        allowedColorDepths={encoderDef?.video?.allowedColorDepths}
         value={config.color_depth === undefined ? "auto" : String(config.color_depth)}
-        options={COLOR_DEPTHS}
         onValueChange={(val) =>
           onConfigChange({
             color_depth: val === "auto" ? undefined : parseOptionalInt(val),
@@ -168,11 +161,10 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         />
       </div> */}
       <VideoPresetSelect
-        className="space-y-2"
+        className="space-y-2 w-full"
         label="压缩模式"
         hideLabel={false}
         value={config.preset}
-        options={VIDEO_PRESETS}
         onValueChange={(val) =>
           onConfigChange({
             preset: val === "auto" ? undefined : val,
@@ -216,7 +208,7 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
           <DialogHeader className="flex flex-row items-center justify-between space-y-0 pt-8 pb-4 px-4 border-b">
             <DialogTitle>压缩设置</DialogTitle>
           </DialogHeader>
-          <div className="flex overflow-hidden flex-col px-4">
+          <div className="flex overflow-hidden flex-col">
             <ScrollArea className="flex-1">
               <CompressionSettingsForm
                 config={config}
@@ -255,7 +247,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
               disabled
               min={10}
               max={100}
-              step={5}
+              step={2}
               className="w-full cursor-pointer"
             />
             <Settings className="w-4 h-4 text-muted-foreground" />

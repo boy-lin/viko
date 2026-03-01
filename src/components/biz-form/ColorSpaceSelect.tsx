@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -8,12 +8,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { COLOR_SPACES } from "@/data/video_options";
-import type { ColorSpaceOption } from "@/types/options";
+import { cn } from "@/lib/utils";
 
 interface ColorSpaceSelectProps {
   value?: string;
   onValueChange?: (value: string) => void;
-  options?: ColorSpaceOption[];
+  allowedColorSpaces?: string[];
   label?: string;
   hideLabel?: boolean;
   className?: string;
@@ -28,18 +28,26 @@ interface ColorSpaceSelectProps {
 export const ColorSpaceSelect: React.FC<ColorSpaceSelectProps> = ({
   value = "auto",
   onValueChange,
-  options,
+  allowedColorSpaces,
   label,
   hideLabel = true,
   className,
 }) => {
-  const colorSpaceOptions = options ?? COLOR_SPACES;
+  const colorSpaceOptions = useMemo(() => {
+    return allowedColorSpaces ? COLOR_SPACES.filter((option) => allowedColorSpaces.includes(option.value) || option.value === "auto") : COLOR_SPACES;
+  }, [allowedColorSpaces]);
+
+  useEffect(() => {
+    if (value && !allowedColorSpaces?.includes(value)) {
+      onValueChange?.("auto");
+    }
+  }, [value, allowedColorSpaces]);
 
   return (
-    <div className={className ?? "space-y-2"}>
+    <div className={cn("space-y-2", className)}>
       {!hideLabel && label && <Label>{label}</Label>}
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer">
+        <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder="Select color space" />
         </SelectTrigger>
         <SelectContent>

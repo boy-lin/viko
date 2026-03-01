@@ -13,24 +13,166 @@ import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 import { CompressionSettingsDialog } from "./SettingsDialog";
 import { useCompressorStore } from "./store";
-import { formatToDefinition } from "@/data/capabilities";
+import { VIDEO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { formatFileSize } from "@/lib/file";
 import { getVideoCompressionPresetByRatio } from "./compressionPreset";
-import { extractFilenameFromPath } from "@/lib/utils";
+import { extractFilenameFromPath, formatBitrate } from "@/lib/utils";
 import { toast } from "sonner";
+import { FormatEnum } from "@/types/options";
 
 interface TaskItemProps {
   task: CompressingTask;
 }
 
+interface CompressibilityAssessment {
+  score: number;
+  text: string;
+  colorClass: string;
+  recommendedFormat: FormatEnum;
+}
+
+const HIGH_EFFICIENCY_CODECS = new Set(["hevc", "h265", "av1", "vp9"]);
+const INEFFICIENT_CODECS = new Set([
+  "mpeg2video",
+  "mpeg4",
+  "h263",
+  "h261",
+  "wmv1",
+  "wmv2",
+  "wmv3",
+]);
+const INTRA_OR_LOSSLESS_CODECS = new Set([
+  "prores",
+  "prores_ks",
+  "mjpeg",
+  "ffv1",
+  "huffyuv",
+  "utvideo",
+  "rawvideo",
+  "dnxhd",
+  "dnxhr",
+]);
+
+const toNumber = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+};
+
+const clampScore = (score: number) => Math.max(0, Math.min(100, Math.round(score)));
+
+const parseFrameRateValue = (value: unknown): number => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return 0;
+  const input = value.trim();
+  if (!input) return 0;
+  if (input.includes("/")) {
+    const [num, den] = input.split("/");
+    const n = Number.parseFloat(num);
+    const d = Number.parseFloat(den);
+    if (Number.isFinite(n) && Number.isFinite(d) && d > 0) {
+      return n / d;
+    }
+  }
+  const parsed = Number.parseFloat(input);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const pickBestCompressionFormat = (score: number, originalExtension?: string): FormatEnum => {
+  const original = (originalExtension ?? "").toLowerCase();
+  if (score >= 80) return FormatEnum.WEBM;
+  if (score >= 60) return FormatEnum.MP4;
+  if ([FormatEnum.MP4, FormatEnum.MKV, FormatEnum.MOV, FormatEnum.WEBM].includes(original as FormatEnum)) {
+    return original as FormatEnum;
+  }
+  return FormatEnum.MP4;
+};
+
+const assessCompressibility = (details: any): CompressibilityAssessment => {
+  const stream = details?.streams?.find((s: any) => s.codec_type === "video");
+  const codecName = String(stream?.codec_name ?? "").toLowerCase();
+  const bitrateBps = toNumber(stream?.bit_rate) ?? toNumber(details?.bit_rate) ?? 0;
+  const bitrateKbps = bitrateBps > 0 ? bitrateBps / 1000 : 0;
+  const width = toNumber(stream?.width) ?? 0;
+  const height = toNumber(stream?.height) ?? 0;
+  const frameRate = parseFrameRateValue(stream?.frame_rate);
+
+  let score = 18;
+
+  if (INTRA_OR_LOSSLESS_CODECS.has(codecName)) score += 30;
+  else if (INEFFICIENT_CODECS.has(codecName)) score += 18;
+  else if (HIGH_EFFICIENCY_CODECS.has(codecName)) score -= 8;
+
+  if (bitrateKbps >= 20000) score += 28;
+  else if (bitrateKbps >= 12000) score += 22;
+  else if (bitrateKbps >= 8000) score += 16;
+  else if (bitrateKbps >= 5000) score += 10;
+  else if (bitrateKbps > 0) score += 4;
+
+  const pixels = width * height;
+  if (pixels >= 3840 * 2160) score += 10;
+  else if (pixels >= 2560 * 1440) score += 8;
+  else if (pixels >= 1920 * 1080) score += 6;
+  else if (pixels > 0) score += 3;
+
+  if (frameRate >= 60) score += 8;
+  else if (frameRate >= 30) score += 5;
+  else if (frameRate > 0) score += 2;
+
+  if (HIGH_EFFICIENCY_CODECS.has(codecName) && bitrateKbps > 0 && bitrateKbps <= 3500) {
+    score -= 14;
+  } else if (HIGH_EFFICIENCY_CODECS.has(codecName) && bitrateKbps > 0 && bitrateKbps <= 5500) {
+    score -= 8;
+  }
+
+  const normalizedScore = clampScore(score);
+  const recommendedFormat = pickBestCompressionFormat(normalizedScore, details?.extension);
+
+  if (normalizedScore >= 80) {
+    return {
+      score: normalizedScore,
+      text: "压缩潜力极高",
+      colorClass: "text-emerald-600",
+      recommendedFormat,
+    };
+  }
+  if (normalizedScore >= 60) {
+    return {
+      score: normalizedScore,
+      text: "压缩潜力高",
+      colorClass: "text-sky-600",
+      recommendedFormat,
+    };
+  }
+  if (normalizedScore >= 40) {
+    return {
+      score: normalizedScore,
+      text: "可适度压缩",
+      colorClass: "text-amber-600",
+      recommendedFormat,
+    };
+  }
+  return {
+    score: normalizedScore,
+    text: "压缩空间有限",
+    colorClass: "text-rose-600",
+    recommendedFormat,
+  };
+};
+
 const buildDefaultArgs = (task: CompressingTask, details: any): { args: CompressVideoTaskArgs; title: string } => {
   const title = details.title || extractFilenameFromPath(details.path);
   const taskId = task.id;
   const path = task.args.input_path;
-  const format = (details.extension || task.args.format || "mp4").toLowerCase();
+  const assessment = assessCompressibility(details);
+  const ratio = typeof task.args.ratio === "number" ? task.args.ratio : 50;
+  const format = assessment.recommendedFormat;
   const initialAudioTracks =
     details?.streams
       ?.filter((stream: any) => stream.codec_type === "audio")
@@ -42,13 +184,13 @@ const buildDefaultArgs = (task: CompressingTask, details: any): { args: Compress
 
   const outputArgs: CompressVideoTaskArgs = {
     ...(task.args as CompressVideoTaskArgs),
-    ...getVideoCompressionPresetByRatio(task.args.ratio, format, initialAudioTracks).patch,
+    ...getVideoCompressionPresetByRatio(ratio, format, initialAudioTracks).patch,
     task_id: taskId,
     format,
     input_path: path,
-    ratio: task.args.ratio,
+    ratio,
   };
-  const containerDefinition = formatToDefinition.get(outputArgs.format);
+  const containerDefinition = VIDEO_CONTAINER_DEFINITIONS[outputArgs.format as FormatEnum];
   outputArgs.codec = outputArgs.codec || containerDefinition?.video?.allowedEncoders[0];
   outputArgs.audio_tracks =
     details?.streams
@@ -141,17 +283,18 @@ export default function TaskItem({ task }: TaskItemProps) {
 
   const taskArgs = task.args as CompressVideoTaskArgs;
   const firstVideoStream = task.mediaDetails?.streams.find((s) => s.codec_type === "video");
+  const compressibility = assessCompressibility(task.mediaDetails);
   const originalInfoParts = [
     task.mediaDetails?.extension?.toUpperCase?.(),
     firstVideoStream?.codec_name?.toUpperCase?.(),
     formatFileSize(task.mediaDetails?.size),
-    firstVideoStream?.bit_rate,
+    formatBitrate(firstVideoStream?.bit_rate),
   ];
   const targetInfoParts = [
     taskArgs.format?.toUpperCase?.(),
     taskArgs.codec?.toUpperCase?.(),
     '-',
-    taskArgs.bitrate,
+    formatBitrate(taskArgs.bitrate, 1),
   ];
 
   const handleOutputTitleChange = (nextTitle: string) => {
@@ -166,13 +309,18 @@ export default function TaskItem({ task }: TaskItemProps) {
 
   return (
     <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm">
-      <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-        <MediaThumbnail
-          path={task.mediaDetails?.path}
-          title={task.mediaDetails?.title}
-          fileType={task.fileType}
-          className="w-full h-full"
-        />
+      <div className="flex flex-col items-start gap-2 flex-shrink-0 relative">
+        <div className="w-20 h-20 rounded-lg overflow-hidden">
+          <MediaThumbnail
+            path={task.mediaDetails?.path}
+            title={task.mediaDetails?.title}
+            fileType={task.fileType}
+            className="w-full h-full"
+          />
+        </div>
+        <span className={`absolute top-1 right-0 w-full text-xs text-center font-medium ${compressibility.colorClass}`}>
+          {compressibility.text}
+        </span>
       </div>
 
       <div className="flex-1 min-w-0">

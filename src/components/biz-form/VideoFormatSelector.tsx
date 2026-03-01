@@ -7,11 +7,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AUDIO_FORMAT_OPTIONS } from "@/data/formats";
+import { VIDEO_FORMAT_OPTIONS } from "@/data/formats";
 import { FormatEnum } from "@/types/options";
 import { cn } from "@/lib/utils";
 
-interface AudioFormatSelectorProps {
+interface VideoFormatSelectorProps {
   value: FormatEnum;
   onValueChange: (value?: FormatEnum) => void;
   placeholder?: string;
@@ -20,7 +20,7 @@ interface AudioFormatSelectorProps {
   className?: string;
 }
 
-export const AudioFormatSelector: React.FC<AudioFormatSelectorProps> = ({
+export const VideoFormatSelector: React.FC<VideoFormatSelectorProps> = ({
   value,
   onValueChange,
   placeholder,
@@ -36,10 +36,10 @@ export const AudioFormatSelector: React.FC<AudioFormatSelectorProps> = ({
         onValueChange={(next) => onValueChange(next as FormatEnum)}
       >
         <SelectTrigger className="cursor-pointer w-full">
-          <SelectValue placeholder={placeholder ?? "选择音频格式"} />
+          <SelectValue placeholder={placeholder ?? "选择视频格式"} />
         </SelectTrigger>
         <SelectContent>
-          {AUDIO_FORMAT_OPTIONS.map((item) => (
+          {VIDEO_FORMAT_OPTIONS.map((item) => (
             <SelectItem key={item.id} value={item.id}>
               {item.label}
             </SelectItem>

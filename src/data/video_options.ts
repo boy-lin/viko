@@ -51,4 +51,28 @@ export const VIDEO_QUALITIES: SelectOption[] = [
   { value: "28", label: "标清 (CRF 28)" },
 ];
 
+export const GOP_OPTIONS: SelectOption[] = [
+  { value: "12", label: "12" },
+  { value: "15", label: "15" },
+  { value: "18", label: "18" },
+  { value: "24", label: "24" },
+  { value: "30", label: "30" },
+  { value: "48", label: "48" },
+  { value: "60", label: "60" },
+  { value: "120", label: "120" },
+  { value: "250", label: "250" },
+];
+export const COLOR_DEPTHS: SelectOption[] = [
+  { value: "auto", label: "Auto" },
+  { value: "8", label: "8-bit" },
+  { value: "10", label: "10-bit" },
+  { value: "12", label: "12-bit" },
+];
 
+export const VIDEO_PRESETS: SelectOption[] = [
+  { value: "auto", label: "Auto" },
+  { value: "ultrafast", label: "ultrafast" },
+  { value: "fast", label: "fast" },
+  { value: "medium", label: "medium" },
+  { value: "slow", label: "slow" },
+];

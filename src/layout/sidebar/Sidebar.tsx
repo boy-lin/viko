@@ -260,8 +260,15 @@ const SidebarQuickAccessItem = ({
       >
         <item.icon className="w-5 h-5" />
       </div>
-      <SidebarLabel className={cn("text-sm max-w-[12em] truncate cursor-default", isActive ? "text-foreground" : "text-foreground/90 group-hover:text-slate-700")}>
-        {t(item.label)}
+      <SidebarLabel
+        className={cn(
+          "text-sm truncate cursor-default",
+          isActive ? "text-foreground" : "text-foreground/90 group-hover:text-slate-700"
+        )}
+      >
+        <p title={t(item.label)}>
+          {t(item.label)}
+        </p>
       </SidebarLabel>
       {item.href && (
         <button
@@ -454,7 +461,9 @@ const SidebarToggle = () => {
 
 const DesktopSidebar = ({ className }: { className?: string }) => {
   const { open, animate } = useSidebar();
-  const width = open ? "13rem" : "4.25rem";
+  const { i18n } = useTranslation("common");
+  const isEnglish = (i18n.resolvedLanguage || i18n.language || "").startsWith("en");
+  const width = open ? (isEnglish ? "14rem" : "13rem") : "4.25rem";
   return (
     <motion.aside
       initial={animate ? { opacity: 0, x: -8 } : undefined}

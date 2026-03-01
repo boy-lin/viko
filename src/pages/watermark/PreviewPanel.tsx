@@ -144,7 +144,7 @@ export function PreviewPanel({ config, frame, loading = false, onOffsetChange }:
   };
 
   return (
-    <div className="bg-muted/30 border rounded-lg shadow-sm flex items-center justify-center relative overflow-hidden w-[388px] h-[412px]">
+    <div className="flex items-center justify-center relative overflow-hidden w-[388px] h-[412px]">
       <div
         ref={containerRef}
         className="relative bg-black/20 rounded-md overflow-hidden"

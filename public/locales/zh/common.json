@@ -77,11 +77,64 @@
   },
   "file_picker": {
     "video": "视频",
+    "audio": "音频",
+    "image": "图片",
     "audios": "音频",
     "images": "图片",
     "folders": "文件夹"
   },
   "search": {
     "placeholder": "搜索文件名..."
+  },
+  "auth": {
+    "dialog": {
+      "title": "登录",
+      "desktop_oauth_unavailable": "当前环境未启用 Desktop OAuth，请检查 OAuth 环境变量配置。",
+      "actions": {
+        "browser_login": "使用浏览器登录",
+        "retry_browser_login": "重新发起浏览器登录",
+        "cancel_current_login": "取消本次登录"
+      },
+      "pending": {
+        "exchanging": "已收到回调，正在完成登录...",
+        "waiting_callback": "请在浏览器完成授权，应用会自动登录",
+        "timeout": "长时间未收到回调，你可以重试登录",
+        "processing": "处理中...",
+        "remaining_seconds": "剩余 {{seconds}}s"
+      },
+      "debug": {
+        "placeholder": "调试：粘贴授权/回调 URL 或 code",
+        "submit": "调试提交 URL/code"
+      },
+      "toast": {
+        "browser_opened": "已打开浏览器，请完成授权",
+        "login_success": "登录成功"
+      },
+      "error": {
+        "open_browser_failed": "打开网页登录失败",
+        "input_code_first": "请先输入授权 code",
+        "desktop_login_failed": "桌面登录失败",
+        "timeout_retry": "授权超时，请点击重试"
+      }
+    },
+    "user_menu": {
+      "default_user": "User",
+      "actions": {
+        "login": "登录",
+        "logout": "退出登录"
+      },
+      "status": {
+        "syncing_profile": "正在同步资料",
+        "basic_profile_mode": "基础资料模式"
+      },
+      "toast": {
+        "fetch_user_failed": "获取用户信息失败",
+        "desktop_login_success": "桌面登录成功",
+        "desktop_login_failed": "桌面登录失败",
+        "profile_synced": "用户资料已同步",
+        "signed_out": "已退出登录",
+        "sign_out_failed": "退出失败"
+      }
+    }
   }
 }
