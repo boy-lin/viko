@@ -274,6 +274,8 @@ pub fn compress_image_file<E: TaskEmitter>(
         channels: None,
         sample_rate: None,
         bit_rate: None,
+        bit_depth: None,
+        bits_per_sample: None,
     };
     let output_media = MediaDetails {
         path: output_path,

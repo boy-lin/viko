@@ -12,7 +12,7 @@ interface ConvertingTaskProps {
 export default function ConvertingTask({
   globalFilter = "",
 }: ConvertingTaskProps) {
-  const compressingTasks = useCompressorStore((state) => state.compressingTasks);
+  const compressingTasks = useCompressorStore((state) => state.CompressingImageTasks);
 
   const filteredTasks = useMemo(() => {
     const search = globalFilter?.trim().toLowerCase() || "";

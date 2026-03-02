@@ -22,6 +22,7 @@ use crate::media_common;
 use crate::services::convert::audio::{self, AudioConversionParams};
 use crate::services::convert::gif;
 use crate::services::ffmpeg::media_info::{self, MediaDetails};
+use crate::services::media_tools::image_info;
 use crate::services::player::audio::AudioPlayer;
 use crate::services::player::video::{PreviewSize, VideoPlayer};
 use crate::task::queue;
@@ -30,6 +31,11 @@ use crate::task::queue::MediaTaskRequest;
 #[command]
 pub fn get_detailed_media_info(path: String) -> Result<MediaDetails, String> {
     media_info::get_media_details(&path)
+}
+
+#[command]
+pub fn get_detailed_image_info(path: String) -> Result<MediaDetails, String> {
+    image_info::get_image_details(&path)
 }
 
 #[command]
@@ -1409,13 +1415,6 @@ pub async fn get_my_files(
     )
     .await
     .map_err(|e| e.to_string())
-}
-
-#[command]
-pub async fn set_my_file_favorite(id: String, favorite: bool) -> Result<(), String> {
-    crate::storage::favorites::set_favorite(&id, favorite)
-        .await
-        .map_err(|e| e.to_string())
 }
 
 #[command]

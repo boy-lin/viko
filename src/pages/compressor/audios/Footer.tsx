@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { startTransition, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,12 +7,12 @@ import {
   PopoverAnchor,
 } from "@/components/ui/popover";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
-import { CompressionSettingsPopover } from "./SettingsDialog";
-import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useCompressorStore } from './store'
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { Slider } from "@/components/ui/slider";
+import { buildDefaultAudioArgs } from "./TaskItem";
 
 export const CompressionFooter: React.FC = () => {
   const { t } = useTranslation("compressor");
@@ -20,18 +20,12 @@ export const CompressionFooter: React.FC = () => {
   const updateGlobalConfig = useCompressorStore(
     (state) => state.updateGlobalConfig
   );
-  const applyConfigToAllTasks = useCompressorStore(
-    (state) => state.applyConfigToAllTasks
-  );
   const clearCompressingTasks = useCompressorStore(
     (state) => state.clearCompressingTasks
   );
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
-  const handleSaveConfig = (vals: CompressAudioTaskArgs) => {
-    applyConfigToAllTasks(vals);
-  };
 
   const handleCompressAll = async () => {
     try {
@@ -74,15 +68,34 @@ export const CompressionFooter: React.FC = () => {
           </span>
           <div className="flex items-center gap-2">
             <div className="w-[10em]">
-              <div className="space-y-2">
-                <CompressionSettingsPopover
-                  config={audioConfig as CompressAudioTaskArgs}
-                  onConfigChange={updateGlobalConfig}
-                  onSave={handleSaveConfig}
-                />
-              </div>
+              <Slider
+                value={[audioConfig.ratio]}
+                onValueChange={(ratio: number[]) => {
+                  updateGlobalConfig({ ratio: ratio[0] });
+                  const tasks = useCompressorStore.getState().compressingTasks;
+                  const applyToTaskArgs = useCompressorStore.getState().applyToTaskArgs;
+                  const updateTaskById = useCompressorStore.getState().updateTaskById;
+                  
+                  tasks.forEach((task) => {
+                    startTransition(() => {
+                      if (task.mediaDetails) {
+                        updateTaskById(task.id, applyToTaskArgs(task, buildDefaultAudioArgs({
+                          ...task,
+                          args: {
+                            ...task.args,
+                            ratio: ratio[0]
+                          }
+                        }, task.mediaDetails)));
+                      }
+                    })
+                  });
+                }}
+                min={10}
+                max={100}
+                step={5}
+                className="w-full"
+              />
             </div>
-
           </div>
         </div>
 

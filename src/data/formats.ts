@@ -21,7 +21,7 @@ export const AUDIO_FORMAT_OPTIONS: FormatGroup[] = [
   { id: FormatEnum.OGG, label: "OGG", category: FileType.Audio },
   { id: FormatEnum.AAC, label: "AAC", category: FileType.Audio },
   { id: FormatEnum.AC3, label: "AC3", category: FileType.Audio },
-  { id: FormatEnum.AMR, label: "AMR", category: FileType.Audio },
+  // { id: FormatEnum.AMR, label: "AMR", category: FileType.Audio },
   { id: FormatEnum.MP2, label: "MP2", category: FileType.Audio },
   { id: FormatEnum.M4B, label: "M4B", category: FileType.Audio },
   { id: FormatEnum.APE, label: "APE", category: FileType.Audio },
@@ -48,17 +48,12 @@ export const IMAGE_FORMAT_OPTIONS: FormatGroup[] = [
   { id: FormatEnum.JPG, label: "JPEG", category: FileType.Image },
   { id: FormatEnum.PNG, label: "PNG", category: FileType.Image },
   { id: FormatEnum.WEBP, label: "WEBP", category: FileType.Image },
-  { id: FormatEnum.HEIC, label: "HEIC", category: FileType.Image },
+  // { id: FormatEnum.HEIC, label: "HEIC", category: FileType.Image },
   { id: FormatEnum.GIF, label: "GIF", category: FileType.Image },
   { id: FormatEnum.TIFF, label: "TIFF", category: FileType.Image },
   { id: FormatEnum.BMP, label: "BMP", category: FileType.Image },
   { id: FormatEnum.ICO, label: "ICO", category: FileType.Image },
-  { id: FormatEnum.AVIF, label: "AVIF", category: FileType.Image },
-  { id: FormatEnum.GIF, label: "GIF", category: FileType.Image },
-  { id: FormatEnum.HEIC, label: "HEIC", category: FileType.Image },
-  { id: FormatEnum.TIFF, label: "TIFF", category: FileType.Image },
-  { id: FormatEnum.BMP, label: "BMP", category: FileType.Image },
-  { id: FormatEnum.ICO, label: "ICO", category: FileType.Image },
+  // { id: FormatEnum.AVIF, label: "AVIF", category: FileType.Image },
 ];
 
 export const FORMAT_OPTIONS: FormatGroup[] = [

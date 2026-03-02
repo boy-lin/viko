@@ -5,36 +5,58 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import TaskStatusLabel from "@/components/ui-biz/TaskStatusLabel";
 import TaskLoadingCard from "@/components/ui-biz/TaskLoadingCard";
 import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
-import { CompressingTask, FileType } from "@/types/tasks";
+import { FileType, MediaDetailsWithResolve } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 import { CompressionSettingsDialog } from "./SettingsDialog";
-import { useCompressorStore } from "./store";
+import { CompressingImageTask, useCompressorStore } from "./store";
 import { MediaTaskType } from "@/types/tasks";
 import { useSettingsStore } from "@/stores/settingsStore";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
-import { formatFileSize } from "@/lib/file";
 import { extractFilenameFromPath } from "@/lib/utils";
+import { getImageCompressionPresetByRatio } from "./compressionPreset";
 
 interface TaskItemProps {
-  task: CompressingTask;
+  task: CompressingImageTask;
 }
 
-const buildDefaultArgs = (taskId: string, path: string, mediaTitle: string, mediaDetails: any) => {
-  const outputDir = useSettingsStore.getState().getOutputDir(path);
+const formatDpiFromTags = (tags?: Record<string, string>) => {
+  if (!tags) return "-";
+  const dpiX = Number.parseFloat(tags.dpi_x ?? "");
+  const dpiY = Number.parseFloat(tags.dpi_y ?? "");
+  if (!Number.isFinite(dpiX) && !Number.isFinite(dpiY)) return "-";
 
-  const outputArgs: any = {
+  const unit = (tags.dpi_unit || "inch").toLowerCase();
+  const unitLabel = unit === "cm" ? "dpcm" : "dpi";
+  const x = Number.isFinite(dpiX) ? Math.round(dpiX) : undefined;
+  const y = Number.isFinite(dpiY) ? Math.round(dpiY) : undefined;
+  if (x && y && x !== y) return `${x}x${y} ${unitLabel}`;
+  return `${x ?? y} ${unitLabel}`;
+};
+
+export const buildDefaultImageArgs = (task: CompressingImageTask, mediaDetails: MediaDetailsWithResolve): CompressImageTaskArgs => {
+  const taskId = task.id;
+  const path = task.args.input_path;
+  const mediaTitle = task.outputTitle || mediaDetails?.title || extractFilenameFromPath(path) || "output";
+  const outputDir = useSettingsStore.getState().getOutputDir(path);
+  const format = task.args.format || mediaDetails?.extension || "jpg";
+  const ratio = typeof task.args.ratio === "number" ? task.args.ratio : 50;
+  const presetResult = getImageCompressionPresetByRatio(ratio, format);
+  console.log('presetResult', presetResult)
+  const outputArgs: CompressImageTaskArgs = {
+    ...task.args,
+    ...presetResult.patch,
     task_id: taskId,
-    title: mediaTitle,
-    format: mediaDetails.extension,
+    format,
     input_path: path,
-    output_path: ""
+    ratio,
+    output_path: task.args.output_path ?? "",
   };
-  outputArgs.output_path = `${outputDir}/${mediaTitle}.${outputArgs.format}`;
+  outputArgs.output_path = `${outputDir}/${mediaTitle}.${outputArgs.format ?? format}`;
 
   return outputArgs;
 };
@@ -55,10 +77,14 @@ export default function TaskItem({ task }: TaskItemProps) {
       setLoading(true);
       setLoadError(null);
       try {
-        const details = await bridge.getMediaDetails(task.args.input_path);
+        const details = await bridge.getImageDetails(task.args.input_path);
+        console.log(' details', details)
         if (!active) return;
         const title = details.title || extractFilenameFromPath(details.path);
-        const outputArgs = buildDefaultArgs(task.id, details.path, title, details);
+        const outputArgs = buildDefaultImageArgs(
+          { ...task, outputTitle: title },
+          details,
+        );
         startTransition(() => {
           updateTaskById(task.id, {
             mediaDetails: details,
@@ -115,11 +141,13 @@ export default function TaskItem({ task }: TaskItemProps) {
   const taskArgs = task.args as CompressImageTaskArgs;
   const originalInfoParts = [
     task.mediaDetails?.extension?.toUpperCase?.(),
-    formatFileSize(task.mediaDetails?.size),
+    formatDpiFromTags(task.mediaDetails?.tags),
   ];
   const targetInfoParts = [
     taskArgs.format?.toUpperCase?.(),
     taskArgs.quality,
+    taskArgs.color_mode,
+    taskArgs.dpi
   ];
 
   const handleOutputTitleChange = (nextTitle: string) => {

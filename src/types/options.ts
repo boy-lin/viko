@@ -98,7 +98,7 @@ export enum FormatEnum {
 }
 
 /**
- * 音频编码器枚举（ffmpeg-next 7.1.0 支持的音频编码器）
+ * 音频编码器枚举（ffmpeg-next 8.0.0 支持的音频编码器）
  */
 export enum AudioEncoderEnum {
   // Lossy codecs
@@ -111,8 +111,8 @@ export enum AudioEncoderEnum {
   EAC3 = "eac3",                  // Dolby Digital Plus (E-AC-3)
   MP2 = "mp2",             // MP2 audio codec
   WMAV2 = "wmav2",                // Windows Media Audio 2
-  AMR_NB = "libopencore_amrnb",   // AMR Narrowband
-  AMR_WB = "libopencore_amrwb",   // AMR Wideband
+  // AMR_NB = "libopencore_amrnb",   // AMR Narrowband
+  // AMR_WB = "libopencore_amrwb",   // AMR Wideband
 
   // Lossless codecs
   FLAC = "flac",                  // Free Lossless Audio Codec
@@ -244,8 +244,8 @@ export enum EncoderEnum {
   GSM_MS = AudioEncoderEnum.GSM_MS,
   MP2 = AudioEncoderEnum.MP2,
   WMAV2 = AudioEncoderEnum.WMAV2,
-  AMR_NB = AudioEncoderEnum.AMR_NB,
-  AMR_WB = AudioEncoderEnum.AMR_WB,
+  // AMR_NB = AudioEncoderEnum.AMR_NB,
+  // AMR_WB = AudioEncoderEnum.AMR_WB,
   APE = AudioEncoderEnum.APE,
 
 

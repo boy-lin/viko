@@ -3,6 +3,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ImageResolutionSelect } from "@/components/biz-form/ImageResolutionSelect";
+import { DpiSelect } from "@/components/biz-form/DpiSelect";
+import { ColorModeSelect } from "@/components/biz-form/ColorModeSelect";
 import { ConvertGifTaskArgs } from "@/lib/mediaTaskEvent";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
@@ -133,21 +135,17 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
 
         <div className="space-y-2">
           <Label className="text-muted-foreground">DPI</Label>
-          <Input
-            type="number"
-            min={1}
-            value={dpi ?? ""}
-            onChange={(e) => onChange({ dpi: parseNumberOrUndefined(e.target.value) })}
-            placeholder="e.g. 72"
+          <DpiSelect
+            value={dpi}
+            onValueChange={(nextDpi) => onChange({ dpi: nextDpi })}
           />
         </div>
 
         <div className="space-y-2">
           <Label className="text-muted-foreground">Color Mode</Label>
-          <Input
-            value={color_mode ?? ""}
-            onChange={(e) => onChange({ color_mode: e.target.value || undefined })}
-            placeholder="e.g. rgb / indexed"
+          <ColorModeSelect
+            value={color_mode}
+            onValueChange={(nextColorMode) => onChange({ color_mode: nextColorMode })}
           />
         </div>
       </div>
@@ -187,4 +185,3 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
     </div>
   );
 };
-

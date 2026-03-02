@@ -1,34 +1,28 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Settings } from "lucide-react";
-import { getImageCompressionPresetByQuality } from "./compressionPreset";
+import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
+import { getImageCompressionPresetByRatio } from "./compressionPreset";
 import { FormatEnum } from "@/types/options";
-const IMAGE_DPI = [72, 96, 150, 300, 600];
+import { DpiSelect } from "@/components/biz-form/DpiSelect";
+import { ColorModeSelect } from "@/components/biz-form/ColorModeSelect";
 
 interface CompressionSettingsFormProps {
   config: CompressImageTaskArgs;
@@ -44,94 +38,44 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   config,
   onConfigChange,
 }) => {
-  const IMAGE_COLOR_MODES = ["RGB", "RGBA", "Gray", "CMYK"];
-
-  const parseOptionalFloat = (value: string) => {
-    if (!value.trim()) return undefined;
-    const parsed = Number.parseFloat(value);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  };
-
-  const renderSelect = (
-    label: string,
-    value: string | number | undefined,
-    options: Array<string | number>,
-    placeholder: string,
-    onChange: (val?: string | number) => void
-  ) => {
-    const selectValue = value === undefined ? "auto" : String(value);
-    return (
-      <div className="space-y-2">
-        <Label>{label}</Label>
-        <Select
-          value={selectValue}
-          onValueChange={(v) => {
-            if (v === "auto") {
-              onChange(undefined);
-              return;
-            }
-            const matchNumber = options.find((opt) => String(opt) === v);
-            onChange(matchNumber ?? v);
-          }}
-        >
-          <SelectTrigger className="w-full" size="sm">
-            <SelectValue placeholder={placeholder} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="auto">自动</SelectItem>
-            {options.map((opt) => (
-              <SelectItem key={String(opt)} value={String(opt)}>
-                {String(opt)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  };
-
   return (
     <div className="grid grid-cols-2 gap-4 px-4">
       <div className="col-span-2 py-2">
         <Slider
-          value={[config.quality ?? 0]}
+          value={[config.ratio ?? config.quality ?? 50]}
           onValueChange={(value) => {
-            const next = getImageCompressionPresetByQuality(
+            const next = getImageCompressionPresetByRatio(
               value[0],
-              config.format ?? FormatEnum.JPG
+              config.format ?? FormatEnum.JPG,
             );
             onConfigChange(next.patch);
           }}
           min={10}
           max={100}
-          step={2}
+          step={5}
           className="w-full"
         />
-        <p className="text-xs text-muted-foreground mt-1">
-          图片质量设置为 {config.quality}%（数值越高，质量越好，文件越大）
+        <p className="mt-1 text-xs text-muted-foreground">
+          压缩系数 {config.ratio ?? config.quality ?? 50}%（越高通常质量更好，体积更大）
         </p>
       </div>
-      {renderSelect(
-        "颜色模式",
-        config.color_mode,
-        IMAGE_COLOR_MODES,
-        "自动",
-        (val) =>
-          onConfigChange({
-            color_mode: typeof val === "string" ? val : undefined,
-          })
-      )}
-      {renderSelect(
-        "DPI",
-        config.dpi,
-        IMAGE_DPI,
-        "默认",
-        (val) =>
-          onConfigChange({
-            dpi:
-              typeof val === "number" ? val : parseOptionalFloat(String(val)),
-          })
-      )}
+
+      <div className="space-y-2">
+        <Label>颜色模式</Label>
+        <ColorModeSelect
+          value={config.color_mode}
+          onValueChange={(colorMode) => onConfigChange({ color_mode: colorMode })}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>DPI</Label>
+        <DpiSelect
+          value={config.dpi}
+          onValueChange={(dpi) => onConfigChange({ dpi })}
+        />
+      </div>
+
       <div className="flex items-center gap-2 pt-6">
         <Checkbox
           checked={config.strip_metadata ?? true}
@@ -139,8 +83,9 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
             onConfigChange({ strip_metadata: checked === true })
           }
         />
-        <Label>去除元数据</Label>
+        <Label>移除元数据</Label>
       </div>
+
       <div className="flex items-center gap-2 pt-6">
         <Checkbox
           checked={config.keep_transparency ?? true}
@@ -150,6 +95,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         />
         <Label>保留透明</Label>
       </div>
+
       <div className="flex items-center gap-2 pt-6">
         <Checkbox
           checked={config.crop_whitespace ?? false}
@@ -163,7 +109,11 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   );
 };
 
-export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ config, onConfigChange, onSave }) => {
+export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
+  config,
+  onConfigChange,
+  onSave,
+}) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -176,30 +126,34 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
       >
         <Settings className="h-4 w-4" />
       </Button>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl p-0">
-          <DialogHeader className="flex flex-row items-center justify-between space-y-0 pt-8 pb-4 px-4 border-b">
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 pb-4 pt-8">
             <div className="space-y-1">
               <DialogTitle>压缩设置</DialogTitle>
               <DialogDescription>仅修改当前任务的压缩参数</DialogDescription>
             </div>
           </DialogHeader>
-          <div className="flex overflow-hidden flex-col">
+
+          <div className="flex flex-col overflow-hidden">
             <ScrollArea className="flex-1">
-              <CompressionSettingsForm
-                config={config}
-                onConfigChange={onConfigChange}
-              />
+              <CompressionSettingsForm config={config} onConfigChange={onConfigChange} />
             </ScrollArea>
           </div>
-          <DialogFooter className="flex flex-row items-center justify-between space-y-0 pt-8 pb-2 px-4 border-b">
+
+          <DialogFooter className="flex flex-row items-center justify-between space-y-0 border-b px-4 pb-2 pt-8">
             <Button variant="outline" onClick={() => setOpen(false)}>
               取消
             </Button>
-            <Button onClick={() => {
-              onSave(config)
-              setOpen(false)
-            }}>保存</Button>
+            <Button
+              onClick={() => {
+                onSave(config);
+                setOpen(false);
+              }}
+            >
+              保存
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -207,62 +161,65 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
   );
 };
 
-export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({ trigger, config, onConfigChange, onSave }) => {
+export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
+  trigger,
+  config,
+  onConfigChange,
+  onSave,
+}) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
     <div className="flex">
-
       <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <PopoverTrigger asChild>
           {trigger ?? (
-            <Button
-              variant="ghost"
-              className="h-9 w-[10em] cursor-pointer"
-            >
+            <Button variant="ghost" className="h-9 w-[10em] cursor-pointer">
               <Slider
-                value={[config.quality ?? 10]}
+                value={[config.ratio ?? config.quality ?? 10]}
                 disabled
                 min={10}
                 max={100}
-                step={2}
+                step={5}
                 className="w-full"
               />
-              <Settings className="w-4 h-4 text-muted-foreground" />
+              <Settings className="h-4 w-4 text-muted-foreground" />
             </Button>
           )}
         </PopoverTrigger>
-        <PopoverContent className="w-[28rem] h-[72vh] p-0">
-          <div className="flex flex-col h-full">
-            <div className="space-y-1 pb-3 p-4">
+
+        <PopoverContent className="h-[72vh] w-[28rem] p-0">
+          <div className="flex h-full flex-col">
+            <div className="space-y-1 p-4 pb-3">
               <div className="text-sm font-semibold">压缩设置</div>
-              <div className="text-xs text-muted-foreground">
-                修改全局压缩参数
-              </div>
+              <div className="text-xs text-muted-foreground">修改全局压缩参数</div>
             </div>
-            <ScrollArea className="flex-1 overflow-hidden min-h-0 px-4">
-              <CompressionSettingsForm
-                config={config}
-                onConfigChange={onConfigChange}
-              />
+
+            <ScrollArea className="min-h-0 flex-1 overflow-hidden px-4">
+              <CompressionSettingsForm config={config} onConfigChange={onConfigChange} />
             </ScrollArea>
-            <div
-              className={` p-4 flex justify-end gap-2 border-t sticky bottom-0 bg-popover/95 backdrop-blur`}
-            >
-              <Button className="cursor-pointer" variant="outline" onClick={() => setIsSettingsOpen(false)}>
+
+            <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-popover/95 p-4 backdrop-blur">
+              <Button
+                className="cursor-pointer"
+                variant="outline"
+                onClick={() => setIsSettingsOpen(false)}
+              >
                 取消
               </Button>
-              <Button className="cursor-pointer" onClick={() => {
-                onSave && onSave(config);
-                setIsSettingsOpen(false);
-              }}>应用到全部</Button>
+              <Button
+                className="cursor-pointer"
+                onClick={() => {
+                  onSave(config);
+                  setIsSettingsOpen(false);
+                }}
+              >
+                应用到全部
+              </Button>
             </div>
           </div>
-
         </PopoverContent>
-
       </Popover>
     </div>
-
   );
 };

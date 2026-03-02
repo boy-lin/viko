@@ -13,12 +13,12 @@ import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
 
 import { bridge } from "@/lib/bridge";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
-import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent"
+import { ConvertImageTaskArgs } from "@/lib/mediaTaskEvent"
 import { IMAGE_CONTAINER_DEFINITIONS } from "@/data/capabilities";
 import { FormatEnum } from "@/types/options";
-import { ConverterTask, FileType, MediaDetails, MediaTaskType } from "@/types/tasks";
+import { FileType, MediaDetails, MediaTaskType } from "@/types/tasks";
 
-import { useConverterStore } from "./store";
+import { ConverterTask, useConverterStore } from "./store";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 
 interface TaskItemProps {
@@ -33,10 +33,9 @@ function buildTaskDefaultsFromMedia(mediaInfo: MediaDetails, task: ConverterTask
         format = FormatEnum.JPG;
     }
     const containerDefinition = IMAGE_CONTAINER_DEFINITIONS[format as FormatEnum];
-    const outputArgs: any = {
+    const outputArgs: ConvertImageTaskArgs = {
         ...task.args,
         task_id: task.args.task_id || task.id,
-        title: mediaInfo.title,
         input_path: mediaInfo.path,
         format,
         image_encoder: containerDefinition?.allowedEncoders[0],
@@ -48,7 +47,7 @@ function buildTaskDefaultsFromMedia(mediaInfo: MediaDetails, task: ConverterTask
         fileType: FileType.Image,
         taskType: MediaTaskType.ConvertImage,
         outputTitle: mediaInfo.title,
-    };
+    } as ConverterTask;
 }
 
 export default function TaskItem({ task }: TaskItemProps) {
@@ -115,7 +114,7 @@ export default function TaskItem({ task }: TaskItemProps) {
         });
     };
 
-    const convertVideoTaskArgs = task.args as ConvertVideoTaskArgs;
+    const ConvertImageTaskArgs = task.args as ConvertImageTaskArgs;
     const taskMediaDetails = task.mediaDetails;
     const firstVideoStream = taskMediaDetails?.streams.find(
         (s) => s.codec_type === "video"
@@ -129,10 +128,10 @@ export default function TaskItem({ task }: TaskItemProps) {
     ];
 
     const targetInfoParts = [
-        convertVideoTaskArgs.format?.toUpperCase?.(),
-        convertVideoTaskArgs.video_encoder?.toUpperCase?.(),
-        convertVideoTaskArgs.resolution,
-        convertVideoTaskArgs.frame_rate,
+        ConvertImageTaskArgs.format?.toUpperCase?.(),
+        ConvertImageTaskArgs.image_encoder?.toUpperCase?.(),
+        ConvertImageTaskArgs.width ? `${ConvertImageTaskArgs.width}x${ConvertImageTaskArgs.height}` : undefined,
+        ConvertImageTaskArgs.quality,
     ];
 
     if (loadingDetails) {
@@ -143,11 +142,7 @@ export default function TaskItem({ task }: TaskItemProps) {
         return (
             <TaskLoadErrorCard
                 loadError={loadError}
-                onRemove={() => {
-                    startTransition(() => {
-                        void handleDeleteOrCancel();
-                    });
-                }}
+                onRemove={handleDeleteOrCancel}
             />
         );
     }
@@ -202,13 +197,6 @@ export default function TaskItem({ task }: TaskItemProps) {
                     }}
                     recentKey="converter-images-task-item"
                     onValueChange={(config) => {
-                        updateTaskById(task.id, {
-                            activeCategory: config.activeCategory,
-                            taskType: config.taskType,
-                            args: config.args,
-                        });
-                    }}
-                    applyConfigToAllTasks={(config) => {
                         updateTaskById(task.id, {
                             activeCategory: config.activeCategory,
                             taskType: config.taskType,

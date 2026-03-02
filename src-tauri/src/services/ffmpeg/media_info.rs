@@ -34,6 +34,19 @@ pub struct StreamDetails {
     pub channels: Option<u16>,
     pub sample_rate: Option<u32>,
     pub bit_rate: Option<i64>,
+    pub bit_depth: Option<u32>,
+    pub bits_per_sample: Option<u32>,
+}
+
+fn parse_sample_fmt_bits(sample_fmt: &str) -> Option<u32> {
+    let digits: String = sample_fmt
+        .chars()
+        .filter(|character| character.is_ascii_digit())
+        .collect();
+    if digits.is_empty() {
+        return None;
+    }
+    digits.parse::<u32>().ok().filter(|value| *value > 0)
 }
 
 pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
@@ -93,6 +106,8 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
             channels: None,
             sample_rate: None,
             bit_rate: None,
+            bit_depth: None,
+            bits_per_sample: None,
         };
 
         match medium {
@@ -121,6 +136,9 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
                     stream_details.channels = Some(audio.channels());
                     stream_details.sample_rate = Some(audio.rate());
                     stream_details.bit_rate = Some(audio.bit_rate() as i64);
+                    let sample_fmt_bits = parse_sample_fmt_bits(audio.format().name());
+                    stream_details.bit_depth = sample_fmt_bits;
+                    stream_details.bits_per_sample = sample_fmt_bits;
                 }
             }
             _ => {}

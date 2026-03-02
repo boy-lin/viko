@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { FormatSelector } from "@/components/biz-form/FormatSelector";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
-import { GlobalConverterConfig, useConverterStore } from "./store";
+import { useConverterStore } from "./store";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -27,10 +27,6 @@ export const ConverterFooter: React.FC<{}> = () => {
   );
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
-
-  const handleApplyConfigToAllTasks = async (config: GlobalConverterConfig) => {
-    applyConfigToAllTasks(config);
-  };
 
   const handleConvertAll = async () => {
     try {
@@ -76,7 +72,7 @@ export const ConverterFooter: React.FC<{}> = () => {
               config={globalConfig}
               recentKey="converter-videos-footer"
               onValueChange={updateGlobalConfig}
-              applyConfigToAllTasks={handleApplyConfigToAllTasks}
+              applyConfigToAllTasks={applyConfigToAllTasks}
             />
           </div>
         </div>

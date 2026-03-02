@@ -73,7 +73,7 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
           formatRecents={formatRecents}
           addToRecents={(format) => addToRecents(recentKey, format)}
           onValueChange={onValueChange}
-          applyConfigToAllTasks={applyConfigToAllTasks}
+          applyConfigToAllTasks={applyConfigToAllTasks ?? (() => { })}
           onClose={() => setOpen(false)}
           btnLabelKey={btnLabelKey}
         />

@@ -1,140 +1,196 @@
 {
-    "app": {
-        "description": "Powerful Media Toolkit",
-        "title": "FigureX"
-    },
-    "nav": {
-        "tasks": "Tasks",
-        "converter": "Converter",
-        "ai_tools": "AI Tools",
-        "downloader": "Downloader",
-        "batch": "Batch",
-        "video_player": "Video Player",
-        "compressor": "Compressor",
-        "audio_test": "Audio Test",
-        "home": "Home",
-        "my_files": "My Files",
-        "home_v1": "Home V1",
-        "metadata": "Metadata"
-    },
-    "sidebar": {
-        "quick_access": "Quick Access",
-        "pin": "Pin to top",
-        "unpin": "Unpin",
-        "feature_in_development": "Feature in development",
-        "coming_soon": "This feature is coming soon",
-        "collapse": "Collapse sidebar",
-        "expand": "Expand sidebar",
-        "brand_name": "Viko",
-        "brand_tagline": "AudioVideoKits"
-    },
-    "quick": {
-        "converter": "Converter",
-        "converter_videos": "Video Converter",
-        "converter_audios": "Audio Converter",
-        "converter_images": "Image Converter",
-        "watermark": "Watermark Generator",
-        "metadata": "Metadata Editor",
-        "compressor_videos": "Video Compressor",
-        "compressor_audios": "Audio Compressor",
-        "compressor_images": "Image Compressor"
-    },
-    "common": {
-        "loading": "Loading...",
-        "confirm": "Confirm",
-        "edit": "Edit",
-        "select_file": "Select File",
-        "add": "Add",
-        "cancel": "Cancel",
-        "save": "Save",
-        "delete": "Delete",
-        "recents": "Recents",
-        "apply_all": "Apply to all"
-    },
-    "upload_drag": {
-        "picker_name": "Media Files",
-        "title": "Drag files or folders here",
-        "support_hint": "Supports {{hint}}"
-    },
-    "acceleration": {
-        "description": "Configure hardware acceleration options.",
-        "title": "Acceleration Settings",
-        "checking": "Checking hardware support...",
-        "badge_high": "High",
-        "ultra_fast_desc": "Optimizes conversion settings for maximum speed.",
-        "gpu_label": "Enable GPU Acceleration",
-        "ultra_fast_label": "Enable Ultra-fast Speed",
-        "gpu_desc_unavailable": "No supported hardware encoder detected.",
-        "gpu_desc_available": "Uses hardware encoders (e.g., NVENC, QSV, VideoToolbox) when available."
-    },
-    "video_advance": {
-        "color_space": "Color Space",
-        "missing": "format or encoder is not set",
-        "resolution": "Resolution",
-        "encoder": "Encoder",
-        "frame_rate": "Frame Rate",
-        "bitrate": "Bitrate"
-    },
-    "file_picker": {
-        "video": "Video",
-        "audio": "Audio",
-        "image": "Image",
-        "audios": "Audios",
-        "images": "Images",
-        "folders": "Folders"
-    },
-    "search": {
-        "placeholder": "Search file name..."
-    },
-    "auth": {
-        "dialog": {
-            "title": "Sign In",
-            "desktop_oauth_unavailable": "Desktop OAuth is not enabled in the current environment. Please check OAuth environment variables.",
-            "actions": {
-                "browser_login": "Sign in with browser",
-                "retry_browser_login": "Retry browser sign-in",
-                "cancel_current_login": "Cancel current sign-in"
+  "app": {
+    "description": "Powerful Media Toolkit",
+    "title": "FigureX"
+  },
+  "nav": {
+    "tasks": "Tasks",
+    "converter": "Converter",
+    "ai_tools": "AI Tools",
+    "downloader": "Downloader",
+    "batch": "Batch",
+    "video_player": "Video Player",
+    "compressor": "Compressor",
+    "audio_test": "Audio Test",
+    "home": "Home",
+    "my_files": "My Files",
+    "home_v1": "Home V1",
+    "metadata": "Metadata"
+  },
+  "sidebar": {
+    "quick_access": "Quick Access",
+    "pin": "Pin to top",
+    "unpin": "Unpin",
+    "feature_in_development": "Feature in development",
+    "coming_soon": "This feature is coming soon",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "brand_name": "Viko",
+    "brand_tagline": "AudioVideoKits"
+  },
+  "quick": {
+    "converter": "Converter",
+    "converter_videos": "Video Converter",
+    "converter_audios": "Audio Converter",
+    "converter_images": "Image Converter",
+    "watermark": "Watermark Generator",
+    "metadata": "Metadata Editor",
+    "compressor_videos": "Video Compressor",
+    "compressor_audios": "Audio Compressor",
+    "compressor_images": "Image Compressor"
+  },
+  "common": {
+    "loading": "Loading...",
+    "confirm": "Confirm",
+    "edit": "Edit",
+    "select_file": "Select File",
+    "add": "Add",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "recents": "Recents",
+    "apply_all": "Apply to all"
+  },
+  "upload_drag": {
+    "picker_name": "Media Files",
+    "title": "Drag files or folders here",
+    "support_hint": "Supports {{hint}}"
+  },
+  "acceleration": {
+    "description": "Configure hardware acceleration options.",
+    "title": "Acceleration Settings",
+    "checking": "Checking hardware support...",
+    "badge_high": "High",
+    "ultra_fast_desc": "Optimizes conversion settings for maximum speed.",
+    "gpu_label": "Enable GPU Acceleration",
+    "ultra_fast_label": "Enable Ultra-fast Speed",
+    "gpu_desc_unavailable": "No supported hardware encoder detected.",
+    "gpu_desc_available": "Uses hardware encoders (e.g., NVENC, QSV, VideoToolbox) when available."
+  },
+  "video_advance": {
+    "color_space": "Color Space",
+    "missing": "format or encoder is not set",
+    "resolution": "Resolution",
+    "encoder": "Encoder",
+    "frame_rate": "Frame Rate",
+    "bitrate": "Bitrate"
+  },
+  "audioCompressor": {
+    "settingsDialog": {
+      "title": "Compression Settings",
+      "description": "Only modifies compression parameters for the current task",
+      "popoverDescription": "Modify global compression parameters",
+      "actions": {
+        "close": "Close"
+      },
+            "fields": {
+                "silenceThreshold": "Silence Threshold (dB)",
+                "volumeGain": "Volume Gain (dB)",
+                "removeSilence": "Remove Silence",
+                "formatHelp": "Output format affects available encoders, compatibility, and resulting size. Choose based on your scenario.",
+                "sampleRateHelp": "Controls how many samples are captured per second. Higher values usually preserve more detail, but may increase size and processing cost.",
+                "bitrateHelp": "Controls audio data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
+                "channelHelp": "Controls output channel layout. Fewer channels usually reduce size, while more channels preserve richer spatial information.",
+                "bitDepthHelp": "Controls precision per sample. Higher bit depth helps preserve dynamic range and detail, but usually increases size.",
+                "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs."
             },
-            "pending": {
-                "exchanging": "Callback received, completing sign-in...",
-                "waiting_callback": "Please complete authorization in browser, the app will sign in automatically",
-                "timeout": "No callback received for a while, you can retry",
-                "processing": "Processing...",
-                "remaining_seconds": "{{seconds}}s remaining"
-            },
-            "debug": {
-                "placeholder": "Debug: paste auth/callback URL or code",
-                "submit": "Debug submit URL/code"
-            },
-            "toast": {
-                "browser_opened": "Browser opened, please complete authorization",
-                "login_success": "Signed in successfully"
-            },
-            "error": {
-                "open_browser_failed": "Failed to open browser login page",
-                "input_code_first": "Please input authorization code first",
-                "desktop_login_failed": "Desktop sign-in failed",
-                "timeout_retry": "Authorization timed out, please retry"
-            }
-        },
-        "user_menu": {
-            "default_user": "User",
-            "actions": {
-                "login": "Sign In",
-                "logout": "Sign Out"
-            },
-            "status": {
-                "syncing_profile": "Syncing profile",
-                "basic_profile_mode": "Basic profile mode"
-            },
-            "toast": {
-                "fetch_user_failed": "Failed to fetch user info",
-                "desktop_login_success": "Desktop sign-in succeeded",
-                "desktop_login_failed": "Desktop sign-in failed",
-                "profile_synced": "Profile synced",
-                "signed_out": "Signed out",
-                "sign_out_failed": "Sign out failed"
-            }
-        }
+      "advanced": {
+        "title": "Advanced Settings",
+        "description": "If you want better compression by changing format and encoder, you can manually adjust the following options"
+      }
     }
+  },
+  "file_picker": {
+    "video": "Video",
+    "audio": "Audio",
+    "image": "Image",
+    "audios": "Audios",
+    "images": "Images",
+    "folders": "Folders"
+  },
+  "search": {
+    "placeholder": "Search file name..."
+  },
+  "auth": {
+    "dialog": {
+      "title": "Sign In",
+      "desktop_oauth_unavailable": "Desktop OAuth is not enabled in the current environment. Please check OAuth environment variables.",
+      "actions": {
+        "browser_login": "Sign in with browser",
+        "retry_browser_login": "Retry browser sign-in",
+        "cancel_current_login": "Cancel current sign-in"
+      },
+      "pending": {
+        "exchanging": "Callback received, completing sign-in...",
+        "waiting_callback": "Please complete authorization in browser, the app will sign in automatically",
+        "timeout": "No callback received for a while, you can retry",
+        "processing": "Processing...",
+        "remaining_seconds": "{{seconds}}s remaining"
+      },
+      "debug": {
+        "placeholder": "Debug: paste auth/callback URL or code",
+        "submit": "Debug submit URL/code"
+      },
+      "toast": {
+        "browser_opened": "Browser opened, please complete authorization",
+        "login_success": "Signed in successfully"
+      },
+      "error": {
+        "open_browser_failed": "Failed to open browser login page",
+        "input_code_first": "Please input authorization code first",
+        "desktop_login_failed": "Desktop sign-in failed",
+        "timeout_retry": "Authorization timed out, please retry"
+      }
+    },
+    "user_menu": {
+      "default_user": "User",
+      "actions": {
+        "login": "Sign In",
+        "logout": "Sign Out"
+      },
+      "status": {
+        "syncing_profile": "Syncing profile",
+        "basic_profile_mode": "Basic profile mode"
+      },
+      "toast": {
+        "fetch_user_failed": "Failed to fetch user info",
+        "desktop_login_success": "Desktop sign-in succeeded",
+        "desktop_login_failed": "Desktop sign-in failed",
+        "profile_synced": "Profile synced",
+        "signed_out": "Signed out",
+        "sign_out_failed": "Sign out failed"
+      }
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Configure output settings for this task",
+    "singleDescription": "This change will be applied and converted only for this file.",
+    "startSingle": "Start Convert",
+    "titleLabel": "Title:",
+    "targetFormatLabel": "Target",
+    "video": { "title": "Video" },
+    "audio": {
+      "title": "Audio",
+      "trackLabel": "Audio Track {{index}}",
+      "noAudioTrackAvailable": "No audio track available.",
+      "fields": {
+        "encoder": "Encoder",
+        "encoderPlaceholder": "Select encoder",
+        "channel": "Channels",
+        "channelPlaceholder": "Select channels",
+        "sampleRate": "Sample Rate",
+        "sampleRatePlaceholder": "Select sample rate",
+        "bitrate": "Bitrate",
+        "bitratePlaceholder": "Select bitrate",
+        "bitDepth": "Bit Depth",
+        "bitDepthPlaceholder": "Select bit depth"
+      }
+    },
+    "image": {
+      "title": "Image",
+      "quality": "Quality:",
+      "resolution": "Resolution:"
+    }
+  }
 }

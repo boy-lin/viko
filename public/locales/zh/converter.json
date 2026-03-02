@@ -1,31 +1,5 @@
 {
-  "settings": {
-    "title": "设置",
-    "description": "配置本次任务的输出参数",
-    "singleDescription": "仅对当前文件进行转换并立即开始。",
-    "startSingle": "开始转换",
-    "titleLabel": "标题：",
-    "targetFormatLabel": "目标",
-    "video": { "title": "视频" },
-    "audio": {
-      "title": "音频",
-      "trackLabel": "音轨 {{index}}",
-      "noAudioTrackAvailable": "没有可用的音轨。",
-      "fields": {
-        "encoder": "编码器",
-        "encoderPlaceholder": "选择编码器",
-        "channel": "声道",
-        "channelPlaceholder": "选择声道",
-        "sampleRate": "采样率",
-        "sampleRatePlaceholder": "选择采样率",
-        "bitrate": "码率",
-        "bitratePlaceholder": "选择码率",
-        "bitDepth": "位深",
-        "bitDepthPlaceholder": "选择位深"
-      }
-    },
-    "image": { "title": "图片", "quality": "质量：", "resolution": "分辨率：" }
-  },
+  
   "common": { "cancel": "取消", "save": "保存", "auto": "自动" },
   "status": {
     "idle": "等待中",

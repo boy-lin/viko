@@ -69,7 +69,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           }}
           min={10}
           max={100}
-          step={2}
+          step={5}
           className="w-full cursor-pointer"
         />
       </div>
@@ -247,7 +247,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
               disabled
               min={10}
               max={100}
-              step={2}
+              step={5}
               className="w-full cursor-pointer"
             />
             <Settings className="w-4 h-4 text-muted-foreground" />

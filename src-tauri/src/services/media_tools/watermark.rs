@@ -3,6 +3,7 @@ use image::{imageops, GenericImageView, RgbaImage};
 use imageproc::drawing::draw_text_mut;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+use std::path::Path;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WatermarkConfig {
@@ -106,7 +107,12 @@ impl WatermarkConfig {
 
             // escape text
             let safe_text = txt.content.replace("'", "'\\''").replace(":", "\\:");
-            let safe_font = txt.font_path.replace("\\", "/").replace(":", "\\:");
+            let safe_font = txt
+                .font_path
+                .as_deref()
+                .unwrap_or("")
+                .replace("\\", "/")
+                .replace(":", "\\:");
 
             let font_arg = if safe_font.is_empty() {
                 String::new()
@@ -194,9 +200,7 @@ impl WatermarkConfig {
 
         // 2. Text Watermark
         if let Some(txt_wm) = &self.text {
-            // Load Font
-            let font_bytes = std::fs::read(&txt_wm.font_path)
-                .map_err(|e| format!("Failed to read font: {}", e))?;
+            let font_bytes = load_font_bytes_with_fallback(txt_wm.font_path.as_deref())?;
             let font = FontRef::try_from_slice(&font_bytes).map_err(|_| "Invalid font file")?;
 
             // Color parsing
@@ -218,6 +222,64 @@ impl WatermarkConfig {
 
         Ok(())
     }
+}
+
+fn load_font_bytes_with_fallback(user_font_path: Option<&str>) -> Result<Vec<u8>, String> {
+    if let Some(path) = user_font_path {
+        let trimmed = path.trim();
+        if !trimmed.is_empty() {
+            return std::fs::read(trimmed)
+                .map_err(|error| format!("Failed to read font: {}", error));
+        }
+    }
+
+    for candidate in system_font_candidates() {
+        if Path::new(&candidate).exists() {
+            match std::fs::read(&candidate) {
+                Ok(bytes) => {
+                    log::warn!("image text watermark fallback font used: {}", candidate);
+                    return Ok(bytes);
+                }
+                Err(_) => continue,
+            }
+        }
+    }
+
+    Err("No usable font found. Please set watermark.text.font_path or ensure system fonts are available.".to_string())
+}
+
+fn system_font_candidates() -> Vec<String> {
+    #[cfg(target_os = "windows")]
+    {
+        let windir = std::env::var("WINDIR").unwrap_or_else(|_| "C:\\Windows".to_string());
+        return vec![
+            format!("{windir}\\Fonts\\arial.ttf"),
+            format!("{windir}\\Fonts\\segoeui.ttf"),
+            format!("{windir}\\Fonts\\tahoma.ttf"),
+            format!("{windir}\\Fonts\\calibri.ttf"),
+        ];
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return vec![
+            "/System/Library/Fonts/Supplemental/Arial.ttf".to_string(),
+            "/System/Library/Fonts/Supplemental/Helvetica.ttf".to_string(),
+            "/System/Library/Fonts/Supplemental/Times New Roman.ttf".to_string(),
+        ];
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        return vec![
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf".to_string(),
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf".to_string(),
+            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf".to_string(),
+        ];
+    }
+
+    #[allow(unreachable_code)]
+    Vec::new()
 }
 
 // Helpers
@@ -347,7 +409,7 @@ fn parse_color(color_str: &str, opacity: f32) -> image::Rgba<u8> {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TextWatermark {
     pub content: String,
-    pub font_path: String, // Absolute path to .ttf/.otf
+    pub font_path: Option<String>, // Absolute path to .ttf/.otf
     pub font_size: f32,
     pub color: String, // Hex "#FFFFFF" or "white"
     pub opacity: f32,  // 0.0 - 1.0

@@ -4,6 +4,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import {
   FileType,
   MediaDetails,
+  MediaDetailsWithResolve,
 } from "@/types/tasks";
 import { extractFilenameFromPath } from "./utils";
 import { MediaTaskType } from "@/types/tasks";
@@ -195,11 +196,11 @@ class Bridge {
 
   async getMediaDetails(
     path: string
-  ): Promise<MediaDetails & { format: string, resolution: string }> {
+  ): Promise<MediaDetailsWithResolve> {
     const details = await this.invoke<MediaDetails>("get_detailed_media_info", {
       path,
     });
-    let format = details.extension;
+    let format = details.extension.toLowerCase();
     if (!details.extension) {
       format = details.format_names.split(",")[0];
     }
@@ -218,6 +219,32 @@ class Bridge {
       format,
       resolution,
       title
+    };
+  }
+
+  async getImageDetails(
+    path: string
+  ): Promise<MediaDetailsWithResolve> {
+    const details = await this.invoke<MediaDetails>("get_detailed_image_info", {
+      path,
+    });
+    let format = details.extension.toLowerCase();
+    if (!details.extension) {
+      format = details.format_names.split(",")[0];
+    }
+
+    let resolution = "";
+    const imageStream = details.streams.find((s) => s.codec_type === "video");
+    if (imageStream && imageStream.width && imageStream.height) {
+      resolution = `${imageStream.width}*${imageStream.height}`;
+    }
+    const title = extractFilenameFromPath(path);
+
+    return {
+      ...details,
+      format,
+      resolution,
+      title,
     };
   }
 
@@ -344,10 +371,6 @@ class Bridge {
     };
   }
 
-  async setMyFileFavorite(id: string, favorite: boolean): Promise<void> {
-    return this.invoke("set_my_file_favorite", { id, favorite });
-  }
-
   clear() {
     this.disposers.forEach((dispose) => dispose());
     this.disposers = [];
@@ -411,7 +434,7 @@ export interface TaskHistoryItem {
 }
 
 export interface MyFileItem extends TaskHistoryItem {
-  is_favorite: boolean;
+  is_favorite?: boolean;
 }
 
 export const bridge = Bridge.getInstance();

@@ -4,11 +4,16 @@ import {
   FFmpegTask,
   FileType,
 } from "@/types/tasks";
+import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
+
+export interface WatermarkTask extends FFmpegTask {
+  args: ConvertVideoTaskArgs;
+}
 
 interface TaskState {
-  queueTasks: FFmpegTask[];
+  queueTasks: WatermarkTask[];
   addTasksByPaths: (paths: string[]) => Promise<void>;
-  updateTaskById: (id: string, updates: Partial<FFmpegTask>) => void;
+  updateTaskById: (id: string, updates: Partial<WatermarkTask>) => void;
   removeTaskByPath: (path: string) => void;
   clearTasks: () => void;
 }
@@ -17,7 +22,7 @@ export const useWatermarkStore = create<TaskState>(
   (set) => ({
     queueTasks: [],
     addTasksByPaths: async (paths) => {
-      const newTasks: FFmpegTask[] = [];
+      const newTasks: WatermarkTask[] = [];
       for (const path of paths) {
         if (!path) continue;
         let outputArgs: any = {

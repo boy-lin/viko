@@ -4,7 +4,6 @@ import { WatermarkConfig } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { VIDEO_SUPPORT_FORMATS } from "@/data/formats";
 import { toast } from "sonner";
-import { MediaTaskType } from "@/types/tasks";
 import { useWatermarkStore } from "./store";
 import { BottomToolbar } from "./BottomToolbar";
 import { PreviewPanel } from "./PreviewPanel";
@@ -13,6 +12,10 @@ import { defaultWatermarkConfig, positionMap } from "./types";
 import { UploadPanel } from "./UploadPanel";
 import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
+import { MediaTaskType } from "@/types/tasks";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { isImageFormat } from "@/data/formats";
+import { extractFilenameFromPath, getExtension } from "@/lib/utils";
 
 export default function WatermarkPage() {
     const { t } = useTranslation("watermark");
@@ -135,7 +138,6 @@ export default function WatermarkPage() {
             }
             watermarkConfig.text = {
                 content: config.text,
-                font_path: "",
                 font_size: config.size,
                 color: "#FFFFFF",
                 opacity: config.opacity / 100,
@@ -167,13 +169,16 @@ export default function WatermarkPage() {
         }
 
         const tasks = queueTasks.map((task) => {
-            const file = task.args.input_path;
-            const outputPath = file.replace(/(\.[^/.]+)?$/, "_watermarked.mp4");
+            const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
+            const title = extractFilenameFromPath(task.args.input_path);
+            const format = getExtension(task.args.input_path);
+            const outputPath = `${outputDir}/${title}_watermarked.${format}`;
             return {
-                type: MediaTaskType.Watermark,
+                ...task,
+                type: isImageFormat(format) ? MediaTaskType.ConvertImage : MediaTaskType.ConvertVideo,
                 args: {
-                    task_id: task.args.task_id,
-                    input_path: file,
+                    ...task.args,
+                    format,
                     output_path: outputPath,
                     watermark: watermarkConfig,
                 }
@@ -182,18 +187,18 @@ export default function WatermarkPage() {
 
         try {
             tasks.forEach((task) => {
-                useWatermarkStore.getState().updateTaskById(task.args.task_id, {
+                useWatermarkStore.getState().updateTaskById(task.id, {
                     status: "processing",
                     progress: 0,
                     args: {
+                        ...task.args,
                         output_path: task.args.output_path,
                         watermark: task.args.watermark,
                     },
                 });
             });
+            console.log('sfasdf', JSON.stringify(tasks))
             await getMediaTaskQueue().addConvertTasks(tasks);
-            // toast.success(`Submitted ${tasks.length} tasks!`);
-            // Optional: navigate to tasks page
         } catch (e: any) {
             console.error(e);
             toast.error(t("messages.submitFailed", { message: e.message }));

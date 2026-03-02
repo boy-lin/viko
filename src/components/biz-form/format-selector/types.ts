@@ -17,19 +17,19 @@ export interface FormatSelectorValue {
 }
 
 export interface FormatSelectorProps {
-  config: GlobalConverterConfig;
-  onValueChange?: (config: GlobalConverterConfig) => void;
+  config: Partial<GlobalConverterConfig>;
+  onValueChange?: (config: Partial<GlobalConverterConfig>) => void;
+  applyConfigToAllTasks?: (config: GlobalConverterConfig) => void;
   className?: string;
   recentKey: string;
-  applyConfigToAllTasks: (config: GlobalConverterConfig) => void;
   btnLabelKey?: string;
 }
 
 export interface FormatSelectorContentProps {
-  config: GlobalConverterConfig;
+  config: Partial<GlobalConverterConfig>;
   formatRecents: FormatGroup[];
   addToRecents: (format: FormatGroup) => void;
-  onValueChange: (config: GlobalConverterConfig) => void;
+  onValueChange: (config: Partial<GlobalConverterConfig>) => void;
   applyConfigToAllTasks: (config: GlobalConverterConfig) => void;
   onClose: () => void;
   btnLabelKey?: string;

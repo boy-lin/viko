@@ -44,11 +44,11 @@ const heroCards: HeroCardItem[] = [
         label: "hero.converter.audioAdd",
         icon: <Plus className="w-4 h-4 mr-1" />,
       },
-      {
-        id: "converter-image",
-        label: "hero.converter.imageAdd",
-        icon: <Plus className="w-4 h-4 mr-1" />,
-      },
+      // {
+      //   id: "converter-image",
+      //   label: "hero.converter.imageAdd",
+      //   icon: <Plus className="w-4 h-4 mr-1" />,
+      // },
     ],
     gradient: "var(--gradient-converter)",
     hoverRotate: "-0.5deg",

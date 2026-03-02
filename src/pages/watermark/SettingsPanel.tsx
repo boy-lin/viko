@@ -114,7 +114,7 @@ export function SettingsPanel({ config, onChange }: SettingsPanelProps) {
           <div className="flex justify-between">
             <Label>{t("settings.common.rotation", { value: config.rotation })}</Label>
           </div>
-          <Slider disabled value={[config.rotation]} min={-180} max={180} step={2} onValueChange={(v) => onChange({ rotation: v[0] })} />
+          <Slider disabled value={[config.rotation]} min={-180} max={180} step={5} onValueChange={(v) => onChange({ rotation: v[0] })} />
         </div>
 
         <div className="space-y-2">
