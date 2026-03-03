@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -6,7 +6,6 @@ import { FileType, MediaDetails } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
-import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
 import { ConverterTask, useConverterStore } from "./store";
@@ -20,13 +19,15 @@ import TaskLoadingCard from "@/components/ui-biz/TaskLoadingCard";
 import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
 import MediaOriginalInfoGrid from "@/components/ui-biz/MediaOriginalInfoGrid";
 import MediaTargetInfoGrid from "@/components/ui-biz/MediaTargetInfoGrid";
-import { extractFilenameFromPath } from "@/lib/utils";
 
 interface TaskItemProps {
   task: ConverterTask;
+  metaStatus?: "idle" | "loading" | "error";
+  metaError?: string;
+  onRetryMeta?: () => void;
 }
 
-const buildDefaultArgs = (task: ConverterTask, details: MediaDetails) => {
+export const buildTaskDefaultsFromDetails = (task: ConverterTask, details: MediaDetails) => {
   let format = FormatEnum.MP4;
   const outputArgs: any = {
     task_id: task.id,
@@ -44,54 +45,28 @@ const buildDefaultArgs = (task: ConverterTask, details: MediaDetails) => {
         bitrate: 128,
         sample_rate: 32000,
         channels: stream.channels,
-        bit_depth: stream.bit_depth
+        bit_depth: stream.bit_depth,
       })) || [];
 
-  return outputArgs;
+  return {
+    mediaDetails: details,
+    args: outputArgs,
+    fileType: FileType.Video,
+    taskType: MediaTaskType.ConvertVideo,
+    outputTitle: details.title,
+  } as Partial<ConverterTask>;
 };
 
-export default function TaskItem({ task }: TaskItemProps) {
+export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: TaskItemProps) {
   const { t } = useTranslation("converter");
   const updateTaskById = useConverterStore((state) => state.updateTaskById);
-  const [loading, setLoading] = useState(!task.mediaDetails);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    const loadDetails = async () => {
-      if (task.mediaDetails || !task.args?.input_path) {
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const details = await bridge.getMediaDetails(task.args.input_path);
-        if (!active) return;
-        const title = details.title || extractFilenameFromPath(details.path);
-        const outputArgs = buildDefaultArgs(task, details);
-        updateTaskById(task.id, {
-          mediaDetails: details,
-          args: outputArgs,
-          fileType: FileType.Video,
-          taskType: MediaTaskType.ConvertVideo,
-          outputTitle: title,
-        });
-      } catch (error: any) {
-        if (!active) return;
-        setLoadError(error?.message || "Failed to load media details");
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    loadDetails();
-    return () => {
-      active = false;
-    };
-  }, [task.args?.input_path]);
+  const currentMetaStatus = metaStatus ?? (task.mediaDetails ? "idle" : "loading");
+  const loadError = metaError ?? "";
+  const loading = currentMetaStatus === "loading" || (!task.mediaDetails && currentMetaStatus !== "error");
 
   const handleConvertSingle = async () => {
-    await useConverterStore.getState().pushTasksToQueue([task])
+    await useConverterStore.getState().pushTasksToQueue([task]);
   };
 
   if (loading) {
@@ -113,11 +88,21 @@ export default function TaskItem({ task }: TaskItemProps) {
     useConverterStore.getState().removeTask(task.id);
   };
 
-  if (loadError) {
-    return <TaskLoadErrorCard loadError={loadError} onRemove={handleDeleteOrCancel} />;
+  if (currentMetaStatus === "error") {
+    return (
+      <TaskLoadErrorCard
+        loadError={loadError || "Failed to load media details"}
+        onRemove={handleDeleteOrCancel}
+        onRetry={onRetryMeta}
+      />
+    );
   }
 
   const convertVideoTaskArgs = task.args as ConvertVideoTaskArgs;
+  const outputTitleValue = useMemo(
+    () => task.outputTitle ?? task.mediaDetails?.title ?? "",
+    [task.outputTitle, task.mediaDetails?.title],
+  );
 
   const handleOutputTitleChange = (nextTitle: string) => {
     updateTaskById(task.id, {
@@ -149,7 +134,7 @@ export default function TaskItem({ task }: TaskItemProps) {
 
       <div className="flex-1 min-w-0">
         <OutputTitleEditor
-          value={task.outputTitle}
+          value={outputTitleValue}
           onChange={handleOutputTitleChange}
         />
         <MediaTargetInfoGrid args={convertVideoTaskArgs} />
@@ -189,16 +174,16 @@ export default function TaskItem({ task }: TaskItemProps) {
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "ÂèñÊ∂à") : t("actions.delete")}</TooltipContent>
+          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "»°œ˚") : t("actions.delete")}</TooltipContent>
         </Tooltip>
 
         <Button
           variant="outline"
           className="cursor-pointer px-4"
           onClick={handleConvertSingle}
-          disabled={isQueuedOrProcessing}
+          disabled={loading || isQueuedOrProcessing}
         >
-          {t("actions.convertSingle", "ËΩ¨Êç¢")}
+          {t("actions.convertSingle", "◊™ªª")}
         </Button>
       </div>
     </div>

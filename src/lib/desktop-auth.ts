@@ -1,7 +1,8 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { baseApiUrl } from "./env";
+import { bridge } from "./bridge";
 
 const OAUTH_STATE_KEY = "auth:desktop:oauth:state";
 const OAUTH_PKCE_KEY = "auth:desktop:oauth:pkce_verifier";
@@ -266,7 +267,7 @@ export async function finishDesktopOAuthLogin(codeOrUrl: string, state?: string)
     throw new Error("Invalid OAuth state");
   }
 
-  const token = await invoke<OAuthTokenResponse>("auth_exchange_code", {
+  const token = await bridge.invoke<OAuthTokenResponse>("auth_exchange_code", {
     input: {
       tokenEndpoint,
       clientId,
@@ -355,6 +356,20 @@ export async function initDesktopOAuthDeepLinkListener() {
           new CustomEvent<DesktopAuthErrorDetail>("desktop-auth:error", { detail })
         );
       }
+    }
+  });
+
+  await bridge.on("single-instance", async (payload) => {
+    const args = payload?.args ?? [];
+    const callbackUrl = args.find((arg) => typeof arg === "string" && arg.startsWith("viko://"));
+    if (!callbackUrl) return;
+    try {
+      await handleDesktopOAuthCallbackUrl(callbackUrl);
+    } catch (error) {
+      const detail = classifyDesktopAuthError(error);
+      window.dispatchEvent(
+        new CustomEvent<DesktopAuthErrorDetail>("desktop-auth:error", { detail })
+      );
     }
   });
 }

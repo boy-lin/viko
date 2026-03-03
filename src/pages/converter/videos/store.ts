@@ -12,7 +12,7 @@ export enum ActiveCategoryEnum {
 }
 
 export interface ConverterTask extends FFmpegTask {
-  args: any
+  args: any;
 }
 
 export interface GlobalConverterConfig {
@@ -68,8 +68,7 @@ type ConverterStore = CreateTaskStoreState<
   "clearConvertingTasks"
 >;
 
-export const useConverterStore = create<ConverterStore>(
-  createTaskStore<
+const baseStoreCreator = createTaskStore<
     ConverterTask,
     GlobalConverterConfig,
     GlobalConverterConfig,
@@ -146,5 +145,6 @@ export const useConverterStore = create<ConverterStore>(
         }),
       );
     },
-  }),
-);
+  });
+
+export const useConverterStore = create<ConverterStore>(baseStoreCreator);

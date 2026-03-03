@@ -1,4 +1,4 @@
-import { ShieldAlert, Trash2 } from "lucide-react";
+import { RefreshCw, ShieldAlert, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -6,11 +6,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface TaskLoadErrorCardProps {
   loadError: string;
   onRemove: () => void;
+  onRetry?: () => void;
 }
 
 export default function TaskLoadErrorCard({
   loadError,
   onRemove,
+  onRetry,
 }: TaskLoadErrorCardProps) {
   const { t } = useTranslation("converter");
 
@@ -25,19 +27,36 @@ export default function TaskLoadErrorCard({
           {loadError}
         </div>
       </div>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
-            onClick={onRemove}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t("actions.delete")}</TooltipContent>
-      </Tooltip>
+      <div className="flex items-center gap-2">
+        {onRetry && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="cursor-pointer"
+                onClick={onRetry}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("actions.retry", "重试")}</TooltipContent>
+          </Tooltip>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
+              onClick={onRemove}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("actions.delete")}</TooltipContent>
+        </Tooltip>
+      </div>
     </div>
   );
 }

@@ -15,6 +15,13 @@ pub struct AudioEncodingParams {
     pub quality: Option<u32>,     // VBR quality 0-10
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AudioTrackConfig {
+    pub source_stream_index: Option<usize>,
+    #[serde(flatten)]
+    pub encoding: AudioEncodingParams,
+}
+
 pub struct AudioTrackProcessor {
     pub source_stream_index: usize,
     decoder: decoder::Audio,
@@ -65,6 +72,22 @@ pub struct AudioTranscodeRunReport {
     pub packets_processed: u64,
     pub total_written_bytes: u64,
     pub summaries: Vec<AudioOutputSummary>,
+}
+
+pub fn calc_audio_bitrate_from_kbps(
+    decoder_bitrate: i64,
+    requested_kbps: Option<f32>,
+    default_bps: i64,
+    min_bps: i64,
+) -> usize {
+    let base = if let Some(br) = requested_kbps {
+        (br.max(1.0) * 1000.0).round() as i64
+    } else if decoder_bitrate > 0 {
+        decoder_bitrate
+    } else {
+        default_bps
+    };
+    base.max(min_bps) as usize
 }
 
 fn can_stream_copy_track(track: &AudioTranscodeTrack, ist: &format::stream::Stream) -> bool {

@@ -27,7 +27,6 @@ import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 import {
   AUDIO_ENCODER_DEFINITIONS,
   AUDIO_CONTAINER_DEFINITIONS,

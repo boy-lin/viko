@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { Label } from "@/components/ui/label";
+import { BadgeQuestionMark } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -11,6 +12,7 @@ import {
   InputGroup,
   InputGroupAddon,
 } from "@/components/ui/input-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import CorrectNumberInput from "@/components/ui-lab/correct-number-input";
 import { VIDEO_BITRATES } from "@/data/video_options";
 import { cn, parseOptionalInt } from "@/lib/utils";
@@ -22,9 +24,14 @@ interface VideoBitrateSelectProps {
   maxBitrate?: number;
   placeholder?: string;
   label?: string;
+  helpText?: string;
   hideLabel?: boolean;
   className?: string;
 }
+
+const DEFAULT_LABEL = "视频码率";
+const DEFAULT_PLACEHOLDER = "输入码率 (kbps)";
+const BITRATE_HELP = "控制视频数据密度。数值越高通常画质更稳定，但体积和处理耗时也可能增加。";
 
 export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
   value,
@@ -33,6 +40,7 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
   maxBitrate,
   placeholder,
   label,
+  helpText,
   hideLabel = true,
   className,
 }) => {
@@ -64,13 +72,25 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {!hideLabel && label && <Label>{label}</Label>}
+      {!hideLabel && (
+        <div className="flex items-center gap-1">
+          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64 whitespace-normal break-words">
+              {helpText ?? BITRATE_HELP}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
       <InputGroup>
         <CorrectNumberInput
           min={minBitrate}
           max={maxBitrate}
           step={100}
-          placeholder={placeholder ?? "输入码率"}
+          placeholder={placeholder ?? DEFAULT_PLACEHOLDER}
           value={clampedNumericValue}
           onChange={(nextValue) => {
             const parsed = nextValue;

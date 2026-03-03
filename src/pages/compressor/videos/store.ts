@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { FileType, MediaTaskType, CompressingTask } from "../../../types/tasks";
+import { FFmpegTask, FileType, MediaTaskType } from "../../../types/tasks";
 import { CompressVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
@@ -11,23 +11,17 @@ import {
   resolveOutputTitle,
 } from "@/lib/createTaskStore";
 
-export type BaseVideoCompressionConfig = Omit<
+export interface CompressingTask extends FFmpegTask {
+  args: CompressVideoTaskArgs;
+}
+
+export type BaseVideoCompressionConfig = Pick<
   CompressVideoTaskArgs,
-  "input_path" | "task_id"
+  "ratio"
 >;
 
-const baseVideoCompressionConfig: BaseVideoCompressionConfig = {
-  format: FormatEnum.MP4,
+export const baseVideoCompressionConfig: BaseVideoCompressionConfig = {
   ratio: 20,
-  remove_audio: false,
-};
-
-export const defaultVideoCompressionConfig: BaseVideoCompressionConfig = {
-  ...baseVideoCompressionConfig,
-  ...getVideoCompressionPresetByRatio(
-    baseVideoCompressionConfig.ratio,
-    baseVideoCompressionConfig.format,
-  ).patch,
 };
 
 type CompressorStore = CreateTaskStoreState<
@@ -87,9 +81,9 @@ export const useCompressorStore = create<CompressorStore>(
     tasksKey: "compressingTasks",
     configKey: "videoConfig",
     clearActionKey: "clearCompressingTasks",
-    defaultConfig: defaultVideoCompressionConfig,
+    defaultConfig: baseVideoCompressionConfig,
     createTaskByPath: (path, config) => {
-      const outputArgs: CompressVideoTaskArgs = {
+      const outputArgs = {
         ...config,
         task_id: crypto.randomUUID(),
         input_path: path,
@@ -101,7 +95,7 @@ export const useCompressorStore = create<CompressorStore>(
         args: outputArgs,
         fileType: FileType.Video,
         taskType: MediaTaskType.CompressVideo,
-      };
+      } as CompressingTask;
     },
     mergeConfig: (current, patch) => ({
       ...current,
@@ -121,6 +115,7 @@ export const useCompressorStore = create<CompressorStore>(
           format,
           taskArgs.source_audio_tracks ?? taskArgs.audio_tracks,
           {
+            sourceCodec: taskArgs.codec,
             videoBitrateKbps: taskArgs.source_video_bitrate,
             frameRate: taskArgs.source_frame_rate,
             keyframeInterval: taskArgs.source_keyframe_interval,

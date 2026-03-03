@@ -57,6 +57,11 @@ futures = "0.3"
 image = "0.25.9"
 exif = { version = "0.6", package = "kamadak-exif" }
 base64 = "0.22.1"
+chacha20poly1305 = { version = "0.10", features = ["std"] }
+hmac = "0.12"
+keyring = "3.6"
+rand = "0.8"
+sha2 = "0.10"
 machine-uid = "0.5.4"
 imageproc = "0.25.0"
 ab_glyph = "0.2.23"

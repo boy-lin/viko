@@ -1,9 +1,12 @@
 use ffmpeg::{format, Rational};
 use ffmpeg_next as ffmpeg;
-use std::sync::Once;
+use std::sync::OnceLock;
 
 pub mod codec;
 pub mod audio_transcode;
+pub mod video_transcode;
+pub mod video_pipeline;
+pub mod video_pipeline_core;
 pub mod fifo;
 pub mod resolution;
 
@@ -11,6 +14,7 @@ pub mod resolution;
 pub use codec::*;
 pub use fifo::AudioFifo;
 pub use resolution::*;
+pub use video_transcode::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MediaFileType {
@@ -20,13 +24,14 @@ pub enum MediaFileType {
     Unknown,
 }
 
-static FFMPEG_INIT: Once = Once::new();
+static FFMPEG_INIT_RESULT: OnceLock<Result<(), String>> = OnceLock::new();
 
 pub fn init_ffmpeg() -> Result<(), String> {
-    FFMPEG_INIT.call_once(|| {
-        ffmpeg::init().unwrap();
-    });
-    Ok(())
+    FFMPEG_INIT_RESULT
+        .get_or_init(|| ffmpeg::init().map_err(|e| format!("FFmpeg init failed: {}", e)))
+        .as_ref()
+        .map(|_| ())
+        .map_err(|e| e.clone())
 }
 
 pub fn ensure_ffmpeg_init() -> Result<(), String> {

@@ -29,13 +29,29 @@ use crate::task::queue;
 use crate::task::queue::MediaTaskRequest;
 
 #[command]
-pub fn get_detailed_media_info(path: String) -> Result<MediaDetails, String> {
-    media_info::get_media_details(&path)
+pub async fn get_detailed_media_info(path: String) -> Result<MediaDetails, String> {
+    tauri::async_runtime::spawn_blocking(move || media_info::get_media_details(&path))
+        .await
+        .map_err(|e| format!("get_detailed_media_info join error: {}", e))?
 }
 
 #[command]
-pub fn get_detailed_image_info(path: String) -> Result<MediaDetails, String> {
-    image_info::get_image_details(&path)
+pub async fn get_detailed_image_info(path: String) -> Result<MediaDetails, String> {
+    tauri::async_runtime::spawn_blocking(move || image_info::get_image_details(&path))
+        .await
+        .map_err(|e| format!("get_detailed_image_info join error: {}", e))?
+}
+
+#[command]
+pub async fn get_detailed_media_info_batch(paths: Vec<String>) -> Result<Vec<MediaDetails>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        paths
+            .into_iter()
+            .map(|path| media_info::get_media_details(&path))
+            .collect::<Result<Vec<_>, _>>()
+    })
+    .await
+    .map_err(|e| format!("get_detailed_media_info_batch join error: {}", e))?
 }
 
 #[command]

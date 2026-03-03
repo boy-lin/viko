@@ -92,11 +92,6 @@ export const CompressionFooter: React.FC = () => {
                   />
                   <Settings className="w-4 h-4 text-muted-foreground" />
                 </Button>
-                {/* <CompressionSettingsPopover
-                  config={videoConfig as CompressVideoTaskArgs}
-                  onConfigChange={updateGlobalConfig}
-                  onSave={handleSaveConfig}
-                /> */}
               </div>
             </div>
 

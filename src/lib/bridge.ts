@@ -17,6 +17,10 @@ export type BridgeEvents = {
   "video-frame": { width: number; height: number; data: number[] | Uint8Array };
   "video-complete": string;
   "video-error": string;
+  "single-instance": {
+    args?: string[];
+    cwd?: string;
+  };
   media_task_event: MediaTaskEvent;
   media_thumbnail: {
     requestId: string;
@@ -56,6 +60,11 @@ class Bridge {
   private disposers: UnlistenFn[] = [];
   private fallbackTarget = new EventTarget();
   private tauriReady = true;
+  private readonly maxMediaDetailsConcurrency = 3;
+  private mediaDetailsActive = 0;
+  private mediaDetailsWaiters: Array<() => void> = [];
+  private mediaDetailsCache = new Map<string, MediaDetailsWithResolve>();
+  private mediaDetailsInflight = new Map<string, Promise<MediaDetailsWithResolve>>();
 
   private constructor() {
     if (Bridge.instance) {
@@ -190,10 +199,35 @@ class Bridge {
     return invoke<T>(cmd, args);
   }
 
-  async getMediaDetails(path: string): Promise<MediaDetailsWithResolve> {
-    const details = await this.invoke<MediaDetails>("get_detailed_media_info", {
-      path,
+  private async acquireMediaDetailsSlot(): Promise<void> {
+    if (this.mediaDetailsActive < this.maxMediaDetailsConcurrency) {
+      this.mediaDetailsActive += 1;
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      this.mediaDetailsWaiters.push(() => {
+        this.mediaDetailsActive += 1;
+        resolve();
+      });
     });
+  }
+
+  private releaseMediaDetailsSlot() {
+    this.mediaDetailsActive = Math.max(0, this.mediaDetailsActive - 1);
+    const next = this.mediaDetailsWaiters.shift();
+    if (next) next();
+  }
+
+  private async withMediaDetailsSlot<T>(task: () => Promise<T>): Promise<T> {
+    await this.acquireMediaDetailsSlot();
+    try {
+      return await task();
+    } finally {
+      this.releaseMediaDetailsSlot();
+    }
+  }
+
+  private normalizeMediaDetails(path: string, details: MediaDetails): MediaDetailsWithResolve {
     let format = details.extension.toLowerCase();
     if (!details.extension) {
       format = details.format_names.split(",")[0];
@@ -205,7 +239,6 @@ class Bridge {
       resolution = `${vidStream.width}*${vidStream.height}`;
     }
     const title = extractFilenameFromPath(path);
-    console.log("Media details:", details);
     return {
       ...details,
       format,
@@ -214,28 +247,103 @@ class Bridge {
     };
   }
 
-  async getImageDetails(path: string): Promise<MediaDetailsWithResolve> {
-    const details = await this.invoke<MediaDetails>("get_detailed_image_info", {
-      path,
+  private async getCachedMediaDetails(
+    cacheKey: string,
+    loader: () => Promise<MediaDetailsWithResolve>,
+  ): Promise<MediaDetailsWithResolve> {
+    const cached = this.mediaDetailsCache.get(cacheKey);
+    if (cached) return cached;
+
+    const inflight = this.mediaDetailsInflight.get(cacheKey);
+    if (inflight) return inflight;
+
+    const promise = this.withMediaDetailsSlot(async () => {
+      const result = await loader();
+      this.mediaDetailsCache.set(cacheKey, result);
+      return result;
+    }).finally(() => {
+      this.mediaDetailsInflight.delete(cacheKey);
     });
-    let format = details.extension.toLowerCase();
-    if (!details.extension) {
-      format = details.format_names.split(",")[0];
+
+    this.mediaDetailsInflight.set(cacheKey, promise);
+    return promise;
+  }
+
+  async getMediaDetails(path: string): Promise<MediaDetailsWithResolve> {
+    const normalizedPath = path.trim();
+    const cacheKey = `media:${normalizedPath}`;
+    return this.getCachedMediaDetails(cacheKey, async () => {
+      const details = await this.invoke<MediaDetails>("get_detailed_media_info", {
+        path: normalizedPath,
+      });
+      return this.normalizeMediaDetails(normalizedPath, details);
+    });
+  }
+
+  async getMediaDetailsBatch(paths: string[]): Promise<MediaDetailsWithResolve[]> {
+    const normalizedPaths = paths.map((path) => path.trim()).filter((path) => path.length > 0);
+    if (normalizedPaths.length === 0) return [];
+
+    const toFetch = Array.from(
+      new Set(
+        normalizedPaths.filter((path) => !this.mediaDetailsCache.has(`media:${path}`)),
+      ),
+    );
+
+    if (toFetch.length > 0) {
+      const deferred = new Map<
+        string,
+        {
+          resolve: (value: MediaDetailsWithResolve) => void;
+          reject: (error: unknown) => void;
+        }
+      >();
+
+      toFetch.forEach((sourcePath) => {
+        const cacheKey = `media:${sourcePath}`;
+        let resolve!: (value: MediaDetailsWithResolve) => void;
+        let reject!: (error: unknown) => void;
+        const promise = new Promise<MediaDetailsWithResolve>((res, rej) => {
+          resolve = res;
+          reject = rej;
+        });
+        deferred.set(cacheKey, { resolve, reject });
+        this.mediaDetailsInflight.set(cacheKey, promise);
+      });
+
+      try {
+        const fetched = await this.withMediaDetailsSlot(() =>
+          this.invoke<MediaDetails[]>("get_detailed_media_info_batch", { paths: toFetch }),
+        );
+        fetched.forEach((details, index) => {
+          const sourcePath = toFetch[index];
+          if (!sourcePath) return;
+          const cacheKey = `media:${sourcePath}`;
+          const normalized = this.normalizeMediaDetails(sourcePath, details);
+          this.mediaDetailsCache.set(cacheKey, normalized);
+          deferred.get(cacheKey)?.resolve(normalized);
+        });
+      } catch (error) {
+        deferred.forEach(({ reject }) => reject(error));
+      } finally {
+        toFetch.forEach((sourcePath) => {
+          this.mediaDetailsInflight.delete(`media:${sourcePath}`);
+        });
+      }
     }
 
-    let resolution = "";
-    const imageStream = details.streams.find((s) => s.codec_type === "video");
-    if (imageStream && imageStream.width && imageStream.height) {
-      resolution = `${imageStream.width}*${imageStream.height}`;
-    }
-    const title = extractFilenameFromPath(path);
+    return Promise.all(normalizedPaths.map((path) => this.getMediaDetails(path)));
+  }
 
-    return {
-      ...details,
-      format,
-      resolution,
-      title,
-    };
+  async getImageDetails(path: string): Promise<MediaDetailsWithResolve> {
+    const normalizedPath = path.trim();
+    const cacheKey = `image:${normalizedPath}`;
+    return this.getCachedMediaDetails(cacheKey, async () => {
+      const details = await this.invoke<MediaDetails>("get_detailed_image_info", {
+        path: normalizedPath,
+      });
+      return this.normalizeMediaDetails(normalizedPath, details);
+    });
   }
 
   async checkHardwareAcceleration(): Promise<HardwareSupport> {

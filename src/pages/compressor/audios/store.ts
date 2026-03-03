@@ -3,7 +3,8 @@ import { FileType, MediaTaskType, FFmpegTask } from "../../../types/tasks";
 import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
+import { createTaskStore, CreateTaskStoreState } from "@/lib/createTaskStore";
+import { extractFilenameFromPath } from "@/lib/utils";
 
 export interface CompressingAudioTask extends FFmpegTask {
   args: CompressAudioTaskArgs;
@@ -68,8 +69,8 @@ export const useCompressorStore = create<CompressorStore>(
       await getMediaTaskQueue().addCompressTasks(
         tasks.map((task) => {
           const outputDir = settings.getOutputDir(task.args.input_path);
-          const outputTitle = resolveOutputTitle(task);
-          const outputFormat = task.args.format || "";
+          const outputTitle = task.outputTitle || extractFilenameFromPath(task.args.input_path);
+          const outputFormat = task.args.format || task.mediaDetails?.extension;
           console.log("Compressing task media details", JSON.stringify(task.mediaDetails));
           return {
             type: task.taskType,

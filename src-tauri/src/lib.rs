@@ -75,10 +75,84 @@ impl SharedClock {
     }
 }
 
-use tauri::Manager;
+use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
+use tauri::{Emitter, Manager};
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SingleInstancePayload {
+    args: Vec<String>,
+    cwd: String,
+}
+
+const SINGLE_INSTANCE_ADDR: &str = "127.0.0.1:38947";
+
+fn send_to_primary_instance(args: Vec<String>, cwd: String) -> bool {
+    match TcpStream::connect(SINGLE_INSTANCE_ADDR) {
+        Ok(mut stream) => {
+            let payload = SingleInstancePayload { args, cwd };
+            if let Ok(json) = serde_json::to_string(&payload) {
+                return stream.write_all(json.as_bytes()).is_ok();
+            }
+            false
+        }
+        Err(_) => false,
+    }
+}
+
+fn setup_single_instance_or_exit() -> Option<TcpListener> {
+    match TcpListener::bind(SINGLE_INSTANCE_ADDR) {
+        Ok(listener) => Some(listener),
+        Err(_) => {
+            let args: Vec<String> = std::env::args().skip(1).collect();
+            let cwd = std::env::current_dir()
+                .ok()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if send_to_primary_instance(args, cwd) {
+                None
+            } else {
+                eprintln!(
+                    "Another instance may be running, but argument forwarding failed. Continue launching."
+                );
+                TcpListener::bind("127.0.0.1:0").ok()
+            }
+        }
+    }
+}
+
+fn spawn_single_instance_listener(
+    listener: TcpListener,
+    app: tauri::AppHandle,
+) {
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(mut stream) = stream else { continue };
+            let mut buf = String::new();
+            if stream.read_to_string(&mut buf).is_err() {
+                continue;
+            }
+            let Ok(payload) = serde_json::from_str::<SingleInstancePayload>(&buf) else {
+                continue;
+            };
+            let _ = app.emit("single-instance", payload);
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+    });
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let Some(single_instance_listener) = setup_single_instance_or_exit() else {
+        return;
+    };
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
@@ -120,6 +194,7 @@ pub fn run() {
             crate::commands::get_audio_file_info,
             crate::commands::convert_audio_file,
             crate::commands::get_detailed_media_info,
+            crate::commands::get_detailed_media_info_batch,
             crate::commands::get_detailed_image_info,
             crate::commands::check_hardware_acceleration,
             crate::commands::convert_gif_file,
@@ -140,7 +215,9 @@ pub fn run() {
             crate::commands::delete_task_history,
             crate::commands::clear_task_history,
         ])
-        .setup(|app| {
+        .setup(move |app| {
+            spawn_single_instance_listener(single_instance_listener, app.handle().clone());
+
             let window = app.get_webview_window("main");
             if let Some(window) = window {
                 if let Ok(remote_url) = std::env::var("TAURI_REMOTE_URL") {

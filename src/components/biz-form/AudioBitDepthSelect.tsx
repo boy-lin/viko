@@ -30,7 +30,6 @@ interface AudioBitDepthSelectProps {
 }
 
 const DEFAULT_LABEL = "位深";
-const DEFAULT_PLACEHOLDER = "选择位深";
 const BIT_DEPTH_HELP = "控制每个采样的精度。更高位深有利于动态范围与细节保留，但体积通常更高。";
 
 export const AudioBitDepthSelect: React.FC<AudioBitDepthSelectProps> = ({

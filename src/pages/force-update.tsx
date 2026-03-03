@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { getUpdaterGuardStatus, initUpdater, type UpdaterGuardStatus } from "@/lib/updater";
 
 export default function ForceUpdatePage() {
+  const { t } = useTranslation("common");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<UpdaterGuardStatus | null>(null);
 
   const lastSuccessText = useMemo(() => {
-    if (!status?.lastSuccessAtMs) return "æš‚æ— ";
+    if (!status?.lastSuccessAtMs) return t("force_update.status.none", "ÔİÎŞ");
     return new Date(status.lastSuccessAtMs).toLocaleString();
-  }, [status?.lastSuccessAtMs]);
+  }, [status?.lastSuccessAtMs, t]);
 
   const refreshStatus = async () => {
     const next = await getUpdaterGuardStatus();
@@ -35,16 +37,27 @@ export default function ForceUpdatePage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-lg border p-6 space-y-4">
-        <h1 className="text-lg font-semibold">éœ€è¦å…ˆæ›´æ–°åº”ç”¨</h1>
+        <h1 className="text-lg font-semibold">{t("force_update.title", "¸üĞÂÓ¦ÓÃ")}</h1>
         <p className="text-sm text-muted-foreground">
-          å½“å‰ç½‘ç»œç¯å¢ƒä¸‹æ›´æ–°æ£€æŸ¥å¤šæ¬¡å¤±è´¥ï¼Œè¯·å…ˆå®Œæˆæ›´æ–°åå†ç»§ç»­ä½¿ç”¨ã€‚
+          {t(
+            "force_update.description",
+            "µ±Ç°°æ±¾Ó¦ÓÃÒÑ¾­²»ÔÚÎ¬»¤£¬ÇëÏÈÍê³É¸üĞÂºó¼ÌĞøÊ¹ÓÃ¡£",
+          )}
         </p>
         <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
-          <p>æœ‰æ•ˆå¤±è´¥æ¬¡æ•°ï¼š{status?.effectiveFailCount ?? "-"}</p>
-          <p>æœ€è¿‘æˆåŠŸæ—¶é—´ï¼š{lastSuccessText}</p>
+          <p>
+            {t("force_update.status.effective_fail_count", "ÓĞĞ§Ê§°Ü´ÎÊı")}£º
+            {status?.effectiveFailCount ?? "-"}
+          </p>
+          <p>
+            {t("force_update.status.last_success_time", "×î½ü³É¹¦Ê±¼ä")}£º
+            {lastSuccessText}
+          </p>
         </div>
         <Button className="w-full" disabled={loading} onClick={handleRetryUpdate}>
-          {loading ? "æ£€æŸ¥ä¸­..." : "é‡è¯•æ›´æ–°"}
+          {loading
+            ? t("force_update.actions.checking", "¼ì²éÖĞ...")
+            : t("force_update.actions.retry_update", "ÖØÊÔ¸üĞÂ")}
         </Button>
       </div>
     </div>

@@ -1,30 +1,31 @@
-import { useEffect, useState } from "react";
+﻿import { useMemo } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import TaskStatusLabel from "@/components/ui-biz/TaskStatusLabel";
 import TaskLoadingCard from "@/components/ui-biz/TaskLoadingCard";
 import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
-import { CompressingTask, FileType } from "@/types/tasks";
+import { FileType, MediaDetailsWithResolve, MediaTaskType } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { CompressVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
-import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 import { CompressionSettingsDialog } from "./SettingsDialog";
-import { useCompressorStore } from "./store";
+import { CompressingTask, useCompressorStore } from "./store";
 import { VIDEO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
-import { MediaTaskType } from "@/types/tasks";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { formatFileSize } from "@/lib/file";
 import { getVideoCompressionPresetByRatio } from "./compressionPreset";
 import { extractFilenameFromPath, formatBitrate } from "@/lib/utils";
 import { toast } from "sonner";
-import { FormatEnum } from "@/types/options";
+import { FormatEnum, VideoEncoderEnum } from "@/types/options";
 
 interface TaskItemProps {
   task: CompressingTask;
+  metaStatus?: "idle" | "loading" | "error";
+  metaError?: string;
+  onRetryMeta?: () => void;
 }
 
 interface CompressibilityAssessment {
@@ -63,6 +64,22 @@ const toNumber = (value: unknown): number | undefined => {
     return Number.isFinite(parsed) ? parsed : undefined;
   }
   return undefined;
+};
+
+const SOURCE_CODEC_TO_ENCODER: Partial<Record<string, VideoEncoderEnum>> = {
+  h264: VideoEncoderEnum.H264,
+  avc: VideoEncoderEnum.H264,
+  hevc: VideoEncoderEnum.H265,
+  h265: VideoEncoderEnum.H265,
+  vp9: VideoEncoderEnum.VP9,
+  av1: VideoEncoderEnum.AV1,
+  mpeg4: VideoEncoderEnum.MPEG4,
+  mpeg2video: VideoEncoderEnum.MPEG2VIDEO,
+  mjpeg: VideoEncoderEnum.MJPEG,
+  prores: VideoEncoderEnum.PRORES,
+  prores_ks: VideoEncoderEnum.PRORES,
+  libxvid: VideoEncoderEnum.XVID,
+  xvid: VideoEncoderEnum.XVID,
 };
 
 const clampScore = (score: number) => Math.max(0, Math.min(100, Math.round(score)));
@@ -166,15 +183,24 @@ const assessCompressibility = (details: any): CompressibilityAssessment => {
   };
 };
 
-const buildDefaultArgs = (task: CompressingTask, details: any): { args: CompressVideoTaskArgs; title: string } => {
+export const buildDefaultTaskDetailsUpdates = (
+  task: CompressingTask,
+  details: MediaDetailsWithResolve,
+): Partial<CompressingTask> => {
   const title = details.title || extractFilenameFromPath(details.path);
   const taskId = task.id;
   const path = task.args.input_path;
   const assessment = assessCompressibility(details);
   const ratio = typeof task.args.ratio === "number" ? task.args.ratio : 20;
   const currentArgs = task.args as CompressVideoTaskArgs;
-  const currentFormat = currentArgs.format || assessment.recommendedFormat;
+  const sourceFormat = (details.format as FormatEnum) || (details.extension as FormatEnum);
+  const sourceFormatSupported = Boolean(sourceFormat && VIDEO_CONTAINER_DEFINITIONS[sourceFormat]);
+  const currentFormat = sourceFormatSupported
+    ? sourceFormat
+    : (currentArgs.format || assessment.recommendedFormat);
   const firstVideoStream = details?.streams?.find((s: any) => s.codec_type === "video");
+  const sourceCodecName = String(firstVideoStream?.codec_name ?? "").toLowerCase();
+  const sourceCodec = SOURCE_CODEC_TO_ENCODER[sourceCodecName] ?? (sourceCodecName as VideoEncoderEnum);
   const sourceVideoBitrate = toNumber(firstVideoStream?.bit_rate);
   const sourceVideoBitrateKbps =
     typeof sourceVideoBitrate === "number" && sourceVideoBitrate > 0
@@ -211,10 +237,11 @@ const buildDefaultArgs = (task: CompressingTask, details: any): { args: Compress
     currentFormat,
     initialAudioTracks,
     {
+      sourceCodec,
       videoBitrateKbps: sourceVideoBitrateKbps,
       frameRate: sourceFrameRate,
       keyframeInterval: sourceKeyframeInterval,
-    }
+    },
   );
   const ratioPatch = { ...ratioPreset.patch };
   delete ratioPatch.codec;
@@ -222,6 +249,7 @@ const buildDefaultArgs = (task: CompressingTask, details: any): { args: Compress
     ...currentArgs,
     ...ratioPatch,
     task_id: taskId,
+    format: currentFormat,
     input_path: path,
     ratio,
     source_video_bitrate: sourceVideoBitrateKbps,
@@ -230,6 +258,17 @@ const buildDefaultArgs = (task: CompressingTask, details: any): { args: Compress
     source_audio_tracks: initialAudioTracks,
   };
   const containerDefinition = VIDEO_CONTAINER_DEFINITIONS[outputArgs.format as FormatEnum];
+  const resolvedSourceCodec = containerDefinition?.video?.allowedEncoders?.includes(sourceCodec as VideoEncoderEnum)
+    ? (sourceCodec as VideoEncoderEnum)
+    : undefined;
+  const resolvedPresetCodec = containerDefinition?.video?.allowedEncoders?.includes(ratioPreset.patch.codec as VideoEncoderEnum)
+    ? (ratioPreset.patch.codec as VideoEncoderEnum)
+    : undefined;
+  outputArgs.codec =
+    resolvedSourceCodec ||
+    resolvedPresetCodec ||
+    containerDefinition?.video?.allowedEncoders?.[0] ||
+    currentArgs.codec;
   outputArgs.audio_tracks =
     details?.streams
       ?.filter((stream: any) => stream.codec_type === "audio")
@@ -245,56 +284,34 @@ const buildDefaultArgs = (task: CompressingTask, details: any): { args: Compress
             ? stream.sample_rate
             : 32000,
         channels: stream.channels,
-        bit_depth: stream.bit_depth
+        bit_depth: stream.bit_depth,
       })) || [];
-  return { args: outputArgs, title };
+
+  return {
+    mediaDetails: details,
+    args: outputArgs,
+    fileType: FileType.Video,
+    taskType: MediaTaskType.CompressVideo,
+    outputTitle: title,
+  };
 };
 
-export default function TaskItem({ task }: TaskItemProps) {
+export default function TaskItem({
+  task,
+  metaStatus,
+  metaError,
+  onRetryMeta,
+}: TaskItemProps) {
   const { t } = useTranslation("converter");
   const updateTaskById = useCompressorStore((state) => state.updateTaskById);
-  const [loading, setLoading] = useState(!task.mediaDetails);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    const loadDetails = async () => {
-      if (task.mediaDetails || !task.args?.input_path) {
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const details = await bridge.getMediaDetails(task.args.input_path);
-        if (!active) return;
-        const { args: outputArgs, title } = buildDefaultArgs(task, details);
-        updateTaskById(task.id, {
-          mediaDetails: details,
-          args: outputArgs,
-          fileType: FileType.Video,
-          taskType: MediaTaskType.CompressVideo,
-          outputTitle: title,
-        });
-      } catch (error: any) {
-        if (!active) return;
-        setLoadError(error?.message || "Failed to load media details");
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    loadDetails();
-    return () => {
-      active = false;
-    };
-  }, [task.args?.input_path]);
+  const loading = metaStatus === "loading" || (!task.mediaDetails && metaStatus !== "error");
 
   const handleConvertSingle = async () => {
-    console.log('compress_video mediaDetails', JSON.stringify(task.mediaDetails));
     try {
-      await useCompressorStore.getState().pushTasksToQueue([task])
+      await useCompressorStore.getState().pushTasksToQueue([task]);
     } catch (e: any) {
-      toast.error(e.message)
+      toast.error(e.message);
     }
   };
 
@@ -317,12 +334,18 @@ export default function TaskItem({ task }: TaskItemProps) {
     useCompressorStore.getState().removeTask(task.id);
   };
 
-  if (loadError) {
-    return <TaskLoadErrorCard loadError={loadError} onRemove={handleDeleteOrCancel} />;
+  if (metaStatus === "error") {
+    return (
+      <TaskLoadErrorCard
+        loadError={metaError || "Failed to load media details"}
+        onRemove={handleDeleteOrCancel}
+        onRetry={onRetryMeta}
+      />
+    );
   }
 
   const taskArgs = task.args as CompressVideoTaskArgs;
-  const firstVideoStream = task.mediaDetails?.streams.find((s) => s.codec_type === "video");
+  const firstVideoStream = task.mediaDetails?.streams.find((s: any) => s.codec_type === "video");
   const compressibility = assessCompressibility(task.mediaDetails);
   const originalInfoParts = [
     task.mediaDetails?.extension?.toUpperCase?.(),
@@ -333,13 +356,17 @@ export default function TaskItem({ task }: TaskItemProps) {
   const targetInfoParts = [
     taskArgs.format?.toUpperCase?.(),
     taskArgs.codec?.toUpperCase?.(),
-    '-',
+    "-",
     formatBitrate(taskArgs.bitrate, 1),
   ];
 
+  const outputTitleValue = useMemo(
+    () => task.outputTitle ?? task.mediaDetails?.title ?? "",
+    [task.outputTitle, task.mediaDetails?.title],
+  );
+
   const handleOutputTitleChange = (nextTitle: string) => {
     if (!task.mediaDetails?.path) {
-      console.error('mediaDetails.path is undefined');
       return;
     }
     updateTaskById(task.id, {
@@ -379,10 +406,7 @@ export default function TaskItem({ task }: TaskItemProps) {
       </div>
 
       <div className="flex-1 min-w-0">
-        <OutputTitleEditor
-          value={task.outputTitle}
-          onChange={handleOutputTitleChange}
-        />
+        <OutputTitleEditor value={outputTitleValue} onChange={handleOutputTitleChange} />
         <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground">
           {targetInfoParts.map((p, idx) => (
             <span key={idx}>{p || "auto"}</span>
@@ -391,7 +415,6 @@ export default function TaskItem({ task }: TaskItemProps) {
       </div>
 
       <div className="flex items-center gap-2">
-
         <CompressionSettingsDialog
           config={taskArgs}
           onConfigChange={async (config) => {
@@ -399,7 +422,7 @@ export default function TaskItem({ task }: TaskItemProps) {
               args: {
                 ...taskArgs,
                 ...config,
-              }
+              },
             });
           }}
           onSave={(config) => {
@@ -407,7 +430,7 @@ export default function TaskItem({ task }: TaskItemProps) {
               args: {
                 ...taskArgs,
                 ...config,
-              }
+              },
             });
           }}
         />
@@ -429,7 +452,7 @@ export default function TaskItem({ task }: TaskItemProps) {
           variant="outline"
           className="cursor-pointer px-4"
           onClick={handleConvertSingle}
-          disabled={isQueuedOrProcessing}
+          disabled={loading || isQueuedOrProcessing}
         >
           {t("actions.compressSingle", "压缩")}
         </Button>

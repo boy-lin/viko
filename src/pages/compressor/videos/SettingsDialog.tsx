@@ -29,6 +29,7 @@ import { getVideoCompressionPresetByRatio } from "./compressionPreset";
 import { VIDEO_CONTAINER_DEFINITIONS, VIDEO_ENCODER_DEFINITIONS } from "@/data/capabilities";
 import { parseOptionalInt } from "@/lib/utils";
 import { FormatEnum, VideoEncoderEnum } from "@/types/options";
+import { useTranslation } from "react-i18next";
 
 interface CompressionSettingsFormProps {
   config: CompressVideoTaskArgs;
@@ -52,6 +53,7 @@ const buildRatioAdjustedPatch = (
     format,
     config.source_audio_tracks ?? config.audio_tracks,
     {
+      sourceCodec: config.codec,
       videoBitrateKbps: config.source_video_bitrate,
       frameRate: config.source_frame_rate,
       keyframeInterval: config.source_keyframe_interval,
@@ -72,6 +74,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   config,
   onConfigChange,
 }) => {
+  const { t } = useTranslation("common");
   const formatDefinition = useMemo(() => {
     if (!config.format) return undefined;
     return VIDEO_CONTAINER_DEFINITIONS[config.format as FormatEnum];
@@ -187,11 +190,12 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           </span>
         </Label>
       </div>
-      <details className="col-span-2 rounded-md border border-border px-3 py-2">
-        <summary className="cursor-pointer select-none text-sm text-muted-foreground">
-          修改容器与编码器
-        </summary>
-        <div className="mt-3 grid grid-cols-2 gap-4">
+      <div className="col-span-2 space-y-1">
+        <div className="text-sm font-medium">{t("videoCompressor.settingsDialog.advanced.title")}</div>
+        <div className="text-xs text-muted-foreground">
+          {t("videoCompressor.settingsDialog.advanced.description")}
+        </div>
+      </div>
           <VideoFormatSelector
             className="space-y-2 w-full"
             value={config.format as FormatEnum}
@@ -214,9 +218,6 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
               })
             }
           />
-        </div>
-      </details>
-
     </div>
   );
 };

@@ -29,7 +29,7 @@ export const ConverterFooter: React.FC<{}> = () => {
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
 
   const handleFormatChange = (
-    config: GlobalConverterConfig
+    config: Partial<GlobalConverterConfig>
   ) => {
     updateGlobalConfig(config);
   };

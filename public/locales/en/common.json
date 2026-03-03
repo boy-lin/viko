@@ -83,20 +83,43 @@
       "actions": {
         "close": "Close"
       },
-            "fields": {
-                "silenceThreshold": "Silence Threshold (dB)",
-                "volumeGain": "Volume Gain (dB)",
-                "removeSilence": "Remove Silence",
-                "formatHelp": "Output format affects available encoders, compatibility, and resulting size. Choose based on your scenario.",
-                "sampleRateHelp": "Controls how many samples are captured per second. Higher values usually preserve more detail, but may increase size and processing cost.",
-                "bitrateHelp": "Controls audio data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
-                "channelHelp": "Controls output channel layout. Fewer channels usually reduce size, while more channels preserve richer spatial information.",
-                "bitDepthHelp": "Controls precision per sample. Higher bit depth helps preserve dynamic range and detail, but usually increases size.",
-                "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs."
-            },
+      "fields": {
+        "silenceThreshold": "Silence Threshold (dB)",
+        "volumeGain": "Volume Gain (dB)",
+        "removeSilence": "Remove Silence",
+        "formatHelp": "Output format affects available encoders, compatibility, and resulting size. Choose based on your scenario.",
+        "sampleRateHelp": "Controls how many samples are captured per second. Higher values usually preserve more detail, but may increase size and processing cost.",
+        "bitrateHelp": "Controls audio data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
+        "channelHelp": "Controls output channel layout. Fewer channels usually reduce size, while more channels preserve richer spatial information.",
+        "bitDepthHelp": "Controls precision per sample. Higher bit depth helps preserve dynamic range and detail, but usually increases size.",
+        "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs."
+      },
       "advanced": {
         "title": "Advanced Settings",
-        "description": "If you want better compression by changing format and encoder, you can manually adjust the following options"
+        "description": "You can adjust format and encoder to achieve better compression"
+      }
+    }
+  },
+  "videoCompressor": {
+    "settingsDialog": {
+      "title": "Compression Settings",
+      "description": "Only modifies compression parameters for the current task",
+      "popoverDescription": "Modify global compression parameters",
+      "actions": {
+        "close": "Close"
+      },
+      "fields": {
+        "formatHelp": "Output format affects available encoders, compatibility, and resulting size. Choose based on your scenario.",
+        "frameRateHelp": "Controls how many frames are captured per second. Higher values usually preserve more detail, but may increase size and processing cost.",
+        "bitrateHelp": "Controls video data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
+        "keyframeIntervalHelp": "Controls keyframe interval. Smaller values usually preserve more detail, but may increase size and processing cost.",
+        "colorDepthHelp": "Controls color depth. Higher values usually improve fidelity, but can increase size and processing overhead.",
+        "aspectRatioHelp": "Controls aspect ratio. Higher values usually preserve more detail, but may increase size and processing cost.",
+        "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs."
+      },
+      "advanced": {
+        "title": "Advanced Settings",
+        "description": "You can adjust format and encoder to achieve better compression"
       }
     }
   },
@@ -191,6 +214,19 @@
       "title": "Image",
       "quality": "Quality:",
       "resolution": "Resolution:"
+    }
+  },
+  "force_update": {
+    "title": "Update App",
+    "description": "This app version is no longer maintained. Please update before continuing.",
+    "status": {
+      "none": "N/A",
+      "effective_fail_count": "Effective fail count",
+      "last_success_time": "Last success time"
+    },
+    "actions": {
+      "checking": "Checking...",
+      "retry_update": "Retry update"
     }
   }
 }

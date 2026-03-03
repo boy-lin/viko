@@ -1,9 +1,11 @@
-﻿import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { AUDIO_SUPPORT_FORMATS } from "@/data/formats";
+import { useBatchMediaDetails } from "@/hooks/useBatchMediaDetails";
+import { MediaDetailsWithResolve } from "@/types/tasks";
 
 import { UploadPanel } from "./UploadPanel";
 import { useConverterStore } from "./store";
-import TaskItem from "./TaskItem";
+import TaskItem, { buildDefaultArgs } from "./TaskItem";
 
 interface ConvertingTaskProps {
   globalFilter?: string;
@@ -13,6 +15,18 @@ export default function ConvertingTask({
   globalFilter = "",
 }: ConvertingTaskProps) {
   const convertingTasks = useConverterStore((state) => state.convertingTasks);
+  const updateTaskById = useConverterStore((state) => state.updateTaskById);
+
+  const buildTaskUpdate = useCallback(
+    (task: (typeof convertingTasks)[number], details: MediaDetailsWithResolve) => buildDefaultArgs(details, task),
+    [],
+  );
+
+  const { metaStateById, retryMeta } = useBatchMediaDetails({
+    tasks: convertingTasks,
+    updateTaskById,
+    buildUpdate: buildTaskUpdate,
+  });
 
   const filteredTasks = useMemo(() => {
     const search = globalFilter?.trim().toLowerCase() || "";
@@ -27,11 +41,17 @@ export default function ConvertingTask({
     <>
       <div className="space-y-3">
         {filteredTasks.length === 0 ? (
-          <UploadPanel
-            supportedExtensions={AUDIO_SUPPORT_FORMATS}
-          />
+          <UploadPanel supportedExtensions={AUDIO_SUPPORT_FORMATS} />
         ) : (
-          filteredTasks.map((task) => <TaskItem key={task.id} task={task} />)
+          filteredTasks.map((task) => (
+            <TaskItem
+              key={task.id}
+              task={task}
+              metaStatus={metaStateById[task.id]?.status}
+              metaError={metaStateById[task.id]?.error}
+              onRetryMeta={() => retryMeta(task.id)}
+            />
+          ))
         )}
       </div>
     </>

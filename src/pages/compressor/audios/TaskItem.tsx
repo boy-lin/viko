@@ -1,11 +1,11 @@
-import { startTransition, useEffect, useState } from "react";
+﻿import { startTransition, useMemo } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import TaskStatusLabel from "@/components/ui-biz/TaskStatusLabel";
 import TaskLoadingCard from "@/components/ui-biz/TaskLoadingCard";
 import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
-import { FileType, MediaDetailsWithResolve } from "@/types/tasks";
+import { MediaDetailsWithResolve } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
@@ -13,17 +13,17 @@ import { useTranslation } from "react-i18next";
 import { CompressionSettingsDialog } from "./SettingsDialog";
 import { CompressingAudioTask, useCompressorStore } from "./store";
 import { AUDIO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
-import { MediaTaskType } from "@/types/tasks";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { getAudioCompressionPresetByRatio } from "./compressionPreset";
-import { extractFilenameFromPath, formatBitrate } from "@/lib/utils";
-import { bridge } from "@/lib/bridge";
+import { formatBitrate } from "@/lib/utils";
 import { AudioEncoderEnum, FormatEnum } from "@/types/options";
-
 
 interface TaskItemProps {
   task: CompressingAudioTask;
+  metaStatus?: "idle" | "loading" | "error";
+  metaError?: string;
+  onRetryMeta?: () => void;
 }
 
 interface CompressibilityAssessment {
@@ -116,7 +116,7 @@ const assessCompressibility = (details: any): CompressibilityAssessment => {
   if (normalizedScore >= 80) {
     return {
       score: normalizedScore,
-      text: `压缩潜力极高`,
+      text: "压缩潜力极高",
       colorClass: "text-emerald-600",
       recommendedFormat,
     };
@@ -124,7 +124,7 @@ const assessCompressibility = (details: any): CompressibilityAssessment => {
   if (normalizedScore >= 60) {
     return {
       score: normalizedScore,
-      text: `压缩潜力高`,
+      text: "压缩潜力高",
       colorClass: "text-sky-600",
       recommendedFormat,
     };
@@ -132,14 +132,14 @@ const assessCompressibility = (details: any): CompressibilityAssessment => {
   if (normalizedScore >= 40) {
     return {
       score: normalizedScore,
-      text: `可适度压缩`,
+      text: "可适度压缩",
       colorClass: "text-amber-600",
       recommendedFormat,
     };
   }
   return {
     score: normalizedScore,
-    text: `压缩空间有限`,
+    text: "压缩空间有限",
     colorClass: "text-rose-600",
     recommendedFormat,
   };
@@ -211,55 +211,23 @@ export const buildDefaultAudioArgs = (
     (isPresetCodecAllowed ? presetCodec : undefined) ||
     allowedEncoders[0] ||
     outputArgs.codec;
- 
+
   return outputArgs;
 };
 
-export default function TaskItem({ task }: TaskItemProps) {
+export default function TaskItem({
+  task,
+  metaStatus,
+  metaError,
+  onRetryMeta,
+}: TaskItemProps) {
   const { t } = useTranslation("converter");
   const updateTaskById = useCompressorStore((state) => state.updateTaskById);
-  const [loading, setLoading] = useState(!task.mediaDetails);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    const loadDetails = async () => {
-      if (task.mediaDetails || !task.args?.input_path) {
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const details = await bridge.getMediaDetails(task.args.input_path);
-        if (!active) return;
-        const outputArgs = buildDefaultAudioArgs(task, details);
-        const outputTitle =
-          details.title || extractFilenameFromPath(details.path) || "Unknown";
-        startTransition(() => {
-          updateTaskById(task.id, {
-            mediaDetails: details,
-            args: outputArgs,
-            fileType: FileType.Audio,
-            taskType: MediaTaskType.CompressAudio,
-            outputTitle,
-          });
-        });
-      } catch (error: any) {
-        if (!active) return;
-        setLoadError(error?.message || "Failed to load media details");
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    loadDetails();
-    return () => {
-      active = false;
-    };
-  }, [task.args?.input_path]);
+  const loading = metaStatus === "loading" || (!task.mediaDetails && metaStatus !== "error");
 
   const handleConvertSingle = async () => {
-    await useCompressorStore.getState().pushTasksToQueue([task])
+    await useCompressorStore.getState().pushTasksToQueue([task]);
   };
 
   if (loading) {
@@ -285,8 +253,14 @@ export default function TaskItem({ task }: TaskItemProps) {
     });
   };
 
-  if (loadError) {
-    return <TaskLoadErrorCard loadError={loadError} onRemove={handleDeleteOrCancel} />;
+  if (metaStatus === "error") {
+    return (
+      <TaskLoadErrorCard
+        loadError={metaError || "Failed to load media details"}
+        onRemove={handleDeleteOrCancel}
+        onRetry={onRetryMeta}
+      />
+    );
   }
 
   const taskArgs = task.args as CompressAudioTaskArgs;
@@ -305,10 +279,15 @@ export default function TaskItem({ task }: TaskItemProps) {
     taskArgs.channels,
   ];
 
+  const outputTitleValue = useMemo(
+    () => task.outputTitle ?? task.mediaDetails?.title ?? "",
+    [task.outputTitle, task.mediaDetails?.title],
+  );
+
   const handleOutputTitleChange = (nextTitle: string) => {
     startTransition(() => {
       updateTaskById(task.id, {
-        outputTitle: nextTitle
+        outputTitle: nextTitle,
       });
     });
   };
@@ -337,31 +316,31 @@ export default function TaskItem({ task }: TaskItemProps) {
       args: {
         ...taskArgs,
         ...config,
-      }
+      },
     });
   };
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm">
-      <div className="flex flex-col items-start gap-2 flex-shrink-0 relative">
-        <div className="w-20 h-20 rounded-lg overflow-hidden">
+    <div className="flex items-center gap-4 rounded-xl border border-border bg-white p-4 shadow-sm">
+      <div className="relative flex flex-shrink-0 flex-col items-start gap-2">
+        <div className="h-20 w-20 overflow-hidden rounded-lg">
           <MediaThumbnail
             path={task.mediaDetails?.path}
             title={task.mediaDetails?.title}
             fileType={task.fileType}
-            className="w-full h-full"
+            className="h-full w-full"
           />
         </div>
-        <span className={`absolute top-1 right-0 w-full text-xs text-center font-medium ${compressibility.colorClass}`}>
+        <span className={`absolute right-0 top-1 w-full text-center text-xs font-medium ${compressibility.colorClass}`}>
           {compressibility.text}
         </span>
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-3">
           <EllipsisName name={task.mediaDetails?.title} className="text-base font-semibold text-foreground" />
         </div>
-        <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground">
+        <div className="mt-2 grid grid-cols-2 text-sm text-muted-foreground">
           {originalInfoParts.map((p, idx) => (
             <span key={idx}>{p || "-"}</span>
           ))}
@@ -372,12 +351,9 @@ export default function TaskItem({ task }: TaskItemProps) {
         <TaskStatusLabel task={task} />
       </div>
 
-      <div className="flex-1 min-w-0">
-        <OutputTitleEditor
-          value={task.outputTitle}
-          onChange={handleOutputTitleChange}
-        />
-        <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground">
+      <div className="min-w-0 flex-1">
+        <OutputTitleEditor value={outputTitleValue} onChange={handleOutputTitleChange} />
+        <div className="mt-1 grid grid-cols-2 text-sm text-muted-foreground">
           {targetInfoParts.map((p, idx) => (
             <span key={idx}>{p || "auto"}</span>
           ))}
@@ -385,16 +361,13 @@ export default function TaskItem({ task }: TaskItemProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <CompressionSettingsDialog
-          config={taskArgs}
-          onConfigChange={handleTaskConfigChange}
-        />
+        <CompressionSettingsDialog config={taskArgs} onConfigChange={handleTaskConfigChange} />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="outline"
               size="icon"
-              className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
+              className="cursor-pointer text-red-500 hover:bg-red-50 hover:text-red-600"
               onClick={handleDeleteOrCancel}
             >
               <Trash2 className="h-4 w-4" />
@@ -407,7 +380,7 @@ export default function TaskItem({ task }: TaskItemProps) {
           variant="outline"
           className="cursor-pointer px-4"
           onClick={handleConvertSingle}
-          disabled={isQueuedOrProcessing}
+          disabled={loading || isQueuedOrProcessing}
         >
           {t("actions.compressSingle", "压缩")}
         </Button>

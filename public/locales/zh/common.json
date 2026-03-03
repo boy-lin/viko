@@ -96,7 +96,30 @@
       },
       "advanced": {
         "title": "高级设置",
-        "description": "如果愿意改变文件格式和编码达到更好的压缩效果可以手动调整以下选项"
+        "description": "可以调整文件格式和编码达到更好的压缩效果"
+      }
+    }
+  },
+  "videoCompressor": {
+    "settingsDialog": {
+      "title": "压缩设置",
+      "description": "仅修改当前任务的压缩参数",
+      "popoverDescription": "修改全局压缩参数",
+      "actions": {
+        "close": "关闭"
+      },
+      "fields": {
+        "formatHelp": "输出格式会影响可用编码器、兼容性与体积表现，建议按使用场景选择。",
+        "frameRateHelp": "控制每秒帧数。数值越高通常细节更完整，但体积与处理成本可能上升。",
+        "bitrateHelp": "控制视频数据密度。数值越高通常保真更好，但体积与处理开销也可能增加。",
+        "keyframeIntervalHelp": "控制关键帧间隔。数值越小通常细节更完整，但体积与处理成本可能上升。",
+        "colorDepthHelp": "控制色彩深度。数值越高通常保真更好，但体积与处理开销也可能增加。",
+        "aspectRatioHelp": "控制宽高比。数值越高通常细节更完整，但体积与处理成本可能上升。",
+        "encoderHelp": "编码器会影响质量、速度、体积和兼容性，通常需结合格式与用途综合选择。"
+      },
+      "advanced": {
+        "title": "高级设置",
+        "description": "可以调整文件格式和编码达到更好的压缩效果"
       }
     }
   },
@@ -189,4 +212,17 @@
     },
     "image": { "title": "图片", "quality": "质量：", "resolution": "分辨率：" }
   }
-}
+,
+  "force_update": {
+    "title": "更新应用",
+    "description": "当前版本应用已经不在维护，请先完成更新后继续使用。",
+    "status": {
+      "none": "暂无",
+      "effective_fail_count": "有效失败次数",
+      "last_success_time": "最近成功时间"
+    },
+    "actions": {
+      "checking": "检查中...",
+      "retry_update": "重试更新"
+    }
+  }}

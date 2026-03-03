@@ -31,6 +31,7 @@ function parseArgs(argv) {
     target: "x86_64-pc-windows-msvc",
     version: "",
     skipBuild: false,
+    upload: true,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -46,6 +47,10 @@ function parseArgs(argv) {
       opts.version = a.slice("--version=".length);
     } else if (a === "--skip-build") {
       opts.skipBuild = true;
+    } else if (a === "--skip-upload") {
+      opts.upload = false;
+    } else if (a === "--upload") {
+      opts.upload = true;
     } else if (a === "--help" || a === "-h") {
       printHelpAndExit(0);
     } else {
@@ -61,15 +66,17 @@ function printHelpAndExit(code) {
 Local release build + upload helper.
 
 Usage:
-  node scripts/local-release-upload.mjs [--target <triple>] [--version <x.y.z>] [--skip-build]
+  node scripts/local-release-upload.mjs [--target <triple>] [--version <x.y.z>] [--skip-build] [--skip-upload]
 
 Defaults:
   --target  x86_64-pc-windows-msvc
   --version package.json version
+  --upload  true
 
 Required env:
-  UPDATER_API_BASE
-  APP_RELEASE_CI_TOKEN  (or UPDATER_API_TOKEN)
+  when upload enabled:
+    UPDATER_API_BASE
+    APP_RELEASE_CI_TOKEN  (or UPDATER_API_TOKEN)
 
 Optional env:
   TAURI_SIGNING_PRIVATE_KEY
@@ -252,10 +259,14 @@ async function main() {
   }
 
   const version = await resolveVersion(opts.version);
-  const updaterApiBase = requiredEnv("UPDATER_API_BASE");
-  const updaterToken = process.env.UPDATER_API_TOKEN || requiredEnv("APP_RELEASE_CI_TOKEN");
+  const updaterApiBase = opts.upload ? requiredEnv("UPDATER_API_BASE") : "";
+  const updaterToken = opts.upload
+    ? process.env.UPDATER_API_TOKEN || requiredEnv("APP_RELEASE_CI_TOKEN")
+    : "";
 
-  console.log(`[local-release] target=${opts.target} platform=${meta.platform} version=${version}`);
+  console.log(
+    `[local-release] target=${opts.target} platform=${meta.platform} version=${version} upload=${opts.upload}`
+  );
 
   if (!opts.skipBuild) {
     await run("pnpm", ["install", "--frozen-lockfile"]);
@@ -264,11 +275,18 @@ async function main() {
   }
 
   const { updaterPath, installerPath } = await resolveArtifacts(opts.target, meta);
-  const sig = await resolveSignature(updaterPath);
-  const key = platformKey(meta.platform);
 
   console.log(`[local-release] updater=${updaterPath}`);
   console.log(`[local-release] installer=${installerPath}`);
+
+  if (!opts.upload) {
+    console.log("[local-release] skip upload by config");
+    console.log("[local-release] done");
+    return;
+  }
+
+  const sig = await resolveSignature(updaterPath);
+  const key = platformKey(meta.platform);
 
   const sharedEnv = {
     ...process.env,

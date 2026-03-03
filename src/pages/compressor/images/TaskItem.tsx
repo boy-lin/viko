@@ -1,19 +1,17 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import TaskStatusLabel from "@/components/ui-biz/TaskStatusLabel";
 import TaskLoadingCard from "@/components/ui-biz/TaskLoadingCard";
 import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
-import { FileType, MediaDetailsWithResolve } from "@/types/tasks";
+import { MediaDetailsWithResolve } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
-import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 import { CompressionSettingsDialog } from "./SettingsDialog";
 import { CompressingImageTask, useCompressorStore } from "./store";
-import { MediaTaskType } from "@/types/tasks";
 import { useSettingsStore } from "@/stores/settingsStore";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
@@ -22,6 +20,9 @@ import { getImageCompressionPresetByRatio } from "./compressionPreset";
 
 interface TaskItemProps {
   task: CompressingImageTask;
+  metaStatus?: "idle" | "loading" | "error";
+  metaError?: string;
+  onRetryMeta?: () => void;
 }
 
 const formatDpiFromTags = (tags?: Record<string, string>) => {
@@ -46,7 +47,6 @@ export const buildDefaultImageArgs = (task: CompressingImageTask, mediaDetails: 
   const format = task.args.format || mediaDetails?.extension || "jpg";
   const ratio = typeof task.args.ratio === "number" ? task.args.ratio : 50;
   const presetResult = getImageCompressionPresetByRatio(ratio, format);
-  console.log('presetResult', presetResult)
   const outputArgs: CompressImageTaskArgs = {
     ...task.args,
     ...presetResult.patch,
@@ -61,54 +61,18 @@ export const buildDefaultImageArgs = (task: CompressingImageTask, mediaDetails: 
   return outputArgs;
 };
 
-export default function TaskItem({ task }: TaskItemProps) {
+export default function TaskItem({
+  task,
+  metaStatus,
+  metaError,
+  onRetryMeta,
+}: TaskItemProps) {
   const { t } = useTranslation("converter");
   const updateTaskById = useCompressorStore((state) => state.updateTaskById);
-  const [loading, setLoading] = useState(!task.mediaDetails);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    const loadDetails = async () => {
-      if (task.mediaDetails || !task.args?.input_path) {
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const details = await bridge.getImageDetails(task.args.input_path);
-        console.log(' details', details)
-        if (!active) return;
-        const title = details.title || extractFilenameFromPath(details.path);
-        const outputArgs = buildDefaultImageArgs(
-          { ...task, outputTitle: title },
-          details,
-        );
-        startTransition(() => {
-          updateTaskById(task.id, {
-            mediaDetails: details,
-            args: outputArgs,
-            fileType: FileType.Image,
-            taskType: MediaTaskType.CompressImage,
-            outputTitle: title,
-          });
-        });
-      } catch (error: any) {
-        if (!active) return;
-        setLoadError(error?.message || "Failed to load media details");
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    loadDetails();
-    return () => {
-      active = false;
-    };
-  }, [task.args?.input_path]);
+  const loading = metaStatus === "loading" || (!task.mediaDetails && metaStatus !== "error");
 
   const handleConvertSingle = async () => {
-    await useCompressorStore.getState().pushTasksToQueue([task])
+    await useCompressorStore.getState().pushTasksToQueue([task]);
   };
 
   if (loading) {
@@ -134,8 +98,14 @@ export default function TaskItem({ task }: TaskItemProps) {
     });
   };
 
-  if (loadError) {
-    return <TaskLoadErrorCard loadError={loadError} onRemove={handleDeleteOrCancel} />;
+  if (metaStatus === "error") {
+    return (
+      <TaskLoadErrorCard
+        loadError={metaError || "Failed to load media details"}
+        onRemove={handleDeleteOrCancel}
+        onRetry={onRetryMeta}
+      />
+    );
   }
 
   const taskArgs = task.args as CompressImageTaskArgs;
@@ -147,43 +117,40 @@ export default function TaskItem({ task }: TaskItemProps) {
     taskArgs.format?.toUpperCase?.(),
     taskArgs.quality,
     taskArgs.color_mode,
-    taskArgs.dpi
+    taskArgs.dpi,
   ];
 
   const handleOutputTitleChange = (nextTitle: string) => {
-    if (!task.mediaDetails?.path) {
-      console.error('mediaDetails.path is undefined');
-      return;
-    }
-    const outputDir = useSettingsStore.getState().getOutputDir(task.mediaDetails?.path);
-    const output_path = `${outputDir}/${nextTitle}.${taskArgs.format}`
+    if (!task.mediaDetails?.path) return;
+    const outputDir = useSettingsStore.getState().getOutputDir(task.mediaDetails.path);
+    const outputPath = `${outputDir}/${nextTitle}.${taskArgs.format}`;
     startTransition(() => {
       updateTaskById(task.id, {
         outputTitle: nextTitle,
         args: {
           ...taskArgs,
-          output_path,
+          output_path: outputPath,
         },
       });
     });
   };
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm">
-      <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+    <div className="flex items-center gap-4 rounded-xl border border-border bg-white p-4 shadow-sm">
+      <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg">
         <MediaThumbnail
           path={task.mediaDetails?.path}
           title={task.mediaDetails?.title}
           fileType={task.fileType}
-          className="w-full h-full"
+          className="h-full w-full"
         />
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-3">
           <EllipsisName name={task.mediaDetails?.title} className="text-base font-semibold text-foreground" />
         </div>
-        <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground">
+        <div className="mt-2 grid grid-cols-2 text-sm text-muted-foreground">
           {originalInfoParts.map((p, idx) => (
             <span key={idx}>{p || "-"}</span>
           ))}
@@ -194,12 +161,9 @@ export default function TaskItem({ task }: TaskItemProps) {
         <TaskStatusLabel task={task} />
       </div>
 
-      <div className="flex-1 min-w-0">
-        <OutputTitleEditor
-          value={task.outputTitle}
-          onChange={handleOutputTitleChange}
-        />
-        <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground">
+      <div className="min-w-0 flex-1">
+        <OutputTitleEditor value={task.outputTitle} onChange={handleOutputTitleChange} />
+        <div className="mt-1 grid grid-cols-2 text-sm text-muted-foreground">
           {targetInfoParts.map((p, idx) => (
             <span key={idx}>{p || "auto"}</span>
           ))}
@@ -207,7 +171,6 @@ export default function TaskItem({ task }: TaskItemProps) {
       </div>
 
       <div className="flex items-center gap-2">
-
         <CompressionSettingsDialog
           config={taskArgs}
           onConfigChange={async (config) => {
@@ -216,7 +179,7 @@ export default function TaskItem({ task }: TaskItemProps) {
                 args: {
                   ...taskArgs,
                   ...config,
-                }
+                },
               });
             });
           }}
@@ -226,7 +189,7 @@ export default function TaskItem({ task }: TaskItemProps) {
                 args: {
                   ...taskArgs,
                   ...config,
-                }
+                },
               });
             });
           }}
@@ -236,22 +199,22 @@ export default function TaskItem({ task }: TaskItemProps) {
             <Button
               variant="outline"
               size="icon"
-              className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
+              className="cursor-pointer text-red-500 hover:bg-red-50 hover:text-red-600"
               onClick={handleDeleteOrCancel}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "ÂèñÊ∂à") : t("actions.delete")}</TooltipContent>
+          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "»°œ˚") : t("actions.delete")}</TooltipContent>
         </Tooltip>
 
         <Button
           variant="outline"
           className="cursor-pointer px-4"
           onClick={handleConvertSingle}
-          disabled={isQueuedOrProcessing}
+          disabled={loading || isQueuedOrProcessing}
         >
-          {t("actions.compressSingle", "ÂéãÁº©")}
+          {t("actions.compressSingle", "—πÀı")}
         </Button>
       </div>
     </div>

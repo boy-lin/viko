@@ -21,6 +21,7 @@ export interface VideoCompressionPresetResult {
 }
 
 export interface VideoCompressionSourceProfile {
+  sourceCodec?: string;
   videoBitrateKbps?: number;
   frameRate?: number;
   keyframeInterval?: number;
@@ -66,24 +67,16 @@ const scaleTrackBitrate = (
   };
 };
 
-const pickSupportedVideoEncoder = (
-  format: FormatEnum | undefined,
-  preferred: VideoEncoderEnum[],
+const pickVideoEncoderBySourceAndFormat = (
+  format: FormatEnum,
+  sourceCodec?: string,
 ) => {
-  const allowed = format
-    ? VIDEO_CONTAINER_DEFINITIONS[format]?.video?.allowedEncoders
-    : undefined;
-
-  if (allowed && allowed.length > 0) {
-    for (const codec of preferred) {
-      if (allowed.includes(codec)) return codec;
-    }
-    return allowed[0];
+  const allowed = VIDEO_CONTAINER_DEFINITIONS[format]?.video?.allowedEncoders || [];
+  const normalizedSourceCodec = String(sourceCodec ?? "").toLowerCase() as VideoEncoderEnum;
+  if (normalizedSourceCodec && allowed.includes(normalizedSourceCodec)) {
+    return normalizedSourceCodec;
   }
-
-  for (const codec of preferred) {
-    if (codec) return codec;
-  }
+  if (allowed.length > 0) return allowed[0];
   return VideoEncoderEnum.H264;
 };
 
@@ -179,6 +172,18 @@ const resolveVideoBitrate = (
   return Math.max(minBitrate, Math.min(maxBitrate, target));
 };
 
+const clampByRange = (value: number, min?: number, max?: number) => {
+  if (!Number.isFinite(value) || value <= 0) return undefined;
+  let clamped = value;
+  if (min && Number.isFinite(min) && min > 0) {
+    clamped = Math.max(clamped, min);
+  }
+  if (max && Number.isFinite(max) && max > 0) {
+    clamped = Math.min(clamped, max);
+  }
+  return clamped;
+};
+
 const normalizeSourceBitrate = (value?: number) => {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     return undefined;
@@ -231,37 +236,49 @@ export const getVideoCompressionPresetByRatio = (
     source,
   );
   const baselineBitrateKbps = normalizeSourceBitrate(source?.videoBitrateKbps);
-  const preferredEncoders =
-    normalizedRatio < 20
-      ? [
-          VideoEncoderEnum.AV1,
-          VideoEncoderEnum.H264,
-          VideoEncoderEnum.VP9,
-          VideoEncoderEnum.MPEG4,
-        ]
-      : [VideoEncoderEnum.H264, VideoEncoderEnum.VP9, VideoEncoderEnum.MPEG4];
-  const codec = pickSupportedVideoEncoder(format, preferredEncoders);
+  const codec = pickVideoEncoderBySourceAndFormat(format, source?.sourceCodec);
+  const encoderDefinition = VIDEO_ENCODER_DEFINITIONS[codec];
+  const videoMinBitrate = Math.max(100, encoderDefinition?.video?.minBitrate ?? 100);
+  const videoMaxBitrate = Math.max(
+    videoMinBitrate,
+    encoderDefinition?.video?.maxBitrate ?? 50000,
+  );
+
+  const bitrateFactor = 0.15 + normalizedRatio * 0.0085;
+  const frameRateFactor = 0.5 + normalizedRatio * 0.005;
+  const keyframeFactor = Math.max(1.0, 2.2 - normalizedRatio * 0.012);
+  const audioBitrateFactor = 0.35 + normalizedRatio * 0.0065;
+
+  const fallbackBitrateByTier =
+    normalizedRatio < 20 ? 600 : normalizedRatio <= 40 ? 1400 : normalizedRatio <= 70 ? 2400 : 3800;
+  const fallbackFrameRateByTier =
+    normalizedRatio < 20 ? 15 : normalizedRatio <= 40 ? 20 : normalizedRatio <= 70 ? 24 : 30;
+  const sourceBasedFrameRate = Math.max(12, Math.round(baselineFrameRate * frameRateFactor));
+  const sourceBasedKeyframe = Math.max(1, Math.round(baselineKeyframeInterval * keyframeFactor));
+  const baseBitrateForCodec =
+    baselineBitrateKbps
+      ? Math.max(videoMinBitrate, Math.round(baselineBitrateKbps * bitrateFactor))
+      : fallbackBitrateByTier;
+  const sourceBasedBitrate = resolveVideoBitrate(
+    codec,
+    sourceBasedFrameRate,
+    baseBitrateForCodec,
+  );
+
+  const frame_rate = resolveFrameRate(
+    encoderDefinition?.video?.maxFrameRate,
+    sourceBasedFrameRate || fallbackFrameRateByTier,
+  );
+  const keyframe_interval = resolveKeyframeInterval(
+    encoderDefinition?.video?.gopOptions,
+    sourceBasedKeyframe,
+  );
+  const bitrate = clampByRange(sourceBasedBitrate, videoMinBitrate, videoMaxBitrate) ?? fallbackBitrateByTier;
+  const audioTracks = baseTracks.map((track) =>
+    scaleTrackBitrate(track, 64, audioBitrateFactor),
+  );
 
   if (normalizedRatio < 20) {
-    const encoderDefinition = VIDEO_ENCODER_DEFINITIONS[codec];
-    const frame_rate = resolveFrameRate(
-      encoderDefinition?.video?.maxFrameRate,
-      Math.max(12, Math.round(baselineFrameRate * 0.6)),
-    );
-    const keyframe_interval = resolveKeyframeInterval(
-      encoderDefinition?.video?.gopOptions,
-      Math.max(1, Math.round(baselineKeyframeInterval * 1.8)),
-    );
-    const bitrate = resolveVideoBitrate(
-      codec,
-      frame_rate,
-      baselineBitrateKbps
-        ? Math.max(100, Math.round(baselineBitrateKbps * 0.12))
-        : 200,
-    );
-    const audioTracks = baseTracks.map((track) =>
-      scaleTrackBitrate(track, 64, 0.5),
-    );
     return {
       tier: "extreme_compression",
       patch: {
@@ -278,25 +295,6 @@ export const getVideoCompressionPresetByRatio = (
   }
 
   if (normalizedRatio <= 40) {
-    const encoderDefinition = VIDEO_ENCODER_DEFINITIONS[codec];
-    const frame_rate = resolveFrameRate(
-      encoderDefinition?.video?.maxFrameRate,
-      Math.max(15, Math.round(baselineFrameRate * 0.75)),
-    );
-    const keyframe_interval = resolveKeyframeInterval(
-      encoderDefinition?.video?.gopOptions,
-      Math.max(1, Math.round(baselineKeyframeInterval * 1.6)),
-    );
-    const bitrate = resolveVideoBitrate(
-      codec,
-      frame_rate,
-      baselineBitrateKbps
-        ? Math.max(120, Math.round(baselineBitrateKbps * 0.26))
-        : 1400,
-    );
-    const audioTracks = baseTracks.map((track) =>
-      scaleTrackBitrate(track, 96, 0.5),
-    );
     return {
       tier: "high_compression",
       patch: {
@@ -313,25 +311,6 @@ export const getVideoCompressionPresetByRatio = (
   }
 
   if (normalizedRatio <= 70) {
-    const encoderDefinition = VIDEO_ENCODER_DEFINITIONS[codec];
-    const frame_rate = resolveFrameRate(
-      encoderDefinition?.video?.maxFrameRate,
-      Math.max(18, Math.round(baselineFrameRate * 0.9)),
-    );
-    const keyframe_interval = resolveKeyframeInterval(
-      encoderDefinition?.video?.gopOptions,
-      Math.max(1, Math.round(baselineKeyframeInterval * 1.3)),
-    );
-    const bitrate = resolveVideoBitrate(
-      codec,
-      frame_rate,
-      baselineBitrateKbps
-        ? Math.max(200, Math.round(baselineBitrateKbps * 0.45))
-        : 2200,
-    );
-    const audioTracks = baseTracks.map((track) =>
-      scaleTrackBitrate(track, 96, 0.5),
-    );
     return {
       tier: "balanced",
       patch: {
@@ -346,33 +325,17 @@ export const getVideoCompressionPresetByRatio = (
       },
     };
   }
-  const encoderDefinition = VIDEO_ENCODER_DEFINITIONS[codec];
-  const frame_rate = resolveFrameRate(
-    encoderDefinition?.video?.maxFrameRate,
-    Math.max(24, Math.round(baselineFrameRate)),
-  );
-  const keyframe_interval = resolveKeyframeInterval(
-    encoderDefinition?.video?.gopOptions,
-    Math.max(1, Math.round(baselineKeyframeInterval * 1.1)),
-  );
-  const bitrate = resolveVideoBitrate(
-    codec,
-    frame_rate,
-    baselineBitrateKbps
-      ? Math.max(300, Math.round(baselineBitrateKbps * 0.7))
-      : 3200,
-  );
   return {
     tier: "high_quality",
     patch: {
       ratio: normalizedRatio,
       quality: ratioToQuality(normalizedRatio),
       codec,
-      preset: "fast",
+      preset: "medium",
       frame_rate,
       keyframe_interval,
       bitrate,
-      audio_tracks: baseTracks,
+      audio_tracks: audioTracks,
     },
   };
 };

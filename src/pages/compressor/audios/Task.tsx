@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { AUDIO_SUPPORT_FORMATS } from "@/data/formats";
+import { useBatchMediaDetails } from "@/hooks/useBatchMediaDetails";
+import { FileType, MediaDetailsWithResolve, MediaTaskType } from "@/types/tasks";
 
 import { UploadPanel } from "./UploadPanel";
 import { useCompressorStore } from "./store";
-import TaskItem from "./TaskItem";
+import TaskItem, { buildDefaultAudioArgs } from "./TaskItem";
 
 interface ConvertingTaskProps {
   globalFilter?: string;
@@ -13,15 +15,34 @@ export default function ConvertingTask({
   globalFilter = "",
 }: ConvertingTaskProps) {
   const compressingTasks = useCompressorStore((state) => state.compressingTasks);
+  const updateTaskById = useCompressorStore((state) => state.updateTaskById);
+
+  const buildTaskUpdate = useCallback(
+    (task: (typeof compressingTasks)[number], details: MediaDetailsWithResolve) => {
+      const outputArgs = buildDefaultAudioArgs(task, details);
+      return {
+        mediaDetails: details,
+        args: outputArgs,
+        fileType: FileType.Audio,
+        taskType: MediaTaskType.CompressAudio,
+        outputTitle: details.title,
+      };
+    },
+    [],
+  );
+
+  const { metaStateById, retryMeta } = useBatchMediaDetails({
+    tasks: compressingTasks,
+    updateTaskById,
+    buildUpdate: buildTaskUpdate,
+  });
 
   const filteredTasks = useMemo(() => {
     const search = globalFilter?.trim().toLowerCase() || "";
     if (!search) return compressingTasks;
     return compressingTasks.filter((task) => {
       const fileName = task.mediaDetails?.title?.toLowerCase?.() || "";
-      return (
-        fileName.includes(search)
-      );
+      return fileName.includes(search);
     });
   }, [compressingTasks, globalFilter]);
 
@@ -29,18 +50,17 @@ export default function ConvertingTask({
     <>
       <div className="space-y-3">
         {filteredTasks.length === 0 ? (
-          <UploadPanel
-            supportedExtensions={AUDIO_SUPPORT_FORMATS}
-          />
+          <UploadPanel supportedExtensions={AUDIO_SUPPORT_FORMATS} />
         ) : (
-          filteredTasks.map((task) => {
-            return (
-              <TaskItem
-                key={task.id}
-                task={task}
-              />
-            );
-          })
+          filteredTasks.map((task) => (
+            <TaskItem
+              key={task.id}
+              task={task}
+              metaStatus={metaStateById[task.id]?.status}
+              metaError={metaStateById[task.id]?.error}
+              onRetryMeta={() => retryMeta(task.id)}
+            />
+          ))
         )}
       </div>
     </>
