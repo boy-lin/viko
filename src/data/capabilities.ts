@@ -225,22 +225,6 @@ export const AUDIO_ENCODER_DEFINITIONS: Partial<
     allowedChannels: ["1", "2", "3", "4", "5", "6", "7", "8"],
     allowedBitDepths: [16, 24],
   },
-  [AudioEncoderEnum.AMR_NB]: {
-    maxSampleRate: 8000,
-    minSampleRate: 8000,
-    maxBitrate: 320,
-    minBitrate: 32,
-    allowedChannels: ["1"],
-    allowedBitDepths: [16],
-  },
-  [AudioEncoderEnum.AMR_WB]: {
-    maxSampleRate: 16000,
-    minSampleRate: 16000,
-    maxBitrate: 320,
-    minBitrate: 32,
-    allowedChannels: ["1"],
-    allowedBitDepths: [16],
-  },
 };
 export interface ImageEncoderDefinition {
   maxWidth?: number;
@@ -257,6 +241,30 @@ export const IMAGE_ENCODER_DEFINITIONS: Partial<
   [ImageEncoderEnum.HEIC]: { maxWidth: 4096, maxHeight: 4096 },
   [ImageEncoderEnum.TIFF]: { maxWidth: 4096, maxHeight: 4096 },
   [ImageEncoderEnum.BMP]: { maxWidth: 4096, maxHeight: 4096 },
+  [ImageEncoderEnum.ICO]: {
+    maxWidth: 256,
+    maxHeight: 256,
+  },
+  [ImageEncoderEnum.PCX]: {
+    maxWidth: 640,
+    maxHeight: 480,
+  },
+  [ImageEncoderEnum.SGI]: {
+    maxWidth: 640,
+    maxHeight: 480,
+  },
+  [ImageEncoderEnum.SUNRAST]: {
+    maxWidth: 640,
+    maxHeight: 480,
+  },
+  [ImageEncoderEnum.XBM]: {
+    maxWidth: 32,
+    maxHeight: 32,
+  },
+  [ImageEncoderEnum.XWD]: {
+    maxWidth: 32,
+    maxHeight: 32,
+  },
 };
 
 // ================= DATA: CONTAINER RULES =================
@@ -423,11 +431,7 @@ export const VIDEO_CONTAINER_DEFINITIONS: Partial<
       ],
     },
     audio: {
-      allowedEncoders: [
-        AudioEncoderEnum.AAC,
-        AudioEncoderEnum.AMR_NB,
-        AudioEncoderEnum.AMR_WB,
-      ],
+      allowedEncoders: [AudioEncoderEnum.AAC],
     },
   },
 
@@ -567,9 +571,9 @@ export const AUDIO_CONTAINER_DEFINITIONS: Partial<
   [FormatEnum.EAC3]: {
     allowedEncoders: [AudioEncoderEnum.EAC3],
   },
-  [FormatEnum.AMR]: {
-    allowedEncoders: [AudioEncoderEnum.AMR_NB, AudioEncoderEnum.AMR_WB],
-  },
+  // [FormatEnum.AMR]: {
+  //   allowedEncoders: [AudioEncoderEnum.AMR_NB, AudioEncoderEnum.AMR_WB],
+  // },
   [FormatEnum.MP2]: {
     allowedEncoders: [AudioEncoderEnum.MP2],
   },

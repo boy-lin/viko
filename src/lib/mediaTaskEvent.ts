@@ -41,7 +41,7 @@ export interface AudioTrackConfig {
 /** 与 Rust TextWatermark 对应 */
 export interface TextWatermark {
   content: string;
-  font_path: string;
+  font_path?: string;
   font_size: number;
   color: string;
   opacity: number;
@@ -206,6 +206,8 @@ export interface CompressImageTaskArgs {
   task_id: string;
   input_path: string;
   input_file_type?: FileType;
+  /** only display */
+  ratio?: number;
   format: string;
   width?: number;
   height?: number;

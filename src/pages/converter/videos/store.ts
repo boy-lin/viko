@@ -1,23 +1,28 @@
 import { create } from "zustand";
-import { ConverterTask, FileType, MediaTaskType } from "@/types/tasks";
+import { FFmpegTask, FileType, MediaTaskType } from "@/types/tasks";
 import { FormatEnum, VideoEncoderEnum, AudioEncoderEnum } from "@/types/options";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
+import { AudioTrackConfig } from "@/lib/mediaTaskEvent";
 
 export enum ActiveCategoryEnum {
   Recents = "recents",
 }
 
-export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "args" | "activeCategory"> {}
+export interface ConverterTask extends FFmpegTask {
+  args: any
+}
 
-type AudioTrackLike = {
-  source_stream_index?: number;
-  [key: string]: unknown;
-};
+export interface GlobalConverterConfig {
+  taskType: FFmpegTask["taskType"];
+  activeCategory: FFmpegTask["activeCategory"];
+  args: any;
+}
 
-const mergeAudioTracks = (currentTracks: AudioTrackLike[] = [], patchTracks: AudioTrackLike[] = []) => {
+
+const mergeAudioTracks = (currentTracks: AudioTrackConfig[] = [], patchTracks: AudioTrackConfig[] = []) => {
   const mergedTracks = currentTracks.map((track) => ({ ...track }));
 
   patchTracks.forEach((patchTrack, patchIndex) => {
@@ -108,8 +113,8 @@ export const useConverterStore = create<ConverterStore>(
 
       clonedTask.taskType = config.taskType;
       const mergedAudioTracks = mergeAudioTracks(
-        (clonedTask.args as AudioTrackLike & { audio_tracks?: AudioTrackLike[] }).audio_tracks,
-        (clonedArgs as AudioTrackLike & { audio_tracks?: AudioTrackLike[] }).audio_tracks,
+        clonedTask.args.audio_tracks,
+        clonedArgs.audio_tracks,
       );
 
       clonedTask.args = {

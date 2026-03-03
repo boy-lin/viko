@@ -678,6 +678,8 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             channels: None,
             sample_rate: None,
             bit_rate: Some(self.target_bitrate as i64),
+            bit_depth: None,
+            bits_per_sample: None,
         }
     }
 }
@@ -1397,6 +1399,8 @@ impl AudioProcessor {
             channels: Some(self.target_layout.channels() as u16),
             sample_rate: Some(self.target_rate),
             bit_rate: Some(self.target_bitrate as i64),
+            bit_depth: None,
+            bits_per_sample: None,
         }
     }
 }

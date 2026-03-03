@@ -1,9 +1,9 @@
 import { StateCreator } from "zustand";
 
-type TaskWithIndex = {
+export type TaskWithIndex = {
   id: string;
   status: string;
-  args: Record<string, unknown>;
+  args: any;
 };
 
 type WithTaskList<TTask, TTasksKey extends string> = Record<TTasksKey, TTask[]>;
@@ -23,9 +23,10 @@ export type CreateTaskStoreState<
     taskIndexById: Record<string, number>;
     addTasksByPaths: (paths: string[]) => void;
     updateTaskById: (id: string, updates: Partial<TTask>) => void;
+    applyToTaskArgs: (task: TTask, args: TApplyConfig) => TTask;
+    applyConfigToAllTasks: (args: TApplyConfig) => void;
     removeTask: (id: string) => void;
     updateGlobalConfig: (config: Partial<TConfig>) => void | Promise<void>;
-    applyConfigToAllTasks: (config: TApplyConfig) => void;
     pushTasksToQueue: (tasks?: TTask[]) => Promise<void>;
   };
 
@@ -43,9 +44,26 @@ type CreateTaskStoreOptions<
   defaultConfig: TConfig;
   createTaskByPath: (path: string, config: TConfig) => TTask | null;
   mergeConfig: (current: TConfig, patch: Partial<TConfig>) => TConfig;
-  applyToTaskArgs: (task: TTask, config: TApplyConfig) => TTask;
+  applyToTaskArgs?: (task: TTask, args: TApplyConfig) => TTask;
   queueAdapter: (tasks: TTask[]) => Promise<void>;
   shouldRemoveTask?: (task: TTask) => boolean;
+};
+
+const defaultApplyToTaskArgs = <
+  TTask extends TaskWithIndex,
+  TApplyConfig,
+>(
+  task: TTask,
+  args: TApplyConfig,
+): TTask => {
+  const clonedTask = structuredClone(task);
+  const clonedArgs = structuredClone(args);
+
+  clonedTask.args = {
+    ...clonedTask.args,
+    ...clonedArgs,
+  };
+  return clonedTask;
 };
 
 const appendTaskIndex = <TTask extends TaskWithIndex>(
@@ -123,7 +141,7 @@ export function createTaskStore<
     defaultConfig,
     createTaskByPath,
     mergeConfig,
-    applyToTaskArgs,
+    applyToTaskArgs = defaultApplyToTaskArgs,
     queueAdapter,
     shouldRemoveTask = (task) => ["finished", "cancelled"].includes(task.status),
   } = options;
@@ -187,6 +205,33 @@ export function createTaskStore<
           TClearActionKey
         >
       >);
+    },
+    applyToTaskArgs: (task, args) => {
+      return applyToTaskArgs(task, args);
+    },
+    applyConfigToAllTasks: (args) => {
+      set((state) => {
+        const tasks = state[tasksKey] as TTask[];
+        const nextTasks = tasks.map((task) => applyToTaskArgs(task, args));
+        const nextIndex = nextTasks.reduce<Record<string, number>>((acc, task, idx) => {
+          acc[task.id] = idx;
+          return acc;
+        }, {});
+
+        return {
+          [tasksKey]: nextTasks,
+          taskIndexById: nextIndex,
+        } as Partial<
+          CreateTaskStoreState<
+            TTask,
+            TConfig,
+            TApplyConfig,
+            TTasksKey,
+            TConfigKey,
+            TClearActionKey
+          >
+        >;
+      });
     },
     updateTaskById: (id: string, updates: Partial<TTask>) => {
       const idx = get().taskIndexById[id];
@@ -268,23 +313,6 @@ export function createTaskStore<
         const currentConfig = state[configKey] as TConfig;
         return {
           [configKey]: mergeConfig(currentConfig, patch),
-        } as Partial<
-          CreateTaskStoreState<
-            TTask,
-            TConfig,
-            TApplyConfig,
-            TTasksKey,
-            TConfigKey,
-            TClearActionKey
-          >
-        >;
-      });
-    },
-    applyConfigToAllTasks: (config: TApplyConfig) => {
-      set((state) => {
-        const tasks = state[tasksKey] as TTask[];
-        return {
-          [tasksKey]: tasks.map((task) => applyToTaskArgs(task, config)),
         } as Partial<
           CreateTaskStoreState<
             TTask,

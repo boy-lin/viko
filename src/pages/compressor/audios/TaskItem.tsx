@@ -5,13 +5,13 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import TaskStatusLabel from "@/components/ui-biz/TaskStatusLabel";
 import TaskLoadingCard from "@/components/ui-biz/TaskLoadingCard";
 import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
-import { CompressingTask, FileType } from "@/types/tasks";
+import { FileType, MediaDetailsWithResolve } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { CompressAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useTranslation } from "react-i18next";
 import { CompressionSettingsDialog } from "./SettingsDialog";
-import { useCompressorStore } from "./store";
+import { CompressingAudioTask, useCompressorStore } from "./store";
 import { AUDIO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
 import { MediaTaskType } from "@/types/tasks";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
@@ -19,10 +19,11 @@ import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { getAudioCompressionPresetByRatio } from "./compressionPreset";
 import { extractFilenameFromPath, formatBitrate } from "@/lib/utils";
 import { bridge } from "@/lib/bridge";
-import { FormatEnum } from "@/types/options";
+import { AudioEncoderEnum, FormatEnum } from "@/types/options";
+
 
 interface TaskItemProps {
-  task: CompressingTask;
+  task: CompressingAudioTask;
 }
 
 interface CompressibilityAssessment {
@@ -46,6 +47,12 @@ const LOSSLESS_CODECS = new Set([
   "pcm_f64le",
   "wavpack",
 ]);
+
+const SOURCE_CODEC_TO_ENCODER: Partial<Record<string, AudioEncoderEnum>> = {
+  mp3: AudioEncoderEnum.MP3,
+  opus: AudioEncoderEnum.OPUS,
+  vorbis: AudioEncoderEnum.VORBIS,
+};
 
 const toNumber = (value: unknown): number | undefined => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -138,28 +145,73 @@ const assessCompressibility = (details: any): CompressibilityAssessment => {
   };
 };
 
-const buildDefaultArgs = (task: CompressingTask, details: any): CompressAudioTaskArgs => {
+type BuildAudioArgsOverrides = Partial<Pick<CompressAudioTaskArgs, "format" | "codec">>;
+
+export const buildDefaultAudioArgs = (
+  task: CompressingAudioTask,
+  details: MediaDetailsWithResolve,
+  overrides?: BuildAudioArgsOverrides,
+): CompressAudioTaskArgs => {
   const taskId = task.id;
   const path = task.args.input_path;
   const assessment = assessCompressibility(details);
   const ratio = typeof task.args.ratio === "number" ? task.args.ratio : 50;
-  const format = assessment.recommendedFormat;
+  const audioStream = details?.streams?.find((stream) => stream.codec_type === "audio");
+  const sourceFormat = details?.format as FormatEnum;
+  const shouldInitFromSource = !task.mediaDetails;
+  const taskFormat = (overrides?.format ?? task.args.format) as FormatEnum;
+  const sourceFormatSupported = Boolean(sourceFormat && AUDIO_CONTAINER_DEFINITIONS[sourceFormat]);
+  const taskFormatSupported = Boolean(taskFormat && AUDIO_CONTAINER_DEFINITIONS[taskFormat]);
+  const format = shouldInitFromSource && sourceFormatSupported
+    ? sourceFormat
+    : taskFormatSupported
+      ? taskFormat
+      : sourceFormatSupported
+        ? sourceFormat
+        : assessment.recommendedFormat;
+  const sourceCodecName = String(audioStream?.codec_name ?? "").toLowerCase();
+  const sourceCodec = SOURCE_CODEC_TO_ENCODER[sourceCodecName] ?? sourceCodecName;
+  const nextCodec = (overrides?.codec ?? task.args.codec) as AudioEncoderEnum | undefined;
+  const audioBitrateKbps = toNumber(audioStream?.bit_rate);
+  const isUsingSourceFormat = sourceFormatSupported && format === sourceFormat;
+  const presetContext = isUsingSourceFormat
+    ? {
+      sourceCodec: nextCodec ?? sourceCodec,
+      sourceBitrate: audioBitrateKbps ? audioBitrateKbps / 1000 : undefined,
+      sourceSampleRate: toNumber(audioStream?.sample_rate),
+      sourceChannels: toNumber(audioStream?.channels),
+      sourceBitDepth: toNumber(audioStream?.bit_depth) ?? toNumber(audioStream?.bits_per_sample),
+    }
+    : nextCodec
+      ? {
+        sourceCodec: nextCodec,
+      }
+      : undefined;
+  const presetResult = presetContext
+    ? getAudioCompressionPresetByRatio(ratio, format, presetContext)
+    : getAudioCompressionPresetByRatio(ratio, format);
+  const allowedEncoders = AUDIO_CONTAINER_DEFINITIONS[format]?.allowedEncoders ?? [];
+  const isSourceCodecAllowed = allowedEncoders.includes(sourceCodec as AudioEncoderEnum);
+  const isNextCodecAllowed = allowedEncoders.includes(nextCodec as AudioEncoderEnum);
+  const presetCodec = presetResult.patch.codec as AudioEncoderEnum | undefined;
+  const isPresetCodecAllowed = allowedEncoders.includes(presetCodec as AudioEncoderEnum);
+
   const outputArgs: CompressAudioTaskArgs = {
-    ...(task.args as CompressAudioTaskArgs),
-    ...getAudioCompressionPresetByRatio(ratio, format).patch,
+    ...task.args,
+    ...presetResult.patch,
     task_id: taskId,
     format,
     input_path: path,
     ratio,
-    output_path: (task.args as CompressAudioTaskArgs).output_path ?? "",
+    output_path: task.args.output_path ?? "",
   };
-
-  const containerDefinition = AUDIO_CONTAINER_DEFINITIONS[format];
   outputArgs.codec =
-    outputArgs.codec ||
-    containerDefinition?.allowedEncoders[0] ||
-    (task.args as CompressAudioTaskArgs).codec;
-
+    (isNextCodecAllowed ? nextCodec : undefined) ||
+    (shouldInitFromSource && isSourceCodecAllowed ? (sourceCodec as AudioEncoderEnum) : undefined) ||
+    (isPresetCodecAllowed ? presetCodec : undefined) ||
+    allowedEncoders[0] ||
+    outputArgs.codec;
+ 
   return outputArgs;
 };
 
@@ -181,7 +233,7 @@ export default function TaskItem({ task }: TaskItemProps) {
       try {
         const details = await bridge.getMediaDetails(task.args.input_path);
         if (!active) return;
-        const outputArgs = buildDefaultArgs(task, details);
+        const outputArgs = buildDefaultAudioArgs(task, details);
         const outputTitle =
           details.title || extractFilenameFromPath(details.path) || "Unknown";
         startTransition(() => {
@@ -261,6 +313,34 @@ export default function TaskItem({ task }: TaskItemProps) {
     });
   };
 
+  const handleTaskConfigChange = (config: Partial<CompressAudioTaskArgs>) => {
+    const shouldRebuild = Boolean(task.mediaDetails) && (config.format || config.codec || config.ratio);
+    if (shouldRebuild) {
+      const mergedArgs = {
+        ...taskArgs,
+        ...config,
+      } as CompressAudioTaskArgs;
+      const recalculatedArgs = buildDefaultAudioArgs(
+        { ...task, args: mergedArgs },
+        task.mediaDetails as MediaDetailsWithResolve,
+        {
+          format: config.format as FormatEnum,
+          codec: config.codec as AudioEncoderEnum,
+        },
+      );
+      updateTaskById(task.id, {
+        args: recalculatedArgs,
+      });
+      return;
+    }
+    updateTaskById(task.id, {
+      args: {
+        ...taskArgs,
+        ...config,
+      }
+    });
+  };
+
   return (
     <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm">
       <div className="flex flex-col items-start gap-2 flex-shrink-0 relative">
@@ -305,25 +385,9 @@ export default function TaskItem({ task }: TaskItemProps) {
       </div>
 
       <div className="flex items-center gap-2">
-
         <CompressionSettingsDialog
           config={taskArgs}
-          onConfigChange={async (config) => {
-            updateTaskById(task.id, {
-              args: {
-                ...taskArgs,
-                ...config,
-              }
-            });
-          }}
-          onSave={(config) => {
-            updateTaskById(task.id, {
-              args: {
-                ...taskArgs,
-                ...config,
-              }
-            });
-          }}
+          onConfigChange={handleTaskConfigChange}
         />
         <Tooltip>
           <TooltipTrigger asChild>

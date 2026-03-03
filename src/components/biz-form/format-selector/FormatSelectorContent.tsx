@@ -7,13 +7,13 @@ import {
   AudioSettingsSection,
 } from "@/pages/converter/components/AudioSettingsSection";
 import VideoSettingsSection from "@/pages/converter/components/VideoSettingsSection";
-import { ActiveCategoryEnum } from "@/pages/converter/videos/store";
+import { ActiveCategoryEnum, GlobalConverterConfig } from "@/pages/converter/videos/store";
 import { FileType, MediaTaskType } from "@/types/tasks";
 import { ImageSettingsSection } from "@/pages/converter/components/ImageSettingsSection";
 import { GifSettingsSection } from "@/pages/converter/components/GifSettingsSection";
 import { FormatGroup, FormatEnum } from "@/types/options";
 import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
-import { AUDIO_CONTAINER_DEFINITIONS, IMAGE_CONTAINER_DEFINITIONS, VIDEO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
+import { AUDIO_CONTAINER_DEFINITIONS, IMAGE_CONTAINER_DEFINITIONS, IMAGE_ENCODER_DEFINITIONS, VIDEO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
 import { useTranslation } from "react-i18next";
 import { AudioTrackConfig, ConvertAudioTaskArgs, ConvertGifTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 
@@ -25,8 +25,8 @@ export default function FormatSelectorContent({
   formatRecents,
   addToRecents,
   onValueChange,
-  applyConfigToAllTasks,
   onClose,
+  applyConfigToAllTasks,
   btnLabelKey
 }: FormatSelectorContentProps) {
   const [activeGroup, setActiveGroup] = useState<FormatGroup | undefined>();
@@ -69,7 +69,6 @@ export default function FormatSelectorContent({
   useEffect(() => {
     const item = FORMAT_OPTIONS.find((it) => it.id === activeGroup?.id);
     if (!item) return;
-
     applySelection(item, {
       close: false,
       addRecent: true,
@@ -96,7 +95,7 @@ export default function FormatSelectorContent({
         ...config.args,
         format: formatOpt.id,
       },
-    };
+    }
 
     if (formatOpt.category === FileType.Audio) {
       updates.taskType = MediaTaskType.ConvertAudio;
@@ -136,8 +135,14 @@ export default function FormatSelectorContent({
       }
       const definition = IMAGE_CONTAINER_DEFINITIONS[formatOpt.id as FormatEnum];
       const imageEncoder = definition?.allowedEncoders[0];
-      updates.args.image_encoder = imageEncoder;
+      updates.args.image_encoder = imageEncoder
+      const encoderDefinition = IMAGE_ENCODER_DEFINITIONS[imageEncoder];
+      if (encoderDefinition?.maxWidth) {
+        updates.args.width = Math.min(updates.args.width, encoderDefinition.maxWidth);
+      }
     }
+
+    console.log('updates', JSON.stringify(updates));
     onValueChange(updates);
   };
 
@@ -355,12 +360,11 @@ export default function FormatSelectorContent({
                 onClick={() => {
                   applyConfigToAllTasks({
                     ...config,
-                    taskType: config.taskType,
                     args: {
                       ...config.args,
                       format: activeGroup?.id,
                     },
-                  });
+                  } as GlobalConverterConfig);
                   onClose();
                 }}
               >

@@ -11,9 +11,40 @@ export interface ImageCompressionPresetResult {
   patch: Partial<CompressImageTaskArgs>;
 }
 
-const clampQuality = (quality: number) => {
-  if (Number.isNaN(quality)) return 80;
-  return Math.max(0, Math.min(100, Math.round(quality)));
+export interface ImageCompressionSourceContext {
+  sourceQuality?: number;
+  sourceDpi?: number;
+  sourceColorMode?: string;
+  sourceKeepTransparency?: boolean;
+  sourceStripMetadata?: boolean;
+  sourceCropWhitespace?: boolean;
+}
+
+const clampRatio = (ratio: number) => {
+  if (Number.isNaN(ratio)) return 50;
+  return Math.max(0, Math.min(100, Math.round(ratio)));
+};
+
+const toPositiveNumber = (value: unknown) => {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseFloat(value)
+        : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+};
+
+const clampByRange = (value: number, min?: number, max?: number) => {
+  if (!Number.isFinite(value) || value <= 0) return undefined;
+  let clamped = value;
+  if (min && Number.isFinite(min) && min > 0) {
+    clamped = Math.max(clamped, min);
+  }
+  if (max && Number.isFinite(max) && max > 0) {
+    clamped = Math.min(clamped, max);
+  }
+  return clamped;
 };
 
 const supportsTransparency = (format?: string) => {
@@ -22,51 +53,81 @@ const supportsTransparency = (format?: string) => {
   return ["png", "webp", "avif", "gif", "tiff", "ico"].includes(normalized);
 };
 
-export const getImageCompressionPresetByQuality = (
-  quality: number,
-  format?: string
+export const getImageCompressionPresetByRatio = (
+  ratio: number,
+  format?: string,
+  sourceContext?: ImageCompressionSourceContext,
 ): ImageCompressionPresetResult => {
-  const normalizedQuality = clampQuality(quality);
+  const normalizedRatio = clampRatio(ratio);
+  const qualityFactor = 0.2 + normalizedRatio * 0.008;
+  const dpiFactor = 0.5 + normalizedRatio * 0.006;
   const canKeepTransparency = supportsTransparency(format);
+  const sourceQuality = toPositiveNumber(sourceContext?.sourceQuality);
+  const sourceDpi = toPositiveNumber(sourceContext?.sourceDpi);
+  const sourceColorMode = String(sourceContext?.sourceColorMode ?? "").toUpperCase();
 
-  if (normalizedQuality < 20) {
+  const fallbackQualityByTier = normalizedRatio < 20 ? 20 : normalizedRatio <= 40 ? 40 : normalizedRatio <= 70 ? 70 : 90;
+  const fallbackDpiByTier = normalizedRatio < 20 ? 72 : normalizedRatio <= 40 ? 96 : normalizedRatio <= 70 ? 150 : 300;
+  const sourceBasedQuality = sourceQuality
+    ? Math.round(Math.max(1, sourceQuality * qualityFactor))
+    : undefined;
+  const sourceBasedDpi = sourceDpi
+    ? Math.round(Math.max(72, sourceDpi * dpiFactor))
+    : undefined;
+  const targetQuality = clampByRange(sourceBasedQuality ?? fallbackQualityByTier, 1, 100) ?? fallbackQualityByTier;
+  const targetDpi = clampByRange(sourceBasedDpi ?? fallbackDpiByTier, 72, 600) ?? fallbackDpiByTier;
+  const targetColorMode = sourceColorMode
+    ? sourceColorMode
+    : normalizedRatio < 25
+      ? "Gray"
+      : "RGB";
+  const targetStripMetadata = sourceContext?.sourceStripMetadata ?? normalizedRatio < 75;
+  const targetCropWhitespace = sourceContext?.sourceCropWhitespace ?? normalizedRatio <= 40;
+  const targetKeepTransparency = canKeepTransparency
+    ? (sourceContext?.sourceKeepTransparency ?? normalizedRatio > 35)
+    : false;
+
+  if (normalizedRatio < 20) {
     return {
       tier: "extreme_compression",
       patch: {
-        quality: 20,
-        color_mode: "Gray",
-        dpi: 72,
-        strip_metadata: true,
-        keep_transparency: false,
-        crop_whitespace: true,
+        ratio: normalizedRatio,
+        quality: targetQuality,
+        color_mode: targetColorMode === "GRAY" ? "Gray" : targetColorMode,
+        dpi: targetDpi,
+        strip_metadata: targetStripMetadata,
+        keep_transparency: targetKeepTransparency,
+        crop_whitespace: targetCropWhitespace,
       },
     };
   }
 
-  if (normalizedQuality <= 40) {
+  if (normalizedRatio <= 40) {
     return {
       tier: "high_compression",
       patch: {
-        quality: normalizedQuality,
-        color_mode: "RGB",
-        dpi: 72,
-        strip_metadata: true,
-        keep_transparency: false,
-        crop_whitespace: true,
+        ratio: normalizedRatio,
+        quality: targetQuality,
+        color_mode: targetColorMode === "GRAY" ? "Gray" : targetColorMode,
+        dpi: targetDpi,
+        strip_metadata: targetStripMetadata,
+        keep_transparency: targetKeepTransparency,
+        crop_whitespace: targetCropWhitespace,
       },
     };
   }
 
-  if (normalizedQuality <= 70) {
+  if (normalizedRatio <= 70) {
     return {
       tier: "balanced",
       patch: {
-        quality: normalizedQuality,
-        color_mode: "RGB",
-        dpi: 96,
-        strip_metadata: true,
-        keep_transparency: canKeepTransparency,
-        crop_whitespace: false,
+        ratio: normalizedRatio,
+        quality: targetQuality,
+        color_mode: targetColorMode,
+        dpi: targetDpi,
+        strip_metadata: targetStripMetadata,
+        keep_transparency: targetKeepTransparency,
+        crop_whitespace: targetCropWhitespace,
       },
     };
   }
@@ -74,12 +135,13 @@ export const getImageCompressionPresetByQuality = (
   return {
     tier: "high_quality",
     patch: {
-      quality: normalizedQuality,
-      color_mode: "RGB",
-      dpi: 150,
-      strip_metadata: false,
-      keep_transparency: canKeepTransparency,
-      crop_whitespace: false,
+      ratio: normalizedRatio,
+      quality: targetQuality,
+      color_mode: targetColorMode,
+      dpi: targetDpi,
+      strip_metadata: targetStripMetadata,
+      keep_transparency: targetKeepTransparency,
+      crop_whitespace: targetCropWhitespace,
     },
   };
 };

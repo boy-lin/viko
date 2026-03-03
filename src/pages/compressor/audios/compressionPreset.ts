@@ -13,32 +13,53 @@ export interface AudioCompressionPresetResult {
   patch: Partial<CompressAudioTaskArgs>;
 }
 
+export interface AudioCompressionSourceContext {
+  sourceCodec?: string;
+  sourceBitrate?: number;
+  sourceSampleRate?: number;
+  sourceChannels?: number;
+  sourceBitDepth?: number;
+}
+
 const clampRatio = (ratio: number) => {
   if (Number.isNaN(ratio)) return 50;
   return Math.max(0, Math.min(100, Math.round(ratio)));
 };
 
-const pickSupportedAudioEncoder = (
-  format: FormatEnum | undefined,
-  preferred: AudioEncoderEnum[]
-) => {
-  const allowed = format
-    ? AUDIO_CONTAINER_DEFINITIONS[format]?.allowedEncoders
-    : undefined;
-
-  if (allowed && allowed.length > 0) {
-    for (const codec of preferred) {
-      if (allowed.includes(codec)) return codec;
-    }
-    return allowed[0];
-  }
-
-  for (const codec of preferred) {
-    if (codec) return codec;
-  }
-  return AudioEncoderEnum.MP3;
+const toPositiveNumber = (value: unknown) => {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseFloat(value)
+        : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 };
 
+const clampByRange = (value: number, min?: number, max?: number) => {
+  if (!Number.isFinite(value) || value <= 0) return undefined;
+  let clamped = value;
+  if (min && Number.isFinite(min) && min > 0) {
+    clamped = Math.max(clamped, min);
+  }
+  if (max && Number.isFinite(max) && max > 0) {
+    clamped = Math.min(clamped, max);
+  }
+  return clamped;
+};
+
+const pickCodecBySourceAndFormat = (
+  format: FormatEnum,
+  sourceCodec: string | undefined,
+) => {
+  const allowed = AUDIO_CONTAINER_DEFINITIONS[format]?.allowedEncoders || []
+  const normalizedSourceCodec = String(sourceCodec ?? "").toLowerCase() as AudioEncoderEnum;
+  if (normalizedSourceCodec && allowed.includes(normalizedSourceCodec)) {
+    return normalizedSourceCodec;
+  }
+  if (allowed.length > 0) return allowed[0];
+  return AudioEncoderEnum.AAC;
+};
 const resolveChannels = (
   allowedChannels: string[] | undefined,
   targetChannels: number
@@ -114,27 +135,67 @@ const resolveBitDepth = (
 
 export const getAudioCompressionPresetByRatio = (
   ratio: number,
-  format: FormatEnum
+  format: FormatEnum,
+  sourceContext?: AudioCompressionSourceContext
 ): AudioCompressionPresetResult => {
   const normalizedRatio = clampRatio(ratio);
-  const codec = pickSupportedAudioEncoder(format, [
-    AudioEncoderEnum.OPUS,
-    AudioEncoderEnum.AAC,
-    AudioEncoderEnum.VORBIS,
-    AudioEncoderEnum.MP3,
-  ]);
-  const definition = AUDIO_ENCODER_DEFINITIONS[codec]
+  const codec = pickCodecBySourceAndFormat(format, sourceContext?.sourceCodec);
+  const definition = AUDIO_ENCODER_DEFINITIONS[codec];
+  const bitrateQualityFactor = 0.2 + normalizedRatio * 0.008;
+  const sampleRateQualityFactor = 0.7 + normalizedRatio * 0.003;
+  const bitDepthQualityFactor = 0.6 + normalizedRatio * 0.004;
+  const sourceBitrate = toPositiveNumber(sourceContext?.sourceBitrate);
+  const sourceSampleRate = toPositiveNumber(sourceContext?.sourceSampleRate);
+  const sourceChannels = toPositiveNumber(sourceContext?.sourceChannels);
+  const sourceBitDepth = toPositiveNumber(sourceContext?.sourceBitDepth);
+
+  const fallbackBitrateByTier = normalizedRatio < 20 ? 64 : normalizedRatio <= 40 ? 96 : normalizedRatio <= 70 ? 128 : 256;
+  const fallbackSampleRateByTier = normalizedRatio < 20 ? 32000 : normalizedRatio <= 70 ? 44100 : 48000;
+  const fallbackBitDepthByTier = normalizedRatio > 70 ? 24 : 16;
+  const fallbackChannelsByTier = normalizedRatio < 30 ? 1 : 2;
+
+  const sourceBasedBitrate = sourceBitrate
+    ? Math.round(Math.max(definition?.minBitrate ?? 32, sourceBitrate * bitrateQualityFactor))
+    : undefined;
+  const sourceBasedSampleRate = sourceSampleRate
+    ? Math.round(Math.max(definition?.minSampleRate ?? 8000, sourceSampleRate * sampleRateQualityFactor))
+    : undefined;
+  const sourceBasedBitDepth = sourceBitDepth
+    ? Math.round(Math.max(8, sourceBitDepth * bitDepthQualityFactor))
+    : undefined;
+  const sourceBasedChannels = sourceChannels
+    ? Math.round(normalizedRatio < 30 ? Math.min(sourceChannels, 1) : Math.min(sourceChannels, 2))
+    : undefined;
+
+  const targetBitrate = clampByRange(
+    sourceBasedBitrate ?? fallbackBitrateByTier,
+    definition?.minBitrate,
+    definition?.maxBitrate
+  ) ?? fallbackBitrateByTier;
+  const targetSampleRate = clampByRange(
+    sourceBasedSampleRate ?? fallbackSampleRateByTier,
+    definition?.minSampleRate,
+    definition?.maxSampleRate
+  ) ?? fallbackSampleRateByTier;
+  const targetChannels = resolveChannels(
+    definition?.allowedChannels,
+    sourceBasedChannels ?? fallbackChannelsByTier
+  );
+  const targetBitDepth = resolveBitDepth(
+    definition?.allowedBitDepths,
+    sourceBasedBitDepth ?? fallbackBitDepthByTier
+  );
 
   if (normalizedRatio < 20) {
     return {
       tier: "extreme_compression",
       patch: {
-        ratio: 20,
+        ratio: normalizedRatio,
         codec,
-        bitrate: Math.min(64, definition?.maxBitrate ?? 64),
-        sample_rate: Math.min(32000, definition?.maxSampleRate ?? 32000),
-        channels: resolveChannels(definition?.allowedChannels, 1),
-        bit_depth: resolveBitDepth(definition?.allowedBitDepths, 16),
+        bitrate: targetBitrate,
+        sample_rate: targetSampleRate,
+        channels: targetChannels,
+        bit_depth: targetBitDepth,
       },
     };
   }
@@ -145,10 +206,10 @@ export const getAudioCompressionPresetByRatio = (
       patch: {
         ratio: normalizedRatio,
         codec,
-        bitrate: Math.min(96, definition?.maxBitrate ?? 96),
-        sample_rate: Math.min(44100, definition?.maxSampleRate ?? 44100),
-        channels: resolveChannels(definition?.allowedChannels, 2),
-        bit_depth: resolveBitDepth(definition?.allowedBitDepths, 16),
+        bitrate: targetBitrate,
+        sample_rate: targetSampleRate,
+        channels: targetChannels,
+        bit_depth: targetBitDepth,
       },
     };
   }
@@ -159,10 +220,10 @@ export const getAudioCompressionPresetByRatio = (
       patch: {
         ratio: normalizedRatio,
         codec,
-        bitrate: Math.min(128, definition?.maxBitrate ?? 128),
-        sample_rate: Math.min(44100, definition?.maxSampleRate ?? 44100),
-        channels: resolveChannels(definition?.allowedChannels, 2),
-        bit_depth: resolveBitDepth(definition?.allowedBitDepths, 16),
+        bitrate: targetBitrate,
+        sample_rate: targetSampleRate,
+        channels: targetChannels,
+        bit_depth: targetBitDepth,
       },
     };
   }
@@ -172,10 +233,10 @@ export const getAudioCompressionPresetByRatio = (
     patch: {
       ratio: normalizedRatio,
       codec,
-      bitrate: Math.min(192, definition?.maxBitrate ?? 192),
-      sample_rate: Math.min(48000, definition?.maxSampleRate ?? 48000),
-      channels: resolveChannels(definition?.allowedChannels, 2),
-      bit_depth: resolveBitDepth(definition?.allowedBitDepths, 24),
+      bitrate: targetBitrate,
+      sample_rate: targetSampleRate,
+      channels: targetChannels,
+      bit_depth: targetBitDepth,
     },
   };
 };

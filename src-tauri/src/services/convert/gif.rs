@@ -312,6 +312,8 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
         channels: None,
         sample_rate: None,
         bit_rate: None,
+        bit_depth: None,
+        bits_per_sample: None,
     };
     let output_media = MediaDetails {
         path: params.output_path.clone(),

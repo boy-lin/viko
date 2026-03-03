@@ -158,6 +158,8 @@ fn audio_summary_to_stream_details(summary: AudioOutputSummary) -> StreamDetails
         channels: summary.channels,
         sample_rate: summary.sample_rate,
         bit_rate: summary.bit_rate,
+        bit_depth: None,
+        bits_per_sample: None,
     }
 }
 
@@ -608,7 +610,13 @@ impl<E: TaskEmitter> Transcoder<E> {
         let mut filter_enabled = false;
         if let Some(wm) = &params.watermark {
             if let Some(txt) = &wm.text {
-                if txt.font_path.trim().is_empty() {
+                if txt
+                    .font_path
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim()
+                    .is_empty()
+                {
                     log::warn!("convert_video watermark text has empty font_path; drawtext will rely on system defaults.");
                 }
             }
@@ -938,6 +946,8 @@ impl<E: TaskEmitter> Transcoder<E> {
             channels: None,
             sample_rate: None,
             bit_rate: self.configured_bit_rate,
+            bit_depth: None,
+            bits_per_sample: None,
         }
     }
 }
@@ -1166,6 +1176,8 @@ pub fn convert_video<E: TaskEmitter + Clone>(
             channels: None,
             sample_rate: None,
             bit_rate,
+            bit_depth: None,
+            bits_per_sample: None,
         });
         black_video_encoder = Some((encoder, ost_idx, time_base, width, height, frame_rate));
         ost_index += 1;

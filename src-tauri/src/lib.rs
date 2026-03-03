@@ -120,6 +120,7 @@ pub fn run() {
             crate::commands::get_audio_file_info,
             crate::commands::convert_audio_file,
             crate::commands::get_detailed_media_info,
+            crate::commands::get_detailed_image_info,
             crate::commands::check_hardware_acceleration,
             crate::commands::convert_gif_file,
             crate::commands::generate_media_thumbnail,
@@ -136,7 +137,6 @@ pub fn run() {
             crate::commands::updater_guard_reset,
             crate::commands::get_task_history,
             crate::commands::get_my_files,
-            crate::commands::set_my_file_favorite,
             crate::commands::delete_task_history,
             crate::commands::clear_task_history,
         ])
@@ -170,9 +170,6 @@ pub fn run() {
                 crate::storage::task_history::init()
                     .await
                     .expect("failed to init task_history");
-                crate::storage::favorites::init()
-                    .await
-                    .expect("failed to init task_favorites");
                 crate::storage::updater_guard::init()
                     .await
                     .expect("failed to init updater_guard");

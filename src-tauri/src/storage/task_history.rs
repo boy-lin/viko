@@ -1,8 +1,7 @@
 use super::db::{get_db, TableSpec};
-use super::favorites::TaskFavorite;
 use anyhow::Result;
 use sea_query::{
-    Alias, ColumnDef, Expr, Iden, OnConflict, Order, Query, SqliteQueryBuilder, Table,
+    ColumnDef, Expr, Iden, OnConflict, Order, Query, SqliteQueryBuilder, Table,
     TableCreateStatement,
 };
 use sea_query_binder::SqlxBinder;
@@ -208,7 +207,6 @@ pub async fn add_history(item: &TaskHistoryItem) -> Result<()> {
     )
     .execute(&pool)
     .await?;
-    crate::storage::favorites::cleanup_orphans().await.ok();
     Ok(())
 }
 
@@ -332,33 +330,24 @@ pub async fn get_my_files(
     let mut query = Query::select();
     query
         .columns([
-            (TaskHistory::Table, TaskHistory::Id),
-            (TaskHistory::Table, TaskHistory::TaskType),
-            (TaskHistory::Table, TaskHistory::MediaType),
-            (TaskHistory::Table, TaskHistory::Status),
-            (TaskHistory::Table, TaskHistory::InputPath),
-            (TaskHistory::Table, TaskHistory::OutputPath),
-            (TaskHistory::Table, TaskHistory::OutputSize),
-            (TaskHistory::Table, TaskHistory::OutputDuration),
-            (TaskHistory::Table, TaskHistory::Title),
-            (TaskHistory::Table, TaskHistory::Thumbnail),
-            (TaskHistory::Table, TaskHistory::CreatedAt),
-            (TaskHistory::Table, TaskHistory::FinishedAt),
-            (TaskHistory::Table, TaskHistory::ErrorMessage),
+            TaskHistory::Id,
+            TaskHistory::TaskType,
+            TaskHistory::MediaType,
+            TaskHistory::Status,
+            TaskHistory::InputPath,
+            TaskHistory::OutputPath,
+            TaskHistory::OutputSize,
+            TaskHistory::OutputDuration,
+            TaskHistory::Title,
+            TaskHistory::Thumbnail,
+            TaskHistory::CreatedAt,
+            TaskHistory::FinishedAt,
+            TaskHistory::ErrorMessage,
         ])
-        .expr_as(
-            Expr::col((TaskFavorite::Table, TaskFavorite::Id)),
-            Alias::new("favorite_id"),
-        )
-        .from(TaskHistory::Table)
-        .left_join(
-            TaskFavorite::Table,
-            Expr::col((TaskFavorite::Table, TaskFavorite::Id))
-                .equals((TaskHistory::Table, TaskHistory::Id)),
-        );
+        .from(TaskHistory::Table);
 
-    query.and_where(Expr::col((TaskHistory::Table, TaskHistory::Status)).eq("finished"));
-    query.and_where(Expr::col((TaskHistory::Table, TaskHistory::OutputPath)).is_not_null());
+    query.and_where(Expr::col(TaskHistory::Status).eq("finished"));
+    query.and_where(Expr::col(TaskHistory::OutputPath).is_not_null());
 
     let sort_order = match sort_order
         .as_deref()
@@ -376,21 +365,15 @@ pub async fn get_my_files(
     {
         Some("name") => {
             query
-                .order_by((TaskHistory::Table, TaskHistory::Title), sort_order.clone())
-                .order_by(
-                    (TaskHistory::Table, TaskHistory::InputPath),
-                    sort_order.clone(),
-                )
-                .order_by((TaskHistory::Table, TaskHistory::Id), sort_order);
+                .order_by(TaskHistory::Title, sort_order.clone())
+                .order_by(TaskHistory::InputPath, sort_order.clone())
+                .order_by(TaskHistory::Id, sort_order);
         }
         _ => {
             // Default sort by start time (created_at).
             query
-                .order_by(
-                    (TaskHistory::Table, TaskHistory::CreatedAt),
-                    sort_order.clone(),
-                )
-                .order_by((TaskHistory::Table, TaskHistory::Id), sort_order);
+                .order_by(TaskHistory::CreatedAt, sort_order.clone())
+                .order_by(TaskHistory::Id, sort_order);
         }
     }
 
@@ -401,10 +384,10 @@ pub async fn get_my_files(
         if !keyword.is_empty() {
             let pattern = format!("%{}%", keyword);
             query.and_where(
-                Expr::col((TaskHistory::Table, TaskHistory::Title))
+                Expr::col(TaskHistory::Title)
                     .like(&pattern)
-                    .or(Expr::col((TaskHistory::Table, TaskHistory::InputPath)).like(&pattern))
-                    .or(Expr::col((TaskHistory::Table, TaskHistory::OutputPath)).like(&pattern)),
+                    .or(Expr::col(TaskHistory::InputPath).like(&pattern))
+                    .or(Expr::col(TaskHistory::OutputPath).like(&pattern)),
             );
         }
     }
@@ -415,14 +398,12 @@ pub async fn get_my_files(
             if media_type == "image" {
                 // Keep image tab behavior compatible with existing data that may use "gif".
                 query.and_where(
-                    Expr::col((TaskHistory::Table, TaskHistory::MediaType))
+                    Expr::col(TaskHistory::MediaType)
                         .eq("image")
-                        .or(Expr::col((TaskHistory::Table, TaskHistory::MediaType)).eq("gif")),
+                        .or(Expr::col(TaskHistory::MediaType).eq("gif")),
                 );
             } else {
-                query.and_where(
-                    Expr::col((TaskHistory::Table, TaskHistory::MediaType)).eq(media_type),
-                );
+                query.and_where(Expr::col(TaskHistory::MediaType).eq(media_type));
             }
         }
     }
@@ -432,7 +413,6 @@ pub async fn get_my_files(
 
     let mut items = Vec::new();
     for row in rows {
-        let favorite_id: Option<String> = row.try_get("favorite_id")?;
         items.push(MyFileItem {
             id: row.try_get("id")?,
             task_type: row.try_get("task_type")?,
@@ -449,7 +429,7 @@ pub async fn get_my_files(
             error_message: row.try_get("error_message")?,
             task_data: String::new(),
             effective_params: None,
-            is_favorite: favorite_id.is_some(),
+            is_favorite: false,
         });
     }
 
@@ -464,7 +444,6 @@ pub async fn delete_history(id: &str) -> Result<()> {
         .build_sqlx(SqliteQueryBuilder);
 
     sqlx::query_with(&sql, values).execute(&pool).await?;
-    crate::storage::favorites::remove_favorite(id).await.ok();
     Ok(())
 }
 
@@ -480,7 +459,6 @@ pub async fn clear_history(task_type: Option<String>) -> Result<()> {
     let (sql, values) = query.build_sqlx(SqliteQueryBuilder);
 
     sqlx::query_with(&sql, values).execute(&pool).await?;
-    crate::storage::favorites::cleanup_orphans().await.ok();
     Ok(())
 }
 

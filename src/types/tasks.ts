@@ -23,6 +23,8 @@ export interface StreamDetails {
   channels?: number;
   sample_rate?: number;
   bit_rate?: number;
+  bit_depth?: number;
+  bits_per_sample?: number;
 }
 
 export interface MediaDetails {
@@ -37,6 +39,12 @@ export interface MediaDetails {
   tags?: Record<string, string>;
   stream_tags?: Record<string, string>[];
 }
+
+export interface MediaDetailsWithResolve extends MediaDetails {
+  format: string
+  resolution: string
+}
+
 
 export interface TextWatermark {
   content: string;
@@ -77,17 +85,8 @@ export interface FFmpegTask {
   progress: number;
   errorMessage?: string;
   outputTitle?: string;
-  args: any;
   fileType: FileType;
   taskType: MediaTaskType;
-}
-
-export interface ConverterTask extends FFmpegTask {
-  mediaDetails?: MediaDetails;
-  activeCategory?: FileType | ActiveCategoryEnum;
-}
-
-export interface CompressingTask extends FFmpegTask {
-  mediaDetails?: MediaDetails;
+  mediaDetails?: MediaDetailsWithResolve;
   activeCategory?: FileType | ActiveCategoryEnum;
 }

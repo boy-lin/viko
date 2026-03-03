@@ -46,6 +46,8 @@ fn audio_summary_to_stream_details(summary: AudioOutputSummary) -> StreamDetails
         channels: summary.channels,
         sample_rate: summary.sample_rate,
         bit_rate: summary.bit_rate,
+        bit_depth: None,
+        bits_per_sample: None,
     }
 }
 

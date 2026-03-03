@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect } from "react";
 import { Label } from "@/components/ui/label";
+import { BadgeQuestionMark } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -7,55 +8,120 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  InputGroup,
+  InputGroupAddon,
+} from "@/components/ui/input-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import CorrectNumberInput from "@/components/ui-lab/correct-number-input";
 import { AUDIO_SAMPLE_RATES } from "@/data/audio_options";
 import { cn } from "@/lib/utils";
 
 interface AudioSampleRateSelectProps {
-  value: string;
+  value?: string;
   onValueChange: (value: string) => void;
+  minSampleRate?: number;
   maxSampleRate?: number;
   placeholder?: string;
   label?: string;
+  helpText?: string;
   hideLabel?: boolean;
   className?: string;
 }
 
+const DEFAULT_LABEL = "采样率";
+const DEFAULT_PLACEHOLDER = "输入采样率 (Hz)";
+const SAMPLE_RATE_HELP = "控制每秒采样次数。数值越高通常细节更完整，但体积与处理成本可能上升。";
+
 export const AudioSampleRateSelect: React.FC<AudioSampleRateSelectProps> = ({
   value,
   onValueChange,
+  minSampleRate,
   maxSampleRate,
   placeholder,
   label,
-  hideLabel = true,
+  helpText,
+  hideLabel = false,
   className,
 }) => {
+  const effectiveValue = value ?? "auto";
   const rateOptions = useMemo(() => {
-    if (!maxSampleRate) return AUDIO_SAMPLE_RATES;
-    return AUDIO_SAMPLE_RATES.filter(opt => opt.value === "auto" || opt.value <= maxSampleRate);
-  }, [maxSampleRate]);
+    return AUDIO_SAMPLE_RATES.filter((option) => {
+      if (option.value === "auto") return true;
+      const numeric = Number(option.value);
+      if (!Number.isFinite(numeric)) return false;
+      if (minSampleRate !== undefined && numeric < minSampleRate) return false;
+      if (maxSampleRate !== undefined && numeric > maxSampleRate) return false;
+      return true;
+    });
+  }, [maxSampleRate, minSampleRate]);
+
+  const parsedNumericValue = effectiveValue !== "auto" ? Number(effectiveValue) : undefined;
+  const numericValue = parsedNumericValue !== undefined && Number.isFinite(parsedNumericValue)
+    ? parsedNumericValue
+    : undefined;
+  const clampedNumericValue = numericValue === undefined
+    ? undefined
+    : Math.min(
+      maxSampleRate ?? Number.MAX_SAFE_INTEGER,
+      Math.max(minSampleRate ?? 0, numericValue),
+    );
+  const selectValue = rateOptions.some((option) => option.value === effectiveValue) ? effectiveValue : "auto";
 
   useEffect(() => {
-    if (!rateOptions || !rateOptions.length) return;
-    if (!rateOptions.some(opt => opt.value === value)) {
-      onValueChange(rateOptions[0].value);
+    if (numericValue !== undefined && clampedNumericValue !== numericValue) {
+      onValueChange(String(clampedNumericValue));
     }
-  }, [rateOptions]);
+  }, [clampedNumericValue, numericValue, onValueChange]);
 
   return (
     <div className={cn("space-y-2", className)}>
-      {!hideLabel && label && <Label>{label}</Label>}
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="cursor-pointer w-full">
-          <SelectValue placeholder={placeholder ?? "Select sample rate"} />
-        </SelectTrigger>
-        <SelectContent>
-          {rateOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {!hideLabel && (
+        <div className="flex items-center gap-1">
+          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64 whitespace-normal break-words">
+              {helpText ?? SAMPLE_RATE_HELP}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
+      <InputGroup>
+        <CorrectNumberInput
+          min={minSampleRate}
+          max={maxSampleRate}
+          step={100}
+          placeholder={placeholder ?? DEFAULT_PLACEHOLDER}
+          value={clampedNumericValue}
+          onChange={(nextValue) => {
+            const clamped = Math.min(
+              maxSampleRate ?? Number.MAX_SAFE_INTEGER,
+              Math.max(minSampleRate ?? 0, nextValue),
+            );
+            onValueChange(String(clamped));
+          }}
+        />
+        <InputGroupAddon align="inline-end" className="pr-1">
+          <Select
+            value={selectValue}
+            onValueChange={(next) => onValueChange(next)}
+          >
+            <SelectTrigger className="h-7 w-[6em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
+              <SelectValue placeholder="常用值" />
+            </SelectTrigger>
+            <SelectContent>
+              {rateOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </InputGroupAddon>
+      </InputGroup>
     </div>
   );
 };

@@ -59,16 +59,16 @@ export const AUDIO_ENCODERS: EncoderOption[] = [
     description: "Uncompressed PCM 24-bit",
    
   },
-  {
-    value: EncoderEnum.AMR_NB,
-    label: "AMR NB",
-    description: "AMR Narrowband",
-  },
-  {
-    value: EncoderEnum.AMR_WB,
-    label: "AMR WB",
-    description: "AMR Wideband",
-  },
+  // {
+  //   value: EncoderEnum.AMR_NB,
+  //   label: "AMR NB",
+  //   description: "AMR Narrowband",
+  // },
+  // {
+  //   value: EncoderEnum.AMR_WB,
+  //   label: "AMR WB",
+  //   description: "AMR Wideband",
+  // },
   {
     value: EncoderEnum.APE,
     label: "APE",

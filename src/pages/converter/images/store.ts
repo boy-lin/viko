@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ConverterTask, FileType, MediaTaskType } from "@/types/tasks";
+import { FFmpegTask, FileType, MediaTaskType } from "@/types/tasks";
 import { FormatEnum } from "@/types/options";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
@@ -10,7 +10,15 @@ export enum ActiveCategoryEnum {
   Recents = "recents",
 }
 
-export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "args" | "activeCategory"> {}
+export interface ConverterTask extends FFmpegTask {
+  args: ConvertImageTaskArgs;
+}
+
+export interface GlobalConverterConfig {
+  taskType: FFmpegTask["taskType"];
+  activeCategory: FFmpegTask["activeCategory"];
+  args: any;
+}
 
 export const defaultVideoConfig: GlobalConverterConfig = {
   taskType: MediaTaskType.ConvertImage,
@@ -78,7 +86,7 @@ export const useConverterStore = create<ConverterStore>(
         ...clonedTask.args,
         ...clonedArgs,
       };
-
+      console.log('clonedTask', JSON.stringify(clonedTask));
       return clonedTask;
     },
     queueAdapter: async (tasks) => {
