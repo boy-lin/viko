@@ -4,13 +4,25 @@ import { MediaTaskType } from "@/types/tasks";
 import { analytics } from "@/lib/analytics";
 import { MediaTaskEvent } from "./mediaTaskEvent";
 import { FileType } from "@/types/tasks";
-import { ConvertVideoTaskArgs, ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertGifTaskArgs, CompressVideoTaskArgs, CompressAudioTaskArgs, CompressImageTaskArgs } from "./mediaTaskEvent";
+import {
+  ConvertVideoTaskArgs,
+  ConvertAudioTaskArgs,
+  ConvertImageTaskArgs,
+  ConvertGifTaskArgs,
+  CompressVideoTaskArgs,
+  CompressAudioTaskArgs,
+  CompressImageTaskArgs,
+} from "./mediaTaskEvent";
 
 type TaskPriority = "high" | "normal" | "low";
 
 type ConvertTaskRequest = {
   type: MediaTaskType;
-  args: ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs | ConvertGifTaskArgs;
+  args:
+    | ConvertVideoTaskArgs
+    | ConvertAudioTaskArgs
+    | ConvertImageTaskArgs
+    | ConvertGifTaskArgs;
 };
 
 type CompressTaskRequest = {
@@ -25,7 +37,7 @@ class MediaTaskQueue {
   private eventUnlisten: UnlistenFn | null = null;
   private listeners: ((event: MediaTaskEvent) => void)[] = [];
 
-  private constructor() { }
+  private constructor() {}
 
   static getInstance(): MediaTaskQueue {
     if (MediaTaskQueue.instance === null) {
@@ -36,17 +48,16 @@ class MediaTaskQueue {
 
   async ensureEventListener(): Promise<void> {
     if (this.eventUnlisten !== null) return;
-    this.eventUnlisten = await listen<MediaTaskEvent>(
-      "media_task_event",
-      (e) => this.handleMediaTaskEvent(e.payload)
+    this.eventUnlisten = await listen<MediaTaskEvent>("media_task_event", (e) =>
+      this.handleMediaTaskEvent(e.payload),
     );
   }
 
   async addConvertTasks(
     tasks: ConvertTaskRequest[],
-    priority: TaskPriority = "normal"
+    priority: TaskPriority = "normal",
   ): Promise<void> {
-    tasks.forEach(task => {
+    tasks.forEach((task) => {
       if (!task.args.output_path) {
         throw new Error("Task output_path is required");
       }
@@ -64,9 +75,9 @@ class MediaTaskQueue {
 
   async addCompressTasks(
     tasks: CompressTaskRequest[],
-    priority: TaskPriority = "normal"
+    priority: TaskPriority = "normal",
   ): Promise<void> {
-    tasks.forEach(task => {
+    tasks.forEach((task) => {
       if (!task.args.output_path) {
         throw new Error("Task output_path is required");
       }
@@ -127,7 +138,7 @@ class MediaTaskQueue {
   private handleMediaTaskEvent(payload: MediaTaskEvent): void {
     if (!this.pendingTaskIds.has(payload.task_id)) return;
 
-    this.listeners.forEach(listener => listener(payload));
+    this.listeners.forEach((listener) => listener(payload));
 
     this.dispatchStoreUpdates(payload);
 
@@ -142,16 +153,31 @@ class MediaTaskQueue {
   }
 
   private async updateStoresFromEvent(payload: MediaTaskEvent): Promise<void> {
-    const { file_type, task_type, event_type, task_id, progress, error_message } = payload;
+    const {
+      file_type,
+      task_type,
+      event_type,
+      task_id,
+      progress,
+      error_message,
+    } = payload;
     const normalizedProgress = Math.min(100, Math.max(0, progress || 0));
 
-    if (['error'].includes(event_type)) {
-      console.log("Task event: " + event_type, payload.error_message);
-    }
+    // if (["error"].includes(event_type)) {
+    console.log("Task event: " + event_type, payload);
+    // }
 
-    if ([MediaTaskType.ConvertVideo, MediaTaskType.ConvertAudio, MediaTaskType.ConvertImage, MediaTaskType.ConvertGif].includes(task_type)) {
+    if (
+      [
+        MediaTaskType.ConvertVideo,
+        MediaTaskType.ConvertAudio,
+        MediaTaskType.ConvertImage,
+        MediaTaskType.ConvertGif,
+      ].includes(task_type)
+    ) {
       if (file_type === FileType.Video) {
-        const { useConverterStore } = await import("@/pages/converter/videos/store");
+        const { useConverterStore } =
+          await import("@/pages/converter/videos/store");
         const store = useConverterStore.getState();
         const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
@@ -171,13 +197,16 @@ class MediaTaskQueue {
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
             status: error_message === "Task cancelled" ? "idle" : "error",
-            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
-            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
+            progress:
+              error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage:
+              error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
       } else if (file_type === FileType.Image || file_type === FileType.Gif) {
-        const { useConverterStore } = await import("@/pages/converter/images/store");
+        const { useConverterStore } =
+          await import("@/pages/converter/images/store");
         const store = useConverterStore.getState();
         const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
@@ -194,13 +223,16 @@ class MediaTaskQueue {
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
             status: error_message === "Task cancelled" ? "idle" : "error",
-            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
-            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
+            progress:
+              error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage:
+              error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
       } else if (file_type === FileType.Audio) {
-        const { useConverterStore } = await import("@/pages/converter/audios/store");
+        const { useConverterStore } =
+          await import("@/pages/converter/audios/store");
         const store = useConverterStore.getState();
         const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
@@ -217,15 +249,24 @@ class MediaTaskQueue {
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
             status: error_message === "Task cancelled" ? "idle" : "error",
-            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
-            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
+            progress:
+              error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage:
+              error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
       }
-    } else if ([MediaTaskType.CompressVideo, MediaTaskType.CompressImage, MediaTaskType.CompressAudio].includes(task_type)) {
+    } else if (
+      [
+        MediaTaskType.CompressVideo,
+        MediaTaskType.CompressImage,
+        MediaTaskType.CompressAudio,
+      ].includes(task_type)
+    ) {
       if (file_type === FileType.Video) {
-        const { useCompressorStore } = await import("@/pages/compressor/videos/store");
+        const { useCompressorStore } =
+          await import("@/pages/compressor/videos/store");
         const store = useCompressorStore.getState();
         const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
@@ -242,13 +283,16 @@ class MediaTaskQueue {
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
             status: error_message === "Task cancelled" ? "idle" : "error",
-            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
-            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
+            progress:
+              error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage:
+              error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
       } else if (file_type === FileType.Image) {
-        const { useCompressorStore } = await import("@/pages/compressor/images/store");
+        const { useCompressorStore } =
+          await import("@/pages/compressor/images/store");
         const store = useCompressorStore.getState();
         const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
@@ -265,13 +309,16 @@ class MediaTaskQueue {
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
             status: error_message === "Task cancelled" ? "idle" : "error",
-            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
-            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
+            progress:
+              error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage:
+              error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
       } else if (file_type === FileType.Audio) {
-        const { useCompressorStore } = await import("@/pages/compressor/audios/store");
+        const { useCompressorStore } =
+          await import("@/pages/compressor/audios/store");
         const store = useCompressorStore.getState();
         const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
@@ -288,8 +335,10 @@ class MediaTaskQueue {
         } else if (event_type === "error") {
           store.updateTaskById(task_id, {
             status: error_message === "Task cancelled" ? "idle" : "error",
-            progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
-            errorMessage: error_message === "Task cancelled" ? undefined : error_message,
+            progress:
+              error_message === "Task cancelled" ? 0 : normalizedProgress,
+            errorMessage:
+              error_message === "Task cancelled" ? undefined : error_message,
           });
         }
         return;
@@ -297,7 +346,7 @@ class MediaTaskQueue {
     } else if (task_type === MediaTaskType.Watermark) {
       const { useWatermarkStore } = await import("@/pages/watermark/store");
       const store = useWatermarkStore.getState();
-      const taskExists = store.queueTasks.some(t => t.id === task_id);
+      const taskExists = store.queueTasks.some((t) => t.id === task_id);
       if (!taskExists && event_type !== "complete") return;
 
       if (event_type === "progress") {
@@ -316,7 +365,8 @@ class MediaTaskQueue {
         store.updateTaskById(task_id, {
           status: error_message === "Task cancelled" ? "idle" : "error",
           progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
-          errorMessage: error_message === "Task cancelled" ? undefined : error_message,
+          errorMessage:
+            error_message === "Task cancelled" ? undefined : error_message,
         });
       }
       return;
@@ -325,7 +375,7 @@ class MediaTaskQueue {
 
   private trackTaskSubmit(
     eventName: "tasks_submit_convert" | "tasks_submit_compress",
-    tasks: Array<{ type: MediaTaskType; args: unknown }>
+    tasks: Array<{ type: MediaTaskType; args: unknown }>,
   ): void {
     analytics.track(eventName, {
       task_meta: tasks.map((task) => {

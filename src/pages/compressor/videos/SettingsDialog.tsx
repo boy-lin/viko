@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +29,6 @@ import { getVideoCompressionPresetByRatio } from "./compressionPreset";
 import { VIDEO_CONTAINER_DEFINITIONS, VIDEO_ENCODER_DEFINITIONS } from "@/data/capabilities";
 import { parseOptionalInt } from "@/lib/utils";
 import { FormatEnum, VideoEncoderEnum } from "@/types/options";
-import { useMemo } from "react";
 
 interface CompressionSettingsFormProps {
   config: CompressVideoTaskArgs;
@@ -39,6 +38,35 @@ interface CompressionSettingsFormProps {
 interface CompressionSettingsProps extends CompressionSettingsFormProps {
   onSave: (config: Partial<CompressVideoTaskArgs>) => void;
 }
+
+const clampRatio = (ratio: number) => Math.max(10, Math.min(100, Math.round(ratio)));
+
+const buildRatioAdjustedPatch = (
+  config: CompressVideoTaskArgs,
+  nextRatioRaw: number
+) => {
+  const nextRatio = clampRatio(nextRatioRaw);
+  const format = config.format as FormatEnum;
+  const nextPreset = getVideoCompressionPresetByRatio(
+    nextRatio,
+    format,
+    config.source_audio_tracks ?? config.audio_tracks,
+    {
+      videoBitrateKbps: config.source_video_bitrate,
+      frameRate: config.source_frame_rate,
+      keyframeInterval: config.source_keyframe_interval,
+    }
+  ).patch;
+  const presetPatch = { ...nextPreset };
+  delete presetPatch.codec;
+  const fallbackAudioTracks = config.source_audio_tracks ?? config.audio_tracks;
+
+  return {
+    ...presetPatch,
+    ratio: nextRatio,
+    audio_tracks: presetPatch.audio_tracks ?? fallbackAudioTracks,
+  } satisfies Partial<CompressVideoTaskArgs>;
+};
 
 const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   config,
@@ -60,12 +88,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         <Slider
           value={[config.ratio]}
           onValueChange={(ratio: number[]) => {
-            const next = getVideoCompressionPresetByRatio(
-              ratio[0],
-              config.format,
-              config.audio_tracks
-            );
-            onConfigChange(next.patch);
+            onConfigChange(buildRatioAdjustedPatch(config, ratio[0]));
           }}
           min={10}
           max={100}
@@ -73,28 +96,6 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           className="w-full cursor-pointer"
         />
       </div>
-      <VideoFormatSelector
-        className="space-y-2 w-full"
-        value={config.format as FormatEnum}
-        onValueChange={(val) => {
-          if (!val) return;
-          onConfigChange({
-            format: val,
-          });
-        }}
-      />
-      <VideoEncoderSelect
-        className="space-y-2 w-full"
-        label="编码器"
-        hideLabel={false}
-        value={config.codec}
-        allowedEncoders={formatDefinition?.video?.allowedEncoders}
-        onValueChange={(val) =>
-          onConfigChange({
-            codec: val,
-          })
-        }
-      />
 
       <VideoBitrateSelect
         className="space-y-2 w-full"
@@ -186,6 +187,36 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           </span>
         </Label>
       </div>
+      <details className="col-span-2 rounded-md border border-border px-3 py-2">
+        <summary className="cursor-pointer select-none text-sm text-muted-foreground">
+          修改容器与编码器
+        </summary>
+        <div className="mt-3 grid grid-cols-2 gap-4">
+          <VideoFormatSelector
+            className="space-y-2 w-full"
+            value={config.format as FormatEnum}
+            onValueChange={(val) => {
+              if (!val) return;
+              onConfigChange({
+                format: val,
+              });
+            }}
+          />
+          <VideoEncoderSelect
+            className="space-y-2 w-full"
+            label="编码器"
+            hideLabel={false}
+            value={config.codec}
+            allowedEncoders={formatDefinition?.video?.allowedEncoders}
+            onValueChange={(val) =>
+              onConfigChange({
+                codec: val as VideoEncoderEnum,
+              })
+            }
+          />
+        </div>
+      </details>
+
     </div>
   );
 };

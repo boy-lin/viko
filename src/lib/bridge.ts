@@ -1,10 +1,7 @@
 import { emit, listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import {
-  FileType,
-  MediaDetails,
-} from "@/types/tasks";
+import { FileType, MediaDetails } from "@/types/tasks";
 import { extractFilenameFromPath } from "./utils";
 import { MediaTaskType } from "@/types/tasks";
 import { handleDirectoryToFiles } from "./file";
@@ -20,8 +17,8 @@ export type BridgeEvents = {
   "video-frame": { width: number; height: number; data: number[] | Uint8Array };
   "video-complete": string;
   "video-error": string;
-  "media_task_event": MediaTaskEvent;
-  "media_thumbnail": {
+  media_task_event: MediaTaskEvent;
+  media_thumbnail: {
     requestId: string;
     result: ThumbnailPayload | null;
     error?: string | null;
@@ -84,11 +81,11 @@ class Bridge {
 
   async on<K extends string>(
     event: K,
-    handler: (payload: EventPayload<K>) => void
+    handler: (payload: EventPayload<K>) => void,
   ): Promise<() => void> {
     if (this.tauriReady) {
       const unlisten = await listen<EventPayload<K>>(event, ({ payload }) =>
-        handler(payload)
+        handler(payload),
       );
       this.disposers.push(unlisten);
       return () => {
@@ -112,7 +109,7 @@ class Bridge {
       return;
     }
     this.fallbackTarget.dispatchEvent(
-      new CustomEvent<EventPayload<K>>(event, { detail: payload })
+      new CustomEvent<EventPayload<K>>(event, { detail: payload }),
     );
   }
 
@@ -122,10 +119,10 @@ class Bridge {
       timeoutMs?: number;
       filter?: (payload: EventPayload<K>) => boolean;
       signal?: AbortSignal;
-    }
+    },
   ): { promise: Promise<EventPayload<K>>; cancel: () => void } {
     const timeoutMs = options?.timeoutMs ?? 15000;
-    let cancel: () => void = () => { };
+    let cancel: () => void = () => {};
     const promise = new Promise<EventPayload<K>>((resolve, reject) => {
       let settled = false;
       let timeoutId: number | null = null;
@@ -177,14 +174,14 @@ class Bridge {
       timeoutMs?: number;
       filter?: (payload: EventPayload<K>) => boolean;
       signal?: AbortSignal;
-    }
+    },
   ): Promise<EventPayload<K>> {
     return this.createEventWaiter(event, options).promise;
   }
 
   async invoke<T = unknown>(
     cmd: string,
-    args?: Record<string, unknown>
+    args?: Record<string, unknown>,
   ): Promise<T> {
     if (!this.tauriReady) {
       console.warn(`[bridge] invoke "${cmd}" skipped: not running in Tauri`);
@@ -194,8 +191,8 @@ class Bridge {
   }
 
   async getMediaDetails(
-    path: string
-  ): Promise<MediaDetails & { format: string, resolution: string }> {
+    path: string,
+  ): Promise<MediaDetails & { format: string; resolution: string }> {
     const details = await this.invoke<MediaDetails>("get_detailed_media_info", {
       path,
     });
@@ -205,19 +202,17 @@ class Bridge {
     }
 
     let resolution = "";
-    const vidStream = details.streams.find(
-      (s) => s.codec_type === "video"
-    );
+    const vidStream = details.streams.find((s) => s.codec_type === "video");
     if (vidStream && vidStream.width && vidStream.height) {
       resolution = `${vidStream.width}*${vidStream.height}`;
     }
-    const title = extractFilenameFromPath(path)
-
+    const title = extractFilenameFromPath(path);
+    console.log("Media details:", details);
     return {
       ...details,
       format,
       resolution,
-      title
+      title,
     };
   }
 
@@ -228,7 +223,7 @@ class Bridge {
   async generateMediaThumbnail(
     path: string,
     options?: ThumbnailOptions,
-    requestOptions?: { timeoutMs?: number; signal?: AbortSignal }
+    requestOptions?: { timeoutMs?: number; signal?: AbortSignal },
   ): Promise<ThumbnailPayload | null> {
     const requestId =
       globalThis.crypto?.randomUUID?.() ??
@@ -261,9 +256,13 @@ class Bridge {
   async getMediaThumbnailSrc(
     path: string,
     options?: ThumbnailOptions,
-    requestOptions?: { timeoutMs?: number; signal?: AbortSignal }
+    requestOptions?: { timeoutMs?: number; signal?: AbortSignal },
   ): Promise<string | null> {
-    const result = await this.generateMediaThumbnail(path, options, requestOptions);
+    const result = await this.generateMediaThumbnail(
+      path,
+      options,
+      requestOptions,
+    );
     if (result?.thumbnailPath) {
       return convertFileSrc(result.thumbnailPath);
     }
@@ -283,7 +282,7 @@ class Bridge {
     taskType?: string,
     keyword?: string,
     sortBy?: "created_at" | "output_name",
-    sortOrder?: "asc" | "desc"
+    sortOrder?: "asc" | "desc",
   ): Promise<TaskHistoryItem[]> {
     return this.invoke<TaskHistoryItem[]>("get_task_history", {
       limit,
@@ -309,7 +308,7 @@ class Bridge {
     keyword?: string,
     sortBy?: "date" | "name",
     sortOrder?: "asc" | "desc",
-    mediaType?: FileType
+    mediaType?: FileType,
   ): Promise<MyFileItem[]> {
     return this.invoke<MyFileItem[]>("get_my_files", {
       limit,
@@ -327,7 +326,7 @@ class Bridge {
     keyword?: string,
     sortBy?: "date" | "name",
     sortOrder?: "asc" | "desc",
-    mediaType?: FileType
+    mediaType?: FileType,
   ): Promise<{ list: MyFileItem[]; hasMore: boolean }> {
     const pageSize = Math.max(1, limit);
     const rows = await this.getMyFiles(
@@ -336,7 +335,7 @@ class Bridge {
       keyword,
       sortBy,
       sortOrder,
-      mediaType
+      mediaType,
     );
     return {
       list: rows.slice(0, pageSize),
@@ -360,18 +359,28 @@ class Bridge {
       const finalPaths: string[] = await handleDirectoryToFiles({
         paths,
         depth: 1,
-        supportedExtensions: extensions
+        supportedExtensions: extensions,
       });
       if (!finalPaths.length) return [];
-      return finalPaths
+      return finalPaths;
     } catch (err) {
       console.error("Error selecting files:", err);
       return [];
     }
   }
 
-  async addFilesOrFolders(opts: { name: string, multiple: boolean, extensions: string[], directory?: boolean }) {
-    const { name = "", multiple = false, extensions = [], directory = false } = opts;
+  async addFilesOrFolders(opts: {
+    name: string;
+    multiple: boolean;
+    extensions: string[];
+    directory?: boolean;
+  }) {
+    const {
+      name = "",
+      multiple = false,
+      extensions = [],
+      directory = false,
+    } = opts;
     const selected = await open({
       multiple,
       filters: [
@@ -380,7 +389,7 @@ class Bridge {
           extensions,
         },
       ],
-      directory
+      directory,
     });
     if (!selected) return [];
     const paths: string[] = Array.isArray(selected) ? selected : [selected];

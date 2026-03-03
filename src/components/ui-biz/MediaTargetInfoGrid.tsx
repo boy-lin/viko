@@ -23,7 +23,7 @@ export default function MediaTargetInfoGrid({
       args.format?.toUpperCase?.(),
       args.video_encoder?.toUpperCase?.(),
       args.resolution,
-      args.frame_rate,
+      args.video_bitrate ? String(args.video_bitrate) : undefined,
     ];
   } else if (isAudioFormat(format as any)) {
     parts = [

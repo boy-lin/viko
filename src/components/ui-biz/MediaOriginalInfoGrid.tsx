@@ -26,7 +26,7 @@ export default function MediaOriginalInfoGrid({
       videoStream?.width && videoStream?.height
         ? `${videoStream.width}x${videoStream.height}`
         : undefined,
-      videoStream?.frame_rate,
+      videoStream?.bit_rate ? String(videoStream.bit_rate / 1000) : undefined,
     ];
   } else if (isAudioFormat(extension as any)) {
     parts = [

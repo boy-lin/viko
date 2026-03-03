@@ -82,28 +82,6 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
             onValueChange(String(clamped));
           }}
         />
-        {/* <InputGroupInput
-          type="number"
-          min={minBitrate}
-          max={maxBitrate}
-          step={100}
-          placeholder={placeholder ?? "输入码率"}
-          value={clampedNumericValue ?? ""}
-          onChange={(e) => {
-            const nextValue = e.target.value.trim();
-            if (!nextValue) {
-              onValueChange("auto");
-              return;
-            }
-            const parsed = parseOptionalInt(nextValue);
-            if (parsed === undefined) return;
-            const clamped = Math.min(
-              maxBitrate ?? Number.MAX_SAFE_INTEGER,
-              Math.max(minBitrate ?? 0, parsed),
-            );
-            onValueChange(String(clamped));
-          }}
-        /> */}
         <InputGroupAddon align="inline-end" className="pr-1">
           <Select
             value={selectValue}

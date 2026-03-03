@@ -480,10 +480,7 @@ impl<E: TaskEmitter> Transcoder<E> {
                 };
                 opts.set("preset", preset.as_str());
             } else if cfg!(target_os = "macos") {
-                // Videotoolbox specific options if needed
-                if params.use_ultra_fast_speed {
-                    opts.set("realtime", "true");
-                }
+                // Keep ultra-fast mode behavior without forcing realtime rate-control path.
             }
         } else {
             // h264_mf often requires explicit rate control setting to accept the media type
@@ -1424,9 +1421,7 @@ fn create_black_video_encoder(
             opts.set("preset", "medium");
         }
     } else if cfg!(target_os = "macos") {
-        if params.use_ultra_fast_speed {
-            opts.set("realtime", "true");
-        }
+        // Keep ultra-fast mode behavior without forcing realtime rate-control path.
     }
 
     let encoder = encoder

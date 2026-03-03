@@ -1,4 +1,8 @@
-import { AudioEncoderEnum, FormatEnum } from "@/types/options";
+import {
+  AudioEncoderEnum,
+  FormatEnum,
+  VideoEncoderEnum,
+} from "@/types/options";
 import { FileType, MediaTaskType } from "@/types/tasks";
 
 export type MediaTaskEvent = {
@@ -11,8 +15,6 @@ export type MediaTaskEvent = {
   output_size?: number;
   error_message?: string;
 };
-
-
 
 /** 与 Rust AudioEncodingParams 对应 */
 export interface AudioEncodingParams {
@@ -35,7 +37,6 @@ export interface AudioTrackConfig {
   bit_depth?: number;
   quality?: number;
 }
-
 
 /** 与 Rust TextWatermark 对应 */
 export interface TextWatermark {
@@ -66,7 +67,6 @@ export interface ImageWatermark {
   size_mode?: "video_width_ratio" | "scale";
   size_value?: number;
 }
-
 
 /** 与 Rust WatermarkConfig 对应 */
 export interface WatermarkConfig {
@@ -156,7 +156,7 @@ export interface CompressVideoTaskArgs {
   task_id: string;
   input_path: string;
   input_file_type?: FileType;
-  codec?: string;
+  codec?: VideoEncoderEnum;
   resolution?: string;
   bitrate?: number;
   quality?: number;
@@ -170,9 +170,17 @@ export interface CompressVideoTaskArgs {
   /** 与 Rust AudioTrackConfig flatten 对齐 */
   audio_tracks?: AudioTrackConfig[];
   /** 仅用于前端展示/输出文件后缀，Rust compress-video 不读取该字段 */
-  format: string;
+  format: FormatEnum;
   /** only display: 0-100，表示压缩到原文件的百分比 */
   ratio: number;
+  /** frontend-only: 源视频码率（kbps），用于 ratio 重算 */
+  source_video_bitrate?: number;
+  /** frontend-only: 源视频帧率 */
+  source_frame_rate?: number;
+  /** frontend-only: 源视频关键帧间隔（帧） */
+  source_keyframe_interval?: number;
+  /** frontend-only: 源音轨参数，用于 ratio 重算 */
+  source_audio_tracks?: AudioTrackConfig[];
 }
 
 export interface CompressAudioTaskArgs {
@@ -182,8 +190,8 @@ export interface CompressAudioTaskArgs {
   /** 输出容器格式（后端 compress_audio_file 会据此修正输出扩展名并选择 muxer） */
   format: FormatEnum;
   codec: AudioEncoderEnum;
-  sample_rate?: number
-  bitrate?: number
+  sample_rate?: number;
+  bitrate?: number;
   remove_silence?: boolean;
   volume_gain?: number;
   silence_threshold?: number;
@@ -191,7 +199,7 @@ export interface CompressAudioTaskArgs {
   bit_depth?: number;
   output_path: string;
   /** only display */
-  ratio: number
+  ratio: number;
 }
 
 export interface CompressImageTaskArgs {

@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -171,35 +171,79 @@ const buildDefaultArgs = (task: CompressingTask, details: any): { args: Compress
   const taskId = task.id;
   const path = task.args.input_path;
   const assessment = assessCompressibility(details);
-  const ratio = typeof task.args.ratio === "number" ? task.args.ratio : 50;
-  const format = assessment.recommendedFormat;
+  const ratio = typeof task.args.ratio === "number" ? task.args.ratio : 20;
+  const currentArgs = task.args as CompressVideoTaskArgs;
+  const currentFormat = currentArgs.format || assessment.recommendedFormat;
+  const firstVideoStream = details?.streams?.find((s: any) => s.codec_type === "video");
+  const sourceVideoBitrate = toNumber(firstVideoStream?.bit_rate);
+  const sourceVideoBitrateKbps =
+    typeof sourceVideoBitrate === "number" && sourceVideoBitrate > 0
+      ? Math.max(1, Math.round(sourceVideoBitrate / 1000))
+      : undefined;
+  const sourceFrameRateRaw = parseFrameRateValue(firstVideoStream?.frame_rate);
+  const sourceFrameRate =
+    sourceFrameRateRaw > 0 && Number.isFinite(sourceFrameRateRaw)
+      ? sourceFrameRateRaw
+      : undefined;
+  const sourceKeyframeInterval =
+    typeof sourceFrameRate === "number"
+      ? Math.max(1, Math.round(sourceFrameRate * 2))
+      : undefined;
   const initialAudioTracks =
     details?.streams
       ?.filter((stream: any) => stream.codec_type === "audio")
       .map((stream: any) => ({
         source_stream_index: stream.index,
+        bitrate:
+          typeof stream.bit_rate === "number" && stream.bit_rate > 0
+            ? Math.max(1, Math.round(stream.bit_rate / 1000))
+            : 128,
+        sample_rate:
+          typeof stream.sample_rate === "number" && stream.sample_rate > 0
+            ? stream.sample_rate
+            : 32000,
         channels: stream.channels,
         bit_depth: stream.bit_depth,
       })) || [];
 
+  const ratioPreset = getVideoCompressionPresetByRatio(
+    ratio,
+    currentFormat,
+    initialAudioTracks,
+    {
+      videoBitrateKbps: sourceVideoBitrateKbps,
+      frameRate: sourceFrameRate,
+      keyframeInterval: sourceKeyframeInterval,
+    }
+  );
+  const ratioPatch = { ...ratioPreset.patch };
+  delete ratioPatch.codec;
   const outputArgs: CompressVideoTaskArgs = {
-    ...(task.args as CompressVideoTaskArgs),
-    ...getVideoCompressionPresetByRatio(ratio, format, initialAudioTracks).patch,
+    ...currentArgs,
+    ...ratioPatch,
     task_id: taskId,
-    format,
     input_path: path,
     ratio,
+    source_video_bitrate: sourceVideoBitrateKbps,
+    source_frame_rate: sourceFrameRate,
+    source_keyframe_interval: sourceKeyframeInterval,
+    source_audio_tracks: initialAudioTracks,
   };
   const containerDefinition = VIDEO_CONTAINER_DEFINITIONS[outputArgs.format as FormatEnum];
-  outputArgs.codec = outputArgs.codec || containerDefinition?.video?.allowedEncoders[0];
   outputArgs.audio_tracks =
     details?.streams
       ?.filter((stream: any) => stream.codec_type === "audio")
       .map((stream: any) => ({
         source_stream_index: stream.index,
         codec: containerDefinition?.audio?.allowedEncoders[0],
-        bitrate: 128,
-        sample_rate: 32000,
+        bitrate:
+          typeof stream.bit_rate === "number" && stream.bit_rate > 0
+            ? Math.max(1, Math.round(stream.bit_rate / 1000))
+            : 128,
+        sample_rate:
+          typeof stream.sample_rate === "number" && stream.sample_rate > 0
+            ? stream.sample_rate
+            : 32000,
         channels: stream.channels,
         bit_depth: stream.bit_depth
       })) || [];
@@ -263,18 +307,14 @@ export default function TaskItem({ task }: TaskItemProps) {
   const handleDeleteOrCancel = async () => {
     if (isQueuedOrProcessing) {
       await getMediaTaskQueue().cancelTaskById(task.id);
-      startTransition(() => {
-        updateTaskById(task.id, {
-          status: "idle",
-          progress: 0,
-          errorMessage: undefined,
-        });
+      updateTaskById(task.id, {
+        status: "idle",
+        progress: 0,
+        errorMessage: undefined,
       });
       return;
     }
-    startTransition(() => {
-      useCompressorStore.getState().removeTask(task.id);
-    });
+    useCompressorStore.getState().removeTask(task.id);
   };
 
   if (loadError) {
@@ -355,23 +395,19 @@ export default function TaskItem({ task }: TaskItemProps) {
         <CompressionSettingsDialog
           config={taskArgs}
           onConfigChange={async (config) => {
-            startTransition(() => {
-              updateTaskById(task.id, {
-                args: {
-                  ...taskArgs,
-                  ...config,
-                }
-              });
+            updateTaskById(task.id, {
+              args: {
+                ...taskArgs,
+                ...config,
+              }
             });
           }}
           onSave={(config) => {
-            startTransition(() => {
-              updateTaskById(task.id, {
-                args: {
-                  ...taskArgs,
-                  ...config,
-                }
-              });
+            updateTaskById(task.id, {
+              args: {
+                ...taskArgs,
+                ...config,
+              }
             });
           }}
         />

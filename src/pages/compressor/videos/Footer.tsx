@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Settings, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -7,12 +7,12 @@ import {
   PopoverAnchor,
 } from "@/components/ui/popover";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
-import { CompressionSettingsPopover } from "./SettingsDialog";
 import { CompressVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useCompressorStore } from './store'
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { Slider } from "@/components/ui/slider";
 
 export const CompressionFooter: React.FC = () => {
   const { t } = useTranslation("compressor");
@@ -75,11 +75,28 @@ export const CompressionFooter: React.FC = () => {
           <div className="flex items-center gap-2">
             <div className="w-[10em]">
               <div className="space-y-2">
-                <CompressionSettingsPopover
+                <Button
+                  variant="ghost"
+                  className="h-9 w-[10em] cursor-pointer"
+                >
+                  <Slider
+                    value={[videoConfig.ratio]}
+                    onValueChange={(ratio: number[]) => {
+                      updateGlobalConfig({ ratio: ratio[0] });
+                      handleSaveConfig({ ratio: ratio[0] });
+                    }}
+                    min={10}
+                    max={100}
+                    step={2}
+                    className="w-full cursor-pointer"
+                  />
+                  <Settings className="w-4 h-4 text-muted-foreground" />
+                </Button>
+                {/* <CompressionSettingsPopover
                   config={videoConfig as CompressVideoTaskArgs}
                   onConfigChange={updateGlobalConfig}
                   onSave={handleSaveConfig}
-                />
+                /> */}
               </div>
             </div>
 

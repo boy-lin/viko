@@ -28,10 +28,6 @@ interface TaskItemProps {
 
 const buildDefaultArgs = (task: ConverterTask, details: MediaDetails) => {
   let format = FormatEnum.MP4;
-  if (details.extension === format) {
-    format = FormatEnum.MOV
-  }
-
   const outputArgs: any = {
     task_id: task.id,
     format: format,
