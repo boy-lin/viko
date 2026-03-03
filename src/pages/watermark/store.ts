@@ -4,10 +4,12 @@ import {
   FFmpegTask,
   FileType,
 } from "@/types/tasks";
-import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
+import { WatermarkTaskArgs } from "@/lib/mediaTaskEvent";
+import { getExtension } from "@/lib/utils";
+import { isImageFormat } from "@/data/formats";
 
 export interface WatermarkTask extends FFmpegTask {
-  args: ConvertVideoTaskArgs;
+  args: WatermarkTaskArgs;
 }
 
 interface TaskState {
@@ -25,9 +27,12 @@ export const useWatermarkStore = create<TaskState>(
       const newTasks: WatermarkTask[] = [];
       for (const path of paths) {
         if (!path) continue;
+        const extension = (getExtension(path) || "").toLowerCase();
+        const fileType = isImageFormat(extension) ? FileType.Image : FileType.Video;
         let outputArgs: any = {
           task_id: crypto.randomUUID(),
           input_path: path,
+          input_file_type: fileType,
         }
         let taskType = MediaTaskType.Watermark;
         newTasks.push({
@@ -35,7 +40,7 @@ export const useWatermarkStore = create<TaskState>(
           status: "idle",
           progress: 0,
           args: outputArgs,
-          fileType: FileType.Video,
+          fileType,
           taskType
         });
       }

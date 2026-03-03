@@ -225,6 +225,10 @@ export default function TaskItem({
   const updateTaskById = useCompressorStore((state) => state.updateTaskById);
 
   const loading = metaStatus === "loading" || (!task.mediaDetails && metaStatus !== "error");
+  const outputTitleValue = useMemo(
+    () => task.outputTitle ?? task.mediaDetails?.title ?? "",
+    [task.outputTitle, task.mediaDetails?.title],
+  );
 
   const handleConvertSingle = async () => {
     await useCompressorStore.getState().pushTasksToQueue([task]);
@@ -278,11 +282,6 @@ export default function TaskItem({
     taskArgs.sample_rate,
     taskArgs.channels,
   ];
-
-  const outputTitleValue = useMemo(
-    () => task.outputTitle ?? task.mediaDetails?.title ?? "",
-    [task.outputTitle, task.mediaDetails?.title],
-  );
 
   const handleOutputTitleChange = (nextTitle: string) => {
     startTransition(() => {

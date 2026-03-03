@@ -278,7 +278,7 @@ fn execute_task(app: &AppHandle, task: MediaTaskRequest) -> Result<(), String> {
         MediaTaskRequest::CompressVideo(args) => run_compress_video(app, args),
         MediaTaskRequest::CompressAudio(args) => run_compress_audio(app, args),
         MediaTaskRequest::CompressImage(args) => run_compress_image(app, args),
-        MediaTaskRequest::Watermark(args) => run_watermark_video(app, args),
+        MediaTaskRequest::Watermark(args) => run_watermark_task(app, args),
     }
 }
 
@@ -375,7 +375,43 @@ fn run_convert_video(app: &AppHandle, args: VideoConversionArgs) -> Result<(), S
     run_convert_video_with_task_type(app, args, "convert-video")
 }
 
-fn run_watermark_video(app: &AppHandle, args: VideoConversionArgs) -> Result<(), String> {
+fn is_image_extension(ext: &str) -> bool {
+    matches!(
+        ext.to_lowercase().as_str(),
+        "jpg" | "jpeg" | "png" | "webp" | "gif" | "bmp" | "tiff" | "tif" | "ico"
+    )
+}
+
+fn run_watermark_task(app: &AppHandle, args: VideoConversionArgs) -> Result<(), String> {
+    let input_ext = Path::new(&args.input_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase());
+    let format_ext = args.format.as_ref().map(|s| s.to_lowercase());
+    let declared_image = args.input_file_type.as_deref() == Some("image");
+    let should_run_image = declared_image
+        || format_ext.as_deref().map(is_image_extension).unwrap_or(false)
+        || input_ext.as_deref().map(is_image_extension).unwrap_or(false);
+
+    if should_run_image {
+        let resolved_format = format_ext
+            .or(input_ext)
+            .filter(|ext| is_image_extension(ext))
+            .unwrap_or_else(|| "jpg".to_string());
+        let image_args = ImageConversionParams {
+            task_id: args.task_id,
+            input_path: args.input_path,
+            input_file_type: Some("image".to_string()),
+            output_path: args.output_path.unwrap_or_default(),
+            width: None,
+            height: None,
+            format: resolved_format,
+            image_encoder: None,
+            watermark: args.watermark,
+        };
+        return run_convert_image_with_task_type(app, image_args, "watermark");
+    }
+
     run_convert_video_with_task_type(app, args, "watermark")
 }
 
@@ -580,7 +616,15 @@ fn run_convert_gif(app: &AppHandle, args: GifConversionArgs) -> Result<(), Strin
     Ok(())
 }
 
-fn run_convert_image(app: &AppHandle, mut args: ImageConversionParams) -> Result<(), String> {
+fn run_convert_image(app: &AppHandle, args: ImageConversionParams) -> Result<(), String> {
+    run_convert_image_with_task_type(app, args, "convert-image")
+}
+
+fn run_convert_image_with_task_type(
+    app: &AppHandle,
+    mut args: ImageConversionParams,
+    task_type: &str,
+) -> Result<(), String> {
     if args.output_path.is_empty() {
         let format = if args.format.is_empty() {
             "jpg".to_string()
@@ -611,7 +655,7 @@ fn run_convert_image(app: &AppHandle, mut args: ImageConversionParams) -> Result
     let start_time = get_millis();
     record_history_start(
         task_id.clone(),
-        "convert-image".into(),
+        task_type.into(),
         "image".into(),
         args.input_path.clone(),
         args.output_path.clone(),
@@ -623,7 +667,7 @@ fn run_convert_image(app: &AppHandle, mut args: ImageConversionParams) -> Result
         .input_file_type
         .clone()
         .unwrap_or_else(|| "image".to_string());
-    let emitter = events::window_emitter(app, task_id.clone(), "convert-image".into(), file_type)?;
+    let emitter = events::window_emitter(app, task_id.clone(), task_type.into(), file_type)?;
 
     let result =
         tauri::async_runtime::block_on(image::convert_image_file_with_report(args.clone()));
@@ -649,7 +693,7 @@ fn run_convert_image(app: &AppHandle, mut args: ImageConversionParams) -> Result
 
     record_history(
         task_id,
-        "convert-image".into(),
+        task_type.into(),
         "image".into(),
         args.input_path.clone(),
         final_output_path,

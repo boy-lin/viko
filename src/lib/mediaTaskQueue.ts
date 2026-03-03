@@ -9,6 +9,7 @@ import {
   ConvertAudioTaskArgs,
   ConvertImageTaskArgs,
   ConvertGifTaskArgs,
+  WatermarkTaskArgs,
   CompressVideoTaskArgs,
   CompressAudioTaskArgs,
   CompressImageTaskArgs,
@@ -22,7 +23,8 @@ type ConvertTaskRequest = {
     | ConvertVideoTaskArgs
     | ConvertAudioTaskArgs
     | ConvertImageTaskArgs
-    | ConvertGifTaskArgs;
+    | ConvertGifTaskArgs
+    | WatermarkTaskArgs;
 };
 
 type CompressTaskRequest = {
@@ -65,7 +67,7 @@ class MediaTaskQueue {
         throw new Error("Task ID is required");
       }
       this.pendingTaskIds.add(task.args.task_id);
-      console.log("Adding convert task args", JSON.stringify(task.args));
+      console.log("Adding convert task args", task.args);
     });
 
     this.ensureEventListener();

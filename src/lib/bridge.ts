@@ -64,7 +64,10 @@ class Bridge {
   private mediaDetailsActive = 0;
   private mediaDetailsWaiters: Array<() => void> = [];
   private mediaDetailsCache = new Map<string, MediaDetailsWithResolve>();
-  private mediaDetailsInflight = new Map<string, Promise<MediaDetailsWithResolve>>();
+  private mediaDetailsInflight = new Map<
+    string,
+    Promise<MediaDetailsWithResolve>
+  >();
 
   private constructor() {
     if (Bridge.instance) {
@@ -227,7 +230,10 @@ class Bridge {
     }
   }
 
-  private normalizeMediaDetails(path: string, details: MediaDetails): MediaDetailsWithResolve {
+  private normalizeMediaDetails(
+    path: string,
+    details: MediaDetails,
+  ): MediaDetailsWithResolve {
     let format = details.extension.toLowerCase();
     if (!details.extension) {
       format = details.format_names.split(",")[0];
@@ -273,20 +279,29 @@ class Bridge {
     const normalizedPath = path.trim();
     const cacheKey = `media:${normalizedPath}`;
     return this.getCachedMediaDetails(cacheKey, async () => {
-      const details = await this.invoke<MediaDetails>("get_detailed_media_info", {
-        path: normalizedPath,
-      });
+      const details = await this.invoke<MediaDetails>(
+        "get_detailed_media_info",
+        {
+          path: normalizedPath,
+        },
+      );
       return this.normalizeMediaDetails(normalizedPath, details);
     });
   }
 
-  async getMediaDetailsBatch(paths: string[]): Promise<MediaDetailsWithResolve[]> {
-    const normalizedPaths = paths.map((path) => path.trim()).filter((path) => path.length > 0);
+  async getMediaDetailsBatch(
+    paths: string[],
+  ): Promise<MediaDetailsWithResolve[]> {
+    const normalizedPaths = paths
+      .map((path) => path.trim())
+      .filter((path) => path.length > 0);
     if (normalizedPaths.length === 0) return [];
 
     const toFetch = Array.from(
       new Set(
-        normalizedPaths.filter((path) => !this.mediaDetailsCache.has(`media:${path}`)),
+        normalizedPaths.filter(
+          (path) => !this.mediaDetailsCache.has(`media:${path}`),
+        ),
       ),
     );
 
@@ -313,7 +328,9 @@ class Bridge {
 
       try {
         const fetched = await this.withMediaDetailsSlot(() =>
-          this.invoke<MediaDetails[]>("get_detailed_media_info_batch", { paths: toFetch }),
+          this.invoke<MediaDetails[]>("get_detailed_media_info_batch", {
+            paths: toFetch,
+          }),
         );
         fetched.forEach((details, index) => {
           const sourcePath = toFetch[index];
@@ -332,16 +349,21 @@ class Bridge {
       }
     }
 
-    return Promise.all(normalizedPaths.map((path) => this.getMediaDetails(path)));
+    return Promise.all(
+      normalizedPaths.map((path) => this.getMediaDetails(path)),
+    );
   }
 
   async getImageDetails(path: string): Promise<MediaDetailsWithResolve> {
     const normalizedPath = path.trim();
     const cacheKey = `image:${normalizedPath}`;
     return this.getCachedMediaDetails(cacheKey, async () => {
-      const details = await this.invoke<MediaDetails>("get_detailed_image_info", {
-        path: normalizedPath,
-      });
+      const details = await this.invoke<MediaDetails>(
+        "get_detailed_image_info",
+        {
+          path: normalizedPath,
+        },
+      );
       return this.normalizeMediaDetails(normalizedPath, details);
     });
   }

@@ -64,6 +64,10 @@ export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: T
   const currentMetaStatus = metaStatus ?? (task.mediaDetails ? "idle" : "loading");
   const loadError = metaError ?? "";
   const loading = currentMetaStatus === "loading" || (!task.mediaDetails && currentMetaStatus !== "error");
+  const outputTitleValue = useMemo(
+    () => task.outputTitle ?? task.mediaDetails?.title ?? "",
+    [task.outputTitle, task.mediaDetails?.title],
+  );
 
   const handleConvertSingle = async () => {
     await useConverterStore.getState().pushTasksToQueue([task]);
@@ -99,10 +103,6 @@ export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: T
   }
 
   const convertVideoTaskArgs = task.args as ConvertVideoTaskArgs;
-  const outputTitleValue = useMemo(
-    () => task.outputTitle ?? task.mediaDetails?.title ?? "",
-    [task.outputTitle, task.mediaDetails?.title],
-  );
 
   const handleOutputTitleChange = (nextTitle: string) => {
     updateTaskById(task.id, {

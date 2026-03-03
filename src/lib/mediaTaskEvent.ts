@@ -152,6 +152,11 @@ export interface ConvertImageTaskArgs {
   watermark?: WatermarkConfig;
 }
 
+export interface WatermarkTaskArgs extends ConvertVideoTaskArgs {
+  /** Optional hint for backend dispatch. */
+  input_file_type?: FileType;
+}
+
 export interface CompressVideoTaskArgs {
   task_id: string;
   input_path: string;

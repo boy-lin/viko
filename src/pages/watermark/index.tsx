@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { WatermarkConfig } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
-import { VIDEO_SUPPORT_FORMATS } from "@/data/formats";
+import { IMAGE_SUPPORT_FORMATS, VIDEO_SUPPORT_FORMATS } from "@/data/formats";
 import { toast } from "sonner";
 import { useWatermarkStore } from "./store";
 import { BottomToolbar } from "./BottomToolbar";
@@ -14,7 +14,6 @@ import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
 import { MediaTaskType } from "@/types/tasks";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { isImageFormat } from "@/data/formats";
 import { extractFilenameFromPath, getExtension } from "@/lib/utils";
 
 export default function WatermarkPage() {
@@ -175,7 +174,7 @@ export default function WatermarkPage() {
             const outputPath = `${outputDir}/${title}_watermarked.${format}`;
             return {
                 ...task,
-                type: isImageFormat(format) ? MediaTaskType.ConvertImage : MediaTaskType.ConvertVideo,
+                type: MediaTaskType.Watermark,
                 args: {
                     ...task.args,
                     format,
@@ -197,7 +196,6 @@ export default function WatermarkPage() {
                     },
                 });
             });
-            console.log('sfasdf', JSON.stringify(tasks))
             await getMediaTaskQueue().addConvertTasks(tasks);
         } catch (e: any) {
             console.error(e);
@@ -239,7 +237,9 @@ export default function WatermarkPage() {
                         {t("subtitle")}
                     </p>
                 </div>
-                <UploadPanel supportedExtensions={VIDEO_SUPPORT_FORMATS.map((format) => format.toLowerCase())} />
+                <UploadPanel
+                    supportedExtensions={[...VIDEO_SUPPORT_FORMATS, ...IMAGE_SUPPORT_FORMATS].map((format) => format.toLowerCase())}
+                />
             </div>
         );
     }

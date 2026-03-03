@@ -37,7 +37,6 @@ export default function ConvertingTask({
       return fileName.includes(search);
     });
   }, [convertingTasks, globalFilter]);
-
   return (
     <>
       <div className="space-y-3">

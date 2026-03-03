@@ -306,6 +306,10 @@ export default function TaskItem({
   const updateTaskById = useCompressorStore((state) => state.updateTaskById);
 
   const loading = metaStatus === "loading" || (!task.mediaDetails && metaStatus !== "error");
+  const outputTitleValue = useMemo(
+    () => task.outputTitle ?? task.mediaDetails?.title ?? "",
+    [task.outputTitle, task.mediaDetails?.title],
+  );
 
   const handleConvertSingle = async () => {
     try {
@@ -359,11 +363,6 @@ export default function TaskItem({
     "-",
     formatBitrate(taskArgs.bitrate, 1),
   ];
-
-  const outputTitleValue = useMemo(
-    () => task.outputTitle ?? task.mediaDetails?.title ?? "",
-    [task.outputTitle, task.mediaDetails?.title],
-  );
 
   const handleOutputTitleChange = (nextTitle: string) => {
     if (!task.mediaDetails?.path) {

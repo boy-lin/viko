@@ -89,10 +89,9 @@ export default function TaskItem({
     });
   };
 
-  const convertImageTaskArgs = task.args as ConvertImageTaskArgs;
+  const convertImageTaskArgs = task.args as any;
   const taskMediaDetails = task.mediaDetails;
   const firstVideoStream = taskMediaDetails?.streams.find((s) => s.codec_type === "video");
-
   const originalInfoParts = [
     taskMediaDetails?.extension?.toUpperCase?.(),
     firstVideoStream?.codec_name?.toUpperCase?.(),
@@ -106,7 +105,7 @@ export default function TaskItem({
     convertImageTaskArgs.width
       ? `${convertImageTaskArgs.width}x${convertImageTaskArgs.height}`
       : undefined,
-    convertImageTaskArgs.quality,
+    convertImageTaskArgs.frame_rate,
   ];
 
   const outputTitleValue = useMemo(
@@ -177,6 +176,7 @@ export default function TaskItem({
           }}
           recentKey="converter-images-task-item"
           onValueChange={(config) => {
+            console.log('config', config)
             updateTaskById(task.id, {
               activeCategory: config.activeCategory,
               taskType: config.taskType,

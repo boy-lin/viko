@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { bridge } from "@/lib/bridge";
 import { MediaDetailsWithResolve } from "@/types/tasks";
 
@@ -28,7 +28,17 @@ export function useBatchMediaDetails<TTask extends TaskLike, TUpdate>({
   buildUpdate,
   errorMessage = "Failed to load media details",
 }: UseBatchMediaDetailsParams<TTask, TUpdate>) {
-  const [metaStateById, setMetaStateById] = useState<Record<string, MediaMetaStatus>>({});
+  const [metaStateById, setMetaStateById] = useState<
+    Record<string, MediaMetaStatus>
+  >({});
+  const unmountedRef = useRef(false);
+
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
 
   useEffect(() => {
     const pending = tasks.filter((task) => {
@@ -37,7 +47,6 @@ export function useBatchMediaDetails<TTask extends TaskLike, TUpdate>({
     });
     if (pending.length === 0) return;
 
-    let active = true;
     setMetaStateById((prev) => {
       const next = { ...prev };
       pending.forEach((task) => {
@@ -50,8 +59,16 @@ export function useBatchMediaDetails<TTask extends TaskLike, TUpdate>({
     void bridge
       .getMediaDetailsBatch(paths)
       .then((detailsList) => {
-        if (!active) return;
-        const byPath = new Map(detailsList.map((details) => [details.path, details]));
+        if (unmountedRef.current) return;
+        const byPath = new Map(
+          detailsList.map((details) => [details.path, details]),
+        );
+
+        pending.forEach((task) => {
+          const details = byPath.get(task.args!.input_path!);
+          if (!details) return;
+          updateTaskById(task.id, buildUpdate(task, details));
+        });
 
         setMetaStateById((prev) => {
           const next = { ...prev };
@@ -65,13 +82,12 @@ export function useBatchMediaDetails<TTask extends TaskLike, TUpdate>({
               return;
             }
             next[task.id] = { status: "idle" };
-            updateTaskById(task.id, buildUpdate(task, details));
           });
           return next;
         });
       })
       .catch((error) => {
-        if (!active) return;
+        if (unmountedRef.current) return;
         const message = error instanceof Error ? error.message : errorMessage;
         setMetaStateById((prev) => {
           const next = { ...prev };
@@ -81,11 +97,7 @@ export function useBatchMediaDetails<TTask extends TaskLike, TUpdate>({
           return next;
         });
       });
-
-    return () => {
-      active = false;
-    };
-  }, [tasks, metaStateById, updateTaskById, buildUpdate, errorMessage]);
+  }, [tasks]);
 
   const retryMeta = useCallback((taskId: string) => {
     setMetaStateById((prev) => ({
@@ -93,7 +105,6 @@ export function useBatchMediaDetails<TTask extends TaskLike, TUpdate>({
       [taskId]: { status: "idle" },
     }));
   }, []);
-
   return {
     metaStateById,
     retryMeta,
