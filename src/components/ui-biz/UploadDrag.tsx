@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import clsx from "clsx";
 import { UploadCloud } from "lucide-react";
 import { Loading } from "@/components/ui-lab/loading";
 import {
@@ -11,6 +10,7 @@ import { useDragDrop } from "@/lib/drag";
 import { bridge } from "@/lib/bridge";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 
 type UploadStatus = "queued" | "processing" | "done" | "error";
 type UploadKind = "audio" | "video" | "image" | "file";
@@ -33,9 +33,11 @@ export const getFileKind = (extension?: string): UploadKind => {
 };
 
 export function UploadDrag({
+  className,
   supportedExtensions,
   onUploadComplete
 }: {
+  className?: string;
   supportedExtensions: string[];
   onUploadComplete: (uploads: string[]) => void,
 }) {
@@ -87,40 +89,39 @@ export function UploadDrag({
   }, [handlePaths]);
 
   return (
-    <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-      {pending ? (
-        <div className="mt-6 space-y-4">
+    <div className={cn("rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground flex items-center justify-center", className, isDragging && !pending
+      ? "border-primary bg-primary/10"
+      : "border-muted-foreground/30 bg-background/60")}
+
+      onClick={async () => {
+        if (pending) return;
+        const selected = await open({
+          multiple: true,
+          filters: [
+            {
+              name: t("upload_drag.picker_name"),
+              extensions: supportedExtensions,
+            },
+          ]
+        });
+        if (!selected) return [];
+        const paths = Array.isArray(selected) ? selected : [selected];
+        handlePaths(paths)
+      }}>
+      {pending ? ( 
           <div className="rounded-xl border border-border bg-background/70 p-4">
             <div className="flex flex-col items-center gap-2">
               <Loading />
             </div>
           </div>
-        </div>
       ) : (
         <div
-          className={clsx(
-            "mt-6 flex flex-col items-center justify-center gap-3 text-center transition-all",
-            isDragging
-              ? "border-primary bg-primary/10"
-              : "border-muted-foreground/30 bg-background/60"
+          className={cn(
+            "group cursor-pointer flex flex-col items-center justify-center gap-3 text-center transition-all",
           )}
         >
           <div
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
-            onClick={async () => {
-              const selected = await open({
-                multiple: true,
-                filters: [
-                  {
-                    name: t("upload_drag.picker_name"),
-                    extensions: supportedExtensions,
-                  },
-                ]
-              });
-              if (!selected) return [];
-              const paths = Array.isArray(selected) ? selected : [selected];
-              handlePaths(paths)
-            }}
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary/20"
           >
             <UploadCloud className="h-7 w-7" />
           </div>

@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Link2 } from "lucide-react";
+import { BadgeQuestionMark, Link2, Link2Off } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -22,6 +22,10 @@ import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { VideoQualitySelect } from "@/components/biz-form/VideoQualitySelect";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { useTranslation } from "react-i18next";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { InputGroup } from "@/components/ui/input-group"
+import { motion } from "framer-motion"
 
 // Derived state from resolution prop
 const normalizeResolution = (value: string) => value.replace("×", "x");
@@ -47,6 +51,8 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
   crf,
   onChange,
 }) => {
+
+  const { t } = useTranslation("common");
   const [clarityMode, setClarityMode] = useState("bitrate");
   const [ratioLocked, setRatioLocked] = useState(true);
 
@@ -100,10 +106,21 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
   return (
     <div className="space-y-4 p-2">
       <div className="grid grid-cols-2 gap-4">
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">清晰度</span>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1">
+            <Label>清晰度</Label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-64 whitespace-normal break-words">
+                {t("videoCompressor.fields.clarityHelp")}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
           <Select value={clarityMode} onValueChange={setClarityMode}>
-            <SelectTrigger className="cursor-pointer h-9 rounded-lg bg-muted/30 border-muted-foreground/10">
+            <SelectTrigger className="cursor-pointer h-9 w-full rounded-lg bg-muted/30 border-muted-foreground/10">
               <SelectValue placeholder="按码率区分" />
             </SelectTrigger>
             <SelectContent>
@@ -115,6 +132,8 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
         {clarityMode === "bitrate" ? (
           <div className="w-full">
             <VideoBitrateSelect
+              label={t("video_advance.bitrate", "Bitrate")}
+              helpText={t("videoCompressor.fields.bitrateHelp")}
               value={video_bitrate ? video_bitrate.toString() : "auto"}
               onValueChange={(val) => {
                 onChange({
@@ -143,7 +162,17 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
 
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">分辨率</span>
+          <div className="flex items-center gap-1">
+            <Label>分辨率</Label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-64 whitespace-normal break-words">
+                {t("videoCompressor.fields.clarityHelp")}
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <div>
             <RadioGroup className="flex" value={resolutionMode} onValueChange={(val) => {
               setResolutionMode(val)
@@ -168,60 +197,58 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
         </div>
         {resolutionMode === "custom_size" ? (
           <div className="flex items-center gap-3">
-            <span className="text-sm invisible">分辨率</span>
-            <span className="text-sm text-muted-foreground">宽</span>
-            <CorrectNumberInput
-              value={resolutionInfo.width}
-              onChange={handleWidthChange}
-              className="w-24"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="cursor-pointer h-9 w-9 rounded-lg bg-muted/30"
-              onClick={() => {
-                setRatioLocked((v) => !v);
-              }}
-            >
-              <Link2
-                className={cn(
-                  "h-4 w-4",
-                  ratioLocked ? "text-primary" : "text-muted-foreground"
-                )}
+            <InputGroup className="bg-muted/30 w-auto">
+              <CorrectNumberInput
+                value={resolutionInfo.width}
+                onChange={handleWidthChange}
+                className="w-24"
+                placeholder={t("settings.video.fields.width")}
               />
-            </Button>
-            <CorrectNumberInput
-              value={resolutionInfo.height}
-              onChange={handleHeightChange}
-              className="w-24"
-            />
-            <span className="text-sm text-muted-foreground">高</span>
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center justify-center cursor-pointer h-9 w-9 bg-transparent hover:bg-transparent"
+                onClick={() => {
+                  setRatioLocked((v) => !v);
+                }}
+              >
+                {
+                  ratioLocked 
+                  ? <Link2 className="h-4 w-4 text-primary pointer-events-none" /> 
+                    : <Link2Off className="h-4 w-4 text-muted-foreground pointer-events-none" />
+                }
+              </motion.button>
+              <CorrectNumberInput
+                value={resolutionInfo.height}
+                onChange={handleHeightChange}
+                className="w-24"
+                placeholder={t("settings.video.fields.height")}
+              />
+            </InputGroup>
           </div>
         ) : <div className="flex items-center gap-3">
-          <span className="text-sm invisible">分辨率</span>
           <VideoResolutionSelect
             value={resolution}
             onValueChange={applyResolution}
+            showNumberInput={false}
             className="h-9 rounded-lg bg-muted/30 border-muted-foreground/10"
             placeholder="自动"
           />
         </div>}
         <div className="flex items-center gap-3">
-          <span className="text-sm invisible">分辨率</span>
           <Button
             className="cursor-pointer rounded-lg px-5 text-xs"
             variant="default"
             onClick={() => setDeviceDialogOpen(true)}
           >
-            根据设备设置
+            根据设备设置分辨率
           </Button>
           <Button
             className="cursor-pointer rounded-lg px-5 text-xs"
             variant="default"
             onClick={() => setPlatformDialogOpen(true)}
           >
-            根据自媒体平台设置
+            根据自媒体平台设置分辨率
           </Button>
         </div>
       </div>
@@ -232,7 +259,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
         <DialogContent className="sm:max-w-[72vw] p-0 overflow-hidden">
           <DialogTitle className="sr-only">根据设备设置分辨率</DialogTitle>
           <div className="flex h-[520px]">
-            <div className="w-56 bg-muted/20 p-4 space-y-2">
+            <div className="w-56 bg-muted/20 p-4 space-y-4">
               {RESOLUTION_GROUPS_DEVICES.map((group) => (
                 <button
                   key={group.id}

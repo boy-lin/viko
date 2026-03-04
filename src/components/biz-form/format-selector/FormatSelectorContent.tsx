@@ -231,7 +231,6 @@ export default function FormatSelectorContent({
           image_encoder={imageArgs.image_encoder}
           width={imageArgs.width}
           height={imageArgs.height}
-          quality={imageArgs.quality}
           onChange={(next) => {
             onValueChange({
               ...config,

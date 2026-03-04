@@ -31,7 +31,7 @@ export const VideoFrameRateSelect: React.FC<VideoFrameRateSelectProps> = ({
   maxFrameRate,
   label,
   helpText,
-  hideLabel = true,
+  hideLabel = false,
   className,
 }) => {
   const frameRateOptions = useMemo(() => {

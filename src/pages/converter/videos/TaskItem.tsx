@@ -174,7 +174,7 @@ export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: T
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "取消") : t("actions.delete")}</TooltipContent>
+          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "取锟斤拷") : t("actions.delete")}</TooltipContent>
         </Tooltip>
 
         <Button
@@ -183,7 +183,7 @@ export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: T
           onClick={handleConvertSingle}
           disabled={loading || isQueuedOrProcessing}
         >
-          {t("actions.convertSingle", "转换")}
+          {t("actions.convertSingle")}
         </Button>
       </div>
     </div>

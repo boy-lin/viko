@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { Label } from "@/components/ui/label";
+import { BadgeQuestionMark } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -7,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VIDEO_ENCODERS } from "@/data/encoders";
 import { EncoderEnum } from "@/types/options";
 import { cn } from "@/lib/utils";
@@ -16,6 +18,7 @@ interface VideoEncoderSelectProps {
   onValueChange: (value: string) => void;
   allowedEncoders?: string[];
   label?: string;
+  helpText?: string;
   hideLabel?: boolean;
   className?: string;
 }
@@ -25,6 +28,7 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
   onValueChange,
   allowedEncoders,
   label,
+  helpText,
   hideLabel = true,
   className,
 }) => {
@@ -45,7 +49,19 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {!hideLabel && label && <Label>{label}</Label>}
+      {!hideLabel && label && (
+        <div className="flex items-center gap-1">
+          <Label>{label}</Label>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <BadgeQuestionMark className="h-4 w-4 cursor-help text-muted-foreground" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64 whitespace-normal break-words">
+              {helpText}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
       <Select value={value ?? EncoderEnum.AUTO} onValueChange={onValueChange}>
         <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder="Select encoder" />

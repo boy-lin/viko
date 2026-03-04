@@ -37,25 +37,20 @@ export default function ConvertingTask({
       return fileName.includes(search);
     });
   }, [convertingTasks, globalFilter]);
-  return (
-    <>
-      <div className="space-y-3">
-        {filteredTasks.length === 0 ? (
-          <UploadPanel supportedExtensions={VIDEO_SUPPORT_FORMATS} />
-        ) : (
-          filteredTasks.map((task) => {
-            return (
-              <TaskItem
-                key={task.id}
-                task={task}
-                metaStatus={metaStateById[task.id]?.status}
-                metaError={metaStateById[task.id]?.error}
-                onRetryMeta={() => retryMeta(task.id)}
-              />
-            );
-          })
-        )}
-      </div>
-    </>
+  return (filteredTasks.length === 0 ? (
+    <UploadPanel supportedExtensions={VIDEO_SUPPORT_FORMATS} />
+  ) : (
+    filteredTasks.map((task) => {
+      return (
+        <TaskItem
+          key={task.id}
+          task={task}
+          metaStatus={metaStateById[task.id]?.status}
+          metaError={metaStateById[task.id]?.error}
+          onRetryMeta={() => retryMeta(task.id)}
+        />
+      );
+    })
+  )
   );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { Label } from "@/components/ui/label";
+import { BadgeQuestionMark } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -9,8 +10,11 @@ import {
   SelectGroup,
   SelectLabel,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RESOLUTION_OPTIONS } from "@/data/resolution";
 import { cn } from "@/lib/utils";
+import CorrectNumberInput from "@/components/ui-lab/correct-number-input";
+import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
 
 interface VideoResolutionSelectProps {
   value?: string;
@@ -20,8 +24,17 @@ interface VideoResolutionSelectProps {
   wrapperClassName?: string;
   placeholder?: string;
   label?: string;
+  helpText?: string;
   hideLabel?: boolean;
+  showNumberInput?: boolean;
 }
+
+const parseResolution = (value?: string): { width: number; height: number } | null => {
+  if (!value || value === "auto") return null;
+  const [w, h] = value.split("x").map(Number);
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null;
+  return { width: Math.round(w), height: Math.round(h) };
+};
 
 export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
   value,
@@ -31,7 +44,9 @@ export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
   wrapperClassName,
   placeholder = "Select resolution",
   label,
-  hideLabel = true,
+  helpText,
+  hideLabel = false,
+  showNumberInput = true,
 }) => {
   const groups = useMemo(() => {
     if (!maxResolution) return RESOLUTION_OPTIONS;
@@ -40,39 +55,110 @@ export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
         if (opt.value === "auto") return true;
         const [width, height] = opt.value.split("x").map((v) => parseInt(v));
         return width <= maxResolution[0] && height <= maxResolution[1];
-      })
-    })
+      });
+    });
   }, [maxResolution]);
+
+  const presetValues = useMemo(
+    () => groups.flatMap((group) => group.options.map((option) => option.value)),
+    [groups],
+  );
+
+  const firstPreset = useMemo(
+    () => groups.flatMap((group) => group.options).find((option) => option.value !== "auto")?.value,
+    [groups],
+  );
+
+  const fallbackResolution = useMemo(() => {
+    const parsed = parseResolution(firstPreset);
+    return parsed ?? { width: 1920, height: 1080 };
+  }, [firstPreset]);
+
+  const parsed = parseResolution(value) ?? fallbackResolution;
+  const selectedPresetValue =
+    value && presetValues.includes(value) ? value : value === "auto" || !value ? "auto" : "custom";
 
   useEffect(() => {
     const current = value ?? "auto";
-    if (!groups.some((group) => group.options.some((option) => option.value === current))) {
-      onValueChange(groups[0]?.options[0]?.value ?? "auto");
-    }
-  }, [groups, value]);
+    const isPreset = presetValues.includes(current);
+    const isCustom = Boolean(parseResolution(current));
+
+    if (isPreset || (showNumberInput && isCustom)) return;
+    onValueChange(groups[0]?.options[0]?.value ?? "auto");
+  }, [groups, onValueChange, presetValues, showNumberInput, value]);
+
+  const emitResolution = (nextWidth: number, nextHeight: number) => {
+    const clampedWidth = Math.max(1, Math.round(nextWidth));
+    const clampedHeight = Math.max(1, Math.round(nextHeight));
+    onValueChange(`${clampedWidth}x${clampedHeight}`);
+  };
 
   return (
     <div className={wrapperClassName ?? "space-y-2"}>
-      {!hideLabel && label && <Label>{label}</Label>}
-      <Select value={value || "auto"} onValueChange={onValueChange}>
-        <SelectTrigger className={cn("w-[12em]", className)}>
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {
-            groups.map((group) => (
-              <SelectGroup key={group.label}>
-                <SelectLabel>{group.label}</SelectLabel>
-                {group.options.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))
-          }
-        </SelectContent>
-      </Select>
+      {!hideLabel && label && (
+        <div className="flex items-center gap-1">
+          <Label>{label}</Label>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <BadgeQuestionMark className="h-4 w-4 cursor-help text-muted-foreground" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64 whitespace-normal break-words">{helpText}</TooltipContent>
+          </Tooltip>
+        </div>
+      )}
+
+      <InputGroup>
+        {showNumberInput && (
+          <>
+            <CorrectNumberInput
+              min={1}
+              max={maxResolution?.[0]}
+              value={parsed.width}
+              onChange={(nextWidth) => emitResolution(nextWidth, parsed.height)}
+              placeholder="Width"
+              className="w-24 max-w-none"
+            />
+            <CorrectNumberInput
+              min={1}
+              max={maxResolution?.[1]}
+              value={parsed.height}
+              onChange={(nextHeight) => emitResolution(parsed.width, nextHeight)}
+              placeholder="Height"
+              className="w-24 max-w-none"
+            />
+          </>
+        )}
+
+        <InputGroupAddon align="inline-end" className="pr-1">
+          <Select
+            value={selectedPresetValue}
+            onValueChange={(next) => {
+              if (next === "custom") {
+                emitResolution(parsed.width, parsed.height);
+                return;
+              }
+              onValueChange(next);
+            }}
+          >
+            <SelectTrigger className={cn("h-7 w-[5em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0", className)}>
+              <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+              {showNumberInput && <SelectItem value="custom">Custom</SelectItem>}
+              {groups.map((group) => (
+                <SelectGroup key={group.label}>
+                  <SelectLabel>{group.label}</SelectLabel>
+                  {group.options.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
+        </InputGroupAddon>
+      </InputGroup>
     </div>
   );
 };

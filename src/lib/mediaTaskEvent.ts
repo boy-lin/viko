@@ -140,15 +140,22 @@ export interface ConvertGifTaskArgs {
 }
 
 export interface ConvertImageTaskArgs {
+  /** Required task id for queue/event tracking. */
   task_id: string;
+  /** Source image path. */
   input_path: string;
   input_file_type?: FileType;
+  /** Output image format/container: jpg/png/webp/gif/bmp/tiff/ico. */
   format: string;
+  /** Optional target width (keep aspect ratio with height if only one side is provided). */
   width?: number;
+  /** Optional target height (keep aspect ratio with width if only one side is provided). */
   height?: number;
-  quality?: number;
+  /** Optional image encoder/codec name. Falls back to format if omitted. */
   image_encoder?: string;
+  /** Optional output file path. Backend auto-generates one if omitted. */
   output_path?: string;
+  /** Optional watermark (text/image). */
   watermark?: WatermarkConfig;
 }
 

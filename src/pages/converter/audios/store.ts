@@ -142,6 +142,8 @@ export const useConverterStore = create<ConverterStore>(
             },
           };
         }),
+        "normal",
+        "converter-audios",
       );
     },
   }),

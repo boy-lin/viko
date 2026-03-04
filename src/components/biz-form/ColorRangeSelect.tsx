@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { Label } from "@/components/ui/label";
+import { BadgeQuestionMark } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -7,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -21,9 +23,13 @@ interface ColorRangeSelectProps {
   allowedColorRanges?: string[];
   placeholder?: string;
   label?: string;
+  helpText?: string;
   hideLabel?: boolean;
   className?: string;
 }
+
+const COLOR_RANGE_HELP =
+  "Color range controls luminance mapping. Full is common for computer graphics, limited is common for TV/video workflows.";
 
 export const ColorRangeSelect: React.FC<ColorRangeSelectProps> = ({
   value,
@@ -31,6 +37,7 @@ export const ColorRangeSelect: React.FC<ColorRangeSelectProps> = ({
   allowedColorRanges,
   placeholder = "Color Range",
   label,
+  helpText,
   hideLabel = true,
   className,
 }) => {
@@ -52,7 +59,19 @@ export const ColorRangeSelect: React.FC<ColorRangeSelectProps> = ({
 
   return (
     <div className={cn(className, "space-y-2")}>
-      {!hideLabel && label && <Label>{label}</Label>}
+      {!hideLabel && label && (
+        <div className="flex items-center gap-1">
+          <Label>{label}</Label>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <BadgeQuestionMark className="h-4 w-4 cursor-help text-muted-foreground" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64 whitespace-normal break-words">
+              {helpText ?? COLOR_RANGE_HELP}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
       <Select value={value ?? "auto"} onValueChange={onValueChange}>
         <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder={placeholder} />

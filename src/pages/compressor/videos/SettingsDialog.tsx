@@ -102,8 +102,8 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
 
       <VideoBitrateSelect
         className="space-y-2 w-full"
-        label="码率 (kbps)"
-        hideLabel={false}
+        label={t("video_advance.bitrate", "Bitrate")}
+        helpText={t("videoCompressor.fields.bitrateHelp")}
         minBitrate={encoderDef?.video?.minBitrate}
         maxBitrate={encoderDef?.video?.maxBitrate}
         placeholder={`自动 (${encoderDef?.video?.minBitrate ?? 100}-${encoderDef?.video?.maxBitrate ?? 50000})`}
@@ -116,8 +116,8 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
       />
       <VideoFrameRateSelect
         className="space-y-2 w-full"
-        label="帧率"
-        hideLabel={false}
+        label={t("video_advance.frame_rate", "Frame Rate")}
+        helpText={t("settings.video.fields.frameRateHelp")}
         maxFrameRate={encoderDef?.video?.maxFrameRate}
         value={config.frame_rate === undefined ? "auto" : String(config.frame_rate)}
         onValueChange={(val) =>
@@ -191,9 +191,9 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         </Label>
       </div>
       <div className="col-span-2 space-y-1">
-        <div className="text-sm font-medium">{t("videoCompressor.settingsDialog.advanced.title")}</div>
+        <div className="text-sm font-medium">{t("videoCompressor.advanced.title")}</div>
         <div className="text-xs text-muted-foreground">
-          {t("videoCompressor.settingsDialog.advanced.description")}
+          {t("videoCompressor.advanced.description")}
         </div>
       </div>
           <VideoFormatSelector

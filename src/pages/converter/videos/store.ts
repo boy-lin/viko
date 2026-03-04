@@ -143,6 +143,8 @@ const baseStoreCreator = createTaskStore<
             },
           };
         }),
+        "normal",
+        "converter-videos",
       );
     },
   });

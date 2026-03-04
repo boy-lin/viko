@@ -41,7 +41,7 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
   placeholder,
   label,
   helpText,
-  hideLabel = true,
+  hideLabel = false,
   className,
 }) => {
   const bitrateOptions = useMemo(() => {
@@ -69,7 +69,7 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
       onValueChange(String(clampedNumericValue));
     }
   }, [clampedNumericValue, numericValue]);
-
+  
   return (
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
@@ -108,7 +108,7 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
             onValueChange={(next) => onValueChange(next)}
           >
             <SelectTrigger className="h-7 w-[6em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
-              <SelectValue placeholder="常用值" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {bitrateOptions.map((option) => (

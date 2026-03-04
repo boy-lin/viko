@@ -39,8 +39,8 @@ export default function FormatSelectorDialog(props: FormatSelectorProps) {
         </Button>
       </DialogTrigger>
       <DialogContent className="p-0 sm:max-w-[72vw]" showCloseButton={true}>
-        <DialogHeader>
-          <DialogTitle className="sr-only">格式选择</DialogTitle>
+        <DialogHeader className="sr-only">
+          <DialogTitle>格式选择</DialogTitle>
         </DialogHeader>
         <FormatSelectorContent
           config={config}

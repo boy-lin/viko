@@ -22,6 +22,7 @@ use crate::media_common;
 use crate::services::convert::audio::{self, AudioConversionParams};
 use crate::services::convert::gif;
 use crate::services::ffmpeg::media_info::{self, MediaDetails};
+use crate::services::media_probe::{self, MediaProbeResult};
 use crate::services::media_tools::image_info;
 use crate::services::player::audio::AudioPlayer;
 use crate::services::player::video::{PreviewSize, VideoPlayer};
@@ -52,6 +53,25 @@ pub async fn get_detailed_media_info_batch(paths: Vec<String>) -> Result<Vec<Med
     })
     .await
     .map_err(|e| format!("get_detailed_media_info_batch join error: {}", e))?
+}
+
+#[command]
+pub async fn probe_media_info(path: String) -> Result<MediaProbeResult, String> {
+    tauri::async_runtime::spawn_blocking(move || media_probe::probe_media_details(&path))
+        .await
+        .map_err(|e| format!("probe_media_info join error: {}", e))?
+}
+
+#[command]
+pub async fn probe_media_info_batch(paths: Vec<String>) -> Result<Vec<MediaProbeResult>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        paths
+            .into_iter()
+            .map(|path| media_probe::probe_media_details(&path))
+            .collect::<Result<Vec<_>, _>>()
+    })
+    .await
+    .map_err(|e| format!("probe_media_info_batch join error: {}", e))?
 }
 
 #[command]

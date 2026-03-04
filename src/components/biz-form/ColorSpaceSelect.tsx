@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { Label } from "@/components/ui/label";
+import { BadgeQuestionMark } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -7,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { COLOR_SPACES } from "@/data/video_options";
 import { cn } from "@/lib/utils";
 
@@ -15,9 +17,13 @@ interface ColorSpaceSelectProps {
   onValueChange?: (value: string) => void;
   allowedColorSpaces?: string[];
   label?: string;
+  helpText?: string;
   hideLabel?: boolean;
   className?: string;
 }
+
+const COLOR_SPACE_HELP =
+  "Color space affects color reproduction and compatibility. Use auto unless you need a specific production or HDR workflow.";
 
 /**
  * 颜色空间选择组件
@@ -30,6 +36,7 @@ export const ColorSpaceSelect: React.FC<ColorSpaceSelectProps> = ({
   onValueChange,
   allowedColorSpaces,
   label,
+  helpText,
   hideLabel = true,
   className,
 }) => {
@@ -45,7 +52,19 @@ export const ColorSpaceSelect: React.FC<ColorSpaceSelectProps> = ({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {!hideLabel && label && <Label>{label}</Label>}
+      {!hideLabel && label && (
+        <div className="flex items-center gap-1">
+          <Label>{label}</Label>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <BadgeQuestionMark className="h-4 w-4 cursor-help text-muted-foreground" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64 whitespace-normal break-words">
+              {helpText ?? COLOR_SPACE_HELP}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder="Select color space" />

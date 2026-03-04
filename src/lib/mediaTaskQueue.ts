@@ -16,6 +16,14 @@ import {
 } from "./mediaTaskEvent";
 
 type TaskPriority = "high" | "normal" | "low";
+type TaskStoreRoute =
+  | "converter-videos"
+  | "converter-images"
+  | "converter-audios"
+  | "compressor-videos"
+  | "compressor-images"
+  | "compressor-audios"
+  | "watermark";
 
 type ConvertTaskRequest = {
   type: MediaTaskType;
@@ -36,6 +44,7 @@ class MediaTaskQueue {
   private static instance: MediaTaskQueue | null = null;
 
   private pendingTaskIds = new Set<string>();
+  private taskStoreRoutes = new Map<string, TaskStoreRoute>();
   private eventUnlisten: UnlistenFn | null = null;
   private listeners: ((event: MediaTaskEvent) => void)[] = [];
 
@@ -58,6 +67,7 @@ class MediaTaskQueue {
   async addConvertTasks(
     tasks: ConvertTaskRequest[],
     priority: TaskPriority = "normal",
+    route?: TaskStoreRoute,
   ): Promise<void> {
     tasks.forEach((task) => {
       if (!task.args.output_path) {
@@ -67,6 +77,9 @@ class MediaTaskQueue {
         throw new Error("Task ID is required");
       }
       this.pendingTaskIds.add(task.args.task_id);
+      if (route) {
+        this.taskStoreRoutes.set(task.args.task_id, route);
+      }
       console.log("Adding convert task args", task.args);
     });
 
@@ -78,6 +91,7 @@ class MediaTaskQueue {
   async addCompressTasks(
     tasks: CompressTaskRequest[],
     priority: TaskPriority = "normal",
+    route?: TaskStoreRoute,
   ): Promise<void> {
     tasks.forEach((task) => {
       if (!task.args.output_path) {
@@ -87,6 +101,9 @@ class MediaTaskQueue {
         throw new Error("Task ID is required");
       }
       this.pendingTaskIds.add(task.args.task_id);
+      if (route) {
+        this.taskStoreRoutes.set(task.args.task_id, route);
+      }
       // console.log("Adding compress task args", JSON.stringify(task.args));
       console.log("Adding compress task args", task.args);
     });
@@ -146,6 +163,7 @@ class MediaTaskQueue {
 
     if (payload.event_type === "complete" || payload.event_type === "error") {
       this.pendingTaskIds.delete(payload.task_id);
+      this.taskStoreRoutes.delete(payload.task_id);
       this.tryStopListener();
     }
   }
@@ -155,15 +173,24 @@ class MediaTaskQueue {
   }
 
   private async updateStoresFromEvent(payload: MediaTaskEvent): Promise<void> {
-    const {
-      file_type,
-      task_type,
-      event_type,
-      task_id,
-      progress,
-      error_message,
-    } = payload;
+    const { task_type, event_type, task_id, progress, error_message } = payload;
+    let file_type = payload.file_type;
     const normalizedProgress = Math.min(100, Math.max(0, progress || 0));
+    const route = this.taskStoreRoutes.get(task_id);
+
+    if (route === "converter-videos") {
+      file_type = FileType.Video;
+    } else if (route === "converter-images") {
+      file_type = FileType.Image;
+    } else if (route === "converter-audios") {
+      file_type = FileType.Audio;
+    } else if (route === "compressor-videos") {
+      file_type = FileType.Video;
+    } else if (route === "compressor-images") {
+      file_type = FileType.Image;
+    } else if (route === "compressor-audios") {
+      file_type = FileType.Audio;
+    }
 
     // if (["error"].includes(event_type)) {
     console.log("Task event: " + event_type, payload);

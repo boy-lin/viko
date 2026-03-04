@@ -1,17 +1,17 @@
 {
 	"nodes":[
-		{"id":"n2","type":"text","text":"转码视频处理\nTranscoder\n- 选择编码器\n- 分辨率/像素格式/帧率\n- CRF/bitrate策略\n- scaler 按需启用","x":-840,"y":90,"width":340,"height":200},
 		{"id":"n6","type":"text","text":"压缩入口\ncompress_video_file\n- ffmpeg::init\n- open input/output\n- 创建 VideoProcessor\n- 可选 AudioProcessor","x":980,"y":-170,"width":330,"height":190},
-		{"id":"n10","type":"text","text":"共同输出\nwrite_trailer\n汇总 StreamDetails -> MediaDetails\nemit complete/progress","x":260,"y":520,"width":340,"height":150},
 		{"id":"n1","type":"text","text":"转码入口\nconvert_video\n- ffmpeg::init\n- open input/output\n- resolve_video_params\n- ensure_unique_output_path","x":-460,"y":-260,"width":320,"height":180},
-		{"id":"n0","type":"text","text":"FigureX 视频链路总览\nconvert/video.rs + compress/video.rs","x":240,"y":-360,"width":340,"height":100},
-		{"id":"n8","type":"text","text":"压缩音频处理\nAudioProcessor\n- pick_audio_encoder_for_compress\n- resample + fifo\n- chunk 编码","x":1150,"y":110,"width":320,"height":180},
-		{"id":"n7","type":"text","text":"压缩视频处理\nVideoProcessor\n- calc_video_bitrate\n- x264/x265 VBV 参数\n- GOP/preset\n- scaler","x":820,"y":90,"width":320,"height":190},
-		{"id":"n4","type":"text","text":"转码音频处理\nAudioTrackProcessor (多轨)\n- source_stream_index 映射\n- 每轨独立编码参数","x":-20,"y":30,"width":320,"height":170},
 		{"id":"n5","type":"text","text":"转码特殊兜底\n无视频流时:\ncreate_black_video_encoder\n+ generate_black_video_frames","x":410,"y":-170,"width":320,"height":170},
-		{"id":"n11","type":"text","text":"差异总结\n转码: 功能覆盖广(多轨/水印/黑屏兜底)\n压缩: 码率与封装稳定优先","x":-20,"y":735,"width":360,"height":140},
-		{"id":"n9","type":"text","text":"时间戳稳定性（压缩重点）\n- sync_ost_time_base_from_muxer\n- force_monotonic_ts_in_ost_tb","x":980,"y":805,"width":320,"height":140},
-		{"id":"n3","type":"text","text":"转码水印滤镜\nbuild_video_filter_graph\nbuffer -> filter_spec -> buffersink\n支持文本/图片水印","x":-420,"y":205,"width":320,"height":170}
+		{"id":"n10","type":"text","text":"共同输出\nwrite_trailer\n汇总 StreamDetails -> MediaDetails\nemit complete/progress","x":-40,"y":1200,"width":340,"height":150},
+		{"id":"n3","type":"text","text":"转码水印滤镜\nbuild_video_filter_graph\nbuffer -> filter_spec -> buffersink\n支持文本/图片水印","x":-420,"y":490,"width":320,"height":170},
+		{"id":"n9","type":"text","text":"时间戳稳定性（压缩重点）\n- sync_ost_time_base_from_muxer\n- force_monotonic_ts_in_ost_tb","x":400,"y":505,"width":320,"height":140},
+		{"id":"n11","type":"text","text":"差异总结\n转码: 功能覆盖广(多轨/水印/黑屏兜底)\n压缩: 码率与封装稳定优先","x":50,"y":800,"width":360,"height":140},
+		{"id":"n0","type":"text","text":"FigureX 视频链路总览\nconvert/video.rs + compress/video.rs","x":240,"y":-680,"width":340,"height":100},
+		{"id":"n4","type":"text","text":"转码音频处理\nAudioTrackProcessor (多轨)\n- source_stream_index 映射\n- 每轨独立编码参数","x":-90,"y":130,"width":320,"height":170},
+		{"id":"n2","type":"text","text":"转码视频处理\nTranscoder\n- 选择编码器\n- 分辨率/像素格式/帧率\n- CRF/bitrate策略\n- scaler 按需启用","x":-840,"y":130,"width":340,"height":200},
+		{"id":"n7","type":"text","text":"压缩视频处理\nVideoProcessor\n- calc_video_bitrate\n- x264/x265 VBV 参数\n- GOP/preset\n- scaler","x":780,"y":110,"width":320,"height":190},
+		{"id":"n8","type":"text","text":"压缩音频处理\nAudioProcessor\n- pick_audio_encoder_for_compress\n- resample + fifo\n- chunk 编码","x":1150,"y":110,"width":320,"height":190}
 	],
 	"edges":[
 		{"id":"e0","fromNode":"n0","fromSide":"left","toNode":"n1","toSide":"top","label":"转换链路"},

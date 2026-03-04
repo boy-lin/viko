@@ -1,10 +1,9 @@
 use crate::events::TaskEmitter;
 use crate::media_common;
 use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
-use ffmpeg::{codec, encoder, format, frame, media, packet, software, Rational};
+use ffmpeg::{codec, encoder, format, frame, packet, software};
 use ffmpeg_next as ffmpeg;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::time::Instant;
 
 /// GIF 转换参数（全部可选）
@@ -20,7 +19,7 @@ pub struct GifConversionParams {
     pub dpi: Option<f64>,                    // 元数据记录 DPI
     pub frame_rate: Option<f32>,             // 帧率 (fps)
     pub loop_count: Option<i32>,             // 0=无限, -1=不循环
-    pub frame_delay: Option<u32>,            // 每帧延迟 ms，优先生效
+    pub frame_delay: Option<u32>,            // 每帧延迟 ms（仅在未设置 frame_rate 时生效）
     pub colors: Option<u32>,                 // 色彩数 2-256
     pub preserve_extensions: Option<bool>,   // 预留（当前未改写扩展块）
     pub sharpen: Option<bool>,               // 锐化
@@ -30,40 +29,6 @@ pub struct GifConversionParams {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GifConversionReport {
     pub output_media: MediaDetails,
-}
-
-fn pick_pixel_format(color_mode: Option<&str>) -> format::Pixel {
-    let mode = color_mode.unwrap_or("rgb").to_lowercase();
-    if mode == "grayscale" || mode == "gray" {
-        format::Pixel::GRAY8
-    } else {
-        // GIF 编码器支持 rgb8/bgr8，使用 rgb8 直接编码，透明度依赖调色板索引
-        format::Pixel::RGB8
-    }
-}
-
-fn compute_fps(frame_delay: Option<u32>, frame_rate: Option<f32>) -> (f32, Rational, i64) {
-    if let Some(delay_ms) = frame_delay {
-        let delay = delay_ms.max(1);
-        let fps = 1000.0 / delay as f32;
-        let g = media_common::gcd(1000, delay);
-        let num = 1000 / g;
-        let den = delay / g;
-        (fps, Rational(den as i32, num as i32), delay as i64)
-    } else {
-        let fps = frame_rate.unwrap_or(10.0).max(1.0);
-        (fps, Rational(1, fps.round() as i32), 1)
-    }
-}
-
-fn dither_from_quality(quality: u32) -> (&'static str, &'static str) {
-    if quality >= 80 {
-        ("bayer", "3")
-    } else if quality >= 50 {
-        ("floyd_steinberg", "0")
-    } else {
-        ("none", "0")
-    }
 }
 
 /// 使用 FFmpeg 将视频转换为 GIF 动图（带可选参数）
@@ -80,13 +45,11 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
     let mut octx =
         format::output(&params.output_path).map_err(|e| format!("无法打开输出文件: {}", e))?;
 
-    let duration = ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
+    let duration = media_common::video_pipeline::media_duration_seconds(&ictx);
 
-    let video_stream = ictx
-        .streams()
-        .best(media::Type::Video)
-        .ok_or("未找到视频流")?;
-    let stream_index = video_stream.index();
+    let stream_index =
+        media_common::video_pipeline::best_video_stream_index(&ictx).ok_or("未找到视频流")?;
+    let video_stream = ictx.stream(stream_index).ok_or("未找到视频流")?;
     let source_fps = {
         let avg = video_stream.avg_frame_rate();
         if avg.numerator() > 0 && avg.denominator() > 0 {
@@ -110,7 +73,7 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
         params.height,
     );
 
-    let pixel_format = pick_pixel_format(params.color_mode.as_deref());
+    let pixel_format = media_common::gif_pipeline::pick_pixel_format(params.color_mode.as_deref());
 
     let mut scaler = software::scaling::context::Context::get(
         decoder.format(),
@@ -132,7 +95,8 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
         .add_stream(codec)
         .map_err(|e| format!("无法添加输出流: {}", e))?;
 
-    let (target_fps, time_base, pts_step) = compute_fps(params.frame_delay, params.frame_rate);
+    let (target_fps, time_base, _pts_step_hint) =
+        media_common::gif_pipeline::compute_fps(params.frame_delay, params.frame_rate);
 
     let mut encoder = codec::context::Context::new_with_codec(codec)
         .encoder()
@@ -146,7 +110,7 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
     encoder.set_time_base(time_base);
 
     let quality = params.quality.unwrap_or(75).min(100);
-    let (_dither, _bayer_scale) = dither_from_quality(quality);
+    let (_dither, _bayer_scale) = media_common::gif_pipeline::dither_from_quality(quality);
 
     // 设置 loop
     let mut opts = ffmpeg::Dictionary::new();
@@ -162,9 +126,18 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
     let mut encoder = encoder
         .open_with(opts)
         .map_err(|e| format!("无法打开 GIF 编码器: {}", e))?;
+    let encoder_time_base = encoder.time_base();
+    let pts_step = {
+        let tb_num = encoder_time_base.numerator() as f64;
+        let tb_den = encoder_time_base.denominator() as f64;
+        if target_fps > 0.0 && tb_num > 0.0 && tb_den > 0.0 {
+            (tb_den / (tb_num * target_fps as f64)).round().max(1.0) as i64
+        } else {
+            1
+        }
+    };
 
     ost.set_parameters(&encoder);
-    let ost_time_base = ost.time_base();
     let ost_index = ost.index();
 
     // 记录 DPI 元数据（GIF 原生不支持，作为标签存储）
@@ -174,14 +147,22 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
         octx.set_metadata(meta);
     }
 
-    octx.write_header()
-        .map_err(|e| format!("无法写入文件头: {}", e))?;
+    media_common::video_pipeline::write_header_with_stream_dump(
+        &mut octx,
+        "convert_gif write_header",
+        "无法写入文件头",
+    )?;
+    let ost_time_base = octx
+        .stream(ost_index)
+        .ok_or("无法获取输出流 time_base")?
+        .time_base();
 
     let start_time = Instant::now();
     let mut frame_count = 0;
     let mut decoded_index: i64 = 0;
     let mut last_progress_emitted = 0.0;
     let mut next_pts: i64 = 0;
+    let mut next_packet_ts: i64 = 0;
     let mut written_bytes: u64 = 0;
     let frame_step = if source_fps > 0.0 && target_fps > 0.0 {
         (source_fps / target_fps as f64).max(1.0)
@@ -241,12 +222,24 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
 
                 let mut encoded = packet::Packet::empty();
                 while encoder.receive_packet(&mut encoded).is_ok() {
+                    if encoded.pts().is_none() {
+                        encoded.set_pts(Some(next_packet_ts));
+                    }
+                    if encoded.dts().is_none() {
+                        encoded.set_dts(Some(next_packet_ts));
+                    }
+                    if encoded.duration() <= 0 {
+                        encoded.set_duration(pts_step);
+                    }
                     encoded.set_stream(ost_index);
-                    encoded.rescale_ts(encoder.time_base(), ost_time_base);
+                    encoded.rescale_ts(encoder_time_base, ost_time_base);
                     encoded
                         .write_interleaved(&mut octx)
                         .map_err(|e| format!("写入数据包失败: {}", e))?;
                     written_bytes = written_bytes.saturating_add(encoded.size() as u64);
+                    let step = encoded.duration().max(1);
+                    let base = encoded.dts().or(encoded.pts()).unwrap_or(next_packet_ts);
+                    next_packet_ts = base.saturating_add(step);
                 }
 
                 frame_count += 1;
@@ -275,18 +268,101 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
         }
     }
 
+    decoder
+        .send_eof()
+        .map_err(|e| format!("发送 EOF 到解码器失败: {}", e))?;
+    let mut decoded = frame::Video::empty();
+    while decoder.receive_frame(&mut decoded).is_ok() {
+        let current_index = decoded_index as f64;
+        let should_emit = current_index + 1e-9 >= next_emit_index;
+        if !should_emit {
+            decoded_index += 1;
+            continue;
+        }
+        next_emit_index += frame_step;
+
+        let mut converted = frame::Video::empty();
+        scaler
+            .run(&decoded, &mut converted)
+            .map_err(|e| format!("缩放失败: {}", e))?;
+
+        if params.denoise.unwrap_or(false) {
+            let mut smooth = frame::Video::empty();
+            software::scaling::context::Context::get(
+                converted.format(),
+                converted.width(),
+                converted.height(),
+                converted.format(),
+                converted.width(),
+                converted.height(),
+                software::scaling::flag::Flags::BILINEAR,
+            )
+            .map_err(|e| format!("创建降噪缩放器失败: {}", e))?
+            .run(&converted, &mut smooth)
+            .map_err(|e| format!("降噪缩放失败: {}", e))?;
+            converted = smooth;
+        }
+
+        if crate::task::cancel::is_cancelled() {
+            return Err("Task cancelled".to_string());
+        }
+        converted.set_pts(Some(next_pts));
+        next_pts = next_pts.saturating_add(pts_step);
+
+        encoder
+            .send_frame(&converted)
+            .map_err(|e| format!("发送帧到编码器失败: {}", e))?;
+
+        let mut encoded = packet::Packet::empty();
+        while encoder.receive_packet(&mut encoded).is_ok() {
+            if encoded.pts().is_none() {
+                encoded.set_pts(Some(next_packet_ts));
+            }
+            if encoded.dts().is_none() {
+                encoded.set_dts(Some(next_packet_ts));
+            }
+            if encoded.duration() <= 0 {
+                encoded.set_duration(pts_step);
+            }
+            encoded.set_stream(ost_index);
+            encoded.rescale_ts(encoder_time_base, ost_time_base);
+            encoded
+                .write_interleaved(&mut octx)
+                .map_err(|e| format!("写入数据包失败: {}", e))?;
+            written_bytes = written_bytes.saturating_add(encoded.size() as u64);
+            let step = encoded.duration().max(1);
+            let base = encoded.dts().or(encoded.pts()).unwrap_or(next_packet_ts);
+            next_packet_ts = base.saturating_add(step);
+        }
+
+        frame_count += 1;
+        decoded_index += 1;
+    }
+
     encoder
         .send_eof()
         .map_err(|e| format!("发送 EOF 失败: {}", e))?;
 
     let mut encoded = packet::Packet::empty();
     while encoder.receive_packet(&mut encoded).is_ok() {
+        if encoded.pts().is_none() {
+            encoded.set_pts(Some(next_packet_ts));
+        }
+        if encoded.dts().is_none() {
+            encoded.set_dts(Some(next_packet_ts));
+        }
+        if encoded.duration() <= 0 {
+            encoded.set_duration(pts_step);
+        }
         encoded.set_stream(ost_index);
-        encoded.rescale_ts(encoder.time_base(), ost_time_base);
+        encoded.rescale_ts(encoder_time_base, ost_time_base);
         encoded
             .write_interleaved(&mut octx)
             .map_err(|e| format!("写入尾部数据包失败: {}", e))?;
         written_bytes = written_bytes.saturating_add(encoded.size() as u64);
+        let step = encoded.duration().max(1);
+        let base = encoded.dts().or(encoded.pts()).unwrap_or(next_packet_ts);
+        next_packet_ts = base.saturating_add(step);
     }
 
     octx.write_trailer()
@@ -315,23 +391,23 @@ pub fn convert_video_to_gif<E: TaskEmitter>(
         bit_depth: None,
         bits_per_sample: None,
     };
-    let output_media = MediaDetails {
-        path: params.output_path.clone(),
-        extension: std::path::Path::new(&params.output_path)
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|s| s.to_lowercase())
-            .unwrap_or_else(|| "gif".to_string()),
-        format_names: "gif".to_string(),
-        format_long_name: None,
+    let output_media = media_common::video_pipeline::build_output_media(
+        params.output_path.clone(),
+        "gif".to_string(),
         duration,
-        size: written_bytes,
-        streams: vec![stream],
-        tags: HashMap::new(),
-        stream_tags: Vec::new(),
-    };
-
-    emitter.emit("complete", Some(100.0), Some(params.output_path), None);
+        written_bytes,
+        vec![stream],
+    );
+    media_common::video_pipeline::log_video_pipeline_summary(
+        "convert_gif",
+        &params.output_path,
+        duration,
+        written_bytes,
+        None,
+        None,
+        None,
+    );
+    media_common::video_pipeline::emit_complete_with_path(&emitter, &params.output_path);
 
     Ok(GifConversionReport { output_media })
 }

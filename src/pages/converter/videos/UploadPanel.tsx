@@ -17,6 +17,7 @@ export function UploadPanel({
 
   return (
     <UploadDrag
+      className="h-full"
       supportedExtensions={supportedExtensions}
       onUploadComplete={onUploadComplete}
     />

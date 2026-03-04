@@ -7,6 +7,7 @@ pub mod audio_transcode;
 pub mod video_transcode;
 pub mod video_pipeline;
 pub mod video_pipeline_core;
+pub mod gif_pipeline;
 pub mod fifo;
 pub mod resolution;
 

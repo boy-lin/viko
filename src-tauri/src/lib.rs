@@ -196,6 +196,8 @@ pub fn run() {
             crate::commands::get_detailed_media_info,
             crate::commands::get_detailed_media_info_batch,
             crate::commands::get_detailed_image_info,
+            crate::commands::probe_media_info,
+            crate::commands::probe_media_info_batch,
             crate::commands::check_hardware_acceleration,
             crate::commands::convert_gif_file,
             crate::commands::generate_media_thumbnail,

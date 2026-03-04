@@ -29,10 +29,6 @@ interface AudioSampleRateSelectProps {
   className?: string;
 }
 
-const DEFAULT_LABEL = "采样率";
-const DEFAULT_PLACEHOLDER = "输入采样率 (Hz)";
-const SAMPLE_RATE_HELP = "控制每秒采样次数。数值越高通常细节更完整，但体积与处理成本可能上升。";
-
 export const AudioSampleRateSelect: React.FC<AudioSampleRateSelectProps> = ({
   value,
   onValueChange,
@@ -78,13 +74,13 @@ export const AudioSampleRateSelect: React.FC<AudioSampleRateSelectProps> = ({
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Label>{label}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? SAMPLE_RATE_HELP}
+              {helpText}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -94,7 +90,7 @@ export const AudioSampleRateSelect: React.FC<AudioSampleRateSelectProps> = ({
           min={minSampleRate}
           max={maxSampleRate}
           step={100}
-          placeholder={placeholder ?? DEFAULT_PLACEHOLDER}
+          placeholder={placeholder}
           value={clampedNumericValue}
           onChange={(nextValue) => {
             const clamped = Math.min(

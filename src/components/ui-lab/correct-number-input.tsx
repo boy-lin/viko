@@ -41,7 +41,7 @@ export default function CorrectNumberInput({
 
   return (
     <div className={cn("w-full max-w-xs", className)}>
-      <div className="relative">
+      <div className="relative text-foreground bg-muted/30 rounded-lg">
         <input
           id={id}
           type="number"
@@ -49,7 +49,7 @@ export default function CorrectNumberInput({
           min={min}
           max={max}
           step={effectiveStep}
-          value={value === 0 ? "" : value}
+          value={!value ? "" : value}
           onChange={(e) => {
             const val = e.target.value
             if (val === "") {
@@ -60,7 +60,7 @@ export default function CorrectNumberInput({
             if (Number.isNaN(parsed)) return
             onChange(clampValue(parsed))
           }}
-          className="peer w-full h-9 pl-2 pr-6 text-foreground bg-muted/30 border border-muted-foreground/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:m-0"
+          className="peer w-full h-9 pl-2 pr-6 text-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:m-0"
           placeholder={label ? " " : (placeholder ?? "")}
         />
 

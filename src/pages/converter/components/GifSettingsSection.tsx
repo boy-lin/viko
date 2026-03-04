@@ -47,7 +47,7 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
   color_mode,
   dpi,
   loop_count,
-  frame_delay,
+  // frame_delay,
   colors,
   preserve_extensions,
   sharpen,
@@ -110,7 +110,7 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
           />
         </div>
 
-        <div className="space-y-2">
+        {/* <div className="space-y-2">
           <Label className="text-muted-foreground">Frame Delay (ms)</Label>
           <Input
             type="number"
@@ -119,7 +119,7 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
             onChange={(e) => onChange({ frame_delay: parseNumberOrUndefined(e.target.value) })}
             placeholder="e.g. 80"
           />
-        </div>
+        </div> */}
 
         <div className="space-y-2">
           <Label className="text-muted-foreground">Colors</Label>

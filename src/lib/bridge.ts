@@ -7,6 +7,54 @@ import { MediaTaskType } from "@/types/tasks";
 import { handleDirectoryToFiles } from "./file";
 import { MediaTaskEvent } from "./mediaTaskEvent";
 
+type ProbeStream = {
+  index: number;
+  codec_type: string;
+  codec_name: string;
+  codec_long_name?: string;
+  time_base?: string;
+  pix_fmt?: string;
+  width?: number;
+  height?: number;
+  frame_rate?: string;
+  channels?: number;
+  sample_rate?: number;
+  bit_rate?: number;
+  bit_depth?: number;
+  bits_per_sample?: number;
+  tags?: Record<string, string>;
+};
+
+type ProbeBase = {
+  path: string;
+  extension: string;
+  size: number;
+  format_name?: string;
+  format_long_name?: string;
+  duration?: number;
+  tags?: Record<string, string>;
+};
+
+type ProbeVideoDetails = {
+  streams: ProbeStream[];
+};
+type ProbeAudioDetails = {
+  streams: ProbeStream[];
+};
+type ProbeImageDetails = {
+  streams: ProbeStream[];
+};
+
+type MediaProbeResult = {
+  kind: "video" | "audio" | "image" | "unknown";
+  base: ProbeBase;
+  details:
+    | { kind: "video"; details: ProbeVideoDetails }
+    | { kind: "audio"; details: ProbeAudioDetails }
+    | { kind: "image"; details: ProbeImageDetails }
+    | { kind: "unknown" };
+};
+
 export type DownloadProgress = {
   stage: string;
   downloaded: number;
@@ -253,6 +301,43 @@ class Bridge {
     };
   }
 
+  private mapProbeToMediaDetails(probe: MediaProbeResult): MediaDetails {
+    const detailsKind = probe.details?.kind;
+    const typedDetails =
+      detailsKind === "video" || detailsKind === "audio" || detailsKind === "image"
+        ? probe.details.details
+        : undefined;
+    const streams = (typedDetails?.streams || []).map((stream) => ({
+      index: stream.index,
+      codec_type: stream.codec_type,
+      codec_name: stream.codec_name,
+      codec_long_name: stream.codec_long_name,
+      time_base: stream.time_base,
+      pix_fmt: stream.pix_fmt,
+      width: stream.width,
+      height: stream.height,
+      frame_rate: stream.frame_rate,
+      channels: stream.channels,
+      sample_rate: stream.sample_rate,
+      bit_rate: stream.bit_rate,
+      bit_depth: stream.bit_depth,
+      bits_per_sample: stream.bits_per_sample,
+    }));
+
+    return {
+      path: probe.base.path,
+      extension: probe.base.extension || "",
+      format_names: probe.base.format_name || "",
+      title: extractFilenameFromPath(probe.base.path),
+      format_long_name: probe.base.format_long_name,
+      duration: probe.base.duration ?? 0,
+      size: probe.base.size ?? 0,
+      streams,
+      tags: probe.base.tags || {},
+      stream_tags: streams.map((_, index) => typedDetails?.streams?.[index]?.tags || {}),
+    };
+  }
+
   private async getCachedMediaDetails(
     cacheKey: string,
     loader: () => Promise<MediaDetailsWithResolve>,
@@ -279,12 +364,13 @@ class Bridge {
     const normalizedPath = path.trim();
     const cacheKey = `media:${normalizedPath}`;
     return this.getCachedMediaDetails(cacheKey, async () => {
-      const details = await this.invoke<MediaDetails>(
-        "get_detailed_media_info",
+      const probe = await this.invoke<MediaProbeResult>(
+        "probe_media_info",
         {
           path: normalizedPath,
         },
       );
+      const details = this.mapProbeToMediaDetails(probe);
       return this.normalizeMediaDetails(normalizedPath, details);
     });
   }
@@ -328,14 +414,15 @@ class Bridge {
 
       try {
         const fetched = await this.withMediaDetailsSlot(() =>
-          this.invoke<MediaDetails[]>("get_detailed_media_info_batch", {
+          this.invoke<MediaProbeResult[]>("probe_media_info_batch", {
             paths: toFetch,
           }),
         );
-        fetched.forEach((details, index) => {
+        fetched.forEach((probe, index) => {
           const sourcePath = toFetch[index];
           if (!sourcePath) return;
           const cacheKey = `media:${sourcePath}`;
+          const details = this.mapProbeToMediaDetails(probe);
           const normalized = this.normalizeMediaDetails(sourcePath, details);
           this.mediaDetailsCache.set(cacheKey, normalized);
           deferred.get(cacheKey)?.resolve(normalized);

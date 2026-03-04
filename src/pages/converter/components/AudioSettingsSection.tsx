@@ -30,7 +30,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
   multiTrack = false,
   className,
 }) => {
-  const { t } = useTranslation("converter");
+  const { t } = useTranslation("common");
 
   const updateTrack = (index: number, field: keyof AudioTrackConfig, value: string | number) => {
     const newTracks = [...audio_tracks];
@@ -146,7 +146,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
             <AudioEncoderSelect
               className="space-y-2"
               label={t("settings.audio.fields.encoder")}
-              hideLabel={false}
+              helpText={t("settings.audio.fields.encoderHelp")}
               allowedEncoders={deencoderDef?.allowedEncoders}
               value={track.codec}
               onValueChange={(v) => updateTrack(index, "codec", v)}
