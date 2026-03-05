@@ -13,8 +13,6 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RESOLUTION_OPTIONS } from "@/data/resolution";
 import { cn } from "@/lib/utils";
-import CorrectNumberInput from "@/components/ui-lab/correct-number-input";
-import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
 
 interface VideoResolutionSelectProps {
   value?: string;
@@ -106,59 +104,33 @@ export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
           </Tooltip>
         </div>
       )}
-
-      <InputGroup>
-        {showNumberInput && (
-          <>
-            <CorrectNumberInput
-              min={1}
-              max={maxResolution?.[0]}
-              value={parsed.width}
-              onChange={(nextWidth) => emitResolution(nextWidth, parsed.height)}
-              placeholder="Width"
-              className="w-24 max-w-none"
-            />
-            <CorrectNumberInput
-              min={1}
-              max={maxResolution?.[1]}
-              value={parsed.height}
-              onChange={(nextHeight) => emitResolution(parsed.width, nextHeight)}
-              placeholder="Height"
-              className="w-24 max-w-none"
-            />
-          </>
-        )}
-
-        <InputGroupAddon align="inline-end" className="pr-1">
-          <Select
-            value={selectedPresetValue}
-            onValueChange={(next) => {
-              if (next === "custom") {
-                emitResolution(parsed.width, parsed.height);
-                return;
-              }
-              onValueChange(next);
-            }}
-          >
-            <SelectTrigger className={cn("h-7 w-[5em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0", className)}>
-              <SelectValue placeholder={placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {showNumberInput && <SelectItem value="custom">Custom</SelectItem>}
-              {groups.map((group) => (
-                <SelectGroup key={group.label}>
-                  <SelectLabel>{group.label}</SelectLabel>
-                  {group.options.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
+      <Select
+        value={selectedPresetValue}
+        onValueChange={(next) => {
+          if (next === "custom") {
+            emitResolution(parsed.width, parsed.height);
+            return;
+          }
+          onValueChange(next);
+        }}
+      >
+        <SelectTrigger className={cn("h-7 w-auto px-2 focus-visible:ring-0", className)}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {showNumberInput && <SelectItem value="custom">Custom</SelectItem>}
+          {groups.map((group) => (
+            <SelectGroup key={group.label}>
+              <SelectLabel>{group.label}</SelectLabel>
+              {group.options.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
               ))}
-            </SelectContent>
-          </Select>
-        </InputGroupAddon>
-      </InputGroup>
+            </SelectGroup>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 };

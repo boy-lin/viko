@@ -23,7 +23,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="icon" className={`cursor-pointer w-9 h-9 ${className}`}>
+                <Button variant="secondary" size="icon" className={`cursor-pointer w-8 h-8 ${className}`}>
                     <Globe className="h-4 w-4" />
                     <span className="sr-only">Switch Language</span>
                 </Button>

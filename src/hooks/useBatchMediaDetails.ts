@@ -68,7 +68,7 @@ export function useBatchMediaDetails<TTask extends TaskLike, TUpdate>({
           const details = byPath.get(task.args!.input_path!);
           if (!details) return;
           updateTaskById(task.id, buildUpdate(task, details));
-          console.log("details", JSON.stringify(details));
+          console.log("details", details);
         });
 
         setMetaStateById((prev) => {

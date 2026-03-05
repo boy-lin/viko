@@ -86,7 +86,7 @@
       "silenceThreshold": "Silence Threshold (dB)",
       "volumeGain": "Volume Gain (dB)",
       "removeSilence": "Remove Silence",
-      
+
       "bitrateHelp": "Controls audio data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
       "channelHelp": "Controls output channel layout. Fewer channels usually reduce size, while more channels preserve richer spatial information.",
       "bitDepthHelp": "Controls precision per sample. Higher bit depth helps preserve dynamic range and detail, but usually increases size."
@@ -104,7 +104,6 @@
       "close": "Close"
     },
     "fields": {
-      
       "bitrateHelp": "Controls video data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
       "keyframeIntervalHelp": "Controls keyframe interval. Smaller values usually preserve more detail, but may increase size and processing cost.",
       "colorDepthHelp": "Controls color depth. Higher values usually improve fidelity, but can increase size and processing overhead.",
@@ -187,7 +186,7 @@
     "startSingle": "Start Convert",
     "titleLabel": "Title:",
     "targetFormatLabel": "Target",
-    "video": { 
+    "video": {
       "title": "Video",
       "fields": {
         "width": "Width",
@@ -218,6 +217,7 @@
       "title": "Image",
       "quality": "Quality:",
       "fields": {
+        "quality": "Quality",
         "resolution": "Resolution",
         "resolutionHelp": "Resolution controls output dimensions. Higher values preserve detail but can increase file size and processing time.",
         "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs."

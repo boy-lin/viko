@@ -60,7 +60,7 @@ export default function CorrectNumberInput({
             if (Number.isNaN(parsed)) return
             onChange(clampValue(parsed))
           }}
-          className="peer w-full h-9 pl-2 pr-6 text-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:m-0"
+          className="peer w-full h-9 pl-2 pr-6 text-foreground placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:m-0"
           placeholder={label ? " " : (placeholder ?? "")}
         />
 

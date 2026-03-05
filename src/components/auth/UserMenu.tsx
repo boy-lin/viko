@@ -118,7 +118,7 @@ export const UserMenu = () => {
         <Button
           variant="secondary"
           size="sm"
-          className="h-9 cursor-pointer shadow-none font-medium px-3"
+          className="cursor-pointer shadow-none font-medium px-3"
           onClick={() => setDialogOpen(true)}
         >
           {t("auth.user_menu.actions.login")}

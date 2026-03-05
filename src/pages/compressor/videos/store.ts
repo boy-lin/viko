@@ -15,10 +15,7 @@ export interface CompressingTask extends FFmpegTask {
   args: CompressVideoTaskArgs;
 }
 
-export type BaseVideoCompressionConfig = Pick<
-  CompressVideoTaskArgs,
-  "ratio"
->;
+export type BaseVideoCompressionConfig = Pick<CompressVideoTaskArgs, "ratio">;
 
 export const baseVideoCompressionConfig: BaseVideoCompressionConfig = {
   ratio: 20,
@@ -105,7 +102,8 @@ export const useCompressorStore = create<CompressorStore>(
       const clonedTask = structuredClone(task);
       const clonedConfig = structuredClone(config);
       const taskArgs = clonedTask.args as CompressVideoTaskArgs;
-      const configRatio = (clonedConfig as Partial<CompressVideoTaskArgs>).ratio;
+      const configRatio = (clonedConfig as Partial<CompressVideoTaskArgs>)
+        .ratio;
 
       let ratioDrivenPatch: Partial<CompressVideoTaskArgs> = {};
       if (typeof configRatio === "number") {
@@ -126,10 +124,12 @@ export const useCompressorStore = create<CompressorStore>(
       }
 
       const taskAudioTracks = (taskArgs.audio_tracks ?? []) as AudioTrackLike[];
-      const patchAudioTracks = (
-        ({ ...ratioDrivenPatch, ...clonedConfig } as Partial<CompressVideoTaskArgs>)
-          .audio_tracks ?? []
-      ) as AudioTrackLike[];
+      const patchAudioTracks = ((
+        {
+          ...ratioDrivenPatch,
+          ...clonedConfig,
+        } as Partial<CompressVideoTaskArgs>
+      ).audio_tracks ?? []) as AudioTrackLike[];
       const mergedAudioTracks = mergeAudioTracks(
         taskAudioTracks,
         patchAudioTracks,

@@ -34,6 +34,7 @@ pub struct VideoCompressionParams {
     pub audio_tracks: Option<Vec<AudioTrackConfig>>, // 音轨配置（当前使用首轨参数）
     pub preset: Option<String>,                  // ultrafast/fast/medium/slow
     pub use_hardware_acceleration: Option<bool>, // 是否启用硬件编码（如可用）
+    pub use_ultra_fast_speed: Option<bool>,      // 极速模式：优先使用 ultrafast preset
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -205,8 +206,13 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             .and_then(|ext| ext.to_str())
             .map(|s| s.to_ascii_lowercase())
             .unwrap_or_default();
+        let resolved_preset = if params.use_ultra_fast_speed.unwrap_or(false) {
+            "ultrafast"
+        } else {
+            params.preset.as_deref().unwrap_or("medium")
+        };
         if codec_name_for_opts == "libx264" {
-            opts.set("preset", params.preset.as_deref().unwrap_or("medium"));
+            opts.set("preset", resolved_preset);
             opts.set("bitrate", target_kbps.to_string().as_str());
             let mut x264_params_parts = vec![
                 format!("vbv-maxrate={}", maxrate_kbps),
@@ -223,7 +229,7 @@ impl<E: TaskEmitter> VideoProcessor<E> {
             opts.set("x264-params", x264_params.as_str());
             rc_detail = x264_params;
         } else if codec_name_for_opts == "libx265" {
-            opts.set("preset", params.preset.as_deref().unwrap_or("medium"));
+            opts.set("preset", resolved_preset);
             opts.set("bitrate", target_kbps.to_string().as_str());
             let x265_params = format!(
                 "vbv-maxrate={}:vbv-bufsize={}:keyint={}",
@@ -1305,7 +1311,7 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
         )?;
     params.output_path = resolved.output_path.clone();
     log::info!(
-        "compress_video start: input={} output={} codec={:?} bitrate={:?} frame_rate={:?} preset={:?} gop={:?} use_hw={:?}",
+        "compress_video start: input={} output={} codec={:?} bitrate={:?} frame_rate={:?} preset={:?} gop={:?} use_hw={:?} use_ultra_fast={:?}",
         resolved.input_path,
         params.output_path,
         params.codec,
@@ -1313,7 +1319,8 @@ pub fn compress_video_file<E: TaskEmitter + Clone>(
         params.frame_rate,
         params.preset,
         params.keyframe_interval,
-        params.use_hardware_acceleration
+        params.use_hardware_acceleration,
+        params.use_ultra_fast_speed
     );
 
     let output_ext = resolved.output_ext.clone();

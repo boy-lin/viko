@@ -86,7 +86,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   }, [config.codec]);
 
   return (
-    <div className="grid grid-cols-2 gap-4 px-4">
+    <div className="grid grid-cols-2 gap-4 px-4 max-h-[62vh]">
       <div className="col-span-2 py-4">
         <Slider
           value={[config.ratio]}
@@ -177,7 +177,6 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
       />
 
       <div className="col-span-2 flex items-center gap-2">
-
         <Label className="flex items-center gap-2 cursor-pointer">
           <Checkbox
             checked={config.remove_audio ?? false}
@@ -189,6 +188,14 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
             移除音轨
           </span>
         </Label>
+        <Label className="flex items-center gap-2 cursor-pointer">
+          <Checkbox
+          // checked={config.use_ultra_fast_speed ?? false}
+          />
+          <span>
+
+          </span>
+        </Label>
       </div>
       <div className="col-span-2 space-y-1">
         <div className="text-sm font-medium">{t("videoCompressor.advanced.title")}</div>
@@ -196,28 +203,28 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           {t("videoCompressor.advanced.description")}
         </div>
       </div>
-          <VideoFormatSelector
-            className="space-y-2 w-full"
-            value={config.format as FormatEnum}
-            onValueChange={(val) => {
-              if (!val) return;
-              onConfigChange({
-                format: val,
-              });
-            }}
-          />
-          <VideoEncoderSelect
-            className="space-y-2 w-full"
-            label="编码器"
-            hideLabel={false}
-            value={config.codec}
-            allowedEncoders={formatDefinition?.video?.allowedEncoders}
-            onValueChange={(val) =>
-              onConfigChange({
-                codec: val as VideoEncoderEnum,
-              })
-            }
-          />
+      <VideoFormatSelector
+        className="space-y-2 w-full"
+        value={config.format as FormatEnum}
+        onValueChange={(val) => {
+          if (!val) return;
+          onConfigChange({
+            format: val,
+          });
+        }}
+      />
+      <VideoEncoderSelect
+        className="space-y-2 w-full"
+        label="编码器"
+        hideLabel={false}
+        value={config.codec}
+        allowedEncoders={formatDefinition?.video?.allowedEncoders}
+        onValueChange={(val) =>
+          onConfigChange({
+            codec: val as VideoEncoderEnum,
+          })
+        }
+      />
     </div>
   );
 };
@@ -236,11 +243,11 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
         <Settings className="h-4 w-4" />
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl p-0">
+        <DialogContent className="max-w-2xl p-0 gap-0">
           <DialogHeader className="flex flex-row items-center justify-between space-y-0 pt-8 pb-4 px-4 border-b">
             <DialogTitle>压缩设置</DialogTitle>
           </DialogHeader>
-          <div className="flex overflow-hidden flex-col">
+          <div className="flex overflow-hidden flex-col py-2">
             <ScrollArea className="flex-1">
               <CompressionSettingsForm
                 config={config}
@@ -248,7 +255,7 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
               />
             </ScrollArea>
           </div>
-          <DialogFooter className="flex flex-row items-center justify-between space-y-0 pt-8 pb-2 px-4 border-b">
+          <DialogFooter className="flex flex-row items-center justify-between space-y-0 pt-2 pb-2 px-4 border-b">
             <Button variant="outline" onClick={() => setOpen(false)}>
               取消
             </Button>

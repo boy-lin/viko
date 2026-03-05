@@ -69,7 +69,7 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
       onValueChange(String(clampedNumericValue));
     }
   }, [clampedNumericValue, numericValue]);
-  
+
   return (
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
@@ -92,6 +92,7 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
           step={100}
           placeholder={placeholder ?? DEFAULT_PLACEHOLDER}
           value={clampedNumericValue}
+          className="max-w-[6em]"
           onChange={(nextValue) => {
             const parsed = nextValue;
             if (parsed === undefined) return;

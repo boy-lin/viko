@@ -179,6 +179,7 @@ export interface CompressVideoTaskArgs {
   remove_audio?: boolean;
   preset?: string;
   use_hardware_acceleration?: boolean;
+  use_ultra_fast_speed?: boolean;
   /** 与 Rust AudioTrackConfig flatten 对齐 */
   audio_tracks?: AudioTrackConfig[];
   /** 仅用于前端展示/输出文件后缀，Rust compress-video 不读取该字段 */

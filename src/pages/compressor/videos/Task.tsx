@@ -39,22 +39,18 @@ export default function ConvertingTask({
   }, [compressingTasks, globalFilter]);
 
   return (
-    <>
-      <div className="space-y-3">
-        {filteredTasks.length === 0 ? (
-          <UploadPanel supportedExtensions={VIDEO_SUPPORT_FORMATS} />
-        ) : (
-          filteredTasks.map((task) => (
-            <TaskItem
-              key={task.id}
-              task={task}
-              metaStatus={metaStateById[task.id]?.status}
-              metaError={metaStateById[task.id]?.error}
-              onRetryMeta={() => retryMeta(task.id)}
-            />
-          ))
-        )}
-      </div>
-    </>
+    filteredTasks.length === 0 ? (
+      <UploadPanel supportedExtensions={VIDEO_SUPPORT_FORMATS} />
+    ) : (
+      filteredTasks.map((task) => (
+        <TaskItem
+          key={task.id}
+          task={task}
+          metaStatus={metaStateById[task.id]?.status}
+          metaError={metaStateById[task.id]?.error}
+          onRetryMeta={() => retryMeta(task.id)}
+        />
+      ))
+    )
   );
 }

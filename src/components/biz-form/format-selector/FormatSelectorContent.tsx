@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { FORMAT_CATEGORIES, FORMAT_OPTIONS } from "@/data/formats";
 import {
   AudioSettingsSection,
-} from "@/pages/converter/components/AudioSettingsSection";
-import VideoSettingsSection from "@/pages/converter/components/VideoSettingsSection";
+} from "@/components/biz-form/AudioSettingsSection";
+import VideoSettingsSection from "@/components/biz-form/VideoSettingsSection";
 import { ActiveCategoryEnum, GlobalConverterConfig } from "@/pages/converter/videos/store";
 import { FileType, MediaTaskType } from "@/types/tasks";
-import { ImageSettingsSection } from "@/pages/converter/components/ImageSettingsSection";
-import { GifSettingsSection } from "@/pages/converter/components/GifSettingsSection";
+import { ImageSettingsSection } from "@/components/biz-form/ImageSettingsSection";
+import { GifSettingsSection } from "@/components/biz-form/GifSettingsSection";
 import { FormatGroup, FormatEnum } from "@/types/options";
 import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
 import { AUDIO_CONTAINER_DEFINITIONS, IMAGE_CONTAINER_DEFINITIONS, IMAGE_ENCODER_DEFINITIONS, VIDEO_CONTAINER_DEFINITIONS } from "@/data/capabilities";

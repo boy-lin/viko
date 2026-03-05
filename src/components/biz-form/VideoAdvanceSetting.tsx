@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
 import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
-import { VideoResolutionSelect } from "@/components/biz-form/VideoResolutionSelect";
 import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect";
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
@@ -9,6 +8,9 @@ import { VIDEO_CONTAINER_DEFINITIONS, VIDEO_ENCODER_DEFINITIONS } from "@/data/c
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { useTranslation } from "react-i18next";
 import { FormatEnum, VideoEncoderEnum } from "@/types/options";
+import { VideoResolutionSection } from "./VideoResolutionSection";
+
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export type VideoConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "video_encoder" | "video_bitrate" | "resolution" | "frame_rate" | "color_space" | "color_range">
 
@@ -27,10 +29,6 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
   onChange,
 }) => {
   const { t } = useTranslation("common");
-  if (!format || !video_encoder) {
-    console.log("format or encoder is not set", format, video_encoder);
-    return <div>{t("video_advance.missing", "format or encoder is not set")}</div>
-  }
 
   const formatDefinition = useMemo(() => {
     if (!format) return undefined;
@@ -42,6 +40,12 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
     return def;
   }, [video_encoder]);
 
+
+  if (!format || !video_encoder) {
+    console.log("format or encoder is not set", format, video_encoder);
+    return <div>{t("video_advance.missing", "format or encoder is not set")}</div>
+  }
+
   if (!formatDefinition || !encoderDef) {
     console.log("format or encoder is not set", {
       formatDefinition, encoderDef, video_encoder
@@ -50,7 +54,7 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
   }
 
   return (
-    <div className="flex-1 p-2 space-y-4">
+    <ScrollArea className="h-full space-y-4">
       <div className="grid grid-cols-2 gap-x-8 gap-y-4">
         <VideoEncoderSelect
           className="space-y-2"
@@ -62,13 +66,20 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           allowedEncoders={formatDefinition.video?.allowedEncoders}
         />
 
-        <VideoResolutionSelect
-          wrapperClassName="space-y-2"
-          label={t("video_advance.resolution", "Resolution")}
-          helpText={t("videoCompressor.fields.resolutionHelp")}
-          value={resolution}
-          onValueChange={(v) => onChange?.({ resolution: v })}
-          maxResolution={encoderDef.video?.maxResolution}
+
+        <VideoBitrateSelect
+          className="space-y-2"
+          label={t("video_advance.bitrate", "Bitrate")}
+          helpText={t("videoCompressor.fields.bitrateHelp")}
+          value={String(video_bitrate || "auto")}
+          onValueChange={(v) => onChange?.({ video_bitrate: parseInt(v) })}
+          maxBitrate={encoderDef.video?.maxBitrate}
+        />
+        <VideoResolutionSection
+          className="space-y-2 col-span-2"
+          resolution={resolution}
+          onChange={(nextResolution) => onChange?.({ resolution: nextResolution })}
+          showMoreBtns={false}
         />
 
         <VideoFrameRateSelect
@@ -80,14 +91,6 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           maxFrameRate={encoderDef.video?.maxFrameRate}
         />
 
-        <VideoBitrateSelect
-          className="space-y-2"
-          label={t("video_advance.bitrate", "Bitrate")}
-          helpText={t("videoCompressor.fields.bitrateHelp")}
-          value={String(video_bitrate || "auto")}
-          onValueChange={(v) => onChange?.({ video_bitrate: parseInt(v) })}
-          maxBitrate={encoderDef.video?.maxBitrate}
-        />
 
         <ColorSpaceSelect
           className="space-y-2"
@@ -110,6 +113,6 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           placeholder={t("video_advance.color_range", "Color Range")}
         />
       </div>
-    </div>
+    </ScrollArea>
   );
 };

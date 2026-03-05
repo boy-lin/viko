@@ -1250,6 +1250,7 @@ pub struct VideoCompressionArgs {
     pub audio_tracks: Option<Vec<crate::services::compress::video::AudioTrackConfig>>,
     pub preset: Option<String>,                  // ultrafast/fast/medium/slow
     pub use_hardware_acceleration: Option<bool>, // 硬件编码
+    pub use_ultra_fast_speed: Option<bool>,      // 极速模式（优先 ultrafast）
 }
 
 #[command]
@@ -1274,6 +1275,7 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
             audio_tracks: args.audio_tracks,
             preset: args.preset,
             use_hardware_acceleration: args.use_hardware_acceleration,
+            use_ultra_fast_speed: args.use_ultra_fast_speed,
         };
 
         let emitter =

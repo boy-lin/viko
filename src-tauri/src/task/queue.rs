@@ -734,6 +734,7 @@ fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(),
         audio_tracks: args.audio_tracks.clone(),
         preset: args.preset.clone(),
         use_hardware_acceleration: args.use_hardware_acceleration,
+        use_ultra_fast_speed: args.use_ultra_fast_speed,
     };
 
     let file_type = args
