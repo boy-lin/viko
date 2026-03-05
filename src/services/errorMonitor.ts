@@ -1,4 +1,6 @@
 
+import { bridge } from "@/lib/bridge";
+
 // 错误日志服务的接口定义
 export interface ErrorLog {
     type: 'js' | 'promise' | 'react' | 'resource' | 'http';
@@ -84,6 +86,20 @@ class ErrorMonitor {
             // TODO: 集成 Sentry 或其他日志服务
             // sendToAnalytics(error);
         }
+
+        bridge.reportClientLog({
+            level: "error",
+            category: error.type,
+            message: error.message,
+            stack: error.stack,
+            url: error.url,
+            meta: error.meta,
+            timestamp: error.timestamp,
+        }).catch((err) => {
+            if (import.meta.env.DEV) {
+                console.warn("report_client_log failed:", err);
+            }
+        });
     }
 
     public getLogs() {

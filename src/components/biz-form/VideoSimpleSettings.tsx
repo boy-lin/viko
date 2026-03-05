@@ -23,7 +23,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
   onChange,
 }) => {
 
-  const { t } = useTranslation("common");
+  const { t } = useTranslation("task");
   const [clarityMode, setClarityMode] = useState("quality");
 
   const applyResolution = (value: string) => {
@@ -35,7 +35,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
       <div className="grid gap-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-1">
-            <Label>清晰度</Label>
+            <Label>{t("videoSimpleSettings.clarity")}</Label>
             <Tooltip>
               <TooltipTrigger asChild>
                 <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -52,8 +52,8 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
               onValueChange={setClarityMode}
             >
               {[
-                { value: "quality", label: "画质" },
-                { value: "bitrate", label: "按码率" },
+                { value: "quality", label: t("videoSimpleSettings.mode.quality") },
+                { value: "bitrate", label: t("videoSimpleSettings.mode.bitrate") },
               ].map((opt) => (
                 <Label
                   key={opt.value}
@@ -72,6 +72,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
 
             {clarityMode === "bitrate" ? (
               <VideoBitrateSelect
+                
                 hideLabel={true}
                 value={video_bitrate ? video_bitrate.toString() : "auto"}
                 onValueChange={(val) => {
@@ -99,9 +100,11 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
 
       </div>
       <VideoResolutionSection
+        label={t("settings.video.fields.resolution")}
+        helpText={t("settings.video.fields.resolutionHelp")}
         resolution={resolution}
         onChange={applyResolution}
-        showMoreBtns={false} />
+        showMoreBtns={true} />
     </div>
   );
 };

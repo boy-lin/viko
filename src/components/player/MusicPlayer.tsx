@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { bridge } from "@/lib/bridge";
+import { getBridgeErrorMessage } from "@/lib/bridgeError";
 import { PlayIcon } from "@/components/icons/play";
 import { PauseIcon } from "@/components/icons/pause";
 import { VolumeIcon } from "@/components/icons/volume";
@@ -44,96 +45,150 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [currentPosition, setCurrentPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const progressBarRef = useRef<HTMLDivElement>(null);
+  const [isReady, setIsReady] = useState(false);
+  const initSeqRef = useRef(0);
+  const instanceIdRef = useRef(
+    `music-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+  );
+  const log = useCallback(
+    (message: string, extra?: unknown) => {
+      console.info(`[MusicPlayer:${instanceIdRef.current}] ${message}`, extra ?? "");
+    },
+    []
+  );
 
   // 初始化音频文件
   useEffect(() => {
-    if (!filePath || filePath === "undefined") return;
+    const seq = ++initSeqRef.current;
+    let cancelled = false;
+    log("effect:init triggered", { filePath, autoPlay });
+    if (!filePath || filePath === "undefined") {
+      setIsPlaying(false);
+      setIsReady(false);
+      setDuration(0);
+      setCurrentPosition(0);
+      log("effect:init skipped due to empty filePath");
+      return;
+    }
 
     const initAudio = async () => {
       try {
         setIsLoading(true);
+        setIsReady(false);
         setError("");
-        await bridge.invoke("audio_player_open", { path: filePath });
-        const dur = await bridge.invoke<number>("audio_player_get_duration");
+        log("audioPlayerOpen start", { filePath, seq });
+        await bridge.audioPlayerOpen(filePath);
+        if (cancelled || seq !== initSeqRef.current) {
+          log("audioPlayerOpen ignored (stale init)", { seq, current: initSeqRef.current });
+          return;
+        }
+        setIsReady(true);
+        log("audioPlayerOpen success");
+        const dur = await bridge.audioPlayerGetDuration();
+        if (cancelled || seq !== initSeqRef.current) {
+          log("audioPlayerGetDuration ignored (stale init)", { seq, current: initSeqRef.current });
+          return;
+        }
+        log("audioPlayerGetDuration result", { dur });
         if (dur !== undefined && dur !== null && !isNaN(dur)) {
           setDuration(dur);
           setCurrentPosition(0);
           if (autoPlay) {
-            await bridge.invoke("audio_player_play");
+            log("autoPlay start");
+            await bridge.audioPlayerPlay();
+            if (cancelled || seq !== initSeqRef.current) {
+              log("autoPlay ignored (stale init)", { seq, current: initSeqRef.current });
+              return;
+            }
             setIsPlaying(true);
+            log("autoPlay success");
           }
         } else {
           setError("无法获取音频时长");
+          log("duration invalid", { dur });
         }
       } catch (err) {
-        setError(`打开文件失败: ${err}`);
-        console.error("打开音频文件失败:", err);
+        setIsReady(false);
+        setIsPlaying(false);
+        setError(getBridgeErrorMessage(err, "打开文件失败"));
+        console.error(`[MusicPlayer:${instanceIdRef.current}] 打开音频文件失败:`, err);
       } finally {
         setIsLoading(false);
+        log("effect:init finished");
       }
     };
 
     initAudio();
 
     return () => {
-      bridge.invoke("audio_player_stop").catch(console.error);
+      cancelled = true;
+      log("effect:init cleanup (no stop, waiting next init/unmount)", { seq });
     };
-  }, [filePath, autoPlay]);
+  }, [filePath, autoPlay, log]);
 
   // 播放
   const handlePlay = useCallback(async () => {
+    if (!isReady) return;
     try {
+      log("handlePlay start", { duration, currentPosition });
       if (duration > 0 && currentPosition >= duration) {
-        await bridge.invoke("audio_player_seek", { position: 0 });
+        await bridge.audioPlayerSeek(0);
         setCurrentPosition(0);
       }
-      await bridge.invoke("audio_player_play");
+      await bridge.audioPlayerPlay();
       setIsPlaying(true);
       setError("");
+      log("handlePlay success");
     } catch (err) {
-      setError(`播放失败: ${err}`);
-      console.error("播放失败:", err);
+      setError(getBridgeErrorMessage(err, "播放失败"));
+      console.error(`[MusicPlayer:${instanceIdRef.current}] 播放失败:`, err);
     }
-  }, [duration, currentPosition]);
+  }, [duration, currentPosition, isReady, log]);
 
   // 暂停
   const handlePause = useCallback(async () => {
+    if (!isReady) return;
     try {
-      await bridge.invoke("audio_player_pause");
+      log("handlePause start");
+      await bridge.audioPlayerPause();
       setIsPlaying(false);
+      log("handlePause success");
     } catch (err) {
-      setError(`暂停失败: ${err}`);
-      console.error("暂停失败:", err);
+      setError(getBridgeErrorMessage(err, "暂停失败"));
+      console.error(`[MusicPlayer:${instanceIdRef.current}] 暂停失败:`, err);
     }
-  }, []);
+  }, [isReady, log]);
 
   // 快退/快进
   const handleSkip = useCallback(
     async (seconds: number) => {
+      if (!isReady) return;
       try {
-        const current = await bridge.invoke<number>(
-          "audio_player_get_position"
-        );
+        log("handleSkip start", { seconds });
+        const current = await bridge.audioPlayerGetPosition();
         const newPosition = Math.max(0, Math.min(duration, current + seconds));
-        await bridge.invoke("audio_player_seek", { position: newPosition });
+        await bridge.audioPlayerSeek(newPosition);
         setCurrentPosition(newPosition);
+        log("handleSkip success", { current, newPosition });
       } catch (err) {
-        console.error("跳转失败:", err);
+        console.error(`[MusicPlayer:${instanceIdRef.current}] 跳转失败:`, err);
       }
     },
-    [duration]
+    [duration, isReady, log]
   );
 
   // 跳转到指定位置
   const handleSeek = useCallback(async (newPosition: number) => {
+    if (!isReady) return;
     try {
-      await bridge.invoke("audio_player_seek", { position: newPosition });
+      log("handleSeek start", { newPosition });
+      await bridge.audioPlayerSeek(newPosition);
       setCurrentPosition(newPosition);
+      log("handleSeek success");
     } catch (err) {
-      console.error("跳转失败:", err);
+      console.error(`[MusicPlayer:${instanceIdRef.current}] 跳转失败:`, err);
     }
-  }, []);
+  }, [isReady, log]);
 
   // 进度条变化
   const handleProgressChange = useCallback(
@@ -164,12 +219,14 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     const nextVolume = Math.max(0, Math.min(1.5, value[0]));
     setVolume(nextVolume);
     setIsMuted(nextVolume === 0);
+    if (!isReady) return;
     try {
-      await bridge.invoke("audio_player_set_volume", { volume: nextVolume });
+      await bridge.audioPlayerSetVolume(nextVolume);
+      log("handleVolumeChange success", { nextVolume });
     } catch (err) {
-      console.error("调整音量失败:", err);
+      console.error(`[MusicPlayer:${instanceIdRef.current}] 调整音量失败:`, err);
     }
-  }, []);
+  }, [isReady, log]);
 
   const handleMuteToggle = useCallback(async () => {
     if (isMuted) {
@@ -181,11 +238,15 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   // 更新播放位置
   useEffect(() => {
-    if (!isPlaying || isDragging) return;
+    if (!isPlaying || isDragging || !isReady) return;
+    const seq = initSeqRef.current;
+    log("position polling start");
 
     const interval = setInterval(async () => {
       try {
-        const pos = await bridge.invoke<number>("audio_player_get_position");
+        if (seq !== initSeqRef.current) return;
+        const pos = await bridge.audioPlayerGetPosition();
+        if (seq !== initSeqRef.current) return;
         setCurrentPosition(pos);
 
         // 如果播放完成，自动暂停
@@ -193,19 +254,33 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           setIsPlaying(false);
         }
       } catch (err) {
-        console.error("获取播放位置失败:", err);
+        if (seq !== initSeqRef.current) return;
+        log("position polling failed -> setIsReady(false)", err);
+        setIsPlaying(false);
+        setIsReady(false);
+        console.error(`[MusicPlayer:${instanceIdRef.current}] 获取播放位置失败:`, err);
       }
     }, 500); // 每500ms更新一次
 
-    return () => clearInterval(interval);
-  }, [isPlaying, duration, isDragging]);
+    return () => {
+      clearInterval(interval);
+      log("position polling stop");
+    };
+  }, [isPlaying, duration, isDragging, isReady, log]);
 
-  // 清理：组件卸载时停止播放
   useEffect(() => {
     return () => {
-      bridge.invoke("audio_player_stop").catch(console.error);
+      log("component unmount -> audioPlayerStop");
+      bridge.audioPlayerStop().catch((err) => {
+        const message = getBridgeErrorMessage(err, "");
+        if (message.includes("未初始化")) {
+          log("component unmount stop ignored: player not initialized");
+          return;
+        }
+        console.error(`[MusicPlayer:${instanceIdRef.current}] unmount stop failed:`, err);
+      });
     };
-  }, []);
+  }, [log]);
 
   const progressPercentage =
     duration > 0 ? (currentPosition / duration) * 100 : 0;
@@ -311,7 +386,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             {/* 进度条 */}
             <div className="space-y-2">
               <Slider
-                ref={progressBarRef}
                 value={[progressPercentage]}
                 min={0}
                 max={100}

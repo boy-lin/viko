@@ -150,7 +150,11 @@ fn resolve_audio_tracks(
                 .or_else(|| input_audio_indices.get(i).copied())
                 .unwrap_or_else(|| *input_audio_indices.first().unwrap_or(&0));
             let mut encoding = AudioEncodingParams {
-                codec: cfg.encoding.codec.clone().or(default_encoding.codec.clone()),
+                codec: cfg
+                    .encoding
+                    .codec
+                    .clone()
+                    .or(default_encoding.codec.clone()),
                 bitrate: cfg.encoding.bitrate.or(default_encoding.bitrate),
                 sample_rate: cfg.encoding.sample_rate.or(default_encoding.sample_rate),
                 channels: cfg.encoding.channels.or(default_encoding.channels),
@@ -207,7 +211,12 @@ pub fn convert_audio<E: TaskEmitter>(
         return Err("未找到音频流".to_string());
     }
 
-    let resolved_tracks = resolve_audio_tracks(&params, &input_audio_indices, &codec_name, is_amr);
+    let resolved_tracks = resolve_audio_tracks(
+        &params,
+        &input_audio_indices,
+        &codec_name,
+        is_amr,
+    );
     if resolved_tracks.is_empty() {
         return Err("未解析出可用的音频轨道配置".to_string());
     }
@@ -229,16 +238,8 @@ pub fn convert_audio<E: TaskEmitter>(
             return Err(format!("转换完成但输出文件不存在: {}", params.output_path));
         }
         let output_media = media_info::get_media_details(&params.output_path)?;
-        log::info!("音频转换完成(直拷贝): {}", params.output_path);
         return Ok(AudioConversionReport { output_media });
     }
-
-    if params.use_ultra_fast_speed.unwrap_or(false) {
-        log::debug!(
-            "convert_audio: use_ultra_fast_speed currently not applied in shared audio pipeline"
-        );
-    }
-
     let run_report = run_audio_transcode(
         &emitter,
         &mut ictx,
@@ -281,12 +282,6 @@ pub fn convert_audio<E: TaskEmitter>(
         tags: HashMap::new(),
         stream_tags: Vec::new(),
     };
-
-    log::info!(
-        "音频转换完成: {} (数据包={})",
-        params.output_path,
-        run_report.packets_processed
-    );
     Ok(AudioConversionReport { output_media })
 }
 

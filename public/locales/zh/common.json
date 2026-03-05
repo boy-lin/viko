@@ -51,6 +51,15 @@
     "recents": "最近",
     "apply_all": "应用到所有"
   },
+  "help": {
+    "button": "在线帮助",
+    "title": "在线帮助与联系方式",
+    "description": "如果你有功能上的意见建议，或者在使用过程中遇到问题，可以通过下面的方式联系我。",
+    "exportLogs": "导出日志",
+    "exporting": "导出中...",
+    "exportSuccess": "日志导出成功",
+    "exportFailed": "日志导出失败"
+  },
   "upload_drag": {
     "picker_name": "媒体文件",
     "title": "拖拽文件或文件夹到此处",
@@ -66,58 +75,6 @@
     "checking": "正在检查硬件支持...",
     "gpu_desc_available": "可用时使用硬件编码器 (如 NVENC, QSV, VideoToolbox)。",
     "gpu_desc_unavailable": "未检测到支持的硬件编码器。"
-  },
-  "video_advance": {
-    "missing": "格式或编码器未设置",
-    "encoder": "编码器",
-    "resolution": "分辨率",
-    "frame_rate": "帧率",
-    "bitrate": "码率",
-    "color_space": "色彩空间"
-  },
-  "audioCompressor": {
-    "settingsDialog": {
-      "title": "压缩设置",
-      "description": "仅修改当前任务的压缩参数",
-      "popoverDescription": "修改全局压缩参数",
-      "actions": {
-        "close": "关闭"
-      },
-      "fields": {
-        "silenceThreshold": "静音阈值 (dB)",
-        "volumeGain": "音量增益 (dB)",
-        "removeSilence": "移除静音",
-        "bitrateHelp": "控制音频数据密度。数值越高通常保真更好，但体积与处理开销也可能增加。",
-        "channelHelp": "控制输出声道布局。更少声道通常更省体积，更多声道可保留更丰富的空间信息。",
-        "bitDepthHelp": "控制每个采样的精度。更高位深有利于动态范围与细节保留，但体积通常更高。",
-        "encoderHelp": "编码器会影响质量、速度、体积和兼容性，通常需结合格式与用途综合选择。"
-      },
-      "advanced": {
-        "title": "高级设置",
-        "description": "可以调整文件格式和编码达到更好的压缩效果"
-      }
-    }
-  },
-  "videoCompressor": {
-    "settingsDialog": {
-      "title": "压缩设置",
-      "description": "仅修改当前任务的压缩参数",
-      "popoverDescription": "修改全局压缩参数",
-      "actions": {
-        "close": "关闭"
-      },
-      "fields": {
-        "bitrateHelp": "控制视频数据密度。数值越高通常保真更好，但体积与处理开销也可能增加。",
-        "keyframeIntervalHelp": "控制关键帧间隔。数值越小通常细节更完整，但体积与处理成本可能上升。",
-        "colorDepthHelp": "控制色彩深度。数值越高通常保真更好，但体积与处理开销也可能增加。",
-        "aspectRatioHelp": "控制宽高比。数值越高通常细节更完整，但体积与处理成本可能上升。",
-        "encoderHelp": "编码器会影响质量、速度、体积和兼容性，通常需结合格式与用途综合选择。"
-      },
-      "advanced": {
-        "title": "高级设置",
-        "description": "可以调整文件格式和编码达到更好的压缩效果"
-      }
-    }
   },
   "file_picker": {
     "video": "视频",
@@ -180,48 +137,6 @@
         "sign_out_failed": "退出失败"
       }
     }
-  },
-  "settings": {
-    "title": "设置",
-    "description": "配置本次任务的输出参数",
-    "singleDescription": "仅对当前文件进行转换并立即开始。",
-    "startSingle": "开始转换",
-    "titleLabel": "标题：",
-    "targetFormatLabel": "目标",
-    "video": {
-      "title": "视频",
-      "fields": {
-        "frameRateHelp": "控制每秒帧数。数值越高通常细节更完整，但体积与处理成本可能上升。"
-      }
-    },
-    "audio": {
-      "title": "音频",
-      "trackLabel": "音轨 {{index}}",
-      "noAudioTrackAvailable": "没有可用的音轨。",
-      "fields": {
-        "formatHelp": "输出格式会影响可用编码器、兼容性与体积表现，建议按使用场景选择。",
-        "encoder": "编码器",
-        "encoderPlaceholder": "选择编码器",
-        "channel": "声道",
-        "channelPlaceholder": "选择声道",
-        "sampleRate": "采样率",
-        "sampleRatePlaceholder": "选择采样率",
-        "sampleRateHelp": "控制每秒采样次数。数值越高通常细节更完整，但体积与处理成本可能上升。",
-        "bitrate": "码率",
-        "bitratePlaceholder": "选择码率",
-        "bitDepth": "位深",
-        "bitDepthPlaceholder": "选择位深"
-      }
-    },
-    "image": { 
-      "title": "图片", 
-      "quality": "质量：", 
-      "fields": {
-        "resolution": "分辨率",
-        "resolutionHelp": "分辨率控制输出维度。数值越高细节保留更好，但体积与处理时间可能上升。",
-        "encoderHelp": "编码器影响质量、速度、体积和兼容性，通常需结合格式与用途综合选择。"
-      }
-     }
   },
   "force_update": {
     "title": "更新应用",

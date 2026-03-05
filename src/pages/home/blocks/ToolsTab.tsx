@@ -1,6 +1,5 @@
-import { Search, Flame, Check, Clock } from "lucide-react"
+import { Flame, Check } from "lucide-react"
 import { useState } from "react"
-import { Input } from "@/components/ui/input"
 import { NewFeatures } from './NewFeatures'
 import { useTranslation } from "react-i18next"
 import { CommonFeatures } from "./CommonFeatures"
@@ -16,12 +15,7 @@ const tabs = [
     key: "common",
     label: "tabs.common",
     icon: Check,
-  },
-  {
-    key: "recent",
-    label: "tabs.recent",
-    icon: Clock,
-  },
+  }
 ]
 
 export function ToolsTab() {
@@ -50,7 +44,7 @@ export function ToolsTab() {
             <button
               key={tab.key}
               className={`relative whitespace-nowrap flex items-center gap-2 pb-0 font-medium text-sm transition-colors ${activeKey === tab.key
-                ? "text-indigo-600"
+                ? "text-primary"
                 : "cursor-pointer text-muted-foreground hover:text-foreground"
                 }`}
               onClick={() => setActiveKey(tab.key)}
@@ -59,14 +53,14 @@ export function ToolsTab() {
               {t(tab.label)}
               <span
                 className={`absolute left-1/2 -bottom-1 h-0.5 w-full -translate-x-1/2 rounded-full transition-all ${activeKey === tab.key
-                  ? "opacity-100 bg-gradient-to-r from-[#8B5CF6] via-[#6366F1] to-[#3B82F6]"
+                  ? "opacity-100 bg-gradient-to-r from-primary via-accent to-primary"
                   : "opacity-0"
                   }`}
               />
             </button>
           ))}
         </div>
-        <div className="relative w-80">
+        {/* <div className="relative w-80">
           <Search
             className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground`}
           />
@@ -74,7 +68,7 @@ export function ToolsTab() {
             placeholder={t("searchPlaceholder")}
             className={`pl-10 bg-white border-border placeholder:text-muted-foreground`}
           />
-        </div>
+        </div> */}
       </div>
 
       {/* Tools Grid */}

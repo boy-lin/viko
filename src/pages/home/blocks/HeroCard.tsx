@@ -124,7 +124,7 @@ const HeroCardItemView = ({
       {item.actions.map((action) => (
         <Button
           key={action.id}
-          className="w-fit text-background shadow-md border-none transition-all z-20 px-4 py-2 text-sm font-semibold cursor-pointer hover:scale-105"
+          className="w-fit text-accent-foreground border-none transition-all z-20 px-4 py-2 text-sm cursor-pointer hover:scale-105 hover:shadow"
           style={{ backgroundImage: item.gradient }}
           onClick={(e) => {
             e.stopPropagation();

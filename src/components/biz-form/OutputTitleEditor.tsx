@@ -3,6 +3,7 @@ import { Pencil } from "lucide-react";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface OutputTitleEditorProps {
   value?: string;
@@ -13,10 +14,12 @@ interface OutputTitleEditorProps {
 
 export default function OutputTitleEditor({
   value,
-  placeholder = "未命名",
+  placeholder,
   className,
   onChange,
 }: OutputTitleEditorProps) {
+  const { t } = useTranslation("task");
+  const fallbackPlaceholder = placeholder ?? t("bizForm.outputTitle.unnamed");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value || "");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -62,7 +65,7 @@ export default function OutputTitleEditor({
             setEditing(false);
           }
         }}
-        placeholder={placeholder}
+        placeholder={fallbackPlaceholder}
       />
     );
   }
@@ -70,7 +73,7 @@ export default function OutputTitleEditor({
   return (
     <div className={cn("flex items-center gap-2 min-w-0", className)}>
       <EllipsisName
-        name={value || placeholder}
+        name={value || fallbackPlaceholder}
         className="text-base font-semibold text-foreground whitespace-nowrap"
       />
       <Button
@@ -78,7 +81,7 @@ export default function OutputTitleEditor({
         size="icon"
         className="cursor-pointer h-7 w-7"
         onClick={() => setEditing(true)}
-        aria-label="编辑输出文件名"
+        aria-label={t("bizForm.outputTitle.editAriaLabel")}
       >
         <Pencil className="h-3.5 w-3.5" />
       </Button>

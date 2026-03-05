@@ -1,4 +1,4 @@
-import { ShieldAlert } from "lucide-react";
+﻿import { ShieldAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { FFmpegTask } from "@/types/tasks";
@@ -10,7 +10,7 @@ interface TaskStatusLabelProps {
 export default function TaskStatusLabel({
   task,
 }: TaskStatusLabelProps) {
-  const { t } = useTranslation("converter");
+  const { t } = useTranslation("task");
   const errorMessage = task.errorMessage;
   const map = {
     queued: { text: t("status.queued", "已入队"), color: "text-amber-600", badge: "bg-amber-100" },
@@ -41,3 +41,4 @@ export default function TaskStatusLabel({
     </div>
   );
 }
+

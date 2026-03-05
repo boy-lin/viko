@@ -1,8 +1,7 @@
 // Shaka Player 风格的现代化视频播放器组件
-// 参考: https://www.figma.com/design/VhVCjdLRdaay4xWbpeZuLE/Shaka-Player---Interactive-Component--Community-?node-id=1-1973
-
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { bridge } from "@/lib/bridge";
+import { getBridgeErrorMessage } from "@/lib/bridgeError";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -34,6 +33,12 @@ interface ShakaPlayerProps {
   autoPlay?: boolean;
   showControls?: boolean;
 }
+
+type FrameImageDataCache = {
+  width: number;
+  height: number;
+  imageData: ImageData;
+};
 
 // 格式化时间
 function formatTime(seconds: number): string {
@@ -77,7 +82,15 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [error, setError] = useState("");
   const lastInitKeyRef = useRef<string>("");
+  const frameSizeRef = useRef<{ width: number; height: number }>({
+    width: 0,
+    height: 0,
+  });
+  const latestFrameRef = useRef<ArrayBuffer | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+  const imageDataCacheRef = useRef<FrameImageDataCache | null>(null);
   const cacheValueRef = useRef<{
     duration: number;
     isDragging: boolean;
@@ -89,6 +102,52 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
   useEffect(() => {
     cacheValueRef.current.duration = duration;
   }, [duration]);
+
+  const stopFrameRenderLoop = useCallback(() => {
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    latestFrameRef.current = null;
+    imageDataCacheRef.current = null;
+  }, []);
+
+  const startFrameRenderLoop = useCallback(() => {
+    if (rafIdRef.current !== null) return;
+    const draw = () => {
+      rafIdRef.current = requestAnimationFrame(draw);
+
+      const frameBuffer = latestFrameRef.current;
+      if (!frameBuffer) return;
+      latestFrameRef.current = null;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const { width, height } = frameSizeRef.current;
+      if (!width || !height) return;
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        imageDataCacheRef.current = null;
+      }
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      let cache = imageDataCacheRef.current;
+      if (!cache || cache.width !== width || cache.height !== height) {
+        cache = { width, height, imageData: new ImageData(width, height) };
+        imageDataCacheRef.current = cache;
+      }
+
+      const source = new Uint8ClampedArray(frameBuffer);
+      if (source.length !== cache.imageData.data.length) return;
+      cache.imageData.data.set(source);
+      ctx.putImageData(cache.imageData, 0, 0);
+    };
+    rafIdRef.current = requestAnimationFrame(draw);
+  }, []);
 
   // 根据容器尺寸更新预览目标分辨率
   useEffect(() => {
@@ -134,20 +193,36 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
     const initPlayer = async () => {
       try {
         setIsLoading(true);
-        await bridge.invoke("video_player_open", {
-          path: filePath,
-          preview: {
-            width: previewSize.width,
-            height: previewSize.height,
+        latestFrameRef.current = null;
+        imageDataCacheRef.current = null;
+        await bridge.videoPlayerOpen(
+          {
+            path: filePath,
+            preview: {
+              width: previewSize.width,
+              height: previewSize.height,
+            },
           },
-        });
-        const dur = await bridge.invoke<number>("video_player_get_duration");
+          (frameBuffer) => {
+            latestFrameRef.current = frameBuffer;
+          }
+        );
+        const size = await bridge.videoPlayerGetSize();
+        frameSizeRef.current = size;
+        if (canvasRef.current) {
+          canvasRef.current.width = size.width;
+          canvasRef.current.height = size.height;
+        }
+        startFrameRenderLoop();
+        const dur = await bridge.videoPlayerGetDuration();
         setDuration(dur);
         if (autoPlay) {
-          await bridge.invoke("video_player_play");
+          await bridge.videoPlayerPlay();
           setIsPlaying(true);
         }
+        setError("");
       } catch (error) {
+        setError(getBridgeErrorMessage(error, "初始化视频播放器失败"));
         console.error("初始化视频播放器失败:", error);
       } finally {
         setIsLoading(false);
@@ -157,44 +232,16 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
     initPlayer();
 
     return () => {
-      bridge.invoke("video_player_close").catch(console.error);
+      stopFrameRenderLoop();
+      bridge.videoPlayerClose().catch(console.error);
     };
-  }, [filePath, previewSize, autoPlay]);
+  }, [filePath, previewSize, autoPlay, startFrameRenderLoop, stopFrameRenderLoop]);
 
-  // 监听视频帧事件
+  // 监听播放器状态事件
   useEffect(() => {
-    if (!filePath || !canvasRef.current) return;
-    let unlistenFrame: (() => void) | undefined;
+    if (!filePath) return;
     let unlistenComplete: (() => void) | undefined;
     let unlistenState: (() => void) | undefined;
-
-    bridge
-      .on("video-frame", (payload) => {
-        const { width, height, data } = payload;
-        if (!width || !height) return;
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        if (canvas.width !== width || canvas.height !== height) {
-          canvas.width = width;
-          canvas.height = height;
-        }
-
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        const buffer =
-          data instanceof Uint8Array ? data : new Uint8Array(data ?? []);
-        const imageData = new ImageData(
-          new Uint8ClampedArray(buffer),
-          width,
-          height
-        );
-        ctx.putImageData(imageData, 0, 0);
-      })
-      .then((off) => {
-        unlistenFrame = off;
-      });
 
     bridge
       .on("video-complete", () => {
@@ -228,7 +275,6 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
       });
 
     return () => {
-      unlistenFrame?.();
       unlistenComplete?.();
       unlistenState?.();
     };
@@ -249,30 +295,36 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
   const handlePlay = useCallback(async () => {
     try {
       if (duration > 0 && currentPosition >= duration) {
-        await bridge.invoke("video_player_seek", { position: 0 });
+        await bridge.videoPlayerSeek(0);
         setCurrentPosition(0);
       }
-      await bridge.invoke("video_player_play");
+      await bridge.videoPlayerPlay();
       setIsPlaying(true);
+      setError("");
     } catch (error) {
+      setError(getBridgeErrorMessage(error, "播放失败"));
       console.error("播放失败:", error);
     }
   }, [duration, currentPosition]);
 
   const handlePause = useCallback(async () => {
     try {
-      await bridge.invoke("video_player_pause");
+      await bridge.videoPlayerPause();
       setIsPlaying(false);
+      setError("");
     } catch (error) {
+      setError(getBridgeErrorMessage(error, "暂停失败"));
       console.error("暂停失败:", error);
     }
   }, []);
 
   const handleSeek = useCallback(async (newPosition: number) => {
     try {
-      await bridge.invoke("video_player_seek", { position: newPosition });
+      await bridge.videoPlayerSeek(newPosition);
       setCurrentPosition(newPosition);
+      setError("");
     } catch (error) {
+      setError(getBridgeErrorMessage(error, "跳转失败"));
       console.error("跳转失败:", error);
     }
   }, []);
@@ -282,8 +334,10 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
     setVolume(nextVolume);
     setIsMuted(nextVolume === 0);
     try {
-      await bridge.invoke("video_player_set_volume", { volume: nextVolume });
+      await bridge.videoPlayerSetVolume(nextVolume);
+      setError("");
     } catch (error) {
+      setError(getBridgeErrorMessage(error, "调整音量失败"));
       console.error("调整音量失败:", error);
     }
   }, []);
@@ -393,6 +447,11 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
 
   return (
     <div className={cn("mb-4 w-full", className)}>
+      {error && (
+        <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
+      )}
       <div
         ref={containerRef}
         className="relative w-full bg-foreground rounded-lg overflow-hidden group"

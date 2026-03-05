@@ -12,6 +12,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AudioEncoderEnum } from "@/types/options";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface AudioEncoderSelectProps {
   allowedEncoders?: AudioEncoderEnum[];
@@ -24,10 +25,6 @@ interface AudioEncoderSelectProps {
   className?: string;
 }
 
-const DEFAULT_LABEL = "编码器";
-const DEFAULT_PLACEHOLDER = "选择编码器";
-const ENCODER_HELP = "编码器会影响质量、速度、体积和兼容性，通常需结合格式与用途综合选择。";
-
 export const AudioEncoderSelect: React.FC<AudioEncoderSelectProps> = ({
   allowedEncoders,
   value,
@@ -38,6 +35,7 @@ export const AudioEncoderSelect: React.FC<AudioEncoderSelectProps> = ({
   hideLabel = false,
   className,
 }) => {
+  const { t } = useTranslation("task");
   const filteredEncoders = React.useMemo(() => {
     return allowedEncoders && allowedEncoders.length
       ? AUDIO_ENCODERS.filter((encoder) => allowedEncoders.includes(encoder.value) || encoder.value === "auto")
@@ -54,20 +52,20 @@ export const AudioEncoderSelect: React.FC<AudioEncoderSelectProps> = ({
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Label>{label ?? t("settings.audio.fields.encoder")}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? ENCODER_HELP}
+              {helpText ?? t("settings.audio.fields.encoderHelp")}
             </TooltipContent>
           </Tooltip>
         </div>
       )}
       <Select value={value ?? allowedEncoders?.[0]} onValueChange={onValueChange}>
         <SelectTrigger className="cursor-pointer w-full">
-          <SelectValue placeholder={placeholder ?? DEFAULT_PLACEHOLDER} />
+          <SelectValue placeholder={placeholder ?? t("settings.audio.fields.encoderPlaceholder")} />
         </SelectTrigger>
         <SelectContent>
           {filteredEncoders.map((encoder) => (

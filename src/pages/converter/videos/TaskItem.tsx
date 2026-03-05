@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -58,7 +58,7 @@ export const buildTaskDefaultsFromDetails = (task: ConverterTask, details: Media
 };
 
 export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: TaskItemProps) {
-  const { t } = useTranslation("converter");
+  const { t } = useTranslation("task");
   const updateTaskById = useConverterStore((state) => state.updateTaskById);
 
   const currentMetaStatus = metaStatus ?? (task.mediaDetails ? "idle" : "loading");
@@ -111,12 +111,11 @@ export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: T
   };
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm">
+    <div className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border shadow-sm">
       <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
         <MediaThumbnail
           path={task.mediaDetails?.path}
           title={task.mediaDetails?.title}
-          fileType={task.fileType}
           className="w-full h-full"
         />
       </div>
@@ -189,3 +188,4 @@ export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: T
     </div>
   );
 }
+

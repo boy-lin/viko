@@ -267,14 +267,12 @@ export async function finishDesktopOAuthLogin(codeOrUrl: string, state?: string)
     throw new Error("Invalid OAuth state");
   }
 
-  const token = await bridge.invoke<OAuthTokenResponse>("auth_exchange_code", {
-    input: {
-      tokenEndpoint,
-      clientId,
-      code: normalizedCode,
-      codeVerifier: verifier,
-      redirectUri,
-    },
+  const token = await bridge.authExchangeCode({
+    tokenEndpoint,
+    clientId,
+    code: normalizedCode,
+    codeVerifier: verifier,
+    redirectUri,
   });
 
   saveToken(token);

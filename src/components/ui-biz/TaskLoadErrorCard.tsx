@@ -1,4 +1,4 @@
-import { RefreshCw, ShieldAlert, Trash2 } from "lucide-react";
+﻿import { RefreshCw, ShieldAlert, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -14,7 +14,7 @@ export default function TaskLoadErrorCard({
   onRemove,
   onRetry,
 }: TaskLoadErrorCardProps) {
-  const { t } = useTranslation("converter");
+  const { t } = useTranslation("task");
 
   return (
     <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-red-200 shadow-sm">
@@ -60,3 +60,4 @@ export default function TaskLoadErrorCard({
     </div>
   );
 }
+

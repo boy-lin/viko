@@ -2,11 +2,13 @@ import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function CategoryItem({
+  className,
   label,
   icon: Icon,
   active,
   onClick,
 }: {
+  className?: string;
   label: string;
   icon: React.ElementType;
   active: boolean;
@@ -16,9 +18,10 @@ export default function CategoryItem({
     <button
       onClick={onClick}
       className={cn(
-        "cursor-pointer w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50 text-muted-foreground rounded-r-lg mr-2",
+        "cursor-pointer w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50 text-muted-foreground rounded-lg",
         active &&
-          "bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-300"
+          "bg-accent text-accent-foreground hover:bg-accent/80",
+          className
       )}
     >
       <div className="flex items-center gap-2">

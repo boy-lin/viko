@@ -51,6 +51,15 @@
     "recents": "Recents",
     "apply_all": "Apply to all"
   },
+  "help": {
+    "button": "Online Help",
+    "title": "Online Help & Contact",
+    "description": "If you have feature suggestions or encounter issues during use, feel free to contact me through the channels below.",
+    "exportLogs": "Export Logs",
+    "exporting": "Exporting...",
+    "exportSuccess": "Logs exported successfully",
+    "exportFailed": "Failed to export logs"
+  },
   "upload_drag": {
     "picker_name": "Media Files",
     "title": "Drag files or folders here",
@@ -66,56 +75,6 @@
     "ultra_fast_label": "Enable Ultra-fast Speed",
     "gpu_desc_unavailable": "No supported hardware encoder detected.",
     "gpu_desc_available": "Uses hardware encoders (e.g., NVENC, QSV, VideoToolbox) when available."
-  },
-  "video_advance": {
-    "color_space": "Color Space",
-    "missing": "format or encoder is not set",
-    "resolution": "Resolution",
-    "encoder": "Encoder",
-    "frame_rate": "Frame Rate",
-    "bitrate": "Bitrate"
-  },
-  "audioCompressor": {
-    "title": "Compression Settings",
-    "description": "Only modifies compression parameters for the current task",
-    "popoverDescription": "Modify global compression parameters",
-    "actions": {
-      "close": "Close"
-    },
-    "fields": {
-      "silenceThreshold": "Silence Threshold (dB)",
-      "volumeGain": "Volume Gain (dB)",
-      "removeSilence": "Remove Silence",
-
-      "bitrateHelp": "Controls audio data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
-      "channelHelp": "Controls output channel layout. Fewer channels usually reduce size, while more channels preserve richer spatial information.",
-      "bitDepthHelp": "Controls precision per sample. Higher bit depth helps preserve dynamic range and detail, but usually increases size."
-    },
-    "advanced": {
-      "title": "Advanced Settings",
-      "description": "You can adjust format and encoder to achieve better compression"
-    }
-  },
-  "videoCompressor": {
-    "title": "Compression Settings",
-    "description": "Only modifies compression parameters for the current task",
-    "popoverDescription": "Modify global compression parameters",
-    "actions": {
-      "close": "Close"
-    },
-    "fields": {
-      "bitrateHelp": "Controls video data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
-      "keyframeIntervalHelp": "Controls keyframe interval. Smaller values usually preserve more detail, but may increase size and processing cost.",
-      "colorDepthHelp": "Controls color depth. Higher values usually improve fidelity, but can increase size and processing overhead.",
-      "aspectRatioHelp": "Controls aspect ratio. Higher values usually preserve more detail, but may increase size and processing cost.",
-      "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs.",
-      "resolutionHelp": "Resolution controls output dimensions. Higher values preserve detail but can increase file size and processing time.",
-      "clarityHelp": "Clarity controls the output quality. Higher values preserve detail but can increase file size and processing time."
-    },
-    "advanced": {
-      "title": "Advanced Settings",
-      "description": "You can adjust format and encoder to achieve better compression"
-    }
   },
   "file_picker": {
     "video": "Video",
@@ -176,51 +135,6 @@
         "profile_synced": "Profile synced",
         "signed_out": "Signed out",
         "sign_out_failed": "Sign out failed"
-      }
-    }
-  },
-  "settings": {
-    "title": "Settings",
-    "description": "Configure output settings for this task",
-    "singleDescription": "This change will be applied and converted only for this file.",
-    "startSingle": "Start Convert",
-    "titleLabel": "Title:",
-    "targetFormatLabel": "Target",
-    "video": {
-      "title": "Video",
-      "fields": {
-        "width": "Width",
-        "height": "Height",
-        "frameRateHelp": "Controls how many frames are captured per second. Higher values usually preserve more detail, but may increase size and processing cost."
-      }
-    },
-    "audio": {
-      "title": "Audio",
-      "trackLabel": "Audio Track {{index}}",
-      "noAudioTrackAvailable": "No audio track available.",
-      "fields": {
-        "formatHelp": "Output format affects available encoders, compatibility, and resulting size. Choose based on your scenario.",
-        "encoder": "Encoder",
-        "encoderPlaceholder": "Select encoder",
-        "channel": "Channels",
-        "channelPlaceholder": "Select channels",
-        "sampleRate": "Sample Rate",
-        "sampleRatePlaceholder": "Select sample rate",
-        "sampleRateHelp": "Controls how many samples are captured per second. Higher values usually preserve more detail, but may increase size and processing cost.",
-        "bitrate": "Bitrate",
-        "bitratePlaceholder": "Select bitrate",
-        "bitDepth": "Bit Depth",
-        "bitDepthPlaceholder": "Select bit depth"
-      }
-    },
-    "image": {
-      "title": "Image",
-      "quality": "Quality:",
-      "fields": {
-        "quality": "Quality",
-        "resolution": "Resolution",
-        "resolutionHelp": "Resolution controls output dimensions. Higher values preserve detail but can increase file size and processing time.",
-        "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs."
       }
     }
   },

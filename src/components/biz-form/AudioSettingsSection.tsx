@@ -30,7 +30,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
   multiTrack = false,
   className,
 }) => {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation("task");
 
   const updateTrack = (index: number, field: keyof AudioTrackConfig, value: string | number) => {
     const newTracks = [...audio_tracks];
@@ -75,7 +75,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
           <AudioEncoderSelect
             className="space-y-2"
             label={t("settings.audio.fields.encoder")}
-            hideLabel={false}
+            helpText={t("settings.audio.fields.encoderHelp")}
             allowedEncoders={deencoderDef?.allowedEncoders}
             value={track.codec}
             onValueChange={(v) => updateTrack(0, "codec", v)}
@@ -84,7 +84,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
           <AudioChannelSelect
             className="space-y-2"
             label={t("settings.audio.fields.channel")}
-            hideLabel={false}
+            helpText={t("settings.audio.fields.channelHelp")}
             value={String(track.channels || "auto")}
             onValueChange={(v) => updateTrack(0, "channels", parseInt(v))}
             allowedChannels={encoderDefinition?.allowedChannels}
@@ -93,7 +93,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
           <AudioSampleRateSelect
             className="space-y-2"
             label={t("settings.audio.fields.sampleRate")}
-            hideLabel={false}
+            helpText={t("settings.audio.fields.sampleRateHelp")}
             value={String(track.sample_rate || "auto")}
             onValueChange={(v) => updateTrack(0, "sample_rate", parseInt(v))}
             maxSampleRate={encoderDefinition?.maxSampleRate}
@@ -102,7 +102,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
           <AudioBitrateSelect
             className="space-y-2"
             label={t("settings.audio.fields.bitrate")}
-            hideLabel={false}
+            helpText={t("settings.audio.fields.bitrateHelp")}
             value={String(track.bitrate || "auto")}
             onValueChange={(v) => updateTrack(0, "bitrate", parseInt(v))}
             maxBitrate={encoderDefinition?.maxBitrate}
@@ -155,7 +155,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
             <AudioChannelSelect
               className="space-y-2"
               label={t("settings.audio.fields.channel")}
-              hideLabel={false}
+              helpText={t("settings.audio.fields.channelHelp")}
               value={String(track.channels)}
               onValueChange={(v) => updateTrack(index, "channels", parseInt(v))}
               allowedChannels={encoderDefinition?.allowedChannels}
@@ -164,7 +164,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
             <AudioSampleRateSelect
               className="space-y-2"
               label={t("settings.audio.fields.sampleRate")}
-              hideLabel={false}
+              helpText={t("settings.audio.fields.sampleRateHelp")}
               value={String(track.sample_rate)}
               onValueChange={(v) => updateTrack(index, "sample_rate", parseInt(v))}
               maxSampleRate={encoderDefinition?.maxSampleRate}
@@ -173,7 +173,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
             <AudioBitrateSelect
               className="space-y-2"
               label={t("settings.audio.fields.bitrate")}
-              hideLabel={false}
+              helpText={t("settings.audio.fields.bitrateHelp")}
               value={String(track.bitrate)}
               onValueChange={(v) => updateTrack(index, "bitrate", parseInt(v))}
               maxBitrate={encoderDefinition?.maxBitrate}

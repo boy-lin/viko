@@ -37,6 +37,7 @@ pub struct AudioTrackProcessor {
     next_pts: i64,
     start_time: i64,
     first_pts_set: bool,
+    last_mux_dts_ost: Option<i64>,
     written_bytes: u64,
     configured_bit_rate: Option<i64>,
 }
@@ -159,41 +160,48 @@ fn pick_audio_encoder(
 }
 
 impl AudioTrackProcessor {
+    fn packet_diag(&self, encoded: &packet::Packet, ost_time_base: Rational) -> String {
+        let codec_name = self
+            .encoder
+            .codec()
+            .map(|c| c.name().to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        format!(
+            "ist={} ost={} codec={} target_rate={} channels={} frame_size={} enc_tb={}/{} ost_tb={}/{} pkt_pts={:?} pkt_dts={:?} pkt_size={}",
+            self.source_stream_index,
+            self.ost_index,
+            codec_name,
+            self.target_rate,
+            self.target_layout.channels(),
+            self.frame_size,
+            self.encoder_time_base.numerator(),
+            self.encoder_time_base.denominator(),
+            ost_time_base.numerator(),
+            ost_time_base.denominator(),
+            encoded.pts(),
+            encoded.dts(),
+            encoded.size()
+        )
+    }
+
     fn is_input_changed_error(err: &ffmpeg::Error) -> bool {
         err.to_string().contains("Input changed")
     }
 
     fn rebuild_resampler_from_decoded(&mut self, decoded: &frame::Audio) -> Result<(), String> {
-        let mut input_layout = decoded.channel_layout();
-        if input_layout.is_empty() {
-            input_layout = ffmpeg::ChannelLayout::default(decoded.channels() as i32);
-        }
-        let input_rate = if decoded.rate() > 0 {
-            decoded.rate()
-        } else {
-            self.decoder.rate()
-        };
-
-        self.resampler = software::resampling::Context::get(
-            decoded.format(),
-            input_layout,
-            input_rate,
+        self.resampler = media_common::audio_decode::rebuild_audio_resampler_from_frame(
+            decoded,
+            self.decoder.rate() as u32,
             self.target_format,
             self.target_layout,
             self.target_rate,
-        )
-        .map_err(|e| format!("Operation failed: {}", e))?;
+        )?;
 
         Ok(())
     }
 
     fn normalize_decoded_frame(&self, decoded: &mut frame::Audio) {
-        if decoded.channel_layout().is_empty() && decoded.channels() > 0 {
-            decoded.set_channel_layout(ffmpeg::ChannelLayout::default(decoded.channels() as i32));
-        }
-        if decoded.rate() == 0 && self.decoder.rate() > 0 {
-            decoded.set_rate(self.decoder.rate());
-        }
+        media_common::audio_decode::normalize_decoded_audio_frame(decoded, self.decoder.rate() as u32);
     }
 
     pub fn new(
@@ -211,10 +219,10 @@ impl AudioTrackProcessor {
             .map_err(|e| format!("Operation failed: {}", e))?;
 
         let input_sample_rate = decoder.rate() as u32;
-        let mut input_layout = decoder.channel_layout();
-        if input_layout.is_empty() {
-            input_layout = ffmpeg::ChannelLayout::default(decoder.channels() as i32);
-        }
+        let input_layout = media_common::audio_decode::resolve_audio_layout(
+            decoder.channel_layout(),
+            decoder.channels() as i32,
+        );
 
         let requested_codec = params.codec.as_deref();
         let codec = pick_audio_encoder(requested_codec, ist.parameters().id())
@@ -225,16 +233,6 @@ impl AudioTrackProcessor {
                     "No suitable audio encoder found".to_string()
                 }
             })?;
-        if let Some(req) = requested_codec {
-            if !codec.name().eq_ignore_ascii_case(req) {
-                log::warn!(
-                    "audio encoder fallback: requested={} selected={}",
-                    req,
-                    codec.name()
-                );
-            }
-        }
-
         let global_header = octx
             .format()
             .flags()
@@ -299,14 +297,6 @@ impl AudioTrackProcessor {
         if encoder_name.contains("mp3") && chosen_bits < 32_000 {
             chosen_bits = 64_000;
         }
-        if encoder_name.contains("mp3") {
-            log::debug!(
-                "mp3 encoder params: encoder={} sample_rate={} bit_rate={}",
-                encoder_name,
-                target_rate,
-                chosen_bits
-            );
-        }
         enc.set_bit_rate(chosen_bits as usize);
         let configured_bit_rate = Some(chosen_bits);
 
@@ -349,15 +339,14 @@ impl AudioTrackProcessor {
             encoder_rate
         };
 
-        let resampler = software::resampling::Context::get(
+        let resampler = media_common::audio_decode::build_audio_resampler(
             decoder.format(),
             input_layout,
-            decoder.rate(),
+            decoder.rate() as u32,
             target_format,
             target_layout,
             target_rate,
-        )
-        .map_err(|e| format!("Operation failed: {}", e))?;
+        )?;
 
         let frame_size = encoder.frame_size() as usize;
         let fifo = if frame_size > 0 {
@@ -387,6 +376,7 @@ impl AudioTrackProcessor {
             next_pts: 0,
             start_time,
             first_pts_set: false,
+            last_mux_dts_ost: None,
             written_bytes: 0,
             configured_bit_rate,
         })
@@ -462,6 +452,10 @@ impl AudioTrackProcessor {
                     }
                 })?;
 
+            if resampled.samples() == 0 {
+                continue;
+            }
+
             let keep_frame = frame_hook(&mut resampled)?;
             if !keep_frame {
                 continue;
@@ -473,13 +467,17 @@ impl AudioTrackProcessor {
                     if p >= self.start_time {
                         p -= self.start_time;
                     }
-                    self.next_pts = media_common::rescale_ts(
+                    let candidate = media_common::rescale_ts(
                         p,
                         self.decoder.time_base(),
                         self.encoder_time_base,
                     );
-                    self.first_pts_set = true;
+                    if candidate > self.next_pts {
+                        self.next_pts = candidate;
+                    }
                 }
+                // Lock startup once the first decoded frame is seen.
+                self.first_pts_set = true;
             }
 
             if self.fifo.is_some() {
@@ -525,14 +523,6 @@ impl AudioTrackProcessor {
             let remaining_samples = fifo.available_samples();
             if remaining_samples > 0 {
                 let frame_samples = self.frame_size.max(remaining_samples);
-                if frame_samples != remaining_samples {
-                    log::debug!(
-                        "audio tail padding: ist={} remaining_samples={} padded_to={}",
-                        self.source_stream_index,
-                        remaining_samples,
-                        frame_samples
-                    );
-                }
                 let mut output_frame =
                     frame::Audio::new(self.target_format, frame_samples, self.target_layout);
                 output_frame.set_rate(self.target_rate);
@@ -553,11 +543,19 @@ impl AudioTrackProcessor {
             .map_err(|e| format!("encode send_eof failed: {}", e))?;
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
+            if encoded.size() == 0 {
+                continue;
+            }
             encoded.set_stream(self.ost_index);
             encoded.rescale_ts(self.encoder_time_base, ost_time_base);
+            self.ensure_monotonic_packet_timestamps(&mut encoded);
+            let diag = self.packet_diag(&encoded, ost_time_base);
             encoded
                 .write_interleaved(octx)
-                .map_err(|e| format!("encode flush write_interleaved failed: {}", e))?;
+                .map_err(|e| {
+                    log::error!("audio encode flush write_interleaved failed: {} | {}", e, diag);
+                    format!("encode flush write_interleaved failed: {} ({})", e, diag)
+                })?;
             self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
         }
         Ok(())
@@ -574,14 +572,39 @@ impl AudioTrackProcessor {
             .map_err(|e| format!("encode send_frame failed: {}", e))?;
         let mut encoded = packet::Packet::empty();
         while self.encoder.receive_packet(&mut encoded).is_ok() {
+            if encoded.size() == 0 {
+                continue;
+            }
             encoded.set_stream(self.ost_index);
             encoded.rescale_ts(self.encoder_time_base, ost_time_base);
+            self.ensure_monotonic_packet_timestamps(&mut encoded);
+            let diag = self.packet_diag(&encoded, ost_time_base);
             encoded
                 .write_interleaved(octx)
-                .map_err(|e| format!("encode write_interleaved failed: {}", e))?;
+                .map_err(|e| {
+                    log::error!("audio encode write_interleaved failed: {} | {}", e, diag);
+                    format!("encode write_interleaved failed: {} ({})", e, diag)
+                })?;
             self.written_bytes = self.written_bytes.saturating_add(encoded.size() as u64);
         }
         Ok(())
+    }
+
+    fn ensure_monotonic_packet_timestamps(&mut self, encoded: &mut packet::Packet) {
+        let fallback_dts = self.last_mux_dts_ost.map(|v| v + 1).unwrap_or(0);
+        let mut dts = encoded.dts().or(encoded.pts()).unwrap_or(fallback_dts);
+        if let Some(last) = self.last_mux_dts_ost {
+            if dts <= last {
+                dts = last + 1;
+            }
+        }
+        let mut pts = encoded.pts().unwrap_or(dts);
+        if pts < dts {
+            pts = dts;
+        }
+        encoded.set_dts(Some(dts));
+        encoded.set_pts(Some(pts));
+        self.last_mux_dts_ost = Some(dts);
     }
 
     pub fn written_bytes(&self) -> u64 {
@@ -657,7 +680,14 @@ where
     }
 
     octx.write_header()
-        .map_err(|e| format!("写入头失败: {}", e))?;
+        .map_err(|e| format!("write header failed: {}", e))?;
+
+    // Some muxers may adjust output stream time_bases after writing the header.
+    for (idx, processor) in processors.iter().enumerate() {
+        if let Some(stream) = octx.stream(processor.ost_index) {
+            ost_time_bases[idx] = stream.time_base();
+        }
+    }
 
     let mut packets_processed = 0u64;
     for (stream, pkt) in ictx.packets() {

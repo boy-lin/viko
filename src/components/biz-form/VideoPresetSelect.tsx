@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { SelectOption } from "@/types/options";
 import { VIDEO_PRESETS } from "@/data/video_options";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface VideoPresetSelectProps {
   value?: string;
@@ -24,10 +25,6 @@ interface VideoPresetSelectProps {
   className?: string;
 }
 
-const DEFAULT_LABEL = "压缩模式";
-const DEFAULT_PLACEHOLDER = "选择压缩模式";
-const PRESET_HELP = "控制编码器速度与压缩倾向。更快通常处理更省时，更慢通常更有利于压缩率。";
-
 export const VideoPresetSelect: React.FC<VideoPresetSelectProps> = ({
   value,
   onValueChange,
@@ -38,26 +35,27 @@ export const VideoPresetSelect: React.FC<VideoPresetSelectProps> = ({
   hideLabel = true,
   className,
 }) => {
+  const { t } = useTranslation("task");
   const presetOptions = options ?? VIDEO_PRESETS;
 
   return (
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Label>{label ?? t("bizForm.videoPreset.label")}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? PRESET_HELP}
+              {helpText ?? t("bizForm.videoPreset.help")}
             </TooltipContent>
           </Tooltip>
         </div>
       )}
       <Select value={value ?? "auto"} onValueChange={onValueChange}>
         <SelectTrigger className="cursor-pointer w-full">
-          <SelectValue placeholder={placeholder ?? DEFAULT_PLACEHOLDER} />
+          <SelectValue placeholder={placeholder ?? t("bizForm.videoPreset.placeholder")} />
         </SelectTrigger>
         <SelectContent>
           {presetOptions.map((option) => (

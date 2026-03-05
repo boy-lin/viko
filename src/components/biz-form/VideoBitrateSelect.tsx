@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import CorrectNumberInput from "@/components/ui-lab/correct-number-input";
 import { VIDEO_BITRATES } from "@/data/video_options";
 import { cn, parseOptionalInt } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface VideoBitrateSelectProps {
   value?: string;
@@ -29,10 +30,6 @@ interface VideoBitrateSelectProps {
   className?: string;
 }
 
-const DEFAULT_LABEL = "视频码率";
-const DEFAULT_PLACEHOLDER = "输入码率 (kbps)";
-const BITRATE_HELP = "控制视频数据密度。数值越高通常画质更稳定，但体积和处理耗时也可能增加。";
-
 export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
   value,
   onValueChange,
@@ -44,6 +41,7 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
   hideLabel = false,
   className,
 }) => {
+  const { t } = useTranslation("task");
   const bitrateOptions = useMemo(() => {
     return VIDEO_BITRATES.filter((option) => {
       if (option.value === "auto") return true;
@@ -74,13 +72,13 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Label>{label ?? t("video_advance.bitrate")}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? BITRATE_HELP}
+              {helpText ?? t("settings.video.fields.bitrateHelp")}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -90,7 +88,7 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
           min={minBitrate}
           max={maxBitrate}
           step={100}
-          placeholder={placeholder ?? DEFAULT_PLACEHOLDER}
+          placeholder={placeholder ?? t("bizForm.videoBitrate.inputPlaceholder")}
           value={clampedNumericValue}
           className="max-w-[6em]"
           onChange={(nextValue) => {

@@ -87,7 +87,7 @@ export const CommonFeatures = () => {
         const Icon = feature.icon;
         return (
           <Link key={feature.id} to={feature.path} className="block">
-            <Card className="group h-full border-border bg-white transition-shadow hover:shadow-lg">
+            <Card className="group h-full border-border bg-card transition-shadow hover:shadow-lg">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   <div className="rounded-lg bg-muted p-2 text-foreground">

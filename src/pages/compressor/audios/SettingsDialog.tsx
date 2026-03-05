@@ -47,7 +47,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   config,
   onConfigChange,
 }) => {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation("task");
   const formatDefinition = useMemo(() => {
     if (!config.format) return undefined;
     return AUDIO_CONTAINER_DEFINITIONS[config.format];
@@ -212,7 +212,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
 };
 
 export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ config, onConfigChange }) => {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation("task");
   const [open, setOpen] = useState(false);
 
   return (
@@ -242,9 +242,9 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
             </ScrollArea>
           </div>
           <DialogFooter className="flex flex-row items-center justify-between space-y-0 pt-8 pb-2 px-4 border-b">
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            {/* <Button variant="outline" onClick={() => setOpen(false)}>
               {t("audioCompressor.actions.close")}
-            </Button>
+            </Button> */}
             {/* <Button onClick={() => {
               onSave(config)
               setOpen(false)
@@ -257,7 +257,7 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
 };
 
 export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({ config, onConfigChange, onSave }) => {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation("task");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (

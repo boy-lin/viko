@@ -5,15 +5,20 @@
 // 2. 或者使用系统安装的 FFmpeg
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::fs::File;
 use std::fs::OpenOptions;
+use std::io;
 use std::io::Write;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::command;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
 use tauri::State;
+use tauri::ipc::JavaScriptChannelId;
 
 use ffmpeg_next as ffmpeg;
 
@@ -25,53 +30,157 @@ use crate::services::ffmpeg::media_info::{self, MediaDetails};
 use crate::services::media_probe::{self, MediaProbeResult};
 use crate::services::media_tools::image_info;
 use crate::services::player::audio::AudioPlayer;
-use crate::services::player::video::{PreviewSize, VideoPlayer};
+use crate::services::player::video::{FrameChannel, PreviewSize, VideoPlayer};
 use crate::task::queue;
 use crate::task::queue::MediaTaskRequest;
 
+async fn run_blocking<T, F>(ctx: &'static str, job: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(job)
+        .await
+        .map_err(|e| format!("[JOIN:{}] {}", ctx, e))?
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ClientLogInput {
+    pub level: String,
+    pub category: String,
+    pub message: String,
+    pub stack: Option<String>,
+    pub url: Option<String>,
+    pub meta: Option<serde_json::Value>,
+    pub timestamp: Option<u64>,
+}
+
+fn collect_files_recursive(root: &Path, out: &mut Vec<PathBuf>) -> io::Result<()> {
+    if !root.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_files_recursive(&path, out)?;
+        } else if path.is_file() {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+#[command]
+pub async fn report_client_log(log: ClientLogInput) -> Result<(), String> {
+    let level = log.level.to_lowercase();
+    let prefix = format!("[CLIENT:{}] {}", log.category, log.message);
+    let detail = format!(
+        "{} | url={} | ts={} | stack={} | meta={}",
+        prefix,
+        log.url.unwrap_or_default(),
+        log.timestamp.unwrap_or_default(),
+        log.stack.unwrap_or_default(),
+        log.meta.map(|m| m.to_string()).unwrap_or_default()
+    );
+    match level.as_str() {
+        "warn" => log::warn!("{}", detail),
+        "info" => log::info!("{}", detail),
+        _ => log::error!("{}", detail),
+    }
+    Ok(())
+}
+
+#[command]
+pub async fn export_logs_archive(app: AppHandle) -> Result<String, String> {
+    run_blocking("export_logs_archive", move || {
+        let log_dir = app
+            .path()
+            .app_log_dir()
+            .map_err(|e| format!("resolve app_log_dir failed: {}", e))?;
+        fs::create_dir_all(&log_dir)
+            .map_err(|e| format!("create app_log_dir failed: {}", e))?;
+
+        let mut files = Vec::new();
+        collect_files_recursive(&log_dir, &mut files)
+            .map_err(|e| format!("collect logs failed: {}", e))?;
+        if files.is_empty() {
+            return Err("no log files found".to_string());
+        }
+
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or_default();
+        let zip_path = std::env::temp_dir().join(format!("viko-logs-{}.zip", ts));
+        let file = File::create(&zip_path)
+            .map_err(|e| format!("create zip failed: {}", e))?;
+        let mut zip = zip::ZipWriter::new(file);
+        let options = zip::write::FileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+
+        for src in files {
+            let rel = src
+                .strip_prefix(&log_dir)
+                .ok()
+                .and_then(|p| p.to_str())
+                .map(|s| s.replace('\\', "/"))
+                .unwrap_or_else(|| {
+                    src.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("log.txt")
+                        .to_string()
+                });
+            zip.start_file(rel, options)
+                .map_err(|e| format!("zip start_file failed: {}", e))?;
+            let mut input = File::open(&src)
+                .map_err(|e| format!("open log file failed ({}): {}", src.display(), e))?;
+            io::copy(&mut input, &mut zip)
+                .map_err(|e| format!("zip write failed ({}): {}", src.display(), e))?;
+        }
+        zip.finish()
+            .map_err(|e| format!("zip finish failed: {}", e))?;
+
+        Ok(zip_path.to_string_lossy().to_string())
+    })
+    .await
+}
+
 #[command]
 pub async fn get_detailed_media_info(path: String) -> Result<MediaDetails, String> {
-    tauri::async_runtime::spawn_blocking(move || media_info::get_media_details(&path))
-        .await
-        .map_err(|e| format!("get_detailed_media_info join error: {}", e))?
+    run_blocking("get_detailed_media_info", move || media_info::get_media_details(&path)).await
 }
 
 #[command]
 pub async fn get_detailed_image_info(path: String) -> Result<MediaDetails, String> {
-    tauri::async_runtime::spawn_blocking(move || image_info::get_image_details(&path))
-        .await
-        .map_err(|e| format!("get_detailed_image_info join error: {}", e))?
+    run_blocking("get_detailed_image_info", move || image_info::get_image_details(&path)).await
 }
 
 #[command]
 pub async fn get_detailed_media_info_batch(paths: Vec<String>) -> Result<Vec<MediaDetails>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+    run_blocking("get_detailed_media_info_batch", move || {
         paths
             .into_iter()
             .map(|path| media_info::get_media_details(&path))
             .collect::<Result<Vec<_>, _>>()
     })
     .await
-    .map_err(|e| format!("get_detailed_media_info_batch join error: {}", e))?
 }
 
 #[command]
 pub async fn probe_media_info(path: String) -> Result<MediaProbeResult, String> {
-    tauri::async_runtime::spawn_blocking(move || media_probe::probe_media_details(&path))
-        .await
-        .map_err(|e| format!("probe_media_info join error: {}", e))?
+    run_blocking("probe_media_info", move || media_probe::probe_media_details(&path)).await
 }
 
 #[command]
 pub async fn probe_media_info_batch(paths: Vec<String>) -> Result<Vec<MediaProbeResult>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+    run_blocking("probe_media_info_batch", move || {
         paths
             .into_iter()
             .map(|path| media_probe::probe_media_details(&path))
             .collect::<Result<Vec<_>, _>>()
     })
     .await
-    .map_err(|e| format!("probe_media_info_batch join error: {}", e))?
 }
 
 #[command]
@@ -80,7 +189,9 @@ pub async fn media_task_submit(
     tasks: Vec<MediaTaskRequest>,
     _priority: Option<String>,
 ) -> Result<usize, String> {
-    queue::submit_tasks(app, tasks).await
+    queue::submit_tasks(app, tasks)
+        .await
+        .map_err(|e| format!("[TASK_SUBMIT] {}", e))
 }
 
 #[command]
@@ -90,7 +201,9 @@ pub async fn media_task_has_running_by_type(task_type: Option<String>) -> Result
 
 #[command]
 pub async fn media_task_clear_by_type(task_type: Option<String>) -> Result<usize, String> {
-    queue::clear_pending(task_type).await
+    queue::clear_pending(task_type)
+        .await
+        .map_err(|e| format!("[TASK_CLEAR] {}", e))
 }
 
 #[command]
@@ -98,12 +211,16 @@ pub async fn media_task_clear_by_type_with_stop(
     taskType: Option<String>,
     stopRunning: Option<bool>,
 ) -> Result<usize, String> {
-    queue::clear_pending_with_cancel(taskType, stopRunning.unwrap_or(false)).await
+    queue::clear_pending_with_cancel(taskType, stopRunning.unwrap_or(false))
+        .await
+        .map_err(|e| format!("[TASK_CLEAR] {}", e))
 }
 
 #[command]
 pub async fn media_task_cancel_task(id: String) -> Result<(), String> {
-    queue::cancel_task(id).await
+    queue::cancel_task(id)
+        .await
+        .map_err(|e| format!("[TASK_CANCEL] {}", e))
 }
 
 #[derive(Serialize)]
@@ -203,18 +320,23 @@ fn check_fs_permission() -> (bool, Option<String>) {
 }
 
 #[command]
-pub fn run_self_check() -> Result<SelfCheckResult, String> {
-    let (fs_permission, fs_error) = check_fs_permission();
-
-    Ok(SelfCheckResult {
-        fs_permission,
-        fs_error,
+pub async fn run_self_check() -> Result<SelfCheckResult, String> {
+    run_blocking("run_self_check", move || {
+        let (fs_permission, fs_error) = check_fs_permission();
+        Ok(SelfCheckResult {
+            fs_permission,
+            fs_error,
+        })
     })
+    .await
 }
 
 #[command]
-pub fn get_device_id() -> Result<String, String> {
-    machine_uid::get().map_err(|e| e.to_string())
+pub async fn get_device_id() -> Result<String, String> {
+    run_blocking("get_device_id", move || {
+        machine_uid::get().map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -237,38 +359,41 @@ pub struct AuthTokenResponse {
 }
 
 #[command]
-pub fn auth_exchange_code(input: AuthExchangeCodeInput) -> Result<AuthTokenResponse, String> {
-    if input.token_endpoint.trim().is_empty() {
-        return Err("token_endpoint is required".to_string());
-    }
+pub async fn auth_exchange_code(input: AuthExchangeCodeInput) -> Result<AuthTokenResponse, String> {
+    run_blocking("auth_exchange_code", move || {
+        if input.token_endpoint.trim().is_empty() {
+            return Err("[PARAM] token_endpoint is required".to_string());
+        }
 
-    let body = serde_json::json!({
-        "grant_type": "authorization_code",
-        "client_id": input.client_id,
-        "code": input.code,
-        "code_verifier": input.code_verifier,
-        "redirect_uri": input.redirect_uri
-    });
+        let body = serde_json::json!({
+            "grant_type": "authorization_code",
+            "client_id": input.client_id,
+            "code": input.code,
+            "code_verifier": input.code_verifier,
+            "redirect_uri": input.redirect_uri
+        });
 
-    let client = reqwest::blocking::Client::new();
-    let response = client
-        .post(&input.token_endpoint)
-        .header("content-type", "application/json")
-        .body(body.to_string())
-        .send()
-        .map_err(|e| format!("Token exchange request failed: {}", e))?;
+        let client = reqwest::blocking::Client::new();
+        let response = client
+            .post(&input.token_endpoint)
+            .header("content-type", "application/json")
+            .body(body.to_string())
+            .send()
+            .map_err(|e| format!("[NETWORK] Token exchange request failed: {}", e))?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let text = response.text().unwrap_or_else(|_| String::new());
-        return Err(format!("Token exchange failed with status {}: {}", status, text));
-    }
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().unwrap_or_else(|_| String::new());
+            return Err(format!("[HTTP] Token exchange failed with status {}: {}", status, text));
+        }
 
-    let text = response
-        .text()
-        .map_err(|e| format!("Read token response failed: {}", e))?;
-    serde_json::from_str::<AuthTokenResponse>(&text)
-        .map_err(|e| format!("Parse token response failed: {}", e))
+        let text = response
+            .text()
+            .map_err(|e| format!("[NETWORK] Read token response failed: {}", e))?;
+        serde_json::from_str::<AuthTokenResponse>(&text)
+            .map_err(|e| format!("[PARSE] Parse token response failed: {}", e))
+    })
+    .await
 }
 
 #[command]
@@ -308,58 +433,49 @@ pub async fn updater_guard_reset() -> Result<(), String> {
 }
 
 #[command]
-pub fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
-    // Check for hardware encoders on various platforms
+pub async fn check_hardware_acceleration() -> Result<HardwareSupport, String> {
+    run_blocking("check_hardware_acceleration", move || {
+        let h264_encoders = vec![
+            "h264_videotoolbox",
+            "h264_nvenc",
+            "h264_qsv",
+            "h264_amf",
+            "h264_mf",
+        ];
+        let h264_hardware = h264_encoders
+            .iter()
+            .any(|name| ffmpeg::encoder::find_by_name(name).is_some());
 
-    // H.264 Encoders
-    let h264_encoders = vec![
-        "h264_videotoolbox", // macOS
-        "h264_nvenc",        // NVIDIA
-        "h264_qsv",          // Intel QuickSync
-        "h264_amf",          // AMD AMF
-        "h264_mf",           // Windows Media Foundation
-    ];
-    let h264_hardware = h264_encoders
-        .iter()
-        .any(|name| ffmpeg::encoder::find_by_name(name).is_some());
+        let hevc_encoders = vec![
+            "hevc_videotoolbox",
+            "hevc_nvenc",
+            "hevc_qsv",
+            "hevc_amf",
+            "hevc_mf",
+        ];
+        let hevc_hardware = hevc_encoders
+            .iter()
+            .any(|name| ffmpeg::encoder::find_by_name(name).is_some());
 
-    // HEVC Encoders
-    let hevc_encoders = vec![
-        "hevc_videotoolbox", // macOS
-        "hevc_nvenc",        // NVIDIA
-        "hevc_qsv",          // Intel QuickSync
-        "hevc_amf",          // AMD AMF
-        "hevc_mf",           // Windows Media Foundation
-    ];
-    let hevc_hardware = hevc_encoders
-        .iter()
-        .any(|name| ffmpeg::encoder::find_by_name(name).is_some());
+        let prores_encoders = vec!["prores_videotoolbox"];
+        let prores_hardware = prores_encoders
+            .iter()
+            .any(|name| ffmpeg::encoder::find_by_name(name).is_some());
 
-    // ProRes Encoders (Mainly macOS)
-    let prores_encoders = vec!["prores_videotoolbox"];
-    let prores_hardware = prores_encoders
-        .iter()
-        .any(|name| ffmpeg::encoder::find_by_name(name).is_some());
-
-    log::info!(
-        "Hardware Acceleration Check: H.264={}, HEVC={}, ProRes={}",
-        h264_hardware,
-        hevc_hardware,
-        prores_hardware
-    );
-
-    Ok(HardwareSupport {
-        h264_hardware,
-        hevc_hardware,
-        prores_hardware,
+        Ok(HardwareSupport {
+            h264_hardware,
+            hevc_hardware,
+            prores_hardware,
+        })
     })
+    .await
 }
 
 // 注意：本项目使用 ffmpeg-next 8.x 并链接系统 FFmpeg 库
 #[command]
-pub fn get_media_info(path: String) -> Result<FileInfo, String> {
-    // 初始化 FFmpeg
-    ffmpeg::init().map_err(|e| format!("FFmpeg 初始化失败: {}", e))?;
+pub async fn get_media_info(path: String) -> Result<FileInfo, String> {
+    run_blocking("get_media_info", move || -> Result<FileInfo, String> {
+    media_common::ensure_ffmpeg_init().map_err(|e| format!("[FFMPEG_INIT] {}", e))?;
 
     // 获取文件大小
     let size = fs::metadata(&path).map_err(|e| e.to_string())?.len();
@@ -582,6 +698,8 @@ pub fn get_media_info(path: String) -> Result<FileInfo, String> {
         format_bitrate,
         format_tags: None, // ffmpeg-next 需要额外处理来获取 tags
     })
+    })
+    .await
 }
 
 // 从输出文件路径推断格式
@@ -704,13 +822,14 @@ pub type PlayerState = Mutex<Option<VideoPlayer<WindowEmitter>>>;
 pub type AudioPlayerState = Mutex<Option<AudioPlayer<WindowEmitter>>>;
 
 #[command]
-pub fn video_player_open(
+pub async fn video_player_open(
     app: AppHandle,
     path: String,
     preview: Option<PreviewSize>,
+    frame_channel: Option<JavaScriptChannelId>,
     player_state: State<'_, PlayerState>,
 ) -> Result<(), String> {
-    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
+    let window = app.get_webview_window("main").ok_or("[PLAYER] 未找到主窗口")?;
     let emitter = WindowEmitter::new(
         window.clone(),
         "video-player".to_string(),
@@ -725,9 +844,17 @@ pub fn video_player_open(
         }
     }
 
-    // 创建新的播放器
-    let player = VideoPlayer::new(&path, emitter, preview)
-        .map_err(|e| format!("打开视频文件失败: {}", e))?;
+    let frame_channel: Option<FrameChannel> = frame_channel
+        .map(|id| id.channel_on(window.as_ref().clone()));
+
+    // 创建新的播放器（阻塞初始化放到 blocking 线程）
+    let path_for_task = path.clone();
+    let player = tauri::async_runtime::spawn_blocking(move || {
+        VideoPlayer::new_with_channel(&path_for_task, emitter, preview, frame_channel)
+            .map_err(|e| format!("[PLAYER] 打开视频文件失败: {}", e))
+    })
+    .await
+    .map_err(|e| format!("[JOIN:video_player_open] {}", e))??;
 
     // 保存播放器实例
     *player_state.lock().unwrap() = Some(player);
@@ -736,73 +863,85 @@ pub fn video_player_open(
 }
 
 #[command]
-pub fn video_player_play(player_state: State<'_, PlayerState>) -> Result<(), String> {
+pub async fn video_player_play(player_state: State<'_, PlayerState>) -> Result<(), String> {
     let player = player_state.lock().unwrap();
     if let Some(ref p) = *player {
         p.resume();
         Ok(())
     } else {
-        Err("播放器未初始化".to_string())
+        Err("[PLAYER] 播放器未初始化".to_string())
     }
 }
 
 #[command]
-pub fn video_player_pause(player_state: State<'_, PlayerState>) -> Result<(), String> {
+pub async fn video_player_get_size(
+    player_state: State<'_, PlayerState>,
+) -> Result<(u32, u32), String> {
+    let player = player_state.lock().unwrap();
+    if let Some(ref p) = *player {
+        Ok(p.size())
+    } else {
+        Err("[PLAYER] 播放器未初始化".to_string())
+    }
+}
+
+#[command]
+pub async fn video_player_pause(player_state: State<'_, PlayerState>) -> Result<(), String> {
     let player = player_state.lock().unwrap();
     if let Some(ref p) = *player {
         p.pause();
         Ok(())
     } else {
-        Err("播放器未初始化".to_string())
+        Err("[PLAYER] 播放器未初始化".to_string())
     }
 }
 
 #[command]
-pub fn video_player_seek(
+pub async fn video_player_seek(
     position: f64,
     player_state: State<'_, PlayerState>,
 ) -> Result<(), String> {
     let mut player = player_state.lock().unwrap();
     if let Some(ref mut p) = *player {
-        p.seek(position)
+        p.seek(position).map_err(|e| format!("[PLAYER] {}", e))
     } else {
-        Err("播放器未初始化".to_string())
+        Err("[PLAYER] 播放器未初始化".to_string())
     }
 }
 
 #[command]
-pub fn video_player_get_position(player_state: State<'_, PlayerState>) -> Result<f64, String> {
+pub async fn video_player_get_position(player_state: State<'_, PlayerState>) -> Result<f64, String> {
     let player = player_state.lock().unwrap();
     if let Some(ref p) = *player {
         Ok(p.get_current_position())
     } else {
-        Err("播放器未初始化".to_string())
+        Err("[PLAYER] 播放器未初始化".to_string())
     }
 }
 
 #[command]
-pub fn video_player_get_duration(player_state: State<'_, PlayerState>) -> Result<f64, String> {
+pub async fn video_player_get_duration(player_state: State<'_, PlayerState>) -> Result<f64, String> {
     let player = player_state.lock().unwrap();
     if let Some(ref p) = *player {
         Ok(p.get_duration())
     } else {
-        Err("播放器未初始化".to_string())
+        Err("[PLAYER] 播放器未初始化".to_string())
     }
 }
 
 #[command]
-pub fn video_player_close(player_state: State<'_, PlayerState>) -> Result<(), String> {
+pub async fn video_player_close(player_state: State<'_, PlayerState>) -> Result<(), String> {
     let mut player = player_state.lock().unwrap();
     if let Some(mut p) = player.take() {
         p.stop();
         Ok(())
     } else {
-        Err("播放器未初始化".to_string())
+        Err("[PLAYER] 播放器未初始化".to_string())
     }
 }
 
 #[command]
-pub fn video_player_set_volume(
+pub async fn video_player_set_volume(
     volume: f32,
     player_state: State<'_, PlayerState>,
 ) -> Result<(), String> {
@@ -812,129 +951,155 @@ pub fn video_player_set_volume(
         p.set_volume(volume);
         Ok(())
     } else {
-        Err("播放器未初始化".to_string())
+        Err("[PLAYER] 播放器未初始化".to_string())
     }
 }
 
 // 音频播放器相关命令（用于独立测试）
 
 #[command]
-pub fn audio_player_open(
+pub async fn audio_player_open(
     app: AppHandle,
     path: String,
     audio_player_state: State<'_, AudioPlayerState>,
 ) -> Result<(), String> {
+    log::info!("audio_player_open called: path={}", path);
     // 关闭之前的播放器（如果存在）
     if let Ok(mut player) = audio_player_state.lock() {
         if let Some(p) = player.take() {
+            log::warn!("audio_player_open replacing existing player (issuing Stop)");
             let _ = p.command(crate::services::player::video::PlayerCommand::Stop);
+        } else {
+            log::info!("audio_player_open no existing player");
         }
     }
 
     // 创建新的音频播放器
-    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
+    let window = app.get_webview_window("main").ok_or("[PLAYER] 未找到主窗口")?;
     let emitter = WindowEmitter::new(
         window.clone(),
         "audio-player".to_string(),
         "play".to_string(),
         "audio".to_string(),
     );
-    let player = AudioPlayer::new(path, true, Some(emitter))
-        .map_err(|e| format!("打开音频文件失败: {}", e))?;
+    let player = tauri::async_runtime::spawn_blocking(move || {
+        AudioPlayer::new(path, true, Some(emitter))
+            .map_err(|e| format!("[PLAYER] 打开音频文件失败: {}", e))
+    })
+    .await
+    .map_err(|e| format!("[JOIN:audio_player_open] {}", e))??;
 
     // 保存播放器实例
     *audio_player_state.lock().unwrap() = Some(player);
+    log::info!("audio_player_open success: player initialized");
 
     Ok(())
 }
 
 #[command]
-pub fn audio_player_play(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
+pub async fn audio_player_play(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
     let player = audio_player_state.lock().unwrap();
+    log::info!("audio_player_play called: initialized={}", player.is_some());
     if let Some(ref p) = *player {
         p.command(crate::services::player::video::PlayerCommand::Play)
-            .map_err(|e| format!("播放失败: {}", e))
+            .map_err(|e| format!("[PLAYER] 播放失败: {}", e))
     } else {
-        Err("音频播放器未初始化".to_string())
+        Err("[PLAYER] 音频播放器未初始化".to_string())
     }
 }
 
 #[command]
-pub fn audio_player_pause(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
+pub async fn audio_player_pause(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
     let player = audio_player_state.lock().unwrap();
+    log::info!("audio_player_pause called: initialized={}", player.is_some());
     if let Some(ref p) = *player {
         p.command(crate::services::player::video::PlayerCommand::Pause)
-            .map_err(|e| format!("暂停失败: {}", e))
+            .map_err(|e| format!("[PLAYER] 暂停失败: {}", e))
     } else {
-        Err("音频播放器未初始化".to_string())
+        Err("[PLAYER] 音频播放器未初始化".to_string())
     }
 }
 
 #[command]
-pub fn audio_player_seek(
+pub async fn audio_player_seek(
     position: f64,
     audio_player_state: State<'_, AudioPlayerState>,
 ) -> Result<(), String> {
     let player = audio_player_state.lock().unwrap();
+    log::info!(
+        "audio_player_seek called: position={} initialized={}",
+        position,
+        player.is_some()
+    );
     if let Some(ref p) = *player {
         p.command(crate::services::player::video::PlayerCommand::Seek(
             position,
         ))
-        .map_err(|e| format!("跳转失败: {}", e))
+        .map_err(|e| format!("[PLAYER] 跳转失败: {}", e))
     } else {
-        Err("音频播放器未初始化".to_string())
+        Err("[PLAYER] 音频播放器未初始化".to_string())
     }
 }
 
 #[command]
-pub fn audio_player_stop(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
+pub async fn audio_player_stop(audio_player_state: State<'_, AudioPlayerState>) -> Result<(), String> {
     let mut player = audio_player_state.lock().unwrap();
+    log::info!("audio_player_stop called: initialized={}", player.is_some());
     if let Some(p) = player.take() {
         let _ = p.command(crate::services::player::video::PlayerCommand::Stop);
+        log::info!("audio_player_stop success: player dropped");
         Ok(())
     } else {
-        Err("音频播放器未初始化".to_string())
+        log::info!("audio_player_stop ignored: player not initialized (idempotent)");
+        Ok(())
     }
 }
 
 #[command]
-pub fn audio_player_set_volume(
+pub async fn audio_player_set_volume(
     volume: f32,
     audio_player_state: State<'_, AudioPlayerState>,
 ) -> Result<(), String> {
     let player = audio_player_state.lock().unwrap();
+    log::info!(
+        "audio_player_set_volume called: volume={} initialized={}",
+        volume,
+        player.is_some()
+    );
     if let Some(ref p) = *player {
         p.set_volume(volume);
         Ok(())
     } else {
-        Err("音频播放器未初始化".to_string())
+        Err("[PLAYER] 音频播放器未初始化".to_string())
     }
 }
 
 #[command]
-pub fn audio_player_get_position(
+pub async fn audio_player_get_position(
     audio_player_state: State<'_, AudioPlayerState>,
 ) -> Result<f64, String> {
     let player = audio_player_state.lock().unwrap();
+    log::debug!("audio_player_get_position called: initialized={}", player.is_some());
     if let Some(ref p) = *player {
         Ok(p.get_current_position())
     } else {
-        Err("音频播放器未初始化".to_string())
+        Err("[PLAYER] 音频播放器未初始化".to_string())
     }
 }
 
 #[command]
-pub fn audio_player_get_duration(
+pub async fn audio_player_get_duration(
     audio_player_state: State<'_, AudioPlayerState>,
 ) -> Result<f64, String> {
     let player = audio_player_state.lock().unwrap();
+    log::debug!("audio_player_get_duration called: initialized={}", player.is_some());
     if let Some(ref p) = *player {
         let duration = p.get_duration();
         log::debug!("audio_player_get_duration 返回: {} 秒", duration);
         Ok(duration)
     } else {
         log::warn!("audio_player_get_duration: 音频播放器未初始化");
-        Err("音频播放器未初始化".to_string())
+        Err("[PLAYER] 音频播放器未初始化".to_string())
     }
 }
 
@@ -961,34 +1126,34 @@ pub struct AudioConversionArgs {
 }
 
 #[command]
-pub fn get_audio_file_info(path: String) -> Result<serde_json::Value, String> {
-    use serde_json::json;
+pub async fn get_audio_file_info(path: String) -> Result<serde_json::Value, String> {
+    run_blocking("get_audio_file_info", move || {
+        use serde_json::json;
 
-    // 获取文件大小
-    let size = std::fs::metadata(&path)
-        .map_err(|e| format!("无法读取文件信息: {}", e))?
-        .len();
+        let size = std::fs::metadata(&path)
+            .map_err(|e| format!("无法读取文件信息: {}", e))?
+            .len();
 
-    // 获取音频时长
-    let duration = media_common::get_audio_duration(&path)?;
+        let duration = media_common::get_audio_duration(&path)?;
 
-    // 获取文件扩展名
-    let format = Path::new(&path)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .map(|s| s.to_lowercase())
-        .unwrap_or_else(|| "unknown".to_string());
+        let format = Path::new(&path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|s| s.to_lowercase())
+            .unwrap_or_else(|| "unknown".to_string());
 
-    Ok(json!({
-        "path": path,
-        "size": size,
-        "duration": duration,
-        "format": format,
-    }))
+        Ok(json!({
+            "path": path,
+            "size": size,
+            "duration": duration,
+            "format": format,
+        }))
+    })
+    .await
 }
 
 #[command]
-pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(), String> {
+pub async fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
 
     // 如果没有提供输出路径，自动生成
@@ -1024,22 +1189,34 @@ pub fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Result<(
         audio_tracks: args.audio_tracks,
     };
 
-    // 在新线程中执行转换
     let window_clone = window.clone();
     let task_id = args.task_id.clone();
-    std::thread::spawn(move || {
+    tauri::async_runtime::spawn(async move {
         let emitter = WindowEmitter::new(
             window_clone,
-            task_id.clone(),
+            task_id,
             "convert-audio".to_string(),
             "audio".to_string(),
         );
+        let emitter_for_task = emitter.clone();
+        let outcome = tauri::async_runtime::spawn_blocking(move || {
+            audio::convert_audio(emitter_for_task, params)
+        })
+        .await;
 
-        if let Err(e) = audio::convert_audio(emitter.clone(), params) {
-            emitter.emit("error", None, None, Some(e));
-        } else {
-            // It returns Result. The error handling was OUTSIDE.
-            // So if Err(e), I must emit error here.
+        match outcome {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => {
+                emitter.emit("error", None, None, Some(e));
+            }
+            Err(e) => {
+                emitter.emit(
+                    "error",
+                    None,
+                    None,
+                    Some(format!("convert_audio task join error: {}", e)),
+                );
+            }
         }
     });
 
@@ -1128,7 +1305,7 @@ pub struct GifConversionArgs {
 }
 
 #[command]
-pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), String> {
+pub async fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
 
     // 如果没有提供输出路径，自动生成
@@ -1148,7 +1325,7 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
     let window = window.clone();
     let task_id = args.task_id.clone();
 
-    std::thread::spawn(move || {
+    tauri::async_runtime::spawn(async move {
         let params = gif::GifConversionParams {
             input_path: args.input_path,
             output_path: output_path.clone(),
@@ -1167,11 +1344,26 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
             denoise: args.denoise,
         };
 
-        let emitter =
-            WindowEmitter::new(window, task_id, "convert-gif".to_string(), "image".to_string());
+        let emitter = WindowEmitter::new(window, task_id, "convert-gif".to_string(), "image".to_string());
+        let emitter_for_task = emitter.clone();
+        let outcome = tauri::async_runtime::spawn_blocking(move || {
+            gif::convert_video_to_gif(emitter_for_task, params).map(|_| ())
+        })
+        .await;
 
-        if let Err(e) = gif::convert_video_to_gif(emitter.clone(), params).map(|_| ()) {
-            emitter.emit("error", None, None, Some(e));
+        match outcome {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => {
+                emitter.emit("error", None, None, Some(e));
+            }
+            Err(e) => {
+                emitter.emit(
+                    "error",
+                    None,
+                    None,
+                    Some(format!("convert_gif task join error: {}", e)),
+                );
+            }
         }
     });
 
@@ -1181,7 +1373,7 @@ pub fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), S
 // ==================== 媒体缩略图相关命令 ====================
 
 #[command]
-pub fn generate_media_thumbnail(
+pub async fn generate_media_thumbnail(
     window: tauri::Window,
     request_id: String,
     path: String,
@@ -1213,12 +1405,12 @@ pub fn generate_media_thumbnail(
             Ok(Err(err)) => MediaThumbnailEventPayload {
                 request_id,
                 result: None,
-                error: Some(err),
+                error: Some(format!("[THUMBNAIL] {}", err)),
             },
             Err(err) => MediaThumbnailEventPayload {
                 request_id,
                 result: None,
-                error: Some(format!("Thumbnail task failed: {}", err)),
+                error: Some(format!("[JOIN:generate_media_thumbnail] {}", err)),
             },
         };
 
@@ -1254,12 +1446,12 @@ pub struct VideoCompressionArgs {
 }
 
 #[command]
-pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result<(), String> {
+pub async fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
     let window = window.clone();
     let task_id = args.task_id.clone();
 
-    std::thread::spawn(move || {
+    tauri::async_runtime::spawn(async move {
         let params = crate::services::compress::video::VideoCompressionParams {
             input_path: args.input_path,
             output_path: args.output_path.clone(),
@@ -1278,14 +1470,27 @@ pub fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> Result
             use_ultra_fast_speed: args.use_ultra_fast_speed,
         };
 
-        let emitter =
-            WindowEmitter::new(window, task_id, "compress-video".to_string(), "video".to_string());
-
-        if let Err(e) =
-            crate::services::compress::video::compress_video_file(emitter.clone(), params)
+        let emitter = WindowEmitter::new(window, task_id, "compress-video".to_string(), "video".to_string());
+        let emitter_for_task = emitter.clone();
+        let outcome = tauri::async_runtime::spawn_blocking(move || {
+            crate::services::compress::video::compress_video_file(emitter_for_task, params)
                 .map(|_| ())
-        {
-            emitter.emit("error", None, None, Some(e));
+        })
+        .await;
+
+        match outcome {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => {
+                emitter.emit("error", None, None, Some(e));
+            }
+            Err(e) => {
+                emitter.emit(
+                    "error",
+                    None,
+                    None,
+                    Some(format!("compress_video task join error: {}", e)),
+                );
+            }
         }
     });
 
@@ -1309,12 +1514,12 @@ pub struct AudioCompressionArgs {
 }
 
 #[command]
-pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result<(), String> {
+pub async fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
     let window = window.clone();
     let task_id = args.task_id.clone();
 
-    std::thread::spawn(move || {
+    tauri::async_runtime::spawn(async move {
         let params = crate::services::compress::audio::AudioCompressionParams {
             input_path: args.input_path,
             output_path: args.output_path.clone(),
@@ -1325,14 +1530,27 @@ pub fn compress_audio_file(app: AppHandle, args: AudioCompressionArgs) -> Result
             volume_gain: args.volume_gain,
         };
 
-        let emitter =
-            WindowEmitter::new(window, task_id, "compress-audio".to_string(), "audio".to_string());
-
-        if let Err(e) =
-            crate::services::compress::audio::compress_audio_file(emitter.clone(), params)
+        let emitter = WindowEmitter::new(window, task_id, "compress-audio".to_string(), "audio".to_string());
+        let emitter_for_task = emitter.clone();
+        let outcome = tauri::async_runtime::spawn_blocking(move || {
+            crate::services::compress::audio::compress_audio_file(emitter_for_task, params)
                 .map(|_| ())
-        {
-            emitter.emit("error", None, None, Some(e));
+        })
+        .await;
+
+        match outcome {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => {
+                emitter.emit("error", None, None, Some(e));
+            }
+            Err(e) => {
+                emitter.emit(
+                    "error",
+                    None,
+                    None,
+                    Some(format!("compress_audio task join error: {}", e)),
+                );
+            }
         }
     });
 
@@ -1358,12 +1576,12 @@ pub struct ImageCompressionArgs {
 }
 
 #[command]
-pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result<(), String> {
+pub async fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
     let window = window.clone();
     let task_id = args.task_id.clone();
 
-    std::thread::spawn(move || {
+    tauri::async_runtime::spawn(async move {
         let params = crate::services::compress::image::ImageCompressionParams {
             input_path: args.input_path,
             output_path: args.output_path.clone(),
@@ -1378,14 +1596,27 @@ pub fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> Result
             crop_whitespace: args.crop_whitespace,
         };
 
-        let emitter =
-            WindowEmitter::new(window, task_id, "compress-image".to_string(), "image".to_string());
-
-        if let Err(e) =
-            crate::services::compress::image::compress_image_file(emitter.clone(), params)
+        let emitter = WindowEmitter::new(window, task_id, "compress-image".to_string(), "image".to_string());
+        let emitter_for_task = emitter.clone();
+        let outcome = tauri::async_runtime::spawn_blocking(move || {
+            crate::services::compress::image::compress_image_file(emitter_for_task, params)
                 .map(|_| ())
-        {
-            emitter.emit("error", None, None, Some(e));
+        })
+        .await;
+
+        match outcome {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => {
+                emitter.emit("error", None, None, Some(e));
+            }
+            Err(e) => {
+                emitter.emit(
+                    "error",
+                    None,
+                    None,
+                    Some(format!("compress_image task join error: {}", e)),
+                );
+            }
         }
     });
 
@@ -1402,13 +1633,15 @@ pub struct WriteMetadataArgs {
 }
 
 #[command]
-pub fn write_media_metadata(args: WriteMetadataArgs) -> Result<(), String> {
-    println!("write_media_metadata: {:?}", args);
-    crate::services::media_tools::metadata::write_metadata(
-        &args.input_path,
-        &args.output_path,
-        args.metadata,
-    )
+pub async fn write_media_metadata(args: WriteMetadataArgs) -> Result<(), String> {
+    run_blocking("write_media_metadata", move || {
+        crate::services::media_tools::metadata::write_metadata(
+            &args.input_path,
+            &args.output_path,
+            args.metadata,
+        )
+    })
+    .await
 }
 
 // ==================== Task History Commands ====================

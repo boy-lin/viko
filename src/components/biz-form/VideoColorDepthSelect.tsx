@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { COLOR_DEPTHS } from "@/data/video_options";
 import { useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface VideoColorDepthSelectProps {
   value?: string;
@@ -24,10 +25,6 @@ interface VideoColorDepthSelectProps {
   className?: string;
 }
 
-const DEFAULT_LABEL = "色深 (bit)";
-const DEFAULT_PLACEHOLDER = "选择色深";
-const COLOR_DEPTH_HELP = "控制每个像素可表示的层次。更高色深更利于保留细节，但体积通常更大。";
-
 export const VideoColorDepthSelect: React.FC<VideoColorDepthSelectProps> = ({
   value,
   onValueChange,
@@ -38,6 +35,7 @@ export const VideoColorDepthSelect: React.FC<VideoColorDepthSelectProps> = ({
   hideLabel = true,
   className,
 }) => {
+  const { t } = useTranslation("task");
   const colorDepthOptions = useMemo(() => {
     return allowedColorDepths?.map((value) => {
       const option = COLOR_DEPTHS.find((option) => option.value === String(value));
@@ -55,20 +53,20 @@ export const VideoColorDepthSelect: React.FC<VideoColorDepthSelectProps> = ({
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Label>{label ?? t("bizForm.videoColorDepth.label")}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? COLOR_DEPTH_HELP}
+              {helpText ?? t("settings.video.fields.colorDepthHelp")}
             </TooltipContent>
           </Tooltip>
         </div>
       )}
       <Select value={value ?? "auto"} onValueChange={onValueChange}>
         <SelectTrigger className="cursor-pointer w-full">
-          <SelectValue placeholder={placeholder ?? DEFAULT_PLACEHOLDER} />
+          <SelectValue placeholder={placeholder ?? t("bizForm.videoColorDepth.placeholder")} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem key="auto" value="auto">

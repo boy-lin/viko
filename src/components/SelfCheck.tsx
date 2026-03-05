@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { bridge, type SelfCheckResult } from "@/lib/bridge";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   CheckCircle,
@@ -9,17 +9,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-type SelfCheckResult = {
-  ffmpeg_installed: boolean;
-  ffprobe_installed: boolean;
-  ffmpeg_path?: string | null;
-  ffmpeg_version?: string | null;
-  ffprobe_path?: string | null;
-  ffprobe_version?: string | null;
-  fs_permission: boolean;
-  fs_error?: string | null;
-};
 
 type DownloadProgress = {
   stage: string;
@@ -42,7 +31,7 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
     setLoading(true);
     setError("");
     try {
-      const res = await invoke<SelfCheckResult>("run_self_check");
+      const res = await bridge.runSelfCheck();
       setResult(res);
       console.log(`self check result: ${JSON.stringify(res)}`);
       if (res.ffmpeg_installed && res.ffprobe_installed && res.fs_permission) {
@@ -65,7 +54,7 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
         "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders"
       );
     } catch (err) {
-      setError("无法打开系统设置，请手动检查磁盘读取写入权限");
+      setError("无法打开系统设置，请手动检查磁盘读写权限");
     }
   };
 
@@ -109,7 +98,7 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
           className="inline-flex items-center gap-2"
         >
           <RefreshCw className="h-4 w-4" />
-          {loading ? "正在检测..." : "刷新自检"}
+          {loading ? "正在检查..." : "刷新自检"}
         </Button>
       </div>
 
@@ -148,7 +137,7 @@ const SelfCheck: React.FC<Props> = ({ onPassed }) => {
                     </span>
                   ) : (
                     <span className="text-xs px-2 py-1 rounded-full bg-amber-400/20 text-amber-100">
-                      待处理
+                      待处�?
                     </span>
                   )}
                 </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import {
   Card,
@@ -17,7 +17,7 @@ import { UploadButton } from "@/components/ui-biz/UploadButton";
 import { useTranslation } from "react-i18next";
 
 export default function ConverterPage() {
-  const { t } = useTranslation("compressor");
+  const { t } = useTranslation("task");
   const { init: initSettings } = useSettingsStore();
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -61,3 +61,4 @@ export default function ConverterPage() {
     </Card>
   );
 }
+

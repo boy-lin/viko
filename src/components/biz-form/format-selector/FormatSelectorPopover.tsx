@@ -57,7 +57,7 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
               <span className="font-semibold w-[3em]">
                 {selectedFormat.extension?.toUpperCase()}
               </span>
-              <span className="text-muted-foreground text-xs w-[6em]">
+              <span className="text-xs w-[6em]">
                 {selectedFormat.label}
               </span>
             </span>

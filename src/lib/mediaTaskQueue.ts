@@ -1,5 +1,5 @@
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
+import { bridge } from "@/lib/bridge";
+import { getBridgeErrorMessage } from "@/lib/bridgeError";
 import { MediaTaskType } from "@/types/tasks";
 import { analytics } from "@/lib/analytics";
 import { MediaTaskEvent } from "./mediaTaskEvent";
@@ -45,7 +45,7 @@ class MediaTaskQueue {
 
   private pendingTaskIds = new Set<string>();
   private taskStoreRoutes = new Map<string, TaskStoreRoute>();
-  private eventUnlisten: UnlistenFn | null = null;
+  private eventUnlisten: (() => void) | null = null;
   private listeners: ((event: MediaTaskEvent) => void)[] = [];
 
   private constructor() {}
@@ -59,8 +59,8 @@ class MediaTaskQueue {
 
   async ensureEventListener(): Promise<void> {
     if (this.eventUnlisten !== null) return;
-    this.eventUnlisten = await listen<MediaTaskEvent>("media_task_event", (e) =>
-      this.handleMediaTaskEvent(e.payload),
+    this.eventUnlisten = await bridge.on("media_task_event", (payload) =>
+      this.handleMediaTaskEvent(payload),
     );
   }
 
@@ -85,7 +85,11 @@ class MediaTaskQueue {
 
     this.ensureEventListener();
     this.trackTaskSubmit("tasks_submit_convert", tasks);
-    await invoke("media_task_submit", { tasks, priority });
+    try {
+      await bridge.submitMediaTasks(tasks as unknown[], priority);
+    } catch (error) {
+      throw new Error(getBridgeErrorMessage(error, "任务提交失败"));
+    }
   }
 
   async addCompressTasks(
@@ -109,27 +113,37 @@ class MediaTaskQueue {
     });
     this.ensureEventListener();
     this.trackTaskSubmit("tasks_submit_compress", tasks);
-    await invoke("media_task_submit", { tasks, priority });
+    try {
+      await bridge.submitMediaTasks(tasks as unknown[], priority);
+    } catch (error) {
+      throw new Error(getBridgeErrorMessage(error, "任务提交失败"));
+    }
   }
 
   async hasRunningTasksByType(taskType?: MediaTaskType): Promise<boolean> {
     if (taskType) {
-      return invoke<boolean>("media_task_has_running_by_type", { taskType });
+      return bridge.hasRunningMediaTasksByType(taskType);
     }
-    return invoke<boolean>("media_task_has_running_by_type");
+    return bridge.hasRunningMediaTasksByType();
   }
 
   async clearQueueByType(
     stopRunning: boolean = false,
     taskType?: MediaTaskType,
   ): Promise<void> {
-    const args: Record<string, unknown> = { stopRunning };
-    if (taskType) args.taskType = taskType;
-    await invoke("media_task_clear_by_type_with_stop", args);
+    try {
+      await bridge.clearMediaTaskQueueByType(stopRunning, taskType);
+    } catch (error) {
+      throw new Error(getBridgeErrorMessage(error, "清空任务队列失败"));
+    }
   }
 
   async cancelTaskById(id: string): Promise<void> {
-    await invoke("media_task_cancel_task", { id });
+    try {
+      await bridge.cancelMediaTaskById(id);
+    } catch (error) {
+      throw new Error(getBridgeErrorMessage(error, "取消任务失败"));
+    }
   }
 
   on(listener: (event: MediaTaskEvent) => void): () => void {

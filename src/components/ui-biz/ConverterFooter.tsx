@@ -89,7 +89,7 @@ export const ConverterFooter: React.FC<ConverterFooterProps> = ({
                 </div>
 
                 <Button
-                    className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20"
+                    className="h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20"
                     onClick={onConfirm}
                 >
                     全部开始

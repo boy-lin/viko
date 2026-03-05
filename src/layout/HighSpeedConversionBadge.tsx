@@ -70,7 +70,7 @@ export const HighSpeedConversionBadge: React.FC<
       <PopoverTrigger asChild>
         <Button variant="secondary" size="icon"
           className={cn(
-            "w-auto 8 bg-orange-50 text-orange-500 flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer hover:bg-orange-100 transition-colors",
+            "w-auto 8 bg-orange-50 text-orange-500 flex items-center gap-2 px-3 py-1.4 rounded-md text-sm font-medium cursor-pointer hover:bg-orange-100 transition-colors",
             className
           )}
         >

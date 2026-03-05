@@ -1,20 +1,24 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { FileVideo, FileAudio, ImageIcon, Loader2 } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { cn, getExtension } from "@/lib/utils";
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader } from "@/components/ui/dialog";
 import { ShakaPlayer } from "@/components/player/ShakaPlayer";
 import { MusicPlayer } from "@/components/player/MusicPlayer";
 import { ImageViewer } from "@/components/player/ImageViewer";
 import { PlayIcon } from "@/components/icons/play";
 import { FileType } from "@/types/tasks";
 import { bridge } from "@/lib/bridge";
+import {
+  AUDIO_SUPPORT_FORMATS,
+  VIDEO_SUPPORT_FORMATS,
+  IMAGE_SUPPORT_FORMATS,
+} from "@/data/formats";
 
 interface MediaThumbnailProps {
   path?: string;
   title?: string;
   className?: string;
-  fileType?: FileType;
   thumbnailPath?: string;
   disableAutoGenerate?: boolean;
   thumbnailOptions?: {
@@ -28,7 +32,6 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   path,
   title = "Media",
   className,
-  fileType,
   thumbnailPath,
   disableAutoGenerate = false,
   thumbnailOptions,
@@ -50,12 +53,26 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   const [isHovering, setIsHovering] = useState(false);
   const [isMissing, setIsMissing] = useState(false);
 
+  const fileType = useMemo<FileType | undefined>(() => {
+    if (!path) return undefined;
+    const extension = getExtension(path)?.toLowerCase();
+    if (!extension) return undefined;
+
+    if (VIDEO_SUPPORT_FORMATS.includes(extension as any)) return FileType.Video;
+    if (AUDIO_SUPPORT_FORMATS.includes(extension as any)) return FileType.Audio;
+    if (IMAGE_SUPPORT_FORMATS.includes(extension as any)) {
+      return extension === "gif" ? FileType.Gif : FileType.Image;
+    }
+    return undefined;
+  }, [path]);
+  const isUnsupported = Boolean(path && !fileType);
+
   useEffect(() => {
     let isMounted = true;
     const controller = new AbortController();
 
     const fetchThumbnail = async () => {
-      if (!path) return;
+      if (!path || isUnsupported) return;
       if (disableAutoGenerate && !thumbnailPath) {
         if (isMounted) {
           setIsMissing(false);
@@ -122,7 +139,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
       isMounted = false;
       controller.abort();
     };
-  }, [path, thumbnailPath, disableAutoGenerate, resolvedThumbnailOptions]);
+  }, [path, thumbnailPath, disableAutoGenerate, resolvedThumbnailOptions, isUnsupported]);
 
   const icon = useMemo(() => {
     if (fileType === FileType.Video) return <FileVideo className="w-6 h-6" />;
@@ -133,11 +150,11 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   }, [fileType]);
 
   const handleClick = useCallback(() => {
-    if (isMissing) return;
+    if (isMissing || isUnsupported) return;
     React.startTransition(() => {
       setIsDialogOpen(true);
     });
-  }, [isMissing]);
+  }, [isMissing, isUnsupported]);
 
   const renderPlayer = () => {
     if (!fileType || !path) return null;
@@ -176,7 +193,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
       <div
         className={cn(
           "w-38 h-38 bg-muted/30 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative group",
-          isMissing ? "cursor-not-allowed" : "cursor-pointer",
+          isMissing || isUnsupported ? "cursor-not-allowed" : "cursor-pointer",
           className
         )}
         onMouseEnter={() => setIsHovering(true)}
@@ -187,6 +204,11 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
           <div className="w-full h-full bg-muted/30 rounded-lg flex flex-col items-center justify-center text-muted-foreground text-xs gap-2">
             {icon}
             <span>文件已删除</span>
+          </div>
+        ) : isUnsupported ? (
+          <div className="w-full h-full bg-muted/30 rounded-lg flex flex-col items-center justify-center text-muted-foreground text-xs gap-2">
+            <ImageIcon className="w-6 h-6" />
+            <span>格式不支持</span>
           </div>
         ) : thumbnail ? (
           <>
@@ -221,18 +243,26 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
       </div>
 
       {/* 播放器 Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent
-          className={cn(
-            "bg-transparent border-0 shadow-none max-w-6xl w-[95vw] p-0",
-            (fileType === FileType.Image || fileType === FileType.Gif) && "max-w-[95vw] h-[95vh]"
-          )}
-          showCloseButton={true}
-        >
-          <DialogTitle className="sr-only">{title}</DialogTitle>
-          {renderPlayer()}
-        </DialogContent>
-      </Dialog>
+      {
+        isDialogOpen && <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent
+            className={cn(
+              "bg-transparent border-0 shadow-none max-w-6xl w-[95vw] p-0",
+              (fileType === FileType.Image || fileType === FileType.Gif) && "max-w-[95vw] h-[95vh]"
+            )}
+            showCloseButton={true}
+          >
+            <DialogHeader className="sr-only">
+              <DialogTitle>
+                {title}
+              </DialogTitle>
+              <DialogDescription className="sr-only"></DialogDescription>
+            </DialogHeader>
+            {renderPlayer()}
+          </DialogContent>
+        </Dialog>
+      }
+      
     </>
   );
 };

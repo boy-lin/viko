@@ -17,7 +17,6 @@ use crate::services::convert::audio::{self, AudioConversionParams};
 use crate::services::convert::gif::{self, GifConversionParams};
 use crate::services::convert::image::{self, ImageConversionParams};
 use crate::services::convert::video::{self, VideoConversionParams};
-use crate::services::media_tools::thumbnail::{ThumbnailOptions};
 use crate::shared::get_millis;
 use crate::storage::media_queue;
 use crate::storage::task_history::{self, TaskHistoryItem};

@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import CorrectNumberInput from "@/components/ui-lab/correct-number-input";
 import { AUDIO_SAMPLE_RATES } from "@/data/audio_options";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface AudioSampleRateSelectProps {
   value?: string;
@@ -40,6 +41,7 @@ export const AudioSampleRateSelect: React.FC<AudioSampleRateSelectProps> = ({
   hideLabel = false,
   className,
 }) => {
+  const { t } = useTranslation("task");
   const effectiveValue = value ?? "auto";
   const rateOptions = useMemo(() => {
     return AUDIO_SAMPLE_RATES.filter((option) => {
@@ -105,9 +107,9 @@ export const AudioSampleRateSelect: React.FC<AudioSampleRateSelectProps> = ({
             value={selectValue}
             onValueChange={(next) => onValueChange(next)}
           >
-            <SelectTrigger className="h-7 w-[6em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
-              <SelectValue placeholder="常用值" />
-            </SelectTrigger>
+              <SelectTrigger className="h-7 w-[6em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
+              <SelectValue placeholder={t("bizForm.common.commonValues")} />
+              </SelectTrigger>
             <SelectContent>
               {rateOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>

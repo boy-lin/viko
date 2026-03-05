@@ -1,4 +1,4 @@
-import React, { startTransition, useState } from "react";
+﻿import React, { startTransition, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +15,7 @@ import { Slider } from "@/components/ui/slider";
 import { buildDefaultAudioArgs } from "./TaskItem";
 
 export const CompressionFooter: React.FC = () => {
-  const { t } = useTranslation("compressor");
+  const { t } = useTranslation("task");
   const audioConfig = useCompressorStore((state) => state.audioConfig);
   const updateGlobalConfig = useCompressorStore(
     (state) => state.updateGlobalConfig
@@ -156,7 +156,7 @@ export const CompressionFooter: React.FC = () => {
         </div>
 
         <Button
-          className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20 cursor-pointer"
+          className="h-11 px-8 text-base font-semibold shadow cursor-pointer"
           onClick={handleCompressAll}
         >
           {t("footer.compress_all")}
@@ -166,3 +166,4 @@ export const CompressionFooter: React.FC = () => {
     </div>
   );
 };
+

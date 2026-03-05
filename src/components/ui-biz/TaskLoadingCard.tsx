@@ -1,6 +1,6 @@
 export default function TaskLoadingCard() {
   return (
-    <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm animate-pulse">
+    <div className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border shadow-sm animate-pulse">
       <div className="w-20 h-20 rounded-lg bg-muted flex-shrink-0" />
       <div className="flex-1 min-w-0 space-y-2">
         <div className="h-4 bg-muted rounded w-1/2" />

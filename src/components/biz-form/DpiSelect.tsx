@@ -15,6 +15,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import CorrectNumberInput from "@/components/ui-lab/correct-number-input";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 const DEFAULT_DPI_OPTIONS = [72, 96, 150, 300, 600];
 
@@ -33,10 +34,6 @@ interface DpiSelectProps {
   hideLabel?: boolean;
 }
 
-const DEFAULT_LABEL = "DPI";
-const DEFAULT_PLACEHOLDER = "输入 DPI";
-const DEFAULT_HELP_TEXT = "DPI 影响打印密度元数据，不改变像素尺寸。";
-
 export const DpiSelect: React.FC<DpiSelectProps> = ({
   value,
   onValueChange,
@@ -46,11 +43,13 @@ export const DpiSelect: React.FC<DpiSelectProps> = ({
   step = 1,
   className,
   placeholder,
-  autoLabel = "自动",
+  autoLabel,
   label,
   helpText,
   hideLabel = true,
 }) => {
+  const { t } = useTranslation("task");
+  const resolvedAutoLabel = autoLabel ?? t("common.auto");
   const optionItems = useMemo(() => {
     const dedup = new Set<number>(options.filter((n) => Number.isFinite(n)));
     if (typeof value === "number" && Number.isFinite(value)) {
@@ -82,13 +81,13 @@ export const DpiSelect: React.FC<DpiSelectProps> = ({
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Label>{label ?? t("bizForm.dpi.label")}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 cursor-help text-muted-foreground" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? DEFAULT_HELP_TEXT}
+              {helpText ?? t("bizForm.dpi.help")}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -98,7 +97,7 @@ export const DpiSelect: React.FC<DpiSelectProps> = ({
           min={minDpi}
           max={maxDpi}
           step={step}
-          placeholder={placeholder ?? DEFAULT_PLACEHOLDER}
+          placeholder={placeholder ?? t("bizForm.dpi.inputPlaceholder")}
           value={clampedValue}
           onChange={(nextValue) => {
             const clamped = Math.min(
@@ -120,11 +119,11 @@ export const DpiSelect: React.FC<DpiSelectProps> = ({
               onValueChange(Number.isFinite(parsed) ? parsed : undefined);
             }}
           >
-            <SelectTrigger className="h-7 w-[6em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
-              <SelectValue placeholder="常用值" />
-            </SelectTrigger>
+              <SelectTrigger className="h-7 w-[6em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
+              <SelectValue placeholder={t("bizForm.common.commonValues")} />
+              </SelectTrigger>
             <SelectContent>
-              <SelectItem value="auto">{autoLabel}</SelectItem>
+              <SelectItem value="auto">{resolvedAutoLabel}</SelectItem>
               {optionItems.map((item) => (
                 <SelectItem key={item.value} value={item.value}>
                   {item.label}

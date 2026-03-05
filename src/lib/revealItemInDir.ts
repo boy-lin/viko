@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir as revealItemInDirPlugin } from "@tauri-apps/plugin-opener";
+import { bridge } from "@/lib/bridge";
 
 function isMissingPathsArgError(error: unknown): boolean {
   const message = String((error as { message?: string } | undefined)?.message ?? error ?? "");
@@ -16,7 +16,7 @@ export async function revealItemInDir(path: string): Promise<void> {
     if (!isMissingPathsArgError(error)) {
       throw error;
     }
-    await invoke("plugin:opener|reveal_item_in_dir", { paths: [path] });
+    await bridge.revealItemInDirFallback(path);
   }
 }
 

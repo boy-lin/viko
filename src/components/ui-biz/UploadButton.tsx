@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+﻿import { useCallback, useState } from "react";
 import { MoreVertical, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -18,7 +18,7 @@ type UploadButtonProps = {
 };
 
 export function UploadButton({ name, multiple, extensions, onAddPaths }: UploadButtonProps) {
-  const { t } = useTranslation("converter");
+  const { t } = useTranslation("task");
   const [loading, setLoading] = useState(false);
 
   const addFiles = useCallback(async () => {
@@ -62,9 +62,9 @@ export function UploadButton({ name, multiple, extensions, onAddPaths }: UploadB
       </Button>
       <HoverCard openDelay={120} closeDelay={80}>
         <HoverCardTrigger asChild>
-          <Button size="icon" variant="outline" className="bg-primary text-primary-foreground h-8 w-auto px-1 border-primary">
+          <button className="rounded-r-md bg-primary text-primary-foreground h-8 w-auto px-1 border-primary b">
             <MoreVertical className="h-4 w-4" />
-          </Button>
+          </button>
         </HoverCardTrigger>
         <HoverCardContent align="end" className="w-36 p-1">
           <button
@@ -89,3 +89,4 @@ export function UploadButton({ name, multiple, extensions, onAddPaths }: UploadB
     </ButtonGroup >
   );
 }
+

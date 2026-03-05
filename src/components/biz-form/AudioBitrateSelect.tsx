@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import CorrectNumberInput from "@/components/ui-lab/correct-number-input";
 import { AUDIO_BITRATES } from "@/data/audio_options";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface AudioBitrateSelectProps {
   value?: string;
@@ -29,10 +30,6 @@ interface AudioBitrateSelectProps {
   className?: string;
 }
 
-const DEFAULT_LABEL = "音频码率";
-const DEFAULT_PLACEHOLDER = "输入码率 (kbps)";
-const BITRATE_HELP = "控制音频数据密度。数值越高通常保真更好，但体积与处理开销也可能增加。";
-
 export const AudioBitrateSelect: React.FC<AudioBitrateSelectProps> = ({
   value,
   onValueChange,
@@ -44,6 +41,7 @@ export const AudioBitrateSelect: React.FC<AudioBitrateSelectProps> = ({
   hideLabel = false,
   className,
 }) => {
+  const { t } = useTranslation("task");
   const effectiveValue = value ?? "auto";
   const bitrateOptions = useMemo(() => {
     return AUDIO_BITRATES.filter((option) => {
@@ -78,13 +76,13 @@ export const AudioBitrateSelect: React.FC<AudioBitrateSelectProps> = ({
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Label>{label ?? t("settings.audio.fields.bitrate")}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? BITRATE_HELP}
+              {helpText ?? t("settings.audio.fields.bitrateHelp")}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -94,7 +92,7 @@ export const AudioBitrateSelect: React.FC<AudioBitrateSelectProps> = ({
           min={minBitrate}
           max={maxBitrate}
           step={0.1}
-          placeholder={placeholder ?? DEFAULT_PLACEHOLDER}
+          placeholder={placeholder ?? t("bizForm.audioBitrate.inputPlaceholder")}
           value={clampedNumericValue}
           onChange={(nextValue) => {
             const clamped = Math.min(
@@ -109,9 +107,9 @@ export const AudioBitrateSelect: React.FC<AudioBitrateSelectProps> = ({
             value={selectValue}
             onValueChange={(next) => onValueChange(next)}
           >
-            <SelectTrigger className="h-7 w-[6em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
-              <SelectValue placeholder="常用值" />
-            </SelectTrigger>
+              <SelectTrigger className="h-7 w-[6em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
+              <SelectValue placeholder={t("bizForm.common.commonValues")} />
+              </SelectTrigger>
             <SelectContent>
               {bitrateOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>

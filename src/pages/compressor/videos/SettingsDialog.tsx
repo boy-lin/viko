@@ -74,7 +74,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   config,
   onConfigChange,
 }) => {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation("task");
   const formatDefinition = useMemo(() => {
     if (!config.format) return undefined;
     return VIDEO_CONTAINER_DEFINITIONS[config.format as FormatEnum];
@@ -106,7 +106,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         helpText={t("videoCompressor.fields.bitrateHelp")}
         minBitrate={encoderDef?.video?.minBitrate}
         maxBitrate={encoderDef?.video?.maxBitrate}
-        placeholder={`自动 (${encoderDef?.video?.minBitrate ?? 100}-${encoderDef?.video?.maxBitrate ?? 50000})`}
+        placeholder={`${t("common.auto")} (${encoderDef?.video?.minBitrate ?? 100}-${encoderDef?.video?.maxBitrate ?? 50000})`}
         value={config.bitrate === undefined ? "auto" : String(config.bitrate)}
         onValueChange={(val) =>
           onConfigChange({
@@ -128,7 +128,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
       />
       <VideoGopSelect
         className="space-y-2 w-full"
-        label="GOP 间隔"
+        label={t("bizForm.videoGop.label")}
         hideLabel={false}
         gopOptions={encoderDef?.video?.gopOptions}
         value={config.keyframe_interval === undefined ? "auto" : String(config.keyframe_interval)}
@@ -140,7 +140,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
       />
       <VideoColorDepthSelect
         className="space-y-2 w-full"
-        label="色深 (bit)"
+        label={t("bizForm.videoColorDepth.label")}
         hideLabel={false}
         allowedColorDepths={encoderDef?.video?.allowedColorDepths}
         value={config.color_depth === undefined ? "auto" : String(config.color_depth)}
@@ -166,7 +166,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
       </div> */}
       <VideoPresetSelect
         className="space-y-2 w-full"
-        label="压缩模式"
+        label={t("bizForm.videoPreset.label")}
         hideLabel={false}
         value={config.preset}
         onValueChange={(val) =>
@@ -185,7 +185,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
             }
           />
           <span>
-            移除音轨
+            {t("videoCompressor.fields.removeAudio")}
           </span>
         </Label>
         <Label className="flex items-center gap-2 cursor-pointer">
@@ -215,7 +215,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
       />
       <VideoEncoderSelect
         className="space-y-2 w-full"
-        label="编码器"
+        label={t("video_advance.encoder")}
         hideLabel={false}
         value={config.codec}
         allowedEncoders={formatDefinition?.video?.allowedEncoders}
@@ -229,7 +229,8 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   );
 };
 
-export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ config, onConfigChange, onSave }) => {
+export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ config, onConfigChange }) => {
+  const { t } = useTranslation("task");
   const [open, setOpen] = useState(false);
 
   return (
@@ -245,7 +246,7 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl p-0 gap-0">
           <DialogHeader className="flex flex-row items-center justify-between space-y-0 pt-8 pb-4 px-4 border-b">
-            <DialogTitle>压缩设置</DialogTitle>
+            <DialogTitle>{t("videoCompressor.title")}</DialogTitle>
           </DialogHeader>
           <div className="flex overflow-hidden flex-col py-2">
             <ScrollArea className="flex-1">
@@ -257,12 +258,12 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
           </div>
           <DialogFooter className="flex flex-row items-center justify-between space-y-0 pt-2 pb-2 px-4 border-b">
             <Button variant="outline" onClick={() => setOpen(false)}>
-              取消
+              {t("videoCompressor.actions.close")}
             </Button>
-            <Button onClick={() => {
+            {/* <Button onClick={() => {
               onSave(config)
               setOpen(false)
-            }}>保存</Button>
+            }}>保存</Button> */}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -270,7 +271,8 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
   );
 };
 
-export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({ config, onConfigChange, onSave }) => {
+export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({ config, onConfigChange }) => {
+  const { t } = useTranslation("task");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   return (
     <div className="flex">
@@ -295,7 +297,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
         <PopoverContent className="w-[28rem] h-[72vh] p-0">
           <div className="flex flex-col h-full">
             <div className="space-y-1 pb-3 p-4">
-              <div className="text-sm font-semibold">压缩设置</div>
+              <div className="text-sm font-semibold">{t("videoCompressor.title")}</div>
             </div>
             <ScrollArea className="flex-1 overflow-hidden min-h-0 px-4">
               <CompressionSettingsForm
@@ -307,12 +309,12 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
               className={` px-4 py-2 flex justify-end gap-2 sticky bottom-0 bg-popover/95 backdrop-blur`}
             >
               <Button className="cursor-pointer" variant="outline" onClick={() => setIsSettingsOpen(false)}>
-                取消
+                {t("videoCompressor.actions.close")}
               </Button>
-              <Button className="cursor-pointer" onClick={() => {
+              {/* <Button className="cursor-pointer" onClick={() => {
                 onSave && onSave(config);
                 setIsSettingsOpen(false);
-              }}>应用到全部</Button>
+              }}>应用到全部</Button> */}
             </div>
           </div>
 

@@ -142,7 +142,6 @@ export default function FormatSelectorContent({
       }
     }
 
-    console.log('updates', JSON.stringify(updates));
     onValueChange(updates);
   };
 
@@ -268,8 +267,9 @@ export default function FormatSelectorContent({
           </div>
         </div> */}
 
-        <div className="flex-1 space-y-1 py-2">
+        <div className="flex-1 space-y-1 pt-13">
           <CategoryItem
+            className=""
             label={t("common.recents")}
             icon={Clock}
             active={
@@ -284,7 +284,6 @@ export default function FormatSelectorContent({
               setSearchQuery("");
             }}
           />
-          <div className="my-1 h-px bg-border mx-1" />
           {FORMAT_CATEGORIES.map((cat) => (
             <CategoryItem
               key={cat.id}
@@ -302,7 +301,7 @@ export default function FormatSelectorContent({
       </div>
 
       <div className="flex-1 flex flex-col">
-        <div className="p-2 border-b">
+        <div className="px-2 py-1 border-b">
           <div className="py-1.5">
             {activeCategory?.label}-{activeGroup?.label}
           </div>

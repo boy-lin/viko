@@ -10,6 +10,7 @@ import {
 import { VIDEO_FORMAT_OPTIONS } from "@/data/formats";
 import { FormatEnum } from "@/types/options";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface VideoFormatSelectorProps {
   value: FormatEnum;
@@ -24,19 +25,20 @@ export const VideoFormatSelector: React.FC<VideoFormatSelectorProps> = ({
   value,
   onValueChange,
   placeholder,
-  label = "输出格式",
+  label,
   hideLabel = false,
   className,
 }) => {
+  const { t } = useTranslation("task");
   return (
     <div className={cn("space-y-2", className)}>
-      {!hideLabel && <Label>{label}</Label>}
+      {!hideLabel && <Label>{label ?? t("bizForm.videoFormat.label")}</Label>}
       <Select
         value={value}
         onValueChange={(next) => onValueChange(next as FormatEnum)}
       >
         <SelectTrigger className="cursor-pointer w-full">
-          <SelectValue placeholder={placeholder ?? "选择视频格式"} />
+          <SelectValue placeholder={placeholder ?? t("bizForm.videoFormat.placeholder")} />
         </SelectTrigger>
         <SelectContent>
           {VIDEO_FORMAT_OPTIONS.map((item) => (

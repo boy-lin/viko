@@ -17,6 +17,8 @@ import { VideoSizeInputGroup } from "@/components/biz-form/VideoSizeInputGroup";
 const normalizeResolution = (value: string) => value.replace("×", "x");
 
 interface VideoResolutionSectionProps {
+  label?: string;
+  helpText?: string;
   resolution?: string;
   onChange: (resolution: string) => void;
   className?: string;
@@ -24,12 +26,14 @@ interface VideoResolutionSectionProps {
 }
 
 export function VideoResolutionSection({
+  label,
+  helpText,
   resolution,
   onChange,
   className,
   showMoreBtns = false,
 }: VideoResolutionSectionProps) {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation("task");
   const [resolutionMode, setResolutionMode] = useState("preset");
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [platformDialogOpen, setPlatformDialogOpen] = useState(false);
@@ -52,13 +56,13 @@ export function VideoResolutionSection({
   return (
     <div className={cn("space-y-4", className)}>
       <div className="flex items-center gap-1">
-        <Label>分辨率</Label>
+        <Label>{label}</Label>
         <Tooltip>
           <TooltipTrigger asChild>
             <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
           </TooltipTrigger>
           <TooltipContent className="max-w-64 whitespace-normal break-words">
-            {t("videoCompressor.fields.clarityHelp")}
+            {t(helpText ?? "videoCompressor.fields.clarityHelp")}
           </TooltipContent>
         </Tooltip>
       </div>
@@ -75,8 +79,8 @@ export function VideoResolutionSection({
           }}
         >
           {[
-            { value: "preset", label: "预设" },
-            { value: "custom_size", label: "自定义" },
+            { value: "preset", label: t("bizForm.videoResolution.mode.preset") },
+            { value: "custom_size", label: t("bizForm.videoResolution.mode.custom") },
           ].map((opt) => (
             <Label
               key={opt.value}
@@ -105,7 +109,7 @@ export function VideoResolutionSection({
             onValueChange={onChange}
             showNumberInput={false}
             className="min-w-[8em] h-9 rounded-lg bg-muted/30 border-muted-foreground/10"
-            placeholder="自动"
+            placeholder={t("common.auto")}
           />
         )}
       </div>
@@ -117,19 +121,19 @@ export function VideoResolutionSection({
             variant="outline"
             onClick={() => setDeviceDialogOpen(true)}
           >
-            根据设备设置分辨率
+            {t("bizForm.videoResolution.byDevice")}
           </Button>
           <Button
             className="cursor-pointer rounded-lg px-5 text-xs"
             variant="outline"
             onClick={() => setPlatformDialogOpen(true)}
           >
-            根据自媒体平台设置分辨率
+            {t("bizForm.videoResolution.byPlatform")}
           </Button>
 
           <Dialog open={deviceDialogOpen} onOpenChange={setDeviceDialogOpen}>
             <DialogContent className="sm:max-w-[72vw] p-0 overflow-hidden">
-              <DialogTitle className="sr-only">根据设备设置分辨率</DialogTitle>
+              <DialogTitle className="sr-only">{t("bizForm.videoResolution.byDevice")}</DialogTitle>
               <div className="flex h-[520px]">
                 <div className="w-56 bg-muted/20 p-4 space-y-4">
                   {RESOLUTION_GROUPS_DEVICES.map((group) => (
@@ -139,7 +143,7 @@ export function VideoResolutionSection({
                       className={cn(
                         "w-full text-left px-4 py-3 rounded-lg font-medium transition",
                         activeDeviceGroup === group.id
-                          ? "bg-emerald-100 text-emerald-800"
+                          ? "bg-accent text-accent-foreground"
                           : "hover:bg-muted/60 text-muted-foreground",
                       )}
                     >
@@ -156,19 +160,14 @@ export function VideoResolutionSection({
                           onChange(res.value);
                           setDeviceDialogOpen(false);
                         }}
-                        className="flex items-center gap-4 rounded-2xl bg-muted/40 hover:bg-muted/60 px-4 py-4 text-left transition"
+                        className="flex flex-col items-start gap-2 rounded-xl bg-muted/40 hover:bg-muted/60 p-4"
                       >
-                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold">
-                          ▢
-                        </div>
-                        <div>
-                          <div className="text-base font-semibold text-foreground">
+                          <div className="text-base font-semibold text-foreground truncate max-w-full" title={res.label}>
                             {res.label}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {res.value.replace("x", "×")}
                           </div>
-                        </div>
                       </button>
                     ))}
                   </div>
@@ -179,7 +178,7 @@ export function VideoResolutionSection({
 
           <Dialog open={platformDialogOpen} onOpenChange={setPlatformDialogOpen}>
             <DialogContent className="sm:max-w-[72vw] p-0 overflow-hidden">
-              <DialogTitle className="sr-only">根据平台设置分辨率</DialogTitle>
+              <DialogTitle className="sr-only">{t("bizForm.videoResolution.byPlatformShort")}</DialogTitle>
               <div className="flex h-[520px]">
                 <div className="w-56 bg-muted/20 p-4 space-y-2">
                   {RESOLUTION_GROUPS_PLATFORMS.map((group) => (
@@ -189,7 +188,7 @@ export function VideoResolutionSection({
                       className={cn(
                         "w-full text-left px-4 py-3 rounded-lg font-medium transition",
                         activePlatformGroup === group.id
-                          ? "bg-emerald-100 text-emerald-800"
+                          ? "bg-accent text-accent-foreground"
                           : "hover:bg-muted/60 text-muted-foreground",
                       )}
                     >
@@ -198,7 +197,7 @@ export function VideoResolutionSection({
                   ))}
                 </div>
                 <div className="flex-1 p-6 overflow-y-auto">
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     {activePlatform?.resolutions.map((res) => (
                       <button
                         key={res.value}
@@ -206,16 +205,11 @@ export function VideoResolutionSection({
                           onChange(normalizeResolution(res.value));
                           setPlatformDialogOpen(false);
                         }}
-                        className="flex items-center justify-between rounded-2xl bg-muted/40 hover:bg-muted/60 px-4 py-4 text-left transition"
+                        className="flex flex-col items-start gap-2 rounded-xl bg-muted/40 hover:bg-muted/60 p-4 text-left transition"
                       >
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold">
-                            ▢
-                          </div>
-                          <div className="text-base font-semibold text-foreground">
+                          <div className="text-base font-semibold text-foreground truncate max-w-full" title={res.label}>
                             {res.label}
                           </div>
-                        </div>
                         <div className="text-sm text-muted-foreground">
                           {normalizeResolution(res.value).replace("x", "×")}
                         </div>

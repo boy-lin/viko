@@ -1,0 +1,239 @@
+{
+  "common": {
+    "cancel": "取消",
+    "save": "保存",
+    "auto": "自动"
+  },
+  "status": {
+    "idle": "等待中",
+    "queued": "排队中",
+    "processing": "处理中",
+    "finished": "已完成",
+    "error": "错误",
+    "cancelled": "已取消"
+  },
+  "actions": {
+    "delete": "删除",
+    "cancel": "取消",
+    "convertSingle": "转换",
+    "compressSingle": "压缩"
+  },
+  "search": {
+    "placeholder": "搜索文件名...",
+    "add_files": "添加文件",
+    "add_folders": "添加文件夹",
+    "folder_no_supported": "所选文件夹中未找到支持的文件"
+  },
+  "footer": {
+    "target_format": "目标格式",
+    "quality": "压缩质量",
+    "save_to": "保存到",
+    "convert_all": "转换全部",
+    "compress_all": "压缩全部",
+    "convert_all_failed_video": "视频批量转换失败",
+    "convert_all_failed_image": "图片批量转换失败",
+    "convert_all_failed_audio": "音频批量转换失败",
+    "compress_all_failed_video": "视频批量压缩失败",
+    "compress_all_failed_image": "图片批量压缩失败",
+    "compress_all_failed_audio": "音频批量压缩失败",
+    "confirm_delete_title": "确认删除",
+    "confirm_delete_desc": "当前有任务正在执行中，是否中断并清空所有转换中的任务？",
+    "confirm_delete": "确认删除"
+  },
+  "video_advance": {
+    "missing": "格式或编码器未设置",
+    "encoder": "编码器",
+    "resolution": "分辨率",
+    "frame_rate": "帧率",
+    "bitrate": "码率",
+    "color_space": "色彩空间",
+    "colorSpaceHelp": "控制色彩空间。数值越高通常细节保留更好，但体积与处理时间可能上升。",
+    "colorRangeHelp": "控制亮度范围映射。全范围通常用于计算机图形，有限范围通常用于电视/视频工作流。"
+  },
+  "audioCompressor": {
+    "title": "压缩设置",
+    "description": "仅修改当前任务的压缩参数",
+    "popoverDescription": "修改全局压缩参数",
+    "actions": {
+      "close": "关闭"
+    },
+    "fields": {
+      "silenceThreshold": "静音阈值 (dB)",
+      "volumeGain": "音量增益 (dB)",
+      "removeSilence": "移除静音片段",
+      "bitrateHelp": "控制音频数据密度。数值越高通常保真更好，但体积与处理开销也可能增加。",
+      "channelHelp": "控制输出声道布局。更少声道通常更省体积，更多声道可保留更丰富的空间信息。",
+      "bitDepthHelp": "控制每个采样的精度。更高位深有利于动态范围与细节保留，但体积通常更高。",
+      "encoderHelp": "编码器会影响质量、速度、体积和兼容性，通常需结合格式与用途综合选择。"
+    },
+    "advanced": {
+      "title": "高级设置",
+      "description": "可以调整文件格式和编码达到更好的压缩效果"
+    }
+  },
+  "videoCompressor": {
+    "title": "压缩设置",
+    "description": "仅修改当前任务的压缩参数",
+    "popoverDescription": "修改全局压缩参数",
+    "actions": {
+      "close": "关闭"
+    },
+    "fields": {
+      "bitrateHelp": "控制视频数据密度。数值越高通常保真更好，但体积与处理开销也可能增加。",
+      "keyframeIntervalHelp": "控制关键帧间隔。数值越小通常细节更完整，但体积与处理成本可能上升。",
+      "colorDepthHelp": "控制色彩深度。数值越高通常保真更好，但体积与处理开销也可能增加。",
+      "aspectRatioHelp": "控制宽高比。数值越高通常细节更完整，但体积与处理成本可能上升。",
+      "encoderHelp": "编码器会影响质量、速度、体积和兼容性，通常需结合格式与用途综合选择。",
+      "removeAudio": "移除音轨",
+      "clarityHelp": "清晰度控制输出质量。数值越高细节保留更好，但体积与处理时间可能上升。"
+    },
+    "advanced": {
+      "title": "高级设置",
+      "description": "可以调整文件格式和编码达到更好的压缩效果"
+    }
+  },
+  "imageCompressor": {
+    "title": "压缩设置",
+    "description": "仅修改当前任务的压缩参数",
+    "popoverDescription": "修改全局压缩参数",
+    "actions": {
+      "close": "关闭",
+      "applyAll": "应用到全部"
+    },
+    "fields": {
+      "ratioSummary": "压缩系数 {{ratio}}%（越高通常质量更好，体积更大）",
+      "colorMode": "颜色模式",
+      "dpi": "DPI",
+      "stripMetadata": "移除元数据",
+      "keepTransparency": "保留透明",
+      "cropWhitespace": "裁剪空白"
+    }
+  },
+  "settings": {
+    "title": "设置",
+    "description": "配置本次任务的输出参数",
+    "singleDescription": "仅对当前文件进行转换并立即开始。",
+    "startSingle": "开始转换",
+    "titleLabel": "标题：",
+    "targetFormatLabel": "目标",
+    "video": {
+      "title": "视频",
+      "fields": {
+        "width": "宽度",
+        "height": "高度",
+        "resolution": "分辨率",
+        "resolutionHelp": "分辨率控制输出维度。数值越高细节保留更好，但体积与处理时间可能上升。",
+        "frameRateHelp": "控制每秒帧数。数值越高通常细节更完整，但体积与处理成本可能上升。",
+        "bitrateHelp": "控制视频数据密度。数值越高通常保真更好，但体积与处理开销也可能增加。",
+        "keyframeIntervalHelp": "控制关键帧间隔。数值越小通常细节更完整，但体积与处理成本可能上升。",
+        "colorDepthHelp": "控制色彩深度。数值越高通常保真更好，但体积与处理开销也可能增加。",
+        "aspectRatioHelp": "控制宽高比。数值越高通常细节更完整，但体积与处理成本可能上升。",
+        "encoderHelp": "编码器影响质量、速度、体积和兼容性，通常需结合格式与用途综合选择。"
+      }
+    },
+    "audio": {
+      "title": "音频",
+      "trackLabel": "音轨 {{index}}",
+      "noAudioTrackAvailable": "没有可用的音轨。",
+      "fields": {
+        "formatHelp": "输出格式会影响可用编码器、兼容性与体积表现，建议按使用场景选择。",
+        "encoder": "编码器",
+        "encoderHelp": "编码器影响质量、速度、体积和兼容性，通常需结合格式与用途综合选择。",
+        "encoderPlaceholder": "选择编码器",
+        "channel": "声道",
+        "channelHelp": "控制输出声道布局。更少声道通常更省体积，更多声道可保留更丰富的空间信息。",
+        "channelPlaceholder": "选择声道",
+        "sampleRate": "采样率",
+        "sampleRateHelp": "控制每秒采样次数。数值越高通常细节更完整，但体积与处理成本可能上升。",
+        "sampleRatePlaceholder": "选择采样率",
+        "bitrate": "码率",
+        "bitrateHelp": "控制音频数据密度。数值越高通常保真更好，但体积与处理开销也可能增加。",
+        "bitratePlaceholder": "选择码率",
+        "bitDepth": "位深",
+        "bitDepthHelp": "控制每个采样的精度。更高位深有利于动态范围与细节保留，但体积通常更高。",
+        "bitDepthPlaceholder": "选择位深"
+      }
+    },
+    "image": {
+      "title": "图片",
+      "quality": "质量：",
+      "fields": {
+        "resolution": "分辨率",
+        "resolutionHelp": "分辨率控制输出维度。数值越高细节保留更好，但体积与处理时间可能上升。",
+        "encoderHelp": "编码器影响质量、速度、体积和兼容性，通常需结合格式与用途综合选择。"
+      }
+    }
+  },
+  "videoSimpleSettings": {
+    "clarity": "清晰度",
+    "mode": {
+      "quality": "画质",
+      "bitrate": "按码率"
+    }
+  },
+  "bizForm": {
+    "common": {
+      "commonValues": "常用值"
+    },
+    "imageFormat": {
+      "label": "输出格式",
+      "keepOriginal": "保持原始"
+    },
+    "videoFormat": {
+      "label": "输出格式",
+      "placeholder": "选择视频格式"
+    },
+    "outputTitle": {
+      "unnamed": "未命名",
+      "editAriaLabel": "编辑输出文件名"
+    },
+    "videoSettings": {
+      "mode": {
+        "simple": "简易设置",
+        "advanced": "高级设置"
+      }
+    },
+    "videoResolution": {
+      "mode": {
+        "preset": "预设",
+        "custom": "自定义"
+      },
+      "byDevice": "根据设备设置分辨率",
+      "byPlatform": "根据自媒体平台设置分辨率",
+      "byPlatformShort": "根据平台设置分辨率"
+    },
+    "videoPreset": {
+      "label": "压缩模式",
+      "placeholder": "选择压缩模式",
+      "help": "控制编码器速度与压缩倾向。更快通常处理更省时，更慢通常更有利于压缩率。"
+    },
+    "audioChannel": {
+      "label": "声道数"
+    },
+    "videoBitrate": {
+      "inputPlaceholder": "输入码率 (kbps)"
+    },
+    "audioBitrate": {
+      "inputPlaceholder": "输入码率 (kbps)"
+    },
+    "videoColorDepth": {
+      "label": "色深 (bit)",
+      "placeholder": "选择色深"
+    },
+    "videoGop": {
+      "label": "GOP 间隔",
+      "placeholder": "选择 GOP"
+    },
+    "dpi": {
+      "label": "DPI",
+      "inputPlaceholder": "输入 DPI",
+      "help": "DPI 影响打印密度元数据，不改变像素尺寸。"
+    },
+    "formatSelector": {
+      "title": "格式选择"
+    },
+    "imageResolution": {
+      "help": "通用参数：format、image_encoder、width、height、watermark。宽高任一为空时按原图比例缩放。"
+    }
+  }
+}

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 const DEFAULT_BIT_DEPTH_OPTIONS = [
   { value: "auto", label: "Auto" },
   { value: "16", label: "16-bit" },
@@ -29,9 +30,6 @@ interface AudioBitDepthSelectProps {
   className?: string;
 }
 
-const DEFAULT_LABEL = "位深";
-const BIT_DEPTH_HELP = "控制每个采样的精度。更高位深有利于动态范围与细节保留，但体积通常更高。";
-
 export const AudioBitDepthSelect: React.FC<AudioBitDepthSelectProps> = ({
   value,
   onValueChange,
@@ -43,6 +41,7 @@ export const AudioBitDepthSelect: React.FC<AudioBitDepthSelectProps> = ({
   hideLabel = false,
   className,
 }) => {
+  const { t } = useTranslation("task");
   const bitDepthOptions = useMemo(() => {
     if (!allowedBitDepths || allowedBitDepths.length === 0) {
       return [
@@ -69,19 +68,19 @@ export const AudioBitDepthSelect: React.FC<AudioBitDepthSelectProps> = ({
     }
   }, [bitDepthOptions, onValueChange, value]);
 
-  const placeholderText = placeholder ?? "Select bit depth";
+  const placeholderText = placeholder ?? t("settings.audio.fields.bitDepthPlaceholder");
 
   return (
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Label>{label ?? t("settings.audio.fields.bitDepth")}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? BIT_DEPTH_HELP}
+              {helpText ?? t("settings.audio.fields.bitDepthHelp")}
             </TooltipContent>
           </Tooltip>
         </div>

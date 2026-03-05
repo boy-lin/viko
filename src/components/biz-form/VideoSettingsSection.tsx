@@ -2,6 +2,7 @@ import { useState } from "react";
 import { VideoAdvanceSetting } from "./VideoAdvanceSetting";
 import { VideoSimpleSettings } from "./VideoSimpleSettings";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
+import { useTranslation } from "react-i18next";
 
 interface SettingsModeToggleProps {
   openAdvanced: boolean;
@@ -12,6 +13,7 @@ const SettingsModeToggle: React.FC<SettingsModeToggleProps> = ({
   openAdvanced,
   onToggle,
 }) => {
+  const { t } = useTranslation("task");
   return (
     <div className="flex items-center rounded-full border border-border bg-background text-xs font-medium overflow-hidden">
       <button
@@ -20,7 +22,7 @@ const SettingsModeToggle: React.FC<SettingsModeToggleProps> = ({
           }`}
         onClick={() => onToggle(false)}
       >
-        简易设置
+        {t("bizForm.videoSettings.mode.simple")}
       </button>
       <button
         type="button"
@@ -28,7 +30,7 @@ const SettingsModeToggle: React.FC<SettingsModeToggleProps> = ({
           }`}
         onClick={() => onToggle(true)}
       >
-        高级设置
+        {t("bizForm.videoSettings.mode.advanced")}
       </button>
     </div>
   );

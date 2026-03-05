@@ -11,6 +11,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GOP_OPTIONS } from "@/data/video_options";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 
 interface VideoGopSelectProps {
@@ -24,10 +25,6 @@ interface VideoGopSelectProps {
   gopOptions?: string[];
 }
 
-const DEFAULT_LABEL = "GOP 间隔";
-const DEFAULT_PLACEHOLDER = "选择 GOP";
-const GOP_HELP = "控制关键帧间隔。间隔更短通常更利于拖动预览与剪辑，但体积可能上升。";
-
 export const VideoGopSelect: React.FC<VideoGopSelectProps> = ({
   value,
   onValueChange,
@@ -38,6 +35,7 @@ export const VideoGopSelect: React.FC<VideoGopSelectProps> = ({
   className,
   gopOptions,
 }) => {
+  const { t } = useTranslation("task");
   const options = useMemo(() => {
     const source = gopOptions ? gopOptions : GOP_OPTIONS.map((option) => option.value as string);
     return source.map((value) => ({ value, label: value }));
@@ -53,20 +51,20 @@ export const VideoGopSelect: React.FC<VideoGopSelectProps> = ({
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Label>{label ?? t("bizForm.videoGop.label")}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? GOP_HELP}
+              {helpText ?? t("settings.video.fields.keyframeIntervalHelp")}
             </TooltipContent>
           </Tooltip>
         </div>
       )}
       <Select value={value ?? "auto"} onValueChange={onValueChange}>
         <SelectTrigger className="cursor-pointer w-full">
-          <SelectValue placeholder={placeholder ?? DEFAULT_PLACEHOLDER} />
+          <SelectValue placeholder={placeholder ?? t("bizForm.videoGop.placeholder")} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem key="auto" value="auto">

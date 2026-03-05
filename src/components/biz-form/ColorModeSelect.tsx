@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 const DEFAULT_COLOR_MODES = ["RGB", "RGBA", "Gray", "CMYK"];
 
@@ -24,9 +25,12 @@ export const ColorModeSelect: React.FC<ColorModeSelectProps> = ({
   onValueChange,
   options = DEFAULT_COLOR_MODES,
   className,
-  placeholder = "自动",
-  autoLabel = "自动",
+  placeholder,
+  autoLabel,
 }) => {
+  const { t } = useTranslation("task");
+  const resolvedAutoLabel = autoLabel ?? t("common.auto");
+  const resolvedPlaceholder = placeholder ?? t("common.auto");
   const mergedOptions = useMemo(() => {
     const normalized = options
       .map((opt) => opt.trim())
@@ -47,10 +51,10 @@ export const ColorModeSelect: React.FC<ColorModeSelectProps> = ({
       }}
     >
       <SelectTrigger className={cn("w-full", className)} size="sm">
-        <SelectValue placeholder={placeholder} />
+        <SelectValue placeholder={resolvedPlaceholder} />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="auto">{autoLabel}</SelectItem>
+        <SelectItem value="auto">{resolvedAutoLabel}</SelectItem>
         {mergedOptions.map((option) => (
           <SelectItem key={option} value={option}>
             {option}

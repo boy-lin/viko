@@ -181,6 +181,7 @@ pub fn run() {
             crate::commands::video_player_seek,
             crate::commands::video_player_get_position,
             crate::commands::video_player_get_duration,
+            crate::commands::video_player_get_size,
             crate::commands::video_player_close,
             crate::commands::video_player_set_volume,
             crate::commands::audio_player_open,
@@ -216,6 +217,8 @@ pub fn run() {
             crate::commands::get_my_files,
             crate::commands::delete_task_history,
             crate::commands::clear_task_history,
+            crate::commands::report_client_log,
+            crate::commands::export_logs_archive,
         ])
         .setup(move |app| {
             spawn_single_instance_listener(single_instance_listener, app.handle().clone());

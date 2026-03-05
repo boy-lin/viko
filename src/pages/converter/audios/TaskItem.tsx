@@ -61,7 +61,7 @@ export default function TaskItem({
   metaError,
   onRetryMeta,
 }: TaskItemProps) {
-  const { t } = useTranslation("converter");
+  const { t } = useTranslation("task");
   const removeTask = useConverterStore((state) => state.removeTask);
   const updateTaskById = useConverterStore((state) => state.updateTaskById);
 
@@ -133,12 +133,11 @@ export default function TaskItem({
   }
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm">
+    <div className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border shadow-sm">
       <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
         <MediaThumbnail
           path={task.mediaDetails?.path}
           title={task.mediaDetails?.title}
-          fileType={task.fileType}
           className="w-full h-full"
         />
       </div>
@@ -225,3 +224,4 @@ export default function TaskItem({
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export const ConverterFooter: React.FC<{}> = () => {
-  const { t } = useTranslation("converter");
+  const { t } = useTranslation("task");
   const globalConfig = useConverterStore((state) => state.globalConfig);
   const updateGlobalConfig = useConverterStore(
     (state) => state.updateGlobalConfig
@@ -134,7 +134,7 @@ export const ConverterFooter: React.FC<{}> = () => {
         </div>
 
         <Button
-          className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20 cursor-pointer"
+          className="h-11 px-8 text-base font-semibold shadow cursor-pointer"
           onClick={handleConvertAll}
         >
           {t("footer.convert_all")}
@@ -144,3 +144,4 @@ export const ConverterFooter: React.FC<{}> = () => {
     </div>
   );
 };
+

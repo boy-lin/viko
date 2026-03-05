@@ -23,7 +23,7 @@ export const EllipsisName = ({
 
   return (
     <span
-      className={cn("text-sm text-foreground text-center", className)}
+      className={cn("text-sm text-center", className)}
       title={name}
     >
       {displayName}

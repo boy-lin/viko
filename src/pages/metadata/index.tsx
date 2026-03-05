@@ -1,11 +1,10 @@
 import { useMemo, useState, useCallback } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { FileText, Save, Upload, AlertCircle, CheckCircle } from "lucide-react";
+import { FileText, Save, AlertCircle, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { bridge } from "@/lib/bridge";
 import { MediaDetails } from "@/types/tasks";
@@ -16,7 +15,7 @@ import { useMetadataStore, type Metadata } from "./store";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { extractFilenameFromPath } from "@/lib/utils";
 import { revealItemInDir } from "@/lib/revealItemInDir";
-import { getFileType } from "@/lib/file";
+import { UploadDrag } from "@/components/ui-biz/UploadDrag";
 
 type MediaType = "audio" | "video" | "other";
 
@@ -217,6 +216,29 @@ export default function MetadataEditorPage() {
     } = useMetadataStore();
     const mediaType = useMemo(() => detectMediaType(details), [details]);
     const { t } = useTranslation("metadata");
+    const supportedExtensions = useMemo(
+        () => Array.from([...AUDIO_SUPPORT_FORMATS, ...VIDEO_SUPPORT_FORMATS].map((format) => format.toLowerCase())),
+        []
+    );
+
+    const loadFile = useCallback(async (selected: string) => {
+        setLoading(true);
+        setMessage(null);
+        try {
+            const details = await bridge.getMediaDetails(selected);
+            applyLoadedFile(selected, details);
+        } catch (e: any) {
+            setMessage({ type: "error", text: t("loadError", { error: String(e) }) });
+        } finally {
+            setLoading(false);
+        }
+    }, [applyLoadedFile, setLoading, setMessage, t]);
+
+    const handleUploadComplete = useCallback(async (uploads: string[]) => {
+        const firstPath = uploads[0];
+        if (!firstPath) return;
+        await loadFile(firstPath);
+    }, [loadFile]);
 
     const handleSelectFile = async () => {
         try {
@@ -224,29 +246,19 @@ export default function MetadataEditorPage() {
                 multiple: false,
                 filters: [{
                     name: "Media Files",
-                    extensions: Array.from([...AUDIO_SUPPORT_FORMATS, ...VIDEO_SUPPORT_FORMATS].map(format => format.toLowerCase()))
+                    extensions: supportedExtensions,
                 }],
             });
 
             if (selected && typeof selected === "string") {
-                setLoading(true);
-                setMessage(null);
-                try {
-                    // Get file info and initial metadata
-                    const details = await bridge.getMediaDetails(selected);
-                    applyLoadedFile(selected, details);
-                } catch (e: any) {
-                    setMessage({ type: "error", text: t("loadError", { error: String(e) }) });
-                } finally {
-                    setLoading(false);
-                }
+                await loadFile(selected);
             }
         } catch (err) {
             console.error(err);
         }
     };
 
-    // 打开文件夹
+    // 打开文件�?
     const handleOpenFolder = useCallback(async (outputPath?: string) => {
         if (!outputPath) return;
         try {
@@ -296,7 +308,7 @@ export default function MetadataEditorPage() {
                 output_path: outputPath,
                 metadata,
             };
-            await invoke("write_media_metadata", { args });
+            await bridge.writeMediaMetadata(args);
 
             setMessage({
                 type: "success",
@@ -330,13 +342,12 @@ export default function MetadataEditorPage() {
                             <CardDescription />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-center py-8 space-y-4">
-                                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
-                                    <Upload className="w-8 h-8 text-muted-foreground" />
-                                </div>
-                                <p className="text-sm text-muted-foreground">{t("noFile")}</p>
-                                <Button onClick={handleSelectFile}>{t("selectFile")}</Button>
-                            </div>
+                            <UploadDrag
+                                className="py-8"
+                                supportedExtensions={supportedExtensions}
+                                onUploadComplete={handleUploadComplete}
+                            />
+                            <p className="text-sm text-muted-foreground text-center mt-3">{t("noFile")}</p>
                         </CardContent>
                     </Card>
                 </>
@@ -358,7 +369,6 @@ export default function MetadataEditorPage() {
                             {mediaType === "video" && fileInfo.path && (
                                 <MediaThumbnail
                                     path={fileInfo.path}
-                                    fileType={getFileType(fileInfo.format)}
                                     title={t("videoPreview")}
                                     className="w-full h-48"
                                 />

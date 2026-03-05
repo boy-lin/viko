@@ -70,7 +70,6 @@ export function MyFilesGrid({
               <MediaThumbnail
                 path={file.outputPath || file.path}
                 title={file.title}
-                fileType={file.fileType}
                 className="w-full h-full"
               />
 

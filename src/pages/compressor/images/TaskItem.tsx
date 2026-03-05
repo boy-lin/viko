@@ -1,4 +1,4 @@
-import { startTransition } from "react";
+ï»¿import { startTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -67,7 +67,7 @@ export default function TaskItem({
   metaError,
   onRetryMeta,
 }: TaskItemProps) {
-  const { t } = useTranslation("converter");
+  const { t } = useTranslation("task");
   const updateTaskById = useCompressorStore((state) => state.updateTaskById);
   const loading = metaStatus === "loading" || (!task.mediaDetails && metaStatus !== "error");
 
@@ -136,12 +136,11 @@ export default function TaskItem({
   };
 
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-border bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg">
         <MediaThumbnail
           path={task.mediaDetails?.path}
           title={task.mediaDetails?.title}
-          fileType={task.fileType}
           className="h-full w-full"
         />
       </div>
@@ -205,7 +204,7 @@ export default function TaskItem({
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "È¡Ïû") : t("actions.delete")}</TooltipContent>
+          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "È¡ï¿½ï¿½") : t("actions.delete")}</TooltipContent>
         </Tooltip>
 
         <Button
@@ -214,9 +213,10 @@ export default function TaskItem({
           onClick={handleConvertSingle}
           disabled={loading || isQueuedOrProcessing}
         >
-          {t("actions.compressSingle", "Ñ¹Ëõ")}
+          {t("actions.compressSingle", "Ñ¹ï¿½ï¿½")}
         </Button>
       </div>
     </div>
   );
 }
+

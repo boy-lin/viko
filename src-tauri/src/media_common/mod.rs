@@ -3,6 +3,8 @@ use ffmpeg_next as ffmpeg;
 use std::sync::OnceLock;
 
 pub mod codec;
+pub mod audio_decode;
+pub mod audio_playback;
 pub mod audio_transcode;
 pub mod video_transcode;
 pub mod video_pipeline;
@@ -174,8 +176,7 @@ pub fn preferred_sample_from_bit_depth(
 
 /// Helper to get audio duration (re-implemented as it was missing)
 pub fn get_audio_duration(path: &str) -> Result<f64, String> {
-    let ictx = open_input(path)?;
-    Ok(ictx.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64)
+    audio_decode::get_audio_duration_robust(path)
 }
 
 pub fn frame_to_rgb_image(frame: &ffmpeg::frame::Video) -> Result<image::RgbImage, String> {

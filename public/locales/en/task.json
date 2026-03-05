@@ -1,0 +1,240 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "auto": "Auto"
+  },
+  "status": {
+    "idle": "Idle",
+    "queued": "Queued",
+    "processing": "Processing",
+    "finished": "Finished",
+    "error": "Error",
+    "cancelled": "Cancelled"
+  },
+  "actions": {
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "convertSingle": "Convert",
+    "compressSingle": "Compress"
+  },
+  "search": {
+    "placeholder": "Search file name...",
+    "add_files": "Add Files",
+    "add_folders": "Add Folders",
+    "folder_no_supported": "No supported files found in selected folder"
+  },
+  "footer": {
+    "target_format": "Target Format",
+    "quality": "Compression Quality",
+    "save_to": "Save to",
+    "convert_all": "Convert All",
+    "compress_all": "Compress All",
+    "convert_all_failed_video": "Failed to convert all videos",
+    "convert_all_failed_image": "Failed to convert all images",
+    "convert_all_failed_audio": "Failed to convert all audios",
+    "compress_all_failed_video": "Failed to compress all videos",
+    "compress_all_failed_image": "Failed to compress all images",
+    "compress_all_failed_audio": "Failed to compress all audios",
+    "confirm_delete_title": "Confirm delete",
+    "confirm_delete_desc": "Some tasks are running. Stop and clear all converting tasks?",
+    "confirm_delete": "Confirm delete"
+  },
+  "video_advance": {
+    "color_space": "Color Space",
+    "missing": "format or encoder is not set",
+    "resolution": "Resolution",
+    "encoder": "Encoder",
+    "frame_rate": "Frame Rate",
+    "bitrate": "Bitrate",
+    "colorSpaceHelp": "Controls color space for output and compatibility. Use auto unless your workflow requires a specific standard.",
+    "colorRangeHelp": "Controls luminance range mapping. Full range is common for PC graphics, limited range is common for TV/video workflows."
+  },
+  "audioCompressor": {
+    "title": "Compression Settings",
+    "description": "Only modifies compression parameters for the current task",
+    "popoverDescription": "Modify global compression parameters",
+    "actions": {
+      "close": "Close"
+    },
+    "fields": {
+      "silenceThreshold": "Silence Threshold (dB)",
+      "volumeGain": "Volume Gain (dB)",
+      "removeSilence": "Remove Silence Fragment",
+      "bitrateHelp": "Controls audio data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
+      "channelHelp": "Controls output channel layout. Fewer channels usually reduce size, while more channels preserve richer spatial information.",
+      "bitDepthHelp": "Controls precision per sample. Higher bit depth helps preserve dynamic range and detail, but usually increases size."
+    },
+    "advanced": {
+      "title": "Advanced Settings",
+      "description": "You can adjust format and encoder to achieve better compression"
+    }
+  },
+  "videoCompressor": {
+    "title": "Compression Settings",
+    "description": "Only modifies compression parameters for the current task",
+    "popoverDescription": "Modify global compression parameters",
+    "actions": {
+      "close": "Close"
+    },
+    "fields": {
+      "bitrateHelp": "Controls video data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
+      "keyframeIntervalHelp": "Controls keyframe interval. Smaller values usually preserve more detail, but may increase size and processing cost.",
+      "colorDepthHelp": "Controls color depth. Higher values usually improve fidelity, but can increase size and processing overhead.",
+      "aspectRatioHelp": "Controls aspect ratio. Higher values usually preserve more detail, but may increase size and processing cost.",
+      "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs.",
+      "removeAudio": "Remove audio track",
+      "resolutionHelp": "Resolution controls output dimensions. Higher values preserve detail but can increase file size and processing time.",
+      "clarityHelp": "Clarity controls the output quality. Higher values preserve detail but can increase file size and processing time."
+    },
+    "advanced": {
+      "title": "Advanced Settings",
+      "description": "You can adjust format and encoder to achieve better compression"
+    }
+  },
+  "imageCompressor": {
+    "title": "Compression Settings",
+    "description": "Only modifies compression parameters for the current task",
+    "popoverDescription": "Modify global compression parameters",
+    "actions": {
+      "close": "Close",
+      "applyAll": "Apply to all"
+    },
+    "fields": {
+      "ratioSummary": "Compression ratio {{ratio}}% (higher usually keeps better quality and larger size)",
+      "colorMode": "Color Mode",
+      "dpi": "DPI",
+      "stripMetadata": "Strip metadata",
+      "keepTransparency": "Keep transparency",
+      "cropWhitespace": "Crop whitespace"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Configure output settings for this task",
+    "singleDescription": "This change will be applied and converted only for this file.",
+    "startSingle": "Start Convert",
+    "titleLabel": "Title:",
+    "targetFormatLabel": "Target",
+    "video": {
+      "title": "Video",
+      "fields": {
+        "width": "Width",
+        "height": "Height",
+        "resolution": "Resolution",
+        "resolutionHelp": "Resolution controls output dimensions. Higher values preserve detail but can increase file size and processing time.",
+        "frameRateHelp": "Controls how many frames are captured per second. Higher values usually preserve more detail, but may increase size and processing cost.",
+        "bitrateHelp": "Controls video data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
+        "keyframeIntervalHelp": "Controls keyframe interval. Smaller values usually preserve more detail, but may increase size and processing cost.",
+        "colorDepthHelp": "Controls color depth. Higher values usually improve fidelity, but can increase size and processing overhead.",
+        "aspectRatioHelp": "Controls aspect ratio. Higher values usually preserve more detail, but may increase size and processing cost.",
+        "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs."
+      }
+    },
+    "audio": {
+      "title": "Audio",
+      "trackLabel": "Audio Track {{index}}",
+      "noAudioTrackAvailable": "No audio track available.",
+      "fields": {
+        "formatHelp": "Output format affects available encoders, compatibility, and resulting size. Choose based on your scenario.",
+        "encoder": "Encoder",
+        "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs.",
+        "encoderPlaceholder": "Select encoder",
+        "channel": "Channels",
+        "channelHelp": "Controls output channel layout. Fewer channels usually reduce size, while more channels preserve richer spatial information.",
+        "channelPlaceholder": "Select channels",
+        "sampleRate": "Sample Rate",
+        "sampleRateHelp": "Controls how many samples are captured per second. Higher values usually preserve more detail, but may increase size and processing cost.",
+        "sampleRatePlaceholder": "Select sample rate",
+        "bitrate": "Bitrate",
+        "bitrateHelp": "Controls audio data density. Higher values usually improve fidelity, but can increase size and processing overhead.",
+        "bitratePlaceholder": "Select bitrate",
+        "bitDepth": "Bit Depth",
+        "bitDepthHelp": "Controls precision per sample. Higher bit depth helps preserve dynamic range and detail, but usually increases size.",
+        "bitDepthPlaceholder": "Select bit depth"
+      }
+    },
+    "image": {
+      "title": "Image",
+      "quality": "Quality:",
+      "fields": {
+        "quality": "Quality",
+        "resolution": "Resolution",
+        "resolutionHelp": "Resolution controls output dimensions. Higher values preserve detail but can increase file size and processing time.",
+        "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs."
+      }
+    }
+  },
+  "videoSimpleSettings": {
+    "clarity": "Clarity",
+    "mode": {
+      "quality": "Quality",
+      "bitrate": "Bitrate"
+    }
+  },
+  "bizForm": {
+    "common": {
+      "commonValues": "Common"
+    },
+    "imageFormat": {
+      "label": "Output Format",
+      "keepOriginal": "Keep Original"
+    },
+    "videoFormat": {
+      "label": "Output Format",
+      "placeholder": "Select video format"
+    },
+    "outputTitle": {
+      "unnamed": "Untitled",
+      "editAriaLabel": "Edit output filename"
+    },
+    "videoSettings": {
+      "mode": {
+        "simple": "Simple",
+        "advanced": "Advanced"
+      }
+    },
+    "videoResolution": {
+      "mode": {
+        "preset": "Preset",
+        "custom": "Custom"
+      },
+      "byDevice": "Set resolution by device",
+      "byPlatform": "Set resolution by social platform",
+      "byPlatformShort": "Set resolution by platform"
+    },
+    "videoPreset": {
+      "label": "Preset",
+      "placeholder": "Select preset",
+      "help": "Controls encoder speed and compression tendency. Faster is usually quicker, slower may improve compression ratio."
+    },
+    "audioChannel": {
+      "label": "Channels"
+    },
+    "videoBitrate": {
+      "inputPlaceholder": "Enter bitrate (kbps)"
+    },
+    "audioBitrate": {
+      "inputPlaceholder": "Enter bitrate (kbps)"
+    },
+    "videoColorDepth": {
+      "label": "Color Depth (bit)",
+      "placeholder": "Select color depth"
+    },
+    "videoGop": {
+      "label": "GOP Interval",
+      "placeholder": "Select GOP"
+    },
+    "dpi": {
+      "label": "DPI",
+      "inputPlaceholder": "Enter DPI",
+      "help": "DPI affects print density metadata and does not change pixel dimensions."
+    },
+    "formatSelector": {
+      "title": "Format Selector"
+    },
+    "imageResolution": {
+      "help": "Common params: format, image_encoder, width, height, watermark. If either width or height is empty, scaling keeps aspect ratio."
+    }
+  }
+}

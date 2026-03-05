@@ -23,6 +23,7 @@ import { getImageCompressionPresetByRatio } from "./compressionPreset";
 import { FormatEnum } from "@/types/options";
 import { DpiSelect } from "@/components/biz-form/DpiSelect";
 import { ColorModeSelect } from "@/components/biz-form/ColorModeSelect";
+import { useTranslation } from "react-i18next";
 
 interface CompressionSettingsFormProps {
   config: CompressImageTaskArgs;
@@ -38,11 +39,13 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   config,
   onConfigChange,
 }) => {
+  const { t } = useTranslation("task");
+  const currentRatio = config.ratio ?? config.quality ?? 50;
   return (
     <div className="grid grid-cols-2 gap-4 px-4">
       <div className="col-span-2 py-2">
         <Slider
-          value={[config.ratio ?? config.quality ?? 50]}
+          value={[currentRatio]}
           onValueChange={(value) => {
             const next = getImageCompressionPresetByRatio(
               value[0],
@@ -56,12 +59,12 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           className="w-full"
         />
         <p className="mt-1 text-xs text-muted-foreground">
-          压缩系数 {config.ratio ?? config.quality ?? 50}%（越高通常质量更好，体积更大）
+          {t("imageCompressor.fields.ratioSummary", { ratio: currentRatio })}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label>颜色模式</Label>
+        <Label>{t("imageCompressor.fields.colorMode")}</Label>
         <ColorModeSelect
           value={config.color_mode}
           onValueChange={(colorMode) => onConfigChange({ color_mode: colorMode })}
@@ -69,7 +72,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label>DPI</Label>
+        <Label>{t("imageCompressor.fields.dpi")}</Label>
         <DpiSelect
           value={config.dpi}
           onValueChange={(dpi) => onConfigChange({ dpi })}
@@ -83,7 +86,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
             onConfigChange({ strip_metadata: checked === true })
           }
         />
-        <Label>移除元数据</Label>
+        <Label>{t("imageCompressor.fields.stripMetadata")}</Label>
       </div>
 
       <div className="flex items-center gap-2 pt-6">
@@ -93,7 +96,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
             onConfigChange({ keep_transparency: checked === true })
           }
         />
-        <Label>保留透明</Label>
+        <Label>{t("imageCompressor.fields.keepTransparency")}</Label>
       </div>
 
       <div className="flex items-center gap-2 pt-6">
@@ -103,7 +106,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
             onConfigChange({ crop_whitespace: checked === true })
           }
         />
-        <Label>裁剪空白</Label>
+        <Label>{t("imageCompressor.fields.cropWhitespace")}</Label>
       </div>
     </div>
   );
@@ -112,8 +115,9 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
 export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
   config,
   onConfigChange,
-  onSave,
+  onSave: _onSave,
 }) => {
+  const { t } = useTranslation("task");
   const [open, setOpen] = useState(false);
 
   return (
@@ -131,8 +135,8 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
         <DialogContent className="max-w-2xl p-0">
           <DialogHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 pb-4 pt-8">
             <div className="space-y-1">
-              <DialogTitle>压缩设置</DialogTitle>
-              <DialogDescription>仅修改当前任务的压缩参数</DialogDescription>
+              <DialogTitle>{t("imageCompressor.title")}</DialogTitle>
+              <DialogDescription>{t("imageCompressor.description")}</DialogDescription>
             </div>
           </DialogHeader>
 
@@ -144,16 +148,16 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
 
           <DialogFooter className="flex flex-row items-center justify-between space-y-0 border-b px-4 pb-2 pt-8">
             <Button variant="outline" onClick={() => setOpen(false)}>
-              取消
+              {t("imageCompressor.actions.close")}
             </Button>
-            <Button
+            {/* <Button
               onClick={() => {
                 onSave(config);
                 setOpen(false);
               }}
             >
               保存
-            </Button>
+            </Button> */}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -167,6 +171,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
   onConfigChange,
   onSave,
 }) => {
+  const { t } = useTranslation("task");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
@@ -191,8 +196,8 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
         <PopoverContent className="h-[72vh] w-[28rem] p-0">
           <div className="flex h-full flex-col">
             <div className="space-y-1 p-4 pb-3">
-              <div className="text-sm font-semibold">压缩设置</div>
-              <div className="text-xs text-muted-foreground">修改全局压缩参数</div>
+              <div className="text-sm font-semibold">{t("imageCompressor.title")}</div>
+              <div className="text-xs text-muted-foreground">{t("imageCompressor.popoverDescription")}</div>
             </div>
 
             <ScrollArea className="min-h-0 flex-1 overflow-hidden px-4">
@@ -205,7 +210,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
                 variant="outline"
                 onClick={() => setIsSettingsOpen(false)}
               >
-                取消
+                {t("actions.cancel")}
               </Button>
               <Button
                 className="cursor-pointer"
@@ -214,7 +219,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
                   setIsSettingsOpen(false);
                 }}
               >
-                应用到全部
+                {t("imageCompressor.actions.applyAll")}
               </Button>
             </div>
           </div>

@@ -11,6 +11,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AUDIO_CHANNELS } from "@/data/audio_options";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface AudioChannelSelectProps {
   value?: string;
@@ -23,10 +24,6 @@ interface AudioChannelSelectProps {
   className?: string;
 }
 
-const DEFAULT_LABEL = "声道数";
-const DEFAULT_PLACEHOLDER = "选择声道数";
-const CHANNEL_HELP = "控制输出声道布局。更少声道通常更省体积，更多声道可保留更丰富的空间信息。";
-
 export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
   value,
   onValueChange,
@@ -37,6 +34,7 @@ export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
   hideLabel = false,
   className,
 }) => {
+  const { t } = useTranslation("task");
   const channelOptions = useMemo(() => {
     if (!allowedChannels || !allowedChannels.length) return AUDIO_CHANNELS;
     return AUDIO_CHANNELS.filter(opt => allowedChannels.includes(opt.value));
@@ -53,20 +51,20 @@ export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Label>{label ?? t("bizForm.audioChannel.label")}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? CHANNEL_HELP}
+              {helpText ?? t("settings.audio.fields.channelHelp")}
             </TooltipContent>
           </Tooltip>
         </div>
       )}
       <Select value={value ?? "auto"} onValueChange={onValueChange}>
         <SelectTrigger className="cursor-pointer w-full">
-          <SelectValue placeholder={placeholder ?? DEFAULT_PLACEHOLDER} />
+          <SelectValue placeholder={placeholder ?? t("settings.audio.fields.channelPlaceholder")} />
         </SelectTrigger>
         <SelectContent>
           {channelOptions.map((option) => (

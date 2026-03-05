@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from "react";
+﻿import React, { Suspense, lazy } from "react";
 import { createHashRouter, Outlet, RouterProvider } from "react-router-dom";
 import i18n from "@/lib/i18n";
 import RootLayout from "./layout/RootPage";
@@ -58,7 +58,7 @@ const router = createHashRouter([
           },
           {
             path: "compressor", element: <Outlet />,
-            loader: preloadI18nNamespaces(["converter"]),
+            loader: preloadI18nNamespaces(["task"]),
             children: [
               { path: "videos", element: withSuspense(<CompressorVideoPage />) },
               { path: "audios", element: withSuspense(<CompressorAudioPage />) },
@@ -67,7 +67,7 @@ const router = createHashRouter([
           },
           {
             path: "converter", element: <Outlet />,
-            loader: preloadI18nNamespaces(["converter"]),
+            loader: preloadI18nNamespaces(["task"]),
             children: [
               { path: "videos", element: withSuspense(<ConverterVideoPage />) },
               { path: "audios", element: withSuspense(<ConverterAudioPage />) },
@@ -125,3 +125,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+

@@ -14,6 +14,7 @@ import { Label } from "@radix-ui/react-label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BadgeQuestionMark } from "lucide-react";
 import { ConvertImageTaskArgs } from "@/lib/mediaTaskEvent";
+import { useTranslation } from "react-i18next";
 
 interface ImageResolutionSelectProps {
   value?: string;
@@ -50,9 +51,6 @@ export const IMAGE_CONVERT_COMMON_PARAMS: ReadonlyArray<keyof ConvertImageCommon
   "watermark",
 ];
 
-const DEFAULT_HELP_TEXT =
-  "通用参数：format、image_encoder、width、height、watermark。宽高任一为空时按原图比例缩放。";
-
 export const ImageResolutionSelect: React.FC<ImageResolutionSelectProps> = ({
   value,
   onValueChange,
@@ -62,6 +60,7 @@ export const ImageResolutionSelect: React.FC<ImageResolutionSelectProps> = ({
   placeholder = "Select resolution",
   helpText,
 }) => {
+  const { t } = useTranslation("task");
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex gap-2">
@@ -72,7 +71,7 @@ export const ImageResolutionSelect: React.FC<ImageResolutionSelectProps> = ({
               <BadgeQuestionMark className="h-4 w-4 cursor-help text-muted-foreground" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? DEFAULT_HELP_TEXT}
+              {helpText ?? t("bizForm.imageResolution.help")}
             </TooltipContent>
           </Tooltip>
         </div>

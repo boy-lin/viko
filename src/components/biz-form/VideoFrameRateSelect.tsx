@@ -11,6 +11,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VIDEO_FRAME_RATES } from "@/data/capabilities";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface VideoFrameRateSelectProps {
   value?: string;
@@ -22,9 +23,6 @@ interface VideoFrameRateSelectProps {
   className?: string;
 }
 
-const DEFAULT_LABEL = "帧率";
-const FRAME_RATE_HELP = "控制每秒帧数。数值越高通常运动更流畅，但体积和处理耗时也可能增加。";
-
 export const VideoFrameRateSelect: React.FC<VideoFrameRateSelectProps> = ({
   value,
   onValueChange,
@@ -34,6 +32,7 @@ export const VideoFrameRateSelect: React.FC<VideoFrameRateSelectProps> = ({
   hideLabel = false,
   className,
 }) => {
+  const { t } = useTranslation("task");
   const frameRateOptions = useMemo(() => {
     return maxFrameRate ? VIDEO_FRAME_RATES.filter((option) => option.value === "auto" || Number(option.value) <= maxFrameRate) : VIDEO_FRAME_RATES;
   }, [maxFrameRate]);
@@ -48,13 +47,13 @@ export const VideoFrameRateSelect: React.FC<VideoFrameRateSelectProps> = ({
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? DEFAULT_LABEL}</Label>
+          <Label>{label ?? t("video_advance.frame_rate")}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? FRAME_RATE_HELP}
+              {helpText ?? t("settings.video.fields.frameRateHelp")}
             </TooltipContent>
           </Tooltip>
         </div>

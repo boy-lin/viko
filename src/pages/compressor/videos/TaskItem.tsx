@@ -302,7 +302,7 @@ export default function TaskItem({
   metaError,
   onRetryMeta,
 }: TaskItemProps) {
-  const { t } = useTranslation("converter");
+  const { t } = useTranslation("task");
   const updateTaskById = useCompressorStore((state) => state.updateTaskById);
 
   const loading = metaStatus === "loading" || (!task.mediaDetails && metaStatus !== "error");
@@ -374,13 +374,12 @@ export default function TaskItem({
   };
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-sm">
+    <div className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border shadow-sm">
       <div className="flex flex-col items-start gap-2 flex-shrink-0 relative">
         <div className="w-20 h-20 rounded-lg overflow-hidden">
           <MediaThumbnail
             path={task.mediaDetails?.path}
             title={task.mediaDetails?.title}
-            fileType={task.fileType}
             className="w-full h-full"
           />
         </div>
@@ -459,3 +458,4 @@ export default function TaskItem({
     </div>
   );
 }
+

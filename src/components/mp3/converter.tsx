@@ -23,9 +23,9 @@ import {
 } from "lucide-react";
 import { cn, extractFilenameFromPath } from "@/lib/utils";
 import { open } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { bridge } from "@/lib/bridge";
+import { getBridgeErrorMessage } from "@/lib/bridgeError";
 
 type Step = 1 | 2 | 3;
 
@@ -62,38 +62,49 @@ export function Mp3Converter() {
   const [outputPath, setOutputPath] = useState<string | null>(null);
 
   // 监听转换进度事件
+  // 鐩戝惉杞崲杩涘害浜嬩欢
   useEffect(() => {
-    const progressUnlisten = listen<string>(
-      "audio-conversion-progress",
-      (event) => {
-        const progress = parseFloat(event.payload.replace("%", ""));
+    let progressUnlisten: (() => void) | null = null;
+    let completeUnlisten: (() => void) | null = null;
+    let errorUnlisten: (() => void) | null = null;
+
+    void bridge
+      .on("audio-conversion-progress", (payload) => {
+        const progress = parseFloat(String(payload).replace("%", ""));
         if (!Number.isNaN(progress)) {
           setConversionProgress(progress);
         }
-      }
-    );
+      })
+      .then((unlisten) => {
+        progressUnlisten = unlisten;
+      });
 
-    const completeUnlisten = listen<string>(
-      "audio-conversion-complete",
-      (event) => {
+    void bridge
+      .on("audio-conversion-complete", (payload) => {
         setIsConverting(false);
         setCurrentStep(3);
-        if (event.payload) {
-          setOutputPath(event.payload);
+        if (payload) {
+          setOutputPath(String(payload));
         }
-      }
-    );
+      })
+      .then((unlisten) => {
+        completeUnlisten = unlisten;
+      });
 
-    const errorUnlisten = listen<string>("audio-conversion-error", (event) => {
-      setIsConverting(false);
-      console.error(`转换失败:${event.payload}`);
-      alert(`转换失败: ${event.payload}`);
-    });
+    void bridge
+      .on("audio-conversion-error", (payload) => {
+        setIsConverting(false);
+        console.error(`杞崲澶辫触:${String(payload)}`);
+        alert(`杞崲澶辫触: ${String(payload)}`);
+      })
+      .then((unlisten) => {
+        errorUnlisten = unlisten;
+      });
 
     return () => {
-      progressUnlisten.then((unlisten) => unlisten());
-      completeUnlisten.then((unlisten) => unlisten());
-      errorUnlisten.then((unlisten) => unlisten());
+      progressUnlisten?.();
+      completeUnlisten?.();
+      errorUnlisten?.();
     };
   }, []);
 
@@ -110,16 +121,14 @@ export function Mp3Converter() {
 
       // 获取文件信息（使用与 FileSelector 相同的 API）
       try {
-        const info = await invoke<{
+        const info = await bridge.getMediaInfo<{
           path: string;
           size: number;
           duration: number;
           format: string;
           audio_codec?: string;
           audio_sample_rate?: string;
-        }>("get_media_info", {
-          path: file,
-        });
+        }>(file);
 
         // 从路径获取文件名
         const fileName = extractFilenameFromPath(file);
@@ -135,7 +144,7 @@ export function Mp3Converter() {
         });
         setCurrentStep(2);
       } catch (err: any) {
-        const msg = err?.message || "读取文件信息失败";
+        const msg = getBridgeErrorMessage(err, "读取文件信息失败");
         console.error(msg);
         alert(`获取文件信息失败: ${msg}`);
       }
@@ -184,21 +193,20 @@ export function Mp3Converter() {
       const inputPath = file?.path || fileInfo?.path || file?.name;
 
       // 调用转换命令（output_path 为 null 表示自动生成）
-      await invoke("convert_audio_file", {
-        args: {
-          input_path: inputPath,
-          output_path: null, // null 表示自动生成
-          format: settings.format,
-          bitrate: settings.bitrate,
-          sample_rate: parseInt(settings.sampleRate),
-        },
+      await bridge.convertAudioFile({
+        input_path: inputPath,
+        output_path: null, // null 表示自动生成
+        format: settings.format,
+        bitrate: settings.bitrate,
+        sample_rate: parseInt(settings.sampleRate),
       });
 
       // 转换完成事件会在 useEffect 中处理
     } catch (err) {
+      const msg = getBridgeErrorMessage(err, "转换失败");
       console.error("转换失败:", err);
       setIsConverting(false);
-      alert(`转换失败: ${err}`);
+      alert(`转换失败: ${msg}`);
     }
   };
 

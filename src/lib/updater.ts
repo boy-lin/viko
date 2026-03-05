@@ -1,6 +1,7 @@
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
+import { bridge, type UpdaterGuardStatus } from "@/lib/bridge";
 import { toast } from "sonner";
 
 const UPDATER_META_URL = "https://avi.2342342.xyz/api/app/latest";
@@ -9,12 +10,6 @@ type UpdaterMeta = {
   mandatory?: boolean;
   version?: string;
   notes?: string;
-};
-
-export type UpdaterGuardStatus = {
-  shouldForceUpdate: boolean;
-  effectiveFailCount: number;
-  lastSuccessAtMs?: number | null;
 };
 
 type InitUpdaterOptions = {
@@ -37,7 +32,7 @@ async function fetchUpdaterMeta(): Promise<UpdaterMeta | null> {
 async function updaterGuardGetStatus(): Promise<UpdaterGuardStatus | null> {
   if (!isTauri()) return null;
   try {
-    return await invoke<UpdaterGuardStatus>("updater_guard_get_status");
+    return await bridge.updaterGuardGetStatus();
   } catch {
     return null;
   }
@@ -50,7 +45,7 @@ export async function getUpdaterGuardStatus(): Promise<UpdaterGuardStatus | null
 async function updaterGuardReportSuccess(): Promise<UpdaterGuardStatus | null> {
   if (!isTauri()) return null;
   try {
-    return await invoke<UpdaterGuardStatus>("updater_guard_report_success");
+    return await bridge.updaterGuardReportSuccess();
   } catch {
     return null;
   }
@@ -59,7 +54,7 @@ async function updaterGuardReportSuccess(): Promise<UpdaterGuardStatus | null> {
 async function updaterGuardReportFailure(reason?: string): Promise<UpdaterGuardStatus | null> {
   if (!isTauri()) return null;
   try {
-    return await invoke<UpdaterGuardStatus>("updater_guard_report_failure", { reason });
+    return await bridge.updaterGuardReportFailure(reason);
   } catch {
     return null;
   }
@@ -68,7 +63,7 @@ async function updaterGuardReportFailure(reason?: string): Promise<UpdaterGuardS
 export async function resetUpdaterGuard() {
   if (!isTauri()) return;
   try {
-    await invoke("updater_guard_reset");
+    await bridge.updaterGuardReset();
   } catch {
     // best effort
   }
@@ -94,7 +89,7 @@ export async function initUpdater(options: InitUpdaterOptions = {}) {
     const meta = await fetchUpdaterMeta();
     const isMandatory = Boolean(meta?.mandatory);
     const startDownload = async () => {
-      let id = toast.loading("Updating...")
+      let id = toast.loading("Updating...");
       try {
         await update.downloadAndInstall();
         await relaunch();
@@ -107,7 +102,7 @@ export async function initUpdater(options: InitUpdaterOptions = {}) {
       } finally {
         if (id) toast.success("Update success", { id });
       }
-    }
+    };
 
     if (isMandatory) {
       await startDownload();
@@ -126,7 +121,7 @@ export async function initUpdater(options: InitUpdaterOptions = {}) {
   } catch (error) {
     if (enableForceGuard && !skipForceGate) {
       const status = await updaterGuardReportFailure(
-        error instanceof Error ? error.message : String(error)
+        error instanceof Error ? error.message : String(error),
       );
       if (status?.shouldForceUpdate) {
         options.onForceUpdateRequired?.(status);

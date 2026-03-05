@@ -28,7 +28,7 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
   color_range,
   onChange,
 }) => {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation("task");
 
   const formatDefinition = useMemo(() => {
     if (!format) return undefined;
@@ -76,6 +76,8 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           maxBitrate={encoderDef.video?.maxBitrate}
         />
         <VideoResolutionSection
+          label={t("settings.video.fields.resolution")}
+          helpText={t("settings.video.fields.resolutionHelp")}
           className="space-y-2 col-span-2"
           resolution={resolution}
           onChange={(nextResolution) => onChange?.({ resolution: nextResolution })}
@@ -85,7 +87,7 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
         <VideoFrameRateSelect
           className="space-y-2"
           label={t("video_advance.frame_rate", "Frame Rate")}
-          helpText={t("setting.video.fields.frameRateHelp")}
+          helpText={t("settings.video.fields.frameRateHelp")}
           value={frame_rate}
           onValueChange={(v) => onChange?.({ frame_rate: v })}
           maxFrameRate={encoderDef.video?.maxFrameRate}
@@ -95,7 +97,7 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
         <ColorSpaceSelect
           className="space-y-2"
           label={t("video_advance.color_space", "Color Space")}
-          helpText={t("video_advance.colorSpaceHelp", "Controls color space for output and compatibility. Use auto unless your workflow requires a specific standard.")}
+          helpText={t("video_advance.colorSpaceHelp")}
           hideLabel={false}
           value={color_space}
           onValueChange={(v) => onChange?.({ color_space: v })}
@@ -105,7 +107,7 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
         <ColorRangeSelect
           className="space-y-2"
           label={t("video_advance.color_range", "Color Range")}
-          helpText={t("video_advance.colorRangeHelp", "Controls luminance range mapping. Full range is common for PC graphics, limited range is common for TV/video workflows.")}
+          helpText={t("video_advance.colorRangeHelp")}
           hideLabel={false}
           value={color_range}
           onValueChange={(v) => onChange?.({ color_range: v })}

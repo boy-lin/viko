@@ -36,11 +36,11 @@ export const OutputLocationSelect: React.FC<OutputLocationSelectProps> = ({
       <Button
         variant="outline"
         role="combobox"
-        className={cn("h-10 min-w-[140px] bg-background cursor-pointer justify-between", className)}
+        className={cn("group h-10 min-w-[140px] bg-background cursor-pointer justify-between", className)}
         onClick={handleBrowse}
       >
         <EllipsisName name={outputPath} startCount={14} />
-        <FolderOpen className="w-4 h-4 text-muted-foreground" />
+        <FolderOpen className="w-4 h-4" />
       </Button>
 
     </div>

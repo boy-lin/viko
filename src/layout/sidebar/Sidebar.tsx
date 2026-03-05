@@ -184,15 +184,15 @@ const SidebarNavItem = ({
       className={cn(
         "group relative w-full flex items-center gap-3 px-2 h-11 rounded-lg text-foreground transition-colors overflow-hidden",
         isActive
-          ? "bg-indigo-50 text-indigo-700"
-          : "hover:bg-slate-100  cursor-pointer"
+          ? "bg-accent/80 text-accent-foreground"
+          : "hover:bg-accent/80  cursor-pointer"
         ,
         isDisabled && "cursor-not-allowed"
       )}
     >
       <span
         className={cn(
-          "absolute left-0 top-0 h-full w-1 rounded-r-full bg-indigo-500 transition-all",
+          "absolute left-0 top-0 h-full w-1 rounded-r-full bg-accent transition-all",
           isActive ? "opacity-100" : "opacity-0 group-hover:opacity-70"
         )}
       />
@@ -200,15 +200,15 @@ const SidebarNavItem = ({
         className={cn(
           "flex flex-shrink-0 h-8 w-8 items-center justify-center rounded-xl transition-all",
           isActive
-            ? "bg-indigo-100 text-indigo-700"
-            : "bg-slate-100 text-slate-500 group-hover:scale-105 group-hover:text-slate-700"
+            ? "bg-accent text-accent-foreground"
+            : "bg-muted group-hover:scale-105 group-hover:bg-accent/60"
         )}
       >
         <Icon className="w-5 h-5" />
       </div>
       <SidebarLabel className={cn(
         "flex-1 text-left text-sm font-medium",
-        isActive ? "text-indigo-700" : "text-foreground group-hover:text-slate-700"
+        isActive ? "text-accent-foreground" : "text-foreground"
       )}>
         {item.label}
       </SidebarLabel>
@@ -248,8 +248,8 @@ const SidebarQuickAccessItem = ({
       className={cn(
         "w-full h-10 flex items-center px-2 py-2 rounded-lg transition-colors overflow-hidden group",
         isActive
-          ? "bg-indigo-50"
-          : "hover:bg-slate-100"
+          ? "bg-accent/80"
+          : "hover:bg-accent/60"
       )}
     >
       <div
@@ -262,11 +262,11 @@ const SidebarQuickAccessItem = ({
       </div>
       <SidebarLabel
         className={cn(
-          "text-sm truncate cursor-default",
-          isActive ? "text-foreground" : "text-foreground/90 group-hover:text-slate-700"
+          "cursor-default flex-1 min-w-0",
+          isActive ? " text-accent-foreground" : "text-foreground group-hover:text-accent-foreground"
         )}
       >
-        <p title={t(item.label)}>
+        <p className="text-sm truncate" title={t(item.label)}>
           {t(item.label)}
         </p>
       </SidebarLabel>
@@ -463,7 +463,7 @@ const DesktopSidebar = ({ className }: { className?: string }) => {
   const { open, animate } = useSidebar();
   const { i18n } = useTranslation("common");
   const isEnglish = (i18n.resolvedLanguage || i18n.language || "").startsWith("en");
-  const width = open ? (isEnglish ? "14rem" : "13rem") : "4.25rem";
+  const width = open ? (isEnglish ? "14rem" : "12rem") : "4.25rem";
   return (
     <motion.aside
       initial={animate ? { opacity: 0, x: -8 } : undefined}

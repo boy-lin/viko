@@ -1,8 +1,9 @@
 // 图片查看器组件 - 支持缩放查看细节
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, RotateCw, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { convertFileSrc } from "@tauri-apps/api/core";
 
 interface ImageViewerProps {
   imagePath?: string;
@@ -23,6 +24,12 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+
+  const imageSrc = useMemo(() => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith("data:")) return imagePath;
+    return convertFileSrc(imagePath);
+  }, [imagePath]);
 
   // 缩放
   const handleZoomIn = useCallback(() => {
@@ -139,7 +146,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       >
         <img
           ref={imageRef}
-          src={imagePath}
+          src={imageSrc ?? "/images/img_404.jpg"}
           alt={alt}
           className="max-w-full max-h-full object-contain select-none"
           draggable={false}

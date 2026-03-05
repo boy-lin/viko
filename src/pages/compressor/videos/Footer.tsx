@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { Settings, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import { Slider } from "@/components/ui/slider";
 
 export const CompressionFooter: React.FC = () => {
-  const { t } = useTranslation("compressor");
+  const { t } = useTranslation("task");
   const videoConfig = useCompressorStore((state) => state.videoConfig);
   const updateGlobalConfig = useCompressorStore(
     (state) => state.updateGlobalConfig
@@ -155,7 +155,7 @@ export const CompressionFooter: React.FC = () => {
         </div>
 
         <Button
-          className="bg-purple-600 hover:bg-purple-700 text-white h-11 px-8 text-base font-semibold shadow-lg shadow-purple-200 dark:shadow-purple-900/20 cursor-pointer"
+          className="h-11 px-8 text-base font-semibold shadow cursor-pointer"
           onClick={handleCompressAll}
         >
           压缩全部
@@ -165,3 +165,4 @@ export const CompressionFooter: React.FC = () => {
     </div>
   );
 };
+

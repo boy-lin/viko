@@ -1,6 +1,6 @@
 import { emit, listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { FileType, MediaDetails, MediaDetailsWithResolve } from "@/types/tasks";
 import { extractFilenameFromPath } from "./utils";
 import { MediaTaskType } from "@/types/tasks";
@@ -62,7 +62,12 @@ export type DownloadProgress = {
 };
 
 export type BridgeEvents = {
-  "video-frame": { width: number; height: number; data: number[] | Uint8Array };
+  "video-frame": {
+    width: number;
+    height: number;
+    data?: number[] | Uint8Array;
+    data_base64?: string;
+  };
   "video-complete": string;
   "video-error": string;
   "single-instance": {
@@ -88,6 +93,55 @@ export interface HardwareSupport {
   prores_hardware: boolean;
 }
 
+export interface SelfCheckResult {
+  ffmpeg_installed?: boolean;
+  ffprobe_installed?: boolean;
+  ffmpeg_path?: string | null;
+  ffmpeg_version?: string | null;
+  ffprobe_path?: string | null;
+  ffprobe_version?: string | null;
+  fs_permission: boolean;
+  fs_error?: string | null;
+}
+
+export interface WriteMetadataArgs {
+  input_path: string;
+  output_path: string;
+  metadata: Record<string, string>;
+}
+
+export interface ClientLogInput {
+  level: "error" | "warn" | "info";
+  category: string;
+  message: string;
+  stack?: string;
+  url?: string;
+  meta?: Record<string, unknown>;
+  timestamp?: number;
+}
+
+export interface AuthExchangeCodeInput {
+  tokenEndpoint: string;
+  clientId: string;
+  code: string;
+  codeVerifier: string;
+  redirectUri: string;
+}
+
+export interface UpdaterGuardStatus {
+  shouldForceUpdate: boolean;
+  effectiveFailCount: number;
+  lastSuccessAtMs?: number | null;
+}
+
+export interface BridgeInvokeError extends Error {
+  code?: string;
+  context?: string;
+  originalMessage?: string;
+}
+
+export type MediaTaskPriority = "high" | "normal" | "low";
+
 export type ThumbnailPayload = {
   thumbnailPath?: string;
   dataUrl?: string;
@@ -103,6 +157,19 @@ export type ThumbnailOptions = {
   fitMode?: "contain" | "cover";
 };
 
+export interface VideoPlayerOpenInput {
+  path: string;
+  preview?: {
+    width: number;
+    height: number;
+  };
+}
+
+export interface VideoPlayerSize {
+  width: number;
+  height: number;
+}
+
 class Bridge {
   private static instance: Bridge | null = null;
   private disposers: UnlistenFn[] = [];
@@ -116,6 +183,7 @@ class Bridge {
     string,
     Promise<MediaDetailsWithResolve>
   >();
+  private videoFrameChannel: Channel<unknown> | null = null;
 
   private constructor() {
     if (Bridge.instance) {
@@ -247,7 +315,32 @@ class Bridge {
       console.warn(`[bridge] invoke "${cmd}" skipped: not running in Tauri`);
       return Promise.reject(new Error("Tauri runtime unavailable"));
     }
-    return invoke<T>(cmd, args);
+    try {
+      return await invoke<T>(cmd, args);
+    } catch (error) {
+      throw this.parseInvokeError(error, cmd);
+    }
+  }
+
+  private parseInvokeError(error: unknown, cmd: string): BridgeInvokeError {
+    const rawMessage =
+      (error as { message?: string } | null | undefined)?.message ||
+      String(error ?? "Unknown invoke error");
+    const matched = rawMessage.match(/^\[([A-Z_]+)(?::([^\]]+))?\]\s*(.*)$/);
+    const parsedCode = matched?.[1];
+    const parsedContext = matched?.[2];
+    const parsedMessage = matched?.[3]?.trim();
+
+    const err = new Error(
+      parsedMessage?.length
+        ? parsedMessage
+        : rawMessage,
+    ) as BridgeInvokeError;
+    err.name = "BridgeInvokeError";
+    err.code = parsedCode || "INVOKE_ERROR";
+    err.context = parsedContext || cmd;
+    err.originalMessage = rawMessage;
+    return err;
   }
 
   private async acquireMediaDetailsSlot(): Promise<void> {
@@ -457,6 +550,185 @@ class Bridge {
 
   async checkHardwareAcceleration(): Promise<HardwareSupport> {
     return this.invoke<HardwareSupport>("check_hardware_acceleration");
+  }
+
+  async runSelfCheck(): Promise<SelfCheckResult> {
+    return this.invoke<SelfCheckResult>("run_self_check");
+  }
+
+  async getMediaInfo<T = unknown>(path: string): Promise<T> {
+    return this.invoke<T>("get_media_info", { path });
+  }
+
+  async writeMediaMetadata(args: WriteMetadataArgs): Promise<void> {
+    await this.invoke("write_media_metadata", { args });
+  }
+
+  async reportClientLog(log: ClientLogInput): Promise<void> {
+    await this.invoke("report_client_log", { log });
+  }
+
+  async exportLogsArchive(): Promise<string> {
+    return this.invoke<string>("export_logs_archive");
+  }
+
+  async authExchangeCode(input: AuthExchangeCodeInput): Promise<{
+    access_token: string;
+    refresh_token?: string | null;
+    expires_in?: number | null;
+    token_type?: string | null;
+    id_token?: string | null;
+  }> {
+    return this.invoke("auth_exchange_code", { input });
+  }
+
+  async updaterGuardGetStatus(): Promise<UpdaterGuardStatus> {
+    return this.invoke<UpdaterGuardStatus>("updater_guard_get_status");
+  }
+
+  async updaterGuardReportSuccess(): Promise<UpdaterGuardStatus> {
+    return this.invoke<UpdaterGuardStatus>("updater_guard_report_success");
+  }
+
+  async updaterGuardReportFailure(reason?: string): Promise<UpdaterGuardStatus> {
+    return this.invoke<UpdaterGuardStatus>("updater_guard_report_failure", { reason });
+  }
+
+  async updaterGuardReset(): Promise<void> {
+    await this.invoke("updater_guard_reset");
+  }
+
+  async submitMediaTasks(
+    tasks: unknown[],
+    priority: MediaTaskPriority = "normal",
+  ): Promise<void> {
+    await this.invoke("media_task_submit", { tasks, priority });
+  }
+
+  async hasRunningMediaTasksByType(taskType?: MediaTaskType): Promise<boolean> {
+    if (taskType) {
+      return this.invoke<boolean>("media_task_has_running_by_type", { taskType });
+    }
+    return this.invoke<boolean>("media_task_has_running_by_type");
+  }
+
+  async clearMediaTaskQueueByType(
+    stopRunning: boolean = false,
+    taskType?: MediaTaskType,
+  ): Promise<void> {
+    const args: Record<string, unknown> = { stopRunning };
+    if (taskType) args.taskType = taskType;
+    await this.invoke("media_task_clear_by_type_with_stop", args);
+  }
+
+  async cancelMediaTaskById(id: string): Promise<void> {
+    await this.invoke("media_task_cancel_task", { id });
+  }
+
+  async convertAudioFile(args: Record<string, unknown>): Promise<void> {
+    await this.invoke("convert_audio_file", { args });
+  }
+
+  async revealItemInDirFallback(path: string): Promise<void> {
+    await this.invoke("plugin:opener|reveal_item_in_dir", { paths: [path] });
+  }
+
+  async videoPlayerOpen(
+    input: VideoPlayerOpenInput,
+    onFrame?: (frameBuffer: ArrayBuffer) => void,
+  ): Promise<void> {
+    const args: Record<string, unknown> = {
+      path: input.path,
+      preview: input.preview,
+    };
+    this.videoFrameChannel = null;
+    if (onFrame) {
+      const channel = new Channel<unknown>();
+      channel.onmessage = (payload) => {
+        if (payload instanceof ArrayBuffer) {
+          onFrame(payload);
+          return;
+        }
+        if (ArrayBuffer.isView(payload)) {
+          const view = payload;
+          onFrame(
+            view.buffer.slice(
+              view.byteOffset,
+              view.byteOffset + view.byteLength,
+            ) as ArrayBuffer,
+          );
+        }
+      };
+      this.videoFrameChannel = channel;
+      args.frameChannel = channel;
+    }
+    await this.invoke("video_player_open", args);
+  }
+
+  async videoPlayerPlay(): Promise<void> {
+    await this.invoke("video_player_play");
+  }
+
+  async videoPlayerPause(): Promise<void> {
+    await this.invoke("video_player_pause");
+  }
+
+  async videoPlayerSeek(position: number): Promise<void> {
+    await this.invoke("video_player_seek", { position });
+  }
+
+  async videoPlayerGetPosition(): Promise<number> {
+    return this.invoke<number>("video_player_get_position");
+  }
+
+  async videoPlayerGetDuration(): Promise<number> {
+    return this.invoke<number>("video_player_get_duration");
+  }
+
+  async videoPlayerGetSize(): Promise<VideoPlayerSize> {
+    const result = await this.invoke<[number, number]>("video_player_get_size");
+    return { width: result[0], height: result[1] };
+  }
+
+  async videoPlayerSetVolume(volume: number): Promise<void> {
+    await this.invoke("video_player_set_volume", { volume });
+  }
+
+  async videoPlayerClose(): Promise<void> {
+    await this.invoke("video_player_close");
+    this.videoFrameChannel = null;
+  }
+
+  async audioPlayerOpen(path: string): Promise<void> {
+    await this.invoke("audio_player_open", { path });
+  }
+
+  async audioPlayerPlay(): Promise<void> {
+    await this.invoke("audio_player_play");
+  }
+
+  async audioPlayerPause(): Promise<void> {
+    await this.invoke("audio_player_pause");
+  }
+
+  async audioPlayerSeek(position: number): Promise<void> {
+    await this.invoke("audio_player_seek", { position });
+  }
+
+  async audioPlayerStop(): Promise<void> {
+    await this.invoke("audio_player_stop");
+  }
+
+  async audioPlayerSetVolume(volume: number): Promise<void> {
+    await this.invoke("audio_player_set_volume", { volume });
+  }
+
+  async audioPlayerGetPosition(): Promise<number> {
+    return this.invoke<number>("audio_player_get_position");
+  }
+
+  async audioPlayerGetDuration(): Promise<number> {
+    return this.invoke<number>("audio_player_get_duration");
   }
 
   async generateMediaThumbnail(
