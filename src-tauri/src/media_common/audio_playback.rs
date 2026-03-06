@@ -16,19 +16,21 @@ pub fn fill_silence_u16(data: &mut [u16]) {
 
 pub fn drain_to_output_f32(
     data: &mut [f32],
-    _channels: usize,
+    channels: usize,
     consumer: &mut Consumer<f32, Arc<HeapRb<f32>>>,
     volume: f32,
 ) -> (u64, usize) {
     data.fill(0.0);
     let popped = consumer.pop_slice(data);
     if (volume - 1.0).abs() <= f32::EPSILON {
-        return (popped as u64, popped);
+        let written_frames = (popped / channels) as u64;
+        return (written_frames, popped);
     }
     for sample in data.iter_mut().take(popped) {
         *sample = (*sample * volume).clamp(-1.0, 1.0);
     }
-    ((popped as u64), popped)
+    let written_frames = (popped / channels) as u64;
+    (written_frames, popped)
 }
 
 pub fn drain_to_output_i16(
@@ -82,19 +84,63 @@ fn sub_samples(queued_samples: &Arc<AtomicUsize>, popped: usize) {
     if popped == 0 {
         return;
     }
-    queued_samples.fetch_sub(popped, Ordering::Relaxed);
+    let _ = queued_samples.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
+        Some(current.saturating_sub(popped))
+    });
 }
 
 fn maybe_reset_buffer(
     reset_buffer_flag: &Arc<AtomicBool>,
     consumer: &mut Consumer<f32, Arc<HeapRb<f32>>>,
     queued_samples: &Arc<AtomicUsize>,
-) {
+) -> usize {
     if !reset_buffer_flag.swap(false, Ordering::Relaxed) {
-        return;
+        return 0;
     }
+    let mut drained = 0usize;
     while consumer.pop().is_some() {}
+    drained = queued_samples.swap(0, Ordering::Relaxed);
     queued_samples.store(0, Ordering::Relaxed);
+    log::info!(
+        "[audio][playback] reset_buffer_flag consumed: drained_samples={}",
+        drained
+    );
+    drained
+}
+
+fn consume_seek_discard_samples(
+    consumer: &mut Consumer<f32, Arc<HeapRb<f32>>>,
+    queued_samples: &Arc<AtomicUsize>,
+    discard_output_samples: &Arc<AtomicUsize>,
+) -> usize {
+    let remain = discard_output_samples.load(Ordering::Relaxed);
+    if remain == 0 {
+        return 0;
+    }
+
+    let mut dropped = 0usize;
+    for _ in 0..remain {
+        if consumer.pop().is_some() {
+            dropped += 1;
+        } else {
+            break;
+        }
+    }
+
+    if dropped > 0 {
+        sub_samples(queued_samples, dropped);
+        log::debug!(
+            "[audio][playback] seek discard consumed dropped_samples={} remaining={}",
+            dropped,
+            discard_output_samples
+                .load(Ordering::Relaxed)
+                .saturating_sub(dropped)
+        );
+    }
+    let _ = discard_output_samples.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
+        Some(current.saturating_sub(dropped))
+    });
+    dropped
 }
 
 pub fn render_output_f32(
@@ -105,9 +151,15 @@ pub fn render_output_f32(
     volume: &Arc<AtomicU32>,
     queued_samples: &Arc<AtomicUsize>,
     reset_buffer_flag: &Arc<AtomicBool>,
+    discard_output_samples: &Arc<AtomicUsize>,
     played_samples: &Arc<AtomicU64>,
 ) {
-    maybe_reset_buffer(reset_buffer_flag, consumer, queued_samples);
+    let _ = maybe_reset_buffer(reset_buffer_flag, consumer, queued_samples);
+    let dropped = consume_seek_discard_samples(consumer, queued_samples, discard_output_samples);
+    if dropped > 0 {
+        fill_silence_f32(data);
+        return;
+    }
     if !playing.load(Ordering::Relaxed) {
         fill_silence_f32(data);
         return;
@@ -130,10 +182,16 @@ pub fn render_output_i16(
     volume: &Arc<AtomicU32>,
     queued_samples: &Arc<AtomicUsize>,
     reset_buffer_flag: &Arc<AtomicBool>,
+    discard_output_samples: &Arc<AtomicUsize>,
     played_samples: &Arc<AtomicU64>,
     scratch: &mut Vec<f32>,
 ) {
-    maybe_reset_buffer(reset_buffer_flag, consumer, queued_samples);
+    let _ = maybe_reset_buffer(reset_buffer_flag, consumer, queued_samples);
+    let dropped = consume_seek_discard_samples(consumer, queued_samples, discard_output_samples);
+    if dropped > 0 {
+        fill_silence_i16(data);
+        return;
+    }
     if !playing.load(Ordering::Relaxed) {
         fill_silence_i16(data);
         return;
@@ -157,10 +215,16 @@ pub fn render_output_u16(
     volume: &Arc<AtomicU32>,
     queued_samples: &Arc<AtomicUsize>,
     reset_buffer_flag: &Arc<AtomicBool>,
+    discard_output_samples: &Arc<AtomicUsize>,
     played_samples: &Arc<AtomicU64>,
     scratch: &mut Vec<f32>,
 ) {
-    maybe_reset_buffer(reset_buffer_flag, consumer, queued_samples);
+    let _ = maybe_reset_buffer(reset_buffer_flag, consumer, queued_samples);
+    let dropped = consume_seek_discard_samples(consumer, queued_samples, discard_output_samples);
+    if dropped > 0 {
+        fill_silence_u16(data);
+        return;
+    }
     if !playing.load(Ordering::Relaxed) {
         fill_silence_u16(data);
         return;

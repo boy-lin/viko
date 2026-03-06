@@ -6,13 +6,13 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::events::EventEmitter;
+use crate::media_common::player_control::DynAudioPlaybackController;
+use crate::services::player::audio::create_video_audio_player;
 use crate::services::player::video_utils;
 use tauri::ipc::{Channel, InvokeResponseBody};
 
 use video_rs::frame::RawFrame;
 use video_rs::{Decoder, Error as VideoError};
-
-use crate::services::player::audio::AudioPlayer;
 
 const FRAME_EMIT_INTERVAL_MS: u64 = 66; // ~15 FPS to reduce UI pressure
 const IDLE_SLEEP_MS: u64 = 10;
@@ -46,7 +46,7 @@ pub struct VideoPlayer<E: EventEmitter> {
     width: u32,
     height: u32,
     playback_thread: Option<thread::JoinHandle<()>>,
-    audio_player: Option<Arc<AudioPlayer<E>>>,
+    audio_player: Option<Arc<DynAudioPlaybackController<PlayerCommand>>>,
     has_started: Arc<AtomicBool>,
     _marker: PhantomData<E>,
 }
@@ -64,9 +64,12 @@ impl<E: EventEmitter> VideoPlayer<E> {
             .saturating_mul(4)
     }
 
-    fn send_audio_command(audio_player: Option<&Arc<AudioPlayer<E>>>, cmd: PlayerCommand) {
+    fn send_audio_command(
+        audio_player: Option<&Arc<DynAudioPlaybackController<PlayerCommand>>>,
+        cmd: PlayerCommand,
+    ) {
         if let Some(audio) = audio_player {
-            let _ = AudioPlayer::<E>::command(audio.as_ref(), cmd);
+            let _ = audio.command(cmd);
         }
     }
 
@@ -108,9 +111,7 @@ impl<E: EventEmitter> VideoPlayer<E> {
         let current_position = Arc::new(Mutex::new(0.0_f64));
         let (command_tx, command_rx) = mpsc::channel();
         let has_started = Arc::new(AtomicBool::new(false));
-        let audio_player = AudioPlayer::<E>::new(path.to_string(), false, None)
-            .ok()
-            .map(|ap: AudioPlayer<E>| Arc::new(ap));
+        let audio_player = create_video_audio_player::<E>(path);
 
         let playback_thread = Some(Self::spawn_playback(
             decoder,
@@ -198,7 +199,7 @@ impl<E: EventEmitter> VideoPlayer<E> {
 
     pub fn set_volume(&self, volume: f32) {
         if let Some(audio) = &self.audio_player {
-            AudioPlayer::<E>::set_volume(audio.as_ref(), volume);
+            audio.set_volume(volume);
         }
     }
 
@@ -330,7 +331,7 @@ impl<E: EventEmitter> VideoPlayer<E> {
         let raw_audio_clock = runtime
             .audio_player
             .as_ref()
-            .map(|ap| AudioPlayer::<E>::get_audio_clock(ap.as_ref()))
+            .map(|ap| ap.get_audio_clock())
             .unwrap_or_else(|| {
                 if let Some(anchor) = loop_state.wall_clock_anchor {
                     anchor.elapsed().as_secs_f64()
@@ -433,7 +434,7 @@ impl<E: EventEmitter> VideoPlayer<E> {
         let volume = runtime
             .audio_player
             .as_ref()
-            .map(|ap| AudioPlayer::<E>::get_volume(ap.as_ref()))
+            .map(|ap| ap.get_volume())
             .unwrap_or(1.0);
         let payload =
             video_utils::build_player_state_payload(position, runtime.duration, state_val, volume);
@@ -516,7 +517,7 @@ impl<E: EventEmitter> VideoPlayer<E> {
         command_rx: mpsc::Receiver<PlayerCommand>,
         state: Arc<Mutex<PlaybackState>>,
         current_position: Arc<Mutex<f64>>,
-        audio_player: Option<Arc<AudioPlayer<E>>>,
+        audio_player: Option<Arc<DynAudioPlaybackController<PlayerCommand>>>,
         frame_channel: Option<FrameChannel>,
         duration: f64,
         source_path: String,

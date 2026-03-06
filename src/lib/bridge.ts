@@ -184,6 +184,8 @@ class Bridge {
     Promise<MediaDetailsWithResolve>
   >();
   private videoFrameChannel: Channel<unknown> | null = null;
+  private tauriEventUnlisteners = new Map<string, UnlistenFn>();
+  private tauriEventHandlers = new Map<string, Set<(payload: unknown) => void>>();
 
   private constructor() {
     if (Bridge.instance) {
@@ -212,13 +214,38 @@ class Bridge {
     handler: (payload: EventPayload<K>) => void,
   ): Promise<() => void> {
     if (this.tauriReady) {
-      const unlisten = await listen<EventPayload<K>>(event, ({ payload }) =>
-        handler(payload),
-      );
-      this.disposers.push(unlisten);
+      const eventKey = String(event);
+      const typedHandler = handler as (payload: unknown) => void;
+      let handlers = this.tauriEventHandlers.get(eventKey);
+      if (!handlers) {
+        handlers = new Set<(payload: unknown) => void>();
+        this.tauriEventHandlers.set(eventKey, handlers);
+      }
+      handlers.add(typedHandler);
+
+      if (!this.tauriEventUnlisteners.has(eventKey)) {
+        const unlisten = await listen<unknown>(eventKey, ({ payload }) => {
+          const listeners = this.tauriEventHandlers.get(eventKey);
+          if (!listeners || listeners.size === 0) return;
+          listeners.forEach((listener) => listener(payload));
+        });
+        this.tauriEventUnlisteners.set(eventKey, unlisten);
+        this.disposers.push(unlisten);
+      }
+
       return () => {
-        unlisten();
-        this.disposers = this.disposers.filter((fn) => fn !== unlisten);
+        const listeners = this.tauriEventHandlers.get(eventKey);
+        if (!listeners) return;
+        listeners.delete(typedHandler);
+        if (listeners.size > 0) return;
+
+        this.tauriEventHandlers.delete(eventKey);
+        const unlisten = this.tauriEventUnlisteners.get(eventKey);
+        if (unlisten) {
+          unlisten();
+          this.tauriEventUnlisteners.delete(eventKey);
+          this.disposers = this.disposers.filter((fn) => fn !== unlisten);
+        }
       };
     }
 
@@ -699,8 +726,8 @@ class Bridge {
     this.videoFrameChannel = null;
   }
 
-  async audioPlayerOpen(path: string): Promise<void> {
-    await this.invoke("audio_player_open", { path });
+  async audioPlayerOpen(path: string): Promise<string> {
+    return this.invoke<string>("audio_player_open", { path });
   }
 
   async audioPlayerPlay(): Promise<void> {
@@ -855,6 +882,8 @@ class Bridge {
   }
 
   clear() {
+    this.tauriEventHandlers.clear();
+    this.tauriEventUnlisteners.clear();
     this.disposers.forEach((dispose) => dispose());
     this.disposers = [];
   }

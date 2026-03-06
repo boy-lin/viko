@@ -10,8 +10,8 @@ use video_rs::frame::RawFrame;
 use video_rs::{Decoder, DecoderBuilder, Resize};
 
 use crate::events::EventEmitter;
-use crate::services::player::audio::AudioPlayer;
-use crate::services::player::video::{FrameChannel, PlaybackState, PreviewSize};
+use crate::media_common::player_control::DynAudioPlaybackController;
+use crate::services::player::video::{FrameChannel, PlaybackState, PlayerCommand, PreviewSize};
 
 pub fn build_decoder_with_preview(
     path: &str,
@@ -153,7 +153,7 @@ impl PlaybackLoopState {
 pub struct PlaybackRuntime<E: EventEmitter> {
     pub current_position: Arc<Mutex<f64>>,
     pub state: Arc<Mutex<PlaybackState>>,
-    pub audio_player: Option<Arc<AudioPlayer<E>>>,
+    pub audio_player: Option<Arc<DynAudioPlaybackController<PlayerCommand>>>,
     pub frame_channel: Option<FrameChannel>,
     pub emitter: E,
     pub duration: f64,

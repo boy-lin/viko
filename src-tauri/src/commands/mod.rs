@@ -11,6 +11,7 @@ use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::command;
@@ -820,6 +821,7 @@ fn parse_ffmpeg_args(
 // 全局播放器实例（使用 Mutex 保护）
 pub type PlayerState = Mutex<Option<VideoPlayer<WindowEmitter>>>;
 pub type AudioPlayerState = Mutex<Option<AudioPlayer<WindowEmitter>>>;
+static AUDIO_OPEN_SEQ: AtomicU64 = AtomicU64::new(0);
 
 #[command]
 pub async fn video_player_open(
@@ -962,15 +964,19 @@ pub async fn audio_player_open(
     app: AppHandle,
     path: String,
     audio_player_state: State<'_, AudioPlayerState>,
-) -> Result<(), String> {
-    log::info!("audio_player_open called: path={}", path);
+) -> Result<String, String> {
+    let seq = AUDIO_OPEN_SEQ.fetch_add(1, Ordering::SeqCst) + 1;
+    log::info!("audio_player_open called: seq={} path={}", seq, path);
     // 关闭之前的播放器（如果存在）
     if let Ok(mut player) = audio_player_state.lock() {
         if let Some(p) = player.take() {
-            log::warn!("audio_player_open replacing existing player (issuing Stop)");
+            log::warn!(
+                "audio_player_open replacing existing player (issuing Stop): seq={}",
+                seq
+            );
             let _ = p.command(crate::services::player::video::PlayerCommand::Stop);
         } else {
-            log::info!("audio_player_open no existing player");
+            log::info!("audio_player_open no existing player: seq={}", seq);
         }
     }
 
@@ -982,18 +988,31 @@ pub async fn audio_player_open(
         "play".to_string(),
         "audio".to_string(),
     );
+    let instance_id = format!("audio-player-{}", seq);
+    let instance_id_for_task = instance_id.clone();
     let player = tauri::async_runtime::spawn_blocking(move || {
-        AudioPlayer::new(path, true, Some(emitter))
+        AudioPlayer::new(path, true, Some(emitter), Some(instance_id_for_task))
             .map_err(|e| format!("[PLAYER] 打开音频文件失败: {}", e))
     })
     .await
     .map_err(|e| format!("[JOIN:audio_player_open] {}", e))??;
 
+    // 并发 open 防抖：仅保留最新一次 open 结果。
+    let latest_seq = AUDIO_OPEN_SEQ.load(Ordering::SeqCst);
+    if seq != latest_seq {
+        log::warn!(
+            "audio_player_open stale result dropped: seq={} latest_seq={}",
+            seq,
+            latest_seq
+        );
+        return Ok(instance_id);
+    }
+
     // 保存播放器实例
     *audio_player_state.lock().unwrap() = Some(player);
-    log::info!("audio_player_open success: player initialized");
+    log::info!("audio_player_open success: seq={} player initialized", seq);
 
-    Ok(())
+    Ok(instance_id)
 }
 
 #[command]
@@ -1061,11 +1080,6 @@ pub async fn audio_player_set_volume(
     audio_player_state: State<'_, AudioPlayerState>,
 ) -> Result<(), String> {
     let player = audio_player_state.lock().unwrap();
-    log::info!(
-        "audio_player_set_volume called: volume={} initialized={}",
-        volume,
-        player.is_some()
-    );
     if let Some(ref p) = *player {
         p.set_volume(volume);
         Ok(())
@@ -1095,7 +1109,7 @@ pub async fn audio_player_get_duration(
     log::debug!("audio_player_get_duration called: initialized={}", player.is_some());
     if let Some(ref p) = *player {
         let duration = p.get_duration();
-        log::debug!("audio_player_get_duration 返回: {} 秒", duration);
+        log::info!("audio_player_get_duration 返回: {} 秒", duration);
         Ok(duration)
     } else {
         log::warn!("audio_player_get_duration: 音频播放器未初始化");

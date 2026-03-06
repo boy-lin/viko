@@ -40,6 +40,9 @@ type FrameImageDataCache = {
   imageData: ImageData;
 };
 
+const SEEK_GUARD_MS = 2000;
+const SEEK_POSITION_TOLERANCE_SEC = 0.08;
+
 // 格式化时间
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return "00:00";
@@ -98,10 +101,21 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
     duration: 0,
     isDragging: false,
   });
+  const seekGuardRef = useRef<{
+    target: number;
+    expiresAt: number;
+  }>({
+    target: 0,
+    expiresAt: 0,
+  });
 
   useEffect(() => {
     cacheValueRef.current.duration = duration;
   }, [duration]);
+
+  useEffect(() => {
+    cacheValueRef.current.isDragging = isDragging;
+  }, [isDragging]);
 
   const stopFrameRenderLoop = useCallback(() => {
     if (rafIdRef.current !== null) {
@@ -263,7 +277,24 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
         };
 
         if (!cacheValueRef.current.isDragging) {
-          setCurrentPosition(state.position);
+          const now = Date.now();
+          const seekGuard = seekGuardRef.current;
+          const guardActive = now < seekGuard.expiresAt;
+          const isSeekRollback =
+            guardActive &&
+            state.position + SEEK_POSITION_TOLERANCE_SEC < seekGuard.target;
+
+          if (!isSeekRollback) {
+            setCurrentPosition(state.position);
+            if (
+              guardActive &&
+              state.position + SEEK_POSITION_TOLERANCE_SEC >= seekGuard.target
+            ) {
+              seekGuardRef.current = { target: 0, expiresAt: 0 };
+            }
+          } else if (!guardActive && seekGuard.expiresAt > 0) {
+            seekGuardRef.current = { target: 0, expiresAt: 0 };
+          }
         }
         setDuration(state.duration);
         setIsPlaying(state.state === "playing");
@@ -319,15 +350,23 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
   }, []);
 
   const handleSeek = useCallback(async (newPosition: number) => {
+    const clampedPosition =
+      duration > 0 ? Math.max(0, Math.min(duration, newPosition)) : newPosition;
+    seekGuardRef.current = {
+      target: clampedPosition,
+      expiresAt: Date.now() + SEEK_GUARD_MS,
+    };
+    setCurrentPosition(clampedPosition);
+
     try {
-      await bridge.videoPlayerSeek(newPosition);
-      setCurrentPosition(newPosition);
+      await bridge.videoPlayerSeek(clampedPosition);
       setError("");
     } catch (error) {
+      seekGuardRef.current = { target: 0, expiresAt: 0 };
       setError(getBridgeErrorMessage(error, "跳转失败"));
       console.error("跳转失败:", error);
     }
-  }, []);
+  }, [duration]);
 
   const handleVolumeChange = useCallback(async (value: number[]) => {
     const nextVolume = Math.max(0, Math.min(1.5, value[0]));
@@ -365,9 +404,12 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
     (value: number[]) => {
       if (duration > 0) {
         const newPosition = (value[0] / 100) * duration;
-        handleSeek(newPosition);
+        void handleSeek(newPosition).finally(() => {
+          setIsDragging(false);
+        });
+      } else {
+        setIsDragging(false);
       }
-      setIsDragging(false);
     },
     [duration, handleSeek]
   );

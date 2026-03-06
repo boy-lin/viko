@@ -12,6 +12,7 @@ pub mod video_pipeline_core;
 pub mod gif_pipeline;
 pub mod fifo;
 pub mod resolution;
+pub mod player_control;
 
 // Re-export codec functions directly
 pub use codec::*;

@@ -35,6 +35,8 @@ type SidebarContextValue = {
   animate: boolean;
 };
 
+const SIDEBAR_OPEN_STORAGE_KEY = "sidebar_open";
+
 const SidebarContext = createContext<SidebarContextValue | undefined>(
   undefined
 );
@@ -84,9 +86,19 @@ const SidebarProvider = ({
   setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
   animate?: boolean;
 }) => {
-  const [openState, setOpenState] = useState(true);
+  const [openState, setOpenState] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const cached = window.localStorage.getItem(SIDEBAR_OPEN_STORAGE_KEY);
+    if (cached === null) return true;
+    return cached === "1";
+  });
   const open = openProp ?? openState;
   const setOpen = setOpenProp ?? setOpenState;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(SIDEBAR_OPEN_STORAGE_KEY, open ? "1" : "0");
+  }, [open]);
 
   return (
     <SidebarContext.Provider value={{ open, setOpen, animate }}>

@@ -582,8 +582,10 @@ export const AUDIO_CONTAINER_DEFINITIONS: Partial<
   },
   [FormatEnum.CAF]: {
     allowedEncoders: [
-      AudioEncoderEnum.AAC,
       AudioEncoderEnum.ALAC,
+      AudioEncoderEnum.PCM_S16LE,
+      AudioEncoderEnum.PCM_S24LE,
+      AudioEncoderEnum.PCM_S32LE,
       AudioEncoderEnum.PCM_S16BE,
     ],
   },
