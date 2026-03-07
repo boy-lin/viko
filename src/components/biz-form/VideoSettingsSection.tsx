@@ -57,7 +57,7 @@ export default function VideoSettingsSection({
       </Button> */}
     </div>
     {/*  custom settings body */}
-    <div className="flex-1 min-h-0 overflow-hidden p-2">
+    <div className="flex-1 min-h-0 overflow-hidden">
       {openAdvanced ? (
         <VideoAdvanceSetting
           format={config.format}

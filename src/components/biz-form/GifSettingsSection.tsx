@@ -3,7 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ImageResolutionSelect } from "@/components/biz-form/ImageResolutionSelect";
+import { VideoResolutionSection } from "@/components/biz-form/VideoResolutionSection";
 import { DpiSelect } from "@/components/biz-form/DpiSelect";
 import { ColorModeSelect } from "@/components/biz-form/ColorModeSelect";
 import { ConvertGifTaskArgs } from "@/lib/mediaTaskEvent";
@@ -43,10 +43,10 @@ const parseNumberOrUndefined = (value: string) => {
 
 const FieldLabelWithHelp = ({ label, helpText }: { label: string; helpText: string }) => (
   <div className="flex items-center gap-1">
-    <Label className="text-muted-foreground h-6">{label}</Label>
+    <Label className="text-muted-foreground">{label}</Label>
     <Tooltip>
       <TooltipTrigger asChild>
-        <BadgeQuestionMark className="h-4 w-4 cursor-help text-muted-foreground" />
+        <BadgeQuestionMark className="h-[1em] w-[1em] cursor-help text-muted-foreground" />
       </TooltipTrigger>
       <TooltipContent className="max-w-64 whitespace-normal break-words">
         {helpText}
@@ -72,17 +72,18 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
   onChange,
   className,
 }) => {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation("task");
   const resolution = width && height ? `${width}x${height}` : "auto";
 
   return (
     <ScrollArea className={cn("flex-1 overflow-hidden p-2 space-y-4", className)}>
       <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-        <ImageResolutionSelect
+        <VideoResolutionSection
+          className="col-span-2"
           label={t("settings.image.fields.resolution")}
           helpText={t("settings.image.fields.resolutionHelp")}
-          value={resolution}
-          onValueChange={(value) => {
+          resolution={resolution}
+          onChange={(value) => {
             if (value === "auto") {
               onChange({ width: undefined, height: undefined });
               return;
@@ -95,7 +96,7 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
         <div className="space-y-2">
           <FieldLabelWithHelp
             label={t("settings.image.fields.quality")}
-            helpText={t("settings.gif.fields.qualityHelp", "Lower values reduce size but may introduce artifacts.")}
+            helpText={t("settings.gif.fields.qualityHelp")}
           />
           <Input
             type="number"
@@ -103,35 +104,35 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
             max={100}
             value={quality ?? ""}
             onChange={(e) => onChange({ quality: parseNumberOrUndefined(e.target.value) })}
-            placeholder="1-100"
+            placeholder={t("settings.gif.placeholders.quality")}
           />
         </div>
 
         <div className="space-y-2">
           <FieldLabelWithHelp
-            label="Frame Rate"
-            helpText={t("settings.gif.fields.frameRateHelp", "Lower FPS reduces file size and motion smoothness.")}
+            label={t("settings.gif.fields.frameRate")}
+            helpText={t("settings.gif.fields.frameRateHelp")}
           />
           <Input
             type="number"
             min={1}
             value={frame_rate ?? ""}
             onChange={(e) => onChange({ frame_rate: parseNumberOrUndefined(e.target.value) })}
-            placeholder="e.g. 12"
+            placeholder={t("settings.gif.placeholders.frameRate")}
           />
         </div>
 
         <div className="space-y-2">
           <FieldLabelWithHelp
-            label="Loop Count"
-            helpText={t("settings.gif.fields.loopCountHelp", "0 means infinite looping.")}
+            label={t("settings.gif.fields.loopCount")}
+            helpText={t("settings.gif.fields.loopCountHelp")}
           />
           <Input
             type="number"
             min={0}
             value={loop_count ?? ""}
             onChange={(e) => onChange({ loop_count: parseNumberOrUndefined(e.target.value) })}
-            placeholder="0 = infinite"
+            placeholder={t("settings.gif.placeholders.loopCount")}
           />
         </div>
 
@@ -142,14 +143,14 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
             min={0}
             value={frame_delay ?? ""}
             onChange={(e) => onChange({ frame_delay: parseNumberOrUndefined(e.target.value) })}
-            placeholder="e.g. 80"
+            placeholder={t("settings.gif.placeholders.frameDelay")}
           />
         </div> */}
 
         <div className="space-y-2">
           <FieldLabelWithHelp
-            label="Colors"
-            helpText={t("settings.gif.fields.colorsHelp", "Fewer colors can significantly reduce GIF size.")}
+            label={t("settings.gif.fields.colors")}
+            helpText={t("settings.gif.fields.colorsHelp")}
           />
           <Input
             type="number"
@@ -157,14 +158,14 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
             max={256}
             value={colors ?? ""}
             onChange={(e) => onChange({ colors: parseNumberOrUndefined(e.target.value) })}
-            placeholder="2-256"
+            placeholder={t("settings.gif.placeholders.colors")}
           />
         </div>
 
         <div className="space-y-2">
           <FieldLabelWithHelp
-            label="DPI"
-            helpText={t("settings.gif.fields.dpiHelp", "DPI affects print/display metadata, not pixel dimensions.")}
+            label={t("settings.gif.fields.dpi")}
+            helpText={t("settings.gif.fields.dpiHelp")}
           />
           <DpiSelect
             value={dpi}
@@ -174,8 +175,8 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
 
         <div className="space-y-2">
           <FieldLabelWithHelp
-            label="Color Mode"
-            helpText={t("settings.gif.fields.colorModeHelp", "Choose output palette model for compatibility and quality.")}
+            label={t("settings.gif.fields.colorMode")}
+            helpText={t("settings.gif.fields.colorModeHelp")}
           />
           <ColorModeSelect
             value={color_mode}
@@ -191,13 +192,13 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
             onCheckedChange={(checked) => onChange({ preserve_transparency: checked === true })}
           />
           <span className="inline-flex items-center gap-1">
-            Preserve Transparency
+            {t("settings.gif.fields.preserveTransparency")}
             <Tooltip>
               <TooltipTrigger asChild>
                 <BadgeQuestionMark className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent className="max-w-64 whitespace-normal break-words">
-                {t("settings.gif.fields.preserveTransparencyHelp", "Keeps transparent pixels in output when possible.")}
+                {t("settings.gif.fields.preserveTransparencyHelp")}
               </TooltipContent>
             </Tooltip>
           </span>
@@ -208,13 +209,13 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
             onCheckedChange={(checked) => onChange({ preserve_extensions: checked === true })}
           />
           <span className="inline-flex items-center gap-1">
-            Preserve Extensions
+            {t("settings.gif.fields.preserveExtensions")}
             <Tooltip>
               <TooltipTrigger asChild>
                 <BadgeQuestionMark className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent className="max-w-64 whitespace-normal break-words">
-                {t("settings.gif.fields.preserveExtensionsHelp", "Retains metadata/extensions if encoder supports them.")}
+                {t("settings.gif.fields.preserveExtensionsHelp")}
               </TooltipContent>
             </Tooltip>
           </span>
@@ -225,13 +226,13 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
             onCheckedChange={(checked) => onChange({ sharpen: checked === true })}
           />
           <span className="inline-flex items-center gap-1">
-            Sharpen
+            {t("settings.gif.fields.sharpen")}
             <Tooltip>
               <TooltipTrigger asChild>
                 <BadgeQuestionMark className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent className="max-w-64 whitespace-normal break-words">
-                {t("settings.gif.fields.sharpenHelp", "Adds edge contrast; can improve clarity but may increase noise.")}
+                {t("settings.gif.fields.sharpenHelp")}
               </TooltipContent>
             </Tooltip>
           </span>
@@ -242,13 +243,13 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
             onCheckedChange={(checked) => onChange({ denoise: checked === true })}
           />
           <span className="inline-flex items-center gap-1">
-            Denoise
+            {t("settings.gif.fields.denoise")}
             <Tooltip>
               <TooltipTrigger asChild>
                 <BadgeQuestionMark className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent className="max-w-64 whitespace-normal break-words">
-                {t("settings.gif.fields.denoiseHelp", "Reduces visual noise before encoding for better compression.")}
+                {t("settings.gif.fields.denoiseHelp")}
               </TooltipContent>
             </Tooltip>
           </span>

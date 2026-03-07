@@ -183,9 +183,11 @@ class Bridge {
     string,
     Promise<MediaDetailsWithResolve>
   >();
-  private videoFrameChannel: Channel<unknown> | null = null;
   private tauriEventUnlisteners = new Map<string, UnlistenFn>();
-  private tauriEventHandlers = new Map<string, Set<(payload: unknown) => void>>();
+  private tauriEventHandlers = new Map<
+    string,
+    Set<(payload: unknown) => void>
+  >();
 
   private constructor() {
     if (Bridge.instance) {
@@ -359,9 +361,7 @@ class Bridge {
     const parsedMessage = matched?.[3]?.trim();
 
     const err = new Error(
-      parsedMessage?.length
-        ? parsedMessage
-        : rawMessage,
+      parsedMessage?.length ? parsedMessage : rawMessage,
     ) as BridgeInvokeError;
     err.name = "BridgeInvokeError";
     err.code = parsedCode || "INVOKE_ERROR";
@@ -424,7 +424,9 @@ class Bridge {
   private mapProbeToMediaDetails(probe: MediaProbeResult): MediaDetails {
     const detailsKind = probe.details?.kind;
     const typedDetails =
-      detailsKind === "video" || detailsKind === "audio" || detailsKind === "image"
+      detailsKind === "video" ||
+      detailsKind === "audio" ||
+      detailsKind === "image"
         ? probe.details.details
         : undefined;
     const streams = (typedDetails?.streams || []).map((stream) => ({
@@ -454,7 +456,9 @@ class Bridge {
       size: probe.base.size ?? 0,
       streams,
       tags: probe.base.tags || {},
-      stream_tags: streams.map((_, index) => typedDetails?.streams?.[index]?.tags || {}),
+      stream_tags: streams.map(
+        (_, index) => typedDetails?.streams?.[index]?.tags || {},
+      ),
     };
   }
 
@@ -484,12 +488,9 @@ class Bridge {
     const normalizedPath = path.trim();
     const cacheKey = `media:${normalizedPath}`;
     return this.getCachedMediaDetails(cacheKey, async () => {
-      const probe = await this.invoke<MediaProbeResult>(
-        "probe_media_info",
-        {
-          path: normalizedPath,
-        },
-      );
+      const probe = await this.invoke<MediaProbeResult>("probe_media_info", {
+        path: normalizedPath,
+      });
       const details = this.mapProbeToMediaDetails(probe);
       return this.normalizeMediaDetails(normalizedPath, details);
     });
@@ -617,8 +618,12 @@ class Bridge {
     return this.invoke<UpdaterGuardStatus>("updater_guard_report_success");
   }
 
-  async updaterGuardReportFailure(reason?: string): Promise<UpdaterGuardStatus> {
-    return this.invoke<UpdaterGuardStatus>("updater_guard_report_failure", { reason });
+  async updaterGuardReportFailure(
+    reason?: string,
+  ): Promise<UpdaterGuardStatus> {
+    return this.invoke<UpdaterGuardStatus>("updater_guard_report_failure", {
+      reason,
+    });
   }
 
   async updaterGuardReset(): Promise<void> {
@@ -634,7 +639,9 @@ class Bridge {
 
   async hasRunningMediaTasksByType(taskType?: MediaTaskType): Promise<boolean> {
     if (taskType) {
-      return this.invoke<boolean>("media_task_has_running_by_type", { taskType });
+      return this.invoke<boolean>("media_task_has_running_by_type", {
+        taskType,
+      });
     }
     return this.invoke<boolean>("media_task_has_running_by_type");
   }

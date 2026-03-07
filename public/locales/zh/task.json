@@ -162,6 +162,36 @@
         "resolutionHelp": "分辨率控制输出维度。数值越高细节保留更好，但体积与处理时间可能上升。",
         "encoderHelp": "编码器影响质量、速度、体积和兼容性，通常需结合格式与用途综合选择。"
       }
+    },
+    "gif": {
+      "fields": {
+        "frameRate": "帧率",
+        "frameRateHelp": "较低帧率可减小文件体积，但动画会更不流畅。",
+        "loopCount": "循环次数",
+        "loopCountHelp": "0 表示无限循环。",
+        "colors": "颜色数",
+        "colorsHelp": "减少颜色数通常可以显著减小 GIF 体积。",
+        "dpi": "DPI",
+        "dpiHelp": "DPI 仅影响打印/显示元数据，不改变像素尺寸。",
+        "colorMode": "颜色模式",
+        "colorModeHelp": "选择输出调色板模型，以平衡兼容性和画质。",
+        "qualityHelp": "数值越低体积越小，但可能产生更明显失真。",
+        "preserveTransparency": "保留透明",
+        "preserveTransparencyHelp": "尽可能保留输出中的透明像素。",
+        "preserveExtensions": "保留扩展块",
+        "preserveExtensionsHelp": "在编码器支持时保留 GIF 元数据/扩展信息。",
+        "sharpen": "锐化",
+        "sharpenHelp": "增强边缘对比，可能提升清晰度，但也可能放大噪点。",
+        "denoise": "降噪",
+        "denoiseHelp": "编码前先降低画面噪点，有助于压缩。"
+      },
+      "placeholders": {
+        "quality": "1-100",
+        "frameRate": "例如 12",
+        "frameDelay": "例如 80",
+        "loopCount": "0 = 无限循环",
+        "colors": "2-256"
+      }
     }
   },
   "videoSimpleSettings": {

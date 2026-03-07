@@ -54,6 +54,8 @@ struct DecodeState {
     eof_started_at: Option<Instant>,
     eof_played_snapshot: u64,
     pending_recover_target: Option<f64>,
+    pending_recover_hard: bool,
+    last_recover_from_seek: bool,
     decoded_packets_since_recover: u32,
     last_packet_pts_secs: Option<f64>,
     last_packet_dts_secs: Option<f64>,
@@ -260,6 +262,8 @@ impl<E: EventEmitter> AudioPlayer<E> {
                 eof_started_at: None,
                 eof_played_snapshot: 0,
                 pending_recover_target: None,
+                pending_recover_hard: false,
+                last_recover_from_seek: false,
                 decoded_packets_since_recover: 0,
                 last_packet_pts_secs: None,
                 last_packet_dts_secs: None,
@@ -375,28 +379,44 @@ impl<E: EventEmitter> AudioPlayer<E> {
 
                 if packet_iter.is_none() {
                     if let Some(recover_target) = decode_state.pending_recover_target.take() {
-                        match Self::hard_recover_after_seek(
-                            &path,
-                            recover_target,
-                            &mut ictx,
-                            &mut audio_index,
-                            &mut time_base,
-                            &state,
-                            &mut decode_state,
-                            &current_position,
-                        ) {
+                        let recover_hard = decode_state.pending_recover_hard;
+                        decode_state.pending_recover_hard = false;
+                        decode_state.last_recover_from_seek = recover_hard;
+                        let recover_result = if recover_hard {
+                            Self::hard_recover_after_seek(
+                                &path,
+                                recover_target,
+                                &mut ictx,
+                                &mut audio_index,
+                                &mut time_base,
+                                &state,
+                                &mut decode_state,
+                                &current_position,
+                            )
+                        } else {
+                            Self::inplace_recover_after_eof(
+                                recover_target,
+                                &mut ictx,
+                                &state,
+                                &mut decode_state,
+                                &current_position,
+                            )
+                        };
+                        match recover_result {
                             Ok(_) => {
                                 log::warn!(
-                                    "[audio][seek:{}] eof-empty HARD recover success: target={}s attempts={}",
+                                    "[audio][seek:{}] eof-empty {} recover success: target={}s attempts={}",
                                     decode_state.seek_seq,
+                                    if recover_hard { "HARD" } else { "SOFT" },
                                     recover_target,
                                     decode_state.eof_recover_attempts
                                 );
                             }
                             Err(err) => {
                                 log::warn!(
-                                    "[audio][seek:{}] eof-empty recover failed: {}",
+                                    "[audio][seek:{}] eof-empty {} recover failed: {}",
                                     decode_state.seek_seq,
+                                    if recover_hard { "HARD" } else { "SOFT" },
                                     err
                                 );
                             }
@@ -818,11 +838,12 @@ impl<E: EventEmitter> AudioPlayer<E> {
         decode_state.eof_drained = false;
         decode_state.eof_no_data_count = 0;
         decode_state.eof_suppress_last_log = None;
-        decode_state.eof_last_recover_at = None;
         decode_state.eof_empty_started_at = None;
         decode_state.eof_started_at = None;
         decode_state.eof_played_snapshot = 0;
         decode_state.pending_recover_target = None;
+        decode_state.pending_recover_hard = false;
+        decode_state.last_recover_from_seek = false;
         decode_state.decoded_packets_since_recover = 0;
         decode_state.last_packet_pts_secs = None;
         decode_state.last_packet_dts_secs = None;
@@ -890,6 +911,42 @@ impl<E: EventEmitter> AudioPlayer<E> {
         *audio_index = new_audio_index;
         *time_base = new_time_base;
         *ictx = new_ictx;
+        Ok(())
+    }
+
+    fn inplace_recover_after_eof(
+        target: f64,
+        ictx: &mut ffmpeg::format::context::Input,
+        state: &SharedState,
+        decode_state: &mut DecodeState,
+        current_position: &Arc<AtomicU64>,
+    ) -> Result<(), String> {
+        let ts = (target * ffmpeg::ffi::AV_TIME_BASE as f64) as i64;
+        if let Err(primary_err) = ictx.seek(ts, ..) {
+            let lower = ts.saturating_sub(ffmpeg::ffi::AV_TIME_BASE as i64 * 5);
+            let upper = ts.saturating_add(ffmpeg::ffi::AV_TIME_BASE as i64 * 5);
+            ictx.seek(ts, lower..upper).map_err(|fallback_err| {
+                format!("inplace recover seek failed: primary={primary_err}; fallback={fallback_err}")
+            })?;
+        }
+
+        Self::reset_decode_state(state, decode_state);
+        decode_state.seek_played_samples_snapshot =
+            state.played_samples_total.load(Ordering::Relaxed);
+        decode_state.eof_no_data_count = 0;
+        decode_state.eof_drained = false;
+        decode_state.eof_empty_started_at = None;
+        decode_state.eof_started_at = None;
+        decode_state.eof_played_snapshot = 0;
+        decode_state.decoded_packets_since_recover = 0;
+        let discard_samples = ((state.output_sample_rate as usize * state.output_channels) * 120) / 1000;
+        state
+            .discard_output_samples
+            .store(discard_samples, Ordering::Relaxed);
+        state
+            .start_audio_pts
+            .store(target.to_bits(), Ordering::Relaxed);
+        current_position.store(target.to_bits(), Ordering::Relaxed);
         Ok(())
     }
 
@@ -1104,7 +1161,12 @@ impl<E: EventEmitter> AudioPlayer<E> {
         // 关键：每次 flush 前重置输出帧，避免复用过小的旧缓冲导致后续 run 输出被截断。
         decode_state.resampled = ffmpeg::frame::Audio::empty();
         if let Err(err) = decode_state.resampler.flush(&mut decode_state.resampled) {
-            log::warn!("Resampler flush failed: {err}");
+            let msg = err.to_string();
+            if msg.contains("Output changed") {
+                log::debug!("Resampler flush skipped due to output change");
+            } else {
+                log::warn!("Resampler flush failed: {err}");
+            }
             return;
         }
         if decode_state.resampled.samples() == 0 {
@@ -1263,6 +1325,10 @@ impl<E: EventEmitter> AudioPlayer<E> {
         output_stream: &cpal::Stream,
         packet_iter: &mut Option<ffmpeg::format::context::input::PacketIter<'_>>,
     ) {
+        const RECOVER_MAX_ATTEMPTS_SEEK: u32 = 3;
+        const RECOVER_MAX_ATTEMPTS_NORMAL: u32 = 2;
+        const RECENT_SEEK_WINDOW: Duration = Duration::from_secs(3);
+
         if !decode_state.eof_drained {
             decode_state.decoder.flush();
             Self::drain_decoder_frames(decode_state, state, output_channels, time_base, false);
@@ -1302,20 +1368,62 @@ impl<E: EventEmitter> AudioPlayer<E> {
             decode_state.last_eof_logged_seek_seq = decode_state.seek_seq;
         }
 
-        // 对“明显假 EOF”做提前恢复：
-        // 当 remaining 仍很大时，不等待完全静音/停滞才恢复，避免出现几秒后无声+进度冻结。
         let now = Instant::now();
+        let recent_seek = decode_state
+            .last_seek_at
+            .map(|t| now.duration_since(t) <= RECENT_SEEK_WINDOW)
+            .unwrap_or(false);
+        let recover_limit = if recent_seek {
+            RECOVER_MAX_ATTEMPTS_SEEK
+        } else {
+            RECOVER_MAX_ATTEMPTS_NORMAL
+        };
+        let recover_backoff = if recent_seek {
+            match decode_state.eof_recover_attempts {
+                0 => Duration::from_millis(300),
+                1 => Duration::from_millis(800),
+                _ => Duration::from_millis(1500),
+            }
+        } else {
+            Duration::from_millis(2500)
+        };
+
+        let near_tail = !recent_seek && remaining <= 5.0;
+
+        if decode_state.eof_recover_attempts >= recover_limit && remaining > 1.0 && !near_tail {
+            log::warn!(
+                "[audio][seek:{}] eof recover circuit open: attempts={} limit={} remaining={}s recent_seek={} -> force complete",
+                decode_state.seek_seq,
+                decode_state.eof_recover_attempts,
+                recover_limit,
+                remaining,
+                recent_seek
+            );
+            *completed = true;
+            *playing = false;
+            state.playing_flag.store(false, Ordering::Relaxed);
+            let _ = output_stream.pause();
+            *stream_started = false;
+            *packet_iter = None;
+            return;
+        }
+
+        // “刚发生 seek”允许更积极的 early recover；正常播放依赖 eof-empty 分支的保守恢复。
         let should_early_recover = remaining > 3.0
+            && recent_seek
+            && decode_state.pending_recover_target.is_none()
+            && decode_state.eof_recover_attempts < recover_limit
             && eof_elapsed >= Duration::from_millis(60)
             && decode_state
                 .eof_last_recover_at
-                .map(|last| now.duration_since(last) >= Duration::from_millis(2500))
+                .map(|last| now.duration_since(last) >= recover_backoff)
                 .unwrap_or(true);
         if should_early_recover {
-            let recover_target = (estimated_pos).max(0.0);
+            let recover_target = (estimated_pos - 0.5).max(0.0);
             decode_state.eof_recover_attempts = decode_state.eof_recover_attempts.saturating_add(1);
             decode_state.eof_last_recover_at = Some(now);
             decode_state.pending_recover_target = Some(recover_target);
+            decode_state.pending_recover_hard = recent_seek;
             log::warn!(
                 "[audio][seek:{}] schedule early eof recover: target={}s remaining={}s attempts={} eof_elapsed_ms={}",
                 decode_state.seek_seq,
@@ -1336,9 +1444,13 @@ impl<E: EventEmitter> AudioPlayer<E> {
             decode_state.eof_no_data_count = decode_state.eof_no_data_count.saturating_add(1);
             let empty_started = decode_state.eof_empty_started_at.get_or_insert(now);
             let empty_elapsed = now.duration_since(*empty_started);
-            let allow_complete = (remaining <= 0.35)
-                && empty_elapsed >= Duration::from_millis(800)
-                && decode_state.eof_no_data_count >= 4;
+            let allow_complete = if near_tail {
+                empty_elapsed >= Duration::from_millis(700) && decode_state.eof_no_data_count >= 3
+            } else {
+                (remaining <= 0.35)
+                    && empty_elapsed >= Duration::from_millis(800)
+                    && decode_state.eof_no_data_count >= 4
+            };
             if !allow_complete {
                 let should_log = decode_state
                     .eof_suppress_last_log
@@ -1356,17 +1468,26 @@ impl<E: EventEmitter> AudioPlayer<E> {
                 }
 
                 let should_recover = remaining > 1.0
-                    && empty_elapsed >= Duration::from_millis(120)
+                    && !near_tail
+                    && decode_state.pending_recover_target.is_none()
+                    && decode_state.eof_recover_attempts < recover_limit
+                    && empty_elapsed
+                        >= if recent_seek {
+                            Duration::from_millis(120)
+                        } else {
+                            Duration::from_millis(1000)
+                        }
                     && decode_state
                         .eof_last_recover_at
-                        .map(|last| now.duration_since(last) >= Duration::from_millis(400))
+                        .map(|last| now.duration_since(last) >= recover_backoff)
                         .unwrap_or(true);
                 if should_recover {
-                    let recover_target = (estimated_pos - 0.15).max(0.0);
+                    let recover_target = (estimated_pos - 0.5).max(0.0);
                     decode_state.eof_recover_attempts =
                         decode_state.eof_recover_attempts.saturating_add(1);
                     decode_state.eof_last_recover_at = Some(now);
                     decode_state.pending_recover_target = Some(recover_target);
+                    decode_state.pending_recover_hard = recent_seek;
                     log::warn!(
                         "[audio][seek:{}] schedule eof-empty recover: target={}s remaining={}s count={} attempts={}",
                         decode_state.seek_seq,
@@ -1455,14 +1576,18 @@ impl<E: EventEmitter> AudioPlayer<E> {
                     decode_state.decoded_packets_since_recover.saturating_add(1);
                 if decode_state.decoded_packets_since_recover >= 48 {
                     log::info!(
-                        "[audio][seek:{}] recover stabilized: packets_since_recover={} reset_attempts_from={}",
+                        "[audio][seek:{}] recover stabilized: packets_since_recover={} reset_attempts_from={} from_seek={}",
                         decode_state.seek_seq,
                         decode_state.decoded_packets_since_recover,
-                        decode_state.eof_recover_attempts
+                        decode_state.eof_recover_attempts,
+                        decode_state.last_recover_from_seek
                     );
-                    decode_state.eof_recover_attempts = 0;
+                    if decode_state.last_recover_from_seek {
+                        decode_state.eof_recover_attempts = 0;
+                    }
                     decode_state.eof_last_recover_at = None;
                     decode_state.decoded_packets_since_recover = 0;
+                    decode_state.last_recover_from_seek = false;
                 }
             }
             decode_state.eof_drained = false;

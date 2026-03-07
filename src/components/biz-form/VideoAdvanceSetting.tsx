@@ -54,8 +54,11 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
   }
 
   return (
-    <ScrollArea className="h-full space-y-4">
+    <ScrollArea className="h-full space-y-4  p-2">
       <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+
+
+
         <VideoEncoderSelect
           className="space-y-2"
           label={t("video_advance.encoder", "Encoder")}
@@ -66,7 +69,6 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           allowedEncoders={formatDefinition.video?.allowedEncoders}
         />
 
-
         <VideoBitrateSelect
           className="space-y-2"
           label={t("video_advance.bitrate", "Bitrate")}
@@ -75,6 +77,7 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           onValueChange={(v) => onChange?.({ video_bitrate: parseInt(v) })}
           maxBitrate={encoderDef.video?.maxBitrate}
         />
+
         <VideoResolutionSection
           label={t("settings.video.fields.resolution")}
           helpText={t("settings.video.fields.resolutionHelp")}

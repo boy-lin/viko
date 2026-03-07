@@ -163,6 +163,36 @@
         "resolutionHelp": "Resolution controls output dimensions. Higher values preserve detail but can increase file size and processing time.",
         "encoderHelp": "Encoder choice affects quality, speed, size, and compatibility. Choose based on format and usage needs."
       }
+    },
+    "gif": {
+      "fields": {
+        "frameRate": "Frame Rate",
+        "frameRateHelp": "Lower FPS reduces file size and motion smoothness.",
+        "loopCount": "Loop Count",
+        "loopCountHelp": "0 means infinite looping.",
+        "colors": "Colors",
+        "colorsHelp": "Fewer colors can significantly reduce GIF size.",
+        "dpi": "DPI",
+        "dpiHelp": "DPI affects print/display metadata, not pixel dimensions.",
+        "colorMode": "Color Mode",
+        "colorModeHelp": "Choose output palette model for compatibility and quality.",
+        "qualityHelp": "Lower values reduce size but may introduce artifacts.",
+        "preserveTransparency": "Preserve Transparency",
+        "preserveTransparencyHelp": "Keeps transparent pixels in output when possible.",
+        "preserveExtensions": "Preserve Extensions",
+        "preserveExtensionsHelp": "Retains metadata/extensions if encoder supports them.",
+        "sharpen": "Sharpen",
+        "sharpenHelp": "Adds edge contrast; can improve clarity but may increase noise.",
+        "denoise": "Denoise",
+        "denoiseHelp": "Reduces visual noise before encoding for better compression."
+      },
+      "placeholders": {
+        "quality": "1-100",
+        "frameRate": "e.g. 12",
+        "frameDelay": "e.g. 80",
+        "loopCount": "0 = infinite",
+        "colors": "2-256"
+      }
     }
   },
   "videoSimpleSettings": {

@@ -73,9 +73,9 @@ export function VideoResolutionSection({
           value={resolutionMode}
           onValueChange={(val) => {
             setResolutionMode(val);
-            if (val === "custom_size") {
-              onChange("1920x1080");
-            }
+            // if (val === "custom_size") {
+            //   onChange("1920x1080");
+            // }
           }}
         >
           {[
@@ -92,7 +92,7 @@ export function VideoResolutionSection({
                 value={opt.value}
                 id={opt.value}
               />
-              <span className="whitespace-nowrap">{opt.label}</span>
+              <span className="whitespace-nowrap text-sm">{opt.label}</span>
             </Label>
           ))}
         </RadioGroup>
@@ -162,12 +162,12 @@ export function VideoResolutionSection({
                         }}
                         className="flex flex-col items-start gap-2 rounded-xl bg-muted/40 hover:bg-muted/60 p-4"
                       >
-                          <div className="text-base font-semibold text-foreground truncate max-w-full" title={res.label}>
-                            {res.label}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {res.value.replace("x", "×")}
-                          </div>
+                        <div className="text-base font-semibold text-foreground truncate max-w-full" title={res.label}>
+                          {res.label}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {res.value.replace("x", "×")}
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -207,9 +207,9 @@ export function VideoResolutionSection({
                         }}
                         className="flex flex-col items-start gap-2 rounded-xl bg-muted/40 hover:bg-muted/60 p-4 text-left transition"
                       >
-                          <div className="text-base font-semibold text-foreground truncate max-w-full" title={res.label}>
-                            {res.label}
-                          </div>
+                        <div className="text-base font-semibold text-foreground truncate max-w-full" title={res.label}>
+                          {res.label}
+                        </div>
                         <div className="text-sm text-muted-foreground">
                           {normalizeResolution(res.value).replace("x", "×")}
                         </div>
