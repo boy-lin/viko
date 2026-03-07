@@ -25,8 +25,43 @@ function authHeaders() {
   return { Authorization: `Bearer ${TOKEN}` };
 }
 
+function formatFetchError(err) {
+  if (!(err instanceof Error)) return String(err);
+  const lines = [err.message];
+  let cause = err.cause;
+  let depth = 0;
+  while (cause && depth < 4) {
+    if (cause instanceof Error) {
+      const parts = [cause.message];
+      if ("code" in cause && cause.code) parts.push(`code=${cause.code}`);
+      if ("errno" in cause && cause.errno) parts.push(`errno=${cause.errno}`);
+      if ("syscall" in cause && cause.syscall) parts.push(`syscall=${cause.syscall}`);
+      if ("hostname" in cause && cause.hostname) parts.push(`host=${cause.hostname}`);
+      if ("address" in cause && cause.address) parts.push(`addr=${cause.address}`);
+      if ("port" in cause && cause.port) parts.push(`port=${cause.port}`);
+      lines.push(`cause: ${parts.join(" ")}`);
+      cause = cause.cause;
+    } else {
+      lines.push(`cause: ${String(cause)}`);
+      break;
+    }
+    depth += 1;
+  }
+  return lines.join("\n");
+}
+
+async function fetchOrThrow(url, init, label) {
+  try {
+    return await fetch(url, init);
+  } catch (err) {
+    throw new Error(
+      `[${label}] network request failed\nmethod=${init?.method ?? "GET"} url=${url}\n${formatFetchError(err)}`
+    );
+  }
+}
+
 async function requestJson(url, init) {
-  const resp = await fetch(url, init);
+  const resp = await fetchOrThrow(url, init, "requestJson");
   const text = await resp.text();
   let parsed = null;
   if (text) {
@@ -141,11 +176,15 @@ async function uploadOne(platform) {
     }
   }
 
-  const uploadResp = await fetch(uploadUrl, {
-    method: uploadMethod,
-    headers: uploadHeaders,
-    body: data,
-  });
+  const uploadResp = await fetchOrThrow(
+    uploadUrl,
+    {
+      method: uploadMethod,
+      headers: uploadHeaders,
+      body: data,
+    },
+    `${platform}:upload`
+  );
 
   if (!uploadResp.ok) {
     let errorBody = "";
@@ -189,6 +228,9 @@ async function uploadOne(platform) {
 }
 
 async function main() {
+  if (!API_BASE) {
+    throw new Error("UPDATER_API_BASE is required");
+  }
   requirePlatforms();
   if (ASSET_TYPE !== "updater" && ASSET_TYPE !== "installer") {
     throw new Error(

@@ -188,7 +188,7 @@ class Bridge {
     string,
     Set<(payload: unknown) => void>
   >();
-
+  videoFrameChannel: Channel<unknown> | null = null;
   private constructor() {
     if (Bridge.instance) {
       return Bridge.instance;

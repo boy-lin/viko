@@ -125,6 +125,112 @@ function runCapture(cmd, args, env = process.env) {
   });
 }
 
+function isAppleTarget(target) {
+  return target === "aarch64-apple-darwin" || target === "x86_64-apple-darwin";
+}
+
+function normalizeDiskDevice(dev) {
+  const m = dev.match(/^\/dev\/disk\d+/);
+  return m ? m[0] : dev;
+}
+
+function parseBusyDmgDevices(hdiInfoRaw) {
+  const lines = hdiInfoRaw.split(/\r?\n/);
+  const devices = new Set();
+  let sectionDevs = new Set();
+  let sectionHasTargetDmg = false;
+
+  const flushSection = () => {
+    if (sectionHasTargetDmg) {
+      for (const dev of sectionDevs) {
+        devices.add(normalizeDiskDevice(dev));
+      }
+    }
+    sectionDevs = new Set();
+    sectionHasTargetDmg = false;
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushSection();
+      continue;
+    }
+    if (trimmed.startsWith("/dev/disk")) {
+      const dev = trimmed.split(/\s+/)[0];
+      sectionDevs.add(dev);
+      continue;
+    }
+    if (
+      trimmed.includes("image-path:") &&
+      trimmed.includes("/src-tauri/target/") &&
+      trimmed.includes("/bundle/dmg/") &&
+      trimmed.includes("/rw.") &&
+      trimmed.endsWith(".dmg")
+    ) {
+      sectionHasTargetDmg = true;
+    }
+  }
+  flushSection();
+  return [...devices];
+}
+
+async function cleanupBusyDmgMounts() {
+  let info = "";
+  try {
+    const { out } = await runCapture("hdiutil", ["info"]);
+    info = out;
+  } catch (err) {
+    console.warn(`[local-release] skip dmg cleanup: cannot run hdiutil info (${String(err)})`);
+    return;
+  }
+
+  const devices = parseBusyDmgDevices(info);
+  if (devices.length === 0) return;
+
+  console.log(`[local-release] cleanup busy dmg mounts: ${devices.join(", ")}`);
+  for (const dev of devices) {
+    try {
+      await runCapture("hdiutil", ["detach", "-force", dev]);
+      console.log(`[local-release] detached ${dev}`);
+    } catch (err) {
+      console.warn(`[local-release] failed to detach ${dev}: ${String(err)}`);
+    }
+  }
+}
+
+function isDmgBusyBuildError(message) {
+  return (
+    message.includes("bundle_dmg.sh") ||
+    message.includes("Resource busy") ||
+    message.includes("hdiutil: couldn't unmount") ||
+    message.includes("The volume can’t be ejected")
+  );
+}
+
+async function runTauriBuildWithRetry(target) {
+  const args = ["tauri", "build", "--target", target, "--verbose"];
+  if (!isAppleTarget(target)) {
+    await run("pnpm", args);
+    return;
+  }
+
+  await cleanupBusyDmgMounts();
+  try {
+    await run("pnpm", args);
+    return;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!isDmgBusyBuildError(msg)) {
+      throw err;
+    }
+    console.warn("[local-release] mac dmg unmount busy detected, cleanup and retry once...");
+    await cleanupBusyDmgMounts();
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await run("pnpm", args);
+  }
+}
+
 async function walkFiles(dir) {
   const result = [];
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -271,7 +377,7 @@ async function main() {
   if (!opts.skipBuild) {
     await run("pnpm", ["install", "--frozen-lockfile"]);
     await run("pnpm", ["build"]);
-    await run("pnpm", ["tauri", "build", "--target", opts.target, "--verbose"]);
+    await runTauriBuildWithRetry(opts.target);
   }
 
   const { updaterPath, installerPath } = await resolveArtifacts(opts.target, meta);
