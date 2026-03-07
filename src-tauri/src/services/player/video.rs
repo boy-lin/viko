@@ -326,7 +326,6 @@ impl<E: EventEmitter> VideoPlayer<E> {
         runtime: &Runtime<E>,
     ) {
         let pts_secs = video_utils::frame_timestamp_secs(frame, loop_state.time_base);
-        Self::set_position(&runtime.current_position, pts_secs);
 
         let raw_audio_clock = runtime
             .audio_player
@@ -369,6 +368,10 @@ impl<E: EventEmitter> VideoPlayer<E> {
         } else {
             loop_state.last_frame_skipped = false;
         }
+
+        let current_position = Self::get_position(&runtime.current_position);
+        let stable_position = pts_secs.max(current_position);
+        Self::set_position(&runtime.current_position, stable_position);
 
         if loop_state.last_emit.elapsed() < runtime.frame_emit_interval {
             return;

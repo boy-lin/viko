@@ -280,6 +280,9 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
           const now = Date.now();
           const seekGuard = seekGuardRef.current;
           const guardActive = now < seekGuard.expiresAt;
+          if (!guardActive && seekGuard.expiresAt > 0) {
+            seekGuardRef.current = { target: 0, expiresAt: 0 };
+          }
           const isSeekRollback =
             guardActive &&
             state.position + SEEK_POSITION_TOLERANCE_SEC < seekGuard.target;
@@ -292,8 +295,6 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
             ) {
               seekGuardRef.current = { target: 0, expiresAt: 0 };
             }
-          } else if (!guardActive && seekGuard.expiresAt > 0) {
-            seekGuardRef.current = { target: 0, expiresAt: 0 };
           }
         }
         setDuration(state.duration);
