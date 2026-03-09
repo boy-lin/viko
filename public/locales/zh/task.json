@@ -194,6 +194,38 @@
       }
     }
   },
+  "denoise": {
+    "settings_title": "降噪设置",
+    "controls": {
+      "remove_low": {
+        "label": "去低频",
+        "desc": "抑制风噪、电流声等低频噪声。"
+      },
+      "remove_high": {
+        "label": "去高频",
+        "desc": "降低刺耳高频背景噪声。"
+      },
+      "fft_denoise": {
+        "label": "FFT 降噪",
+        "desc": "频域噪声估计，对连续噪音有效。"
+      },
+      "noise_gate": {
+        "label": "噪声门",
+        "desc": "静音段压噪，减少底噪残留。"
+      }
+    },
+    "fields": {
+      "low_cutoff_hz": "低频截止 (Hz)",
+      "high_cutoff_hz": "高频截止 (Hz)",
+      "fft_nr": "FFT 噪声降低 (nr)",
+      "fft_nf": "FFT 阈值 (nf)",
+      "gate_threshold": "门限"
+    },
+    "footer": {
+      "start_denoise": "开始降噪",
+      "denoise_all_failed": "批量降噪失败"
+    }
+  },
   "videoSimpleSettings": {
     "clarity": "清晰度",
     "mode": {

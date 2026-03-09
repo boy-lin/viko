@@ -48,6 +48,7 @@
     "audio": { "title": "音频处理", "desc": "音频转码、格式优化" },
     "image": { "title": "图片转换", "desc": "常用图片格式快速转换" },
     "compressor": { "title": "高效压缩", "desc": "压缩体积同时保持质量" },
+    "denoise": { "title": "音视频降噪", "desc": "快速去除常见背景噪声" },
     "batch": { "title": "批量处理", "desc": "批量转码/压缩更高效" },
     "metadata": { "title": "元数据编辑", "desc": "快速编辑媒体信息" },
     "tasks": { "title": "任务记录", "desc": "查看进行中/完成任务" },

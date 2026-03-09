@@ -1139,6 +1139,19 @@ pub struct AudioConversionArgs {
     pub use_ultra_fast_speed: Option<bool>,
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct DenoiseMediaArgs {
+    pub task_id: String,
+    pub input_path: String,
+    pub input_file_type: Option<String>,
+    pub output_path: Option<String>,
+    pub format: Option<String>,
+    pub engine: Option<String>,
+    pub filter: Option<crate::services::convert::denoise::DenoiseFilterConfig>,
+    pub use_hardware_acceleration: Option<bool>,
+    pub use_ultra_fast_speed: Option<bool>,
+}
+
 #[command]
 pub async fn get_audio_file_info(path: String) -> Result<serde_json::Value, String> {
     run_blocking("get_audio_file_info", move || {
@@ -1201,6 +1214,7 @@ pub async fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Re
         use_hardware_acceleration: args.use_hardware_acceleration,
         use_ultra_fast_speed: args.use_ultra_fast_speed,
         audio_tracks: args.audio_tracks,
+        audio_filter_spec: None,
     };
 
     let window_clone = window.clone();

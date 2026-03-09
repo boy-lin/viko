@@ -13,15 +13,15 @@
             "state": {
               "type": "canvas",
               "state": {
-                "file": "docs/video-convert-compress-flow.canvas",
+                "file": "docs/video-handleConvertAll-flow.canvas",
                 "viewState": {
-                  "x": 597.3540609137057,
-                  "y": -7.138324873096451,
-                  "zoom": -0.6828698501252963
+                  "x": 473.12121618004295,
+                  "y": 998.1255582222782,
+                  "zoom": -0.0480957733026911
                 }
               },
               "icon": "lucide-layout-dashboard",
-              "title": "video-convert-compress-flow"
+              "title": "video-handleConvertAll-flow"
             }
           }
         ]
@@ -188,28 +188,29 @@
   },
   "active": "945aabc281db3bf9",
   "lastOpenFiles": [
-    "src-tauri/target/debug/incremental/viko_lib-3f5kf0lpi0z2b/s-hgddb9jmoy-0h17b2x-7cimowhqsplgst257gdp8mp1y/work-products.bin",
-    "src-tauri/target/debug/incremental/viko_lib-3f5kf0lpi0z2b/s-hgddb9jmoy-0h17b2x-7cimowhqsplgst257gdp8mp1y/query-cache.bin",
-    "src-tauri/target/debug/incremental/viko_lib-3f5kf0lpi0z2b/s-hgddb9jmoy-0h17b2x-7cimowhqsplgst257gdp8mp1y/metadata.rmeta",
-    "src-tauri/target/debug/incremental/viko_lib-3f5kf0lpi0z2b/s-hgddb9jmoy-0h17b2x-7cimowhqsplgst257gdp8mp1y/f5g3atytxsn28092vynqe0vqq.o",
-    "src-tauri/target/debug/incremental/viko_lib-3f5kf0lpi0z2b/s-hgddb9jmoy-0h17b2x-7cimowhqsplgst257gdp8mp1y/f50h0w51u5nm40ffz3s6kphvk.o",
-    "src-tauri/target/debug/incremental/viko_lib-3f5kf0lpi0z2b/s-hgddb9jmoy-0h17b2x-7cimowhqsplgst257gdp8mp1y/f0dwln3e1jq1x9nem5h1b7qiq.o",
-    "src-tauri/target/debug/incremental/viko_lib-3f5kf0lpi0z2b/s-hgddb9jmoy-0h17b2x-7cimowhqsplgst257gdp8mp1y/ethb6sxhhwafucvp0jontzkgg.o",
-    "src-tauri/target/debug/incremental/viko_lib-3f5kf0lpi0z2b/s-hgddb9jmoy-0h17b2x-7cimowhqsplgst257gdp8mp1y/er7tjgq4hae1m7pn5dyspw0ej.o",
-    "src-tauri/target/debug/incremental/viko_lib-3f5kf0lpi0z2b/s-hgddb9jmoy-0h17b2x-7cimowhqsplgst257gdp8mp1y/eqltr3hmcmsnzdt848yu1vquj.o",
-    "src-tauri/target/debug/incremental/viko_lib-3f5kf0lpi0z2b/s-hgddb9jmoy-0h17b2x-7cimowhqsplgst257gdp8mp1y/eql1xdm4x8u2bfaagnyqh13ex.o",
-    "src-tauri/target/debug/incremental/viko_lib-3f5kf0lpi0z2b/s-hgddb9jmoy-0h17b2x-7cimowhqsplgst257gdp8mp1y/efr2qp2s9hct5z7u40y6ztpvj.o",
-    "public/images/img_404.jpg",
+    "src-tauri/target/debug/deps/rmetapH97Z2/full.rmeta",
+    "src-tauri/target/debug/deps/rmetapH97Z2",
+    "src-tauri/target/debug/deps/rmetaPDzJ9M/full.rmeta",
+    "src-tauri/target/debug/deps/rmetaPDzJ9M",
+    "src/pages/denoise/Untitled",
+    "src-tauri/target/debug/deps/rmetaZXWCaw/full.rmeta",
+    "src-tauri/target/debug/deps/rmetaZXWCaw",
+    "src/pages/denoise/DenoiseSettingsDialog.tsx",
+    "src-tauri/target/debug/deps/viko.bobferdamiq7fimywdog6o7km.0534a6l.rcgu.o",
+    "src-tauri/target/debug/deps/viko.53lhoxjk5v4pj2ccahoquejbl.0534a6l.rcgu.o",
+    "src-tauri/target/debug/deps/viko.bjkmrgkenowkj7m0xpfuwymng.0534a6l.rcgu.o",
+    "dist/assets/av-downloader-DliIKWD6.jpg",
+    "dist/assets/av-converter-8Fa43erK.jpg",
+    "dist/assets/av-compressor-BeZbAomD.jpg",
+    "docs/figurex-rust-ffmpeg-queue-arch.canvas",
+    "docs/video-handleConvertAll-flow.canvas",
     "docs/help.md",
     "docs/intro.md",
-    "docs/audio-compress-convert-flow.canvas",
     "docs/video-convert-compress-flow.canvas",
+    "public/images/img_404.jpg",
+    "docs/audio-compress-convert-flow.canvas",
     "docs/video-convert-compress-flow.md",
     "docs/figurex-arch.canvas",
-    "docs/figurex-rust-ffmpeg-queue-arch.canvas",
-    "dist/assets/av-downloader-DliIKWD6.jpg",
-    "dist/assets/av-compressor-BeZbAomD.jpg",
-    "dist/assets/av-converter-8Fa43erK.jpg",
     "dist/logo.png",
     "dist/ios/AppIcon.appiconset/icon-83.5@2x.png",
     "dist/ios/AppIcon.appiconset/icon-76@2x.png",

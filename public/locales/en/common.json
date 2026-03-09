@@ -33,6 +33,7 @@
     "converter_videos": "Video Converter",
     "converter_audios": "Audio Converter",
     "converter_images": "Image Converter",
+    "denoise": "Noise Reduction",
     "watermark": "Watermark Generator",
     "metadata": "Metadata Editor",
     "compressor_videos": "Video Compressor",

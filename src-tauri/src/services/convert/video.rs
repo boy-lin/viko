@@ -54,6 +54,7 @@ pub struct VideoConversionParams {
     // 多轨音频
     pub audio_tracks: Option<Vec<AudioTrackConfig>>,
     pub default_audio_params: Option<AudioEncodingParams>,
+    pub audio_filter_spec: Option<String>,
     // 兼容旧字段
     pub audio_encoder: Option<String>,
     pub use_hardware_acceleration: bool,
@@ -113,6 +114,7 @@ impl From<VideoConversionParams> for VideoPipelineResolveOptions {
             crop: params.crop,
             audio_tracks: params.audio_tracks,
             default_audio_params: params.default_audio_params,
+            audio_filter_spec: params.audio_filter_spec,
             audio_encoder: params.audio_encoder,
             use_hardware_acceleration: params.use_hardware_acceleration,
             use_ultra_fast_speed: params.use_ultra_fast_speed,
@@ -902,8 +904,13 @@ pub fn convert_video<E: TaskEmitter + Clone>(
                 );
                 continue;
             }
-            let proc =
-                AudioTrackProcessor::new(&ist, &mut octx, &track.encoding, global_start_time)?;
+            let proc = AudioTrackProcessor::new_with_filter(
+                &ist,
+                &mut octx,
+                &track.encoding,
+                global_start_time,
+                track.filter_spec.as_deref(),
+            )?;
             let idx = audio_processors.len();
             audio_map
                 .entry(track.source_stream_index)

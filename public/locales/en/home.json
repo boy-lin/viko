@@ -48,6 +48,7 @@
     "audio": { "title": "Audio processing", "desc": "Audio transcoding and optimization" },
     "image": { "title": "Image conversion", "desc": "Fast conversion for common image formats" },
     "compressor": { "title": "Efficient compression", "desc": "Shrink size while keeping quality" },
+    "denoise": { "title": "Noise reduction", "desc": "Quickly remove common background noise" },
     "batch": { "title": "Batch processing", "desc": "Faster batch convert/compress" },
     "metadata": { "title": "Metadata editing", "desc": "Quickly edit media info" },
     "tasks": { "title": "Tasks", "desc": "See ongoing and finished jobs" },

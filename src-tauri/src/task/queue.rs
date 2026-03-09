@@ -9,11 +9,12 @@ use tauri::AppHandle;
 
 use crate::commands::{
     AudioCompressionArgs, AudioConversionArgs, GifConversionArgs, ImageCompressionArgs,
-    VideoCompressionArgs, VideoConversionArgs,
+    DenoiseMediaArgs, VideoCompressionArgs, VideoConversionArgs,
 };
 use crate::events;
 use crate::events::TaskEmitter;
 use crate::services::convert::audio::{self, AudioConversionParams};
+use crate::services::convert::denoise;
 use crate::services::convert::gif::{self, GifConversionParams};
 use crate::services::convert::image::{self, ImageConversionParams};
 use crate::services::convert::video::{self, VideoConversionParams};
@@ -41,6 +42,8 @@ pub enum MediaTaskRequest {
     CompressImage(ImageCompressionArgs),
     #[serde(rename = "watermark")]
     Watermark(VideoConversionArgs),
+    #[serde(rename = "convert-denoise")]
+    ConvertDenoise(DenoiseMediaArgs),
 }
 
 static WORKER_RUNNING: AtomicBool = AtomicBool::new(false);
@@ -88,6 +91,7 @@ fn task_kind(task: &MediaTaskRequest) -> &'static str {
         MediaTaskRequest::CompressAudio(_) => "compress-audio",
         MediaTaskRequest::CompressImage(_) => "compress-image",
         MediaTaskRequest::Watermark(_) => "watermark",
+        MediaTaskRequest::ConvertDenoise(_) => "convert-denoise",
     }
 }
 
@@ -101,6 +105,7 @@ fn task_id(task: &MediaTaskRequest) -> Option<String> {
         MediaTaskRequest::CompressAudio(args) => Some(args.task_id.clone()),
         MediaTaskRequest::CompressImage(args) => Some(args.task_id.clone()),
         MediaTaskRequest::Watermark(args) => Some(args.task_id.clone()),
+        MediaTaskRequest::ConvertDenoise(args) => Some(args.task_id.clone()),
     }
 }
 
@@ -278,6 +283,7 @@ fn execute_task(app: &AppHandle, task: MediaTaskRequest) -> Result<(), String> {
         MediaTaskRequest::CompressAudio(args) => run_compress_audio(app, args),
         MediaTaskRequest::CompressImage(args) => run_compress_image(app, args),
         MediaTaskRequest::Watermark(args) => run_watermark_task(app, args),
+        MediaTaskRequest::ConvertDenoise(args) => run_convert_denoise(app, args),
     }
 }
 
@@ -322,6 +328,7 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
         use_hardware_acceleration: args.use_hardware_acceleration,
         use_ultra_fast_speed: args.use_ultra_fast_speed,
         audio_tracks: args.audio_tracks.clone(),
+        audio_filter_spec: None,
     };
 
     let file_type = args
@@ -381,6 +388,90 @@ fn is_image_extension(ext: &str) -> bool {
     )
 }
 
+fn is_audio_extension(ext: &str) -> bool {
+    matches!(
+        ext.to_lowercase().as_str(),
+        "mp3"
+            | "m4a"
+            | "wav"
+            | "flac"
+            | "ogg"
+            | "aac"
+            | "ac3"
+            | "mp2"
+            | "m4b"
+            | "ape"
+            | "caf"
+            | "aiff"
+            | "m4r"
+            | "amr"
+            | "opus"
+            | "wma"
+    )
+}
+
+fn is_video_extension(ext: &str) -> bool {
+    matches!(
+        ext.to_lowercase().as_str(),
+        "mp4"
+            | "mov"
+            | "mkv"
+            | "avi"
+            | "wmv"
+            | "webm"
+            | "flv"
+            | "3gp"
+            | "mpg"
+            | "mpeg"
+            | "vob"
+            | "ogv"
+            | "m4v"
+            | "ts"
+            | "m2ts"
+    )
+}
+
+fn resolve_denoise_media_type(
+    input_file_type: Option<&str>,
+    input_ext: Option<&str>,
+    format_ext: Option<&str>,
+) -> Option<String> {
+    if let Some(kind) = input_file_type {
+        let normalized = kind.trim().to_lowercase();
+        if normalized == "audio" || normalized == "video" {
+            return Some(normalized);
+        }
+    }
+
+    if let Some(ext) = input_ext {
+        if is_audio_extension(ext) {
+            return Some("audio".to_string());
+        }
+        if is_video_extension(ext) {
+            return Some("video".to_string());
+        }
+    }
+
+    if let Some(ext) = format_ext {
+        if is_audio_extension(ext) {
+            return Some("audio".to_string());
+        }
+        if is_video_extension(ext) {
+            return Some("video".to_string());
+        }
+    }
+
+    None
+}
+
+fn generate_denoise_output_path(input_path: &str, format: &str) -> String {
+    let path = Path::new(input_path);
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let candidate = parent.join(format!("{}_denoise.{}", stem, format));
+    crate::media_common::ensure_unique_output_path(&candidate.to_string_lossy())
+}
+
 fn run_watermark_task(app: &AppHandle, args: VideoConversionArgs) -> Result<(), String> {
     let input_ext = Path::new(&args.input_path)
         .extension()
@@ -412,6 +503,172 @@ fn run_watermark_task(app: &AppHandle, args: VideoConversionArgs) -> Result<(), 
     }
 
     run_convert_video_with_task_type(app, args, "watermark")
+}
+
+fn run_convert_denoise(app: &AppHandle, args: DenoiseMediaArgs) -> Result<(), String> {
+    let task_type = "convert-denoise";
+    let input_ext = Path::new(&args.input_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase());
+    let format_ext = args
+        .format
+        .as_ref()
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty());
+    let media_type = resolve_denoise_media_type(
+        args.input_file_type.as_deref(),
+        input_ext.as_deref(),
+        format_ext.as_deref(),
+    )
+    .ok_or_else(|| "仅支持音频/视频文件降噪".to_string())?;
+    let resolved_format = format_ext
+        .or_else(|| input_ext.clone())
+        .unwrap_or_else(|| {
+            if media_type == "video" {
+                "mp4".to_string()
+            } else {
+                "mp3".to_string()
+            }
+        });
+    let output_path = args
+        .output_path
+        .as_ref()
+        .filter(|path| !path.trim().is_empty())
+        .cloned()
+        .unwrap_or_else(|| generate_denoise_output_path(&args.input_path, &resolved_format));
+    let file_type = args
+        .input_file_type
+        .clone()
+        .unwrap_or_else(|| media_type.clone());
+    let start_time = get_millis();
+
+    record_history_start(
+        args.task_id.clone(),
+        task_type.into(),
+        media_type.clone(),
+        args.input_path.clone(),
+        output_path.clone(),
+        start_time,
+        &args,
+    );
+
+    let emitter = events::window_emitter(app, args.task_id.clone(), task_type.into(), file_type)?;
+    let engine = args
+        .engine
+        .as_deref()
+        .map(|value| value.trim().to_lowercase())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "ffmpeg".to_string());
+    if engine != "ffmpeg" {
+        let err = "AI 降噪暂未实现，请先使用 FFmpeg 降噪".to_string();
+        emitter.emit("error", None, None, Some(err.clone()));
+        record_history(
+            args.task_id.clone(),
+            task_type.into(),
+            media_type,
+            args.input_path.clone(),
+            output_path,
+            start_time,
+            Some(err),
+            args,
+            None,
+            None,
+        );
+        return Ok(());
+    }
+
+    let filter_spec = denoise::build_audio_filter_spec(args.filter.as_ref());
+    let use_hardware_acceleration = args.use_hardware_acceleration.unwrap_or(false);
+    let use_ultra_fast_speed = args.use_ultra_fast_speed.unwrap_or(false);
+
+    let (error, final_output_path, effective_params, output_size_hint) = if media_type == "audio" {
+        let params = AudioConversionParams {
+            input_path: args.input_path.clone(),
+            output_path: output_path.clone(),
+            format: Some(resolved_format.clone()),
+            codec: None,
+            bitrate: None,
+            sample_rate: None,
+            channels: None,
+            bit_depth: None,
+            quality: None,
+            use_hardware_acceleration: Some(use_hardware_acceleration),
+            use_ultra_fast_speed: Some(use_ultra_fast_speed),
+            audio_tracks: None,
+            audio_filter_spec: Some(filter_spec),
+        };
+        match audio::convert_audio(emitter.clone(), params) {
+            Ok(report) => (
+                None,
+                report.output_media.path.clone(),
+                serde_json::to_value(&report).ok(),
+                Some(report.output_media.size as i64),
+            ),
+            Err(e) => {
+                emitter.emit("error", None, None, Some(e.clone()));
+                (Some(e), output_path.clone(), serde_json::to_value(&args).ok(), None)
+            }
+        }
+    } else {
+        let params = VideoConversionParams {
+            input_path: args.input_path.clone(),
+            output_path: output_path.clone(),
+            format: Some(resolved_format.clone()),
+            video_encoder: None,
+            video_bitrate: None,
+            min_bitrate: None,
+            max_bitrate: None,
+            rc_mode: None,
+            crf: None,
+            resolution: None,
+            aspect_ratio: None,
+            scaling_mode: None,
+            frame_rate: None,
+            gop_size: None,
+            preset: None,
+            profile: None,
+            tune: None,
+            color_space: None,
+            color_range: None,
+            bit_depth: None,
+            crop: None,
+            audio_tracks: None,
+            default_audio_params: None,
+            audio_filter_spec: Some(filter_spec),
+            audio_encoder: None,
+            use_hardware_acceleration,
+            use_ultra_fast_speed,
+            watermark: None,
+        };
+        match video::convert_video(emitter.clone(), params) {
+            Ok(report) => (
+                None,
+                report.output_media.path.clone(),
+                serde_json::to_value(&report).ok(),
+                Some(report.output_media.size as i64),
+            ),
+            Err(e) => {
+                emitter.emit("error", None, None, Some(e.clone()));
+                (Some(e), output_path.clone(), serde_json::to_value(&args).ok(), None)
+            }
+        }
+    };
+
+    record_history(
+        args.task_id.clone(),
+        task_type.into(),
+        media_type,
+        args.input_path.clone(),
+        final_output_path,
+        start_time,
+        error,
+        args,
+        effective_params,
+        output_size_hint,
+    );
+
+    Ok(())
 }
 
 fn run_convert_video_with_task_type(
@@ -484,6 +741,7 @@ fn run_convert_video_with_task_type(
         audio_encoder: args.audio_encoder.clone(),
         use_hardware_acceleration: args.use_hardware_acceleration.unwrap_or(false),
         use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
+        audio_filter_spec: None,
         watermark: args.watermark.clone(),
     };
 

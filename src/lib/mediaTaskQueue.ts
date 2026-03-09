@@ -9,10 +9,8 @@ import {
   ConvertAudioTaskArgs,
   ConvertImageTaskArgs,
   ConvertGifTaskArgs,
+  DenoiseTaskArgs,
   WatermarkTaskArgs,
-  CompressVideoTaskArgs,
-  CompressAudioTaskArgs,
-  CompressImageTaskArgs,
 } from "./mediaTaskEvent";
 
 type TaskPriority = "high" | "normal" | "low";
@@ -23,21 +21,18 @@ type TaskStoreRoute =
   | "compressor-videos"
   | "compressor-images"
   | "compressor-audios"
+  | "denoise-media"
   | "watermark";
 
-type ConvertTaskRequest = {
+type TaskRequest = {
   type: MediaTaskType;
   args:
     | ConvertVideoTaskArgs
     | ConvertAudioTaskArgs
     | ConvertImageTaskArgs
     | ConvertGifTaskArgs
+    | DenoiseTaskArgs
     | WatermarkTaskArgs;
-};
-
-type CompressTaskRequest = {
-  type: MediaTaskType;
-  args: CompressVideoTaskArgs | CompressAudioTaskArgs | CompressImageTaskArgs;
 };
 
 class MediaTaskQueue {
@@ -64,8 +59,8 @@ class MediaTaskQueue {
     );
   }
 
-  async addConvertTasks(
-    tasks: ConvertTaskRequest[],
+  async addTasks(
+    tasks: TaskRequest[],
     priority: TaskPriority = "normal",
     route?: TaskStoreRoute,
   ): Promise<void> {
@@ -80,39 +75,11 @@ class MediaTaskQueue {
       if (route) {
         this.taskStoreRoutes.set(task.args.task_id, route);
       }
-      console.log("Adding convert task args", task.args);
+      console.log("Adding task args", task.args);
     });
 
     this.ensureEventListener();
-    this.trackTaskSubmit("tasks_submit_convert", tasks);
-    try {
-      await bridge.submitMediaTasks(tasks as unknown[], priority);
-    } catch (error) {
-      throw new Error(getBridgeErrorMessage(error, "任务提交失败"));
-    }
-  }
-
-  async addCompressTasks(
-    tasks: CompressTaskRequest[],
-    priority: TaskPriority = "normal",
-    route?: TaskStoreRoute,
-  ): Promise<void> {
-    tasks.forEach((task) => {
-      if (!task.args.output_path) {
-        throw new Error("Task output_path is required");
-      }
-      if (!task.args.task_id) {
-        throw new Error("Task ID is required");
-      }
-      this.pendingTaskIds.add(task.args.task_id);
-      if (route) {
-        this.taskStoreRoutes.set(task.args.task_id, route);
-      }
-      // console.log("Adding compress task args", JSON.stringify(task.args));
-      console.log("Adding compress task args", task.args);
-    });
-    this.ensureEventListener();
-    this.trackTaskSubmit("tasks_submit_compress", tasks);
+    this.trackTaskSubmit("tasks_submit", tasks);
     try {
       await bridge.submitMediaTasks(tasks as unknown[], priority);
     } catch (error) {
@@ -204,11 +171,42 @@ class MediaTaskQueue {
       file_type = FileType.Image;
     } else if (route === "compressor-audios") {
       file_type = FileType.Audio;
+    } else if (route === "denoise-media") {
+      file_type = payload.file_type;
     }
 
     // if (["error"].includes(event_type)) {
     console.log("Task event: " + event_type, payload);
     // }
+
+    if (task_type === MediaTaskType.ConvertDenoise) {
+      const { useDenoiseStore } = await import("@/pages/denoise/store");
+      const store = useDenoiseStore.getState();
+      const taskExists = store.taskIndexById[task_id] !== undefined;
+      if (!taskExists && event_type !== "complete") return;
+
+      if (event_type === "progress") {
+        store.updateTaskById(task_id, {
+          status: "processing",
+          progress: normalizedProgress,
+        });
+      } else if (event_type === "complete") {
+        store.updateTaskById(task_id, {
+          status: "finished",
+          progress: 100,
+        });
+        const { useAppStore } = await import("@/stores/app");
+        useAppStore.getState().incrementUnreadFinishedCount();
+      } else if (event_type === "error") {
+        store.updateTaskById(task_id, {
+          status: error_message === "Task cancelled" ? "idle" : "error",
+          progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
+          errorMessage:
+            error_message === "Task cancelled" ? undefined : error_message,
+        });
+      }
+      return;
+    }
 
     if (
       [
@@ -417,7 +415,7 @@ class MediaTaskQueue {
   }
 
   private trackTaskSubmit(
-    eventName: "tasks_submit_convert" | "tasks_submit_compress",
+    eventName: "tasks_submit",
     tasks: Array<{ type: MediaTaskType; args: unknown }>,
   ): void {
     analytics.track(eventName, {

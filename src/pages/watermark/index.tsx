@@ -196,7 +196,7 @@ export default function WatermarkPage() {
                     },
                 });
             });
-            await getMediaTaskQueue().addConvertTasks(tasks);
+            await getMediaTaskQueue().addTasks(tasks);
         } catch (e: any) {
             console.error(e);
             toast.error(t("messages.submitFailed", { message: e.message }));

@@ -24,6 +24,7 @@ export enum MenuItems {
   converterVideos = '/converter/videos',
   converterAudios = '/converter/audios',
   converterImages = '/converter/images',
+  denoise = '/denoise',
   compressorVideos = '/compressor/videos',
   compressorAudios = '/compressor/audios',
   compressorImages = '/compressor/images',
@@ -58,6 +59,13 @@ export const QUICK_ACCESS_CONFIG: QuickAccessItem[] = [
     color: "bg-indigo-50 text-indigo-600",
     activeGradient: "from-[#8B5CF6] to-[#6366F1]",
     href: MenuItems.converterImages,
+  },
+  {
+    label: "quick.denoise",
+    icon: ConversionAudioLinear,
+    color: "bg-emerald-50 text-emerald-600",
+    activeGradient: "from-[#10B981] to-[#059669]",
+    href: MenuItems.denoise,
   },
   {
     label: "quick.metadata",

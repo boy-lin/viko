@@ -129,7 +129,7 @@ const baseStoreCreator = createTaskStore<
       const useHw = settings.useHardwareAcceleration;
       const useUFS = settings.useUltraFastSpeed;
 
-      await getMediaTaskQueue().addConvertTasks(
+      await getMediaTaskQueue().addTasks(
         tasks.map((task) => {
           const outputDir = settings.getOutputDir(task.args.input_path);
           const outputTitle = resolveOutputTitle(task);

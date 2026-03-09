@@ -9,6 +9,7 @@ import {
   Gauge,
   FileText,
   FolderOpen,
+  Volume2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -48,6 +49,13 @@ const FEATURE_MAP: FeatureItem[] = [
     descKey: "common.compressor.desc",
     icon: Gauge,
     path: MenuItems.compressorVideos,
+  },
+  {
+    id: "denoise",
+    titleKey: "common.denoise.title",
+    descKey: "common.denoise.desc",
+    icon: Volume2,
+    path: MenuItems.denoise,
   },
   {
     id: "metadata",

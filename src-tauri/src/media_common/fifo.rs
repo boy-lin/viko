@@ -23,6 +23,60 @@ impl AudioFifo {
         )
     }
 
+    fn sample_to_f32(sample_format: format::Sample, raw: &[u8]) -> Option<f32> {
+        match sample_format {
+            format::Sample::U8(_) => raw.first().map(|v| (*v as f32 - 128.0) / 128.0),
+            format::Sample::I16(_) => {
+                if raw.len() < 2 {
+                    None
+                } else {
+                    Some(i16::from_ne_bytes([raw[0], raw[1]]) as f32 / i16::MAX as f32)
+                }
+            }
+            format::Sample::I32(_) => {
+                if raw.len() < 4 {
+                    None
+                } else {
+                    Some(
+                        i32::from_ne_bytes([raw[0], raw[1], raw[2], raw[3]]) as f32
+                            / i32::MAX as f32,
+                    )
+                }
+            }
+            format::Sample::I64(_) => {
+                if raw.len() < 8 {
+                    None
+                } else {
+                    Some(
+                        (i64::from_ne_bytes([
+                            raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7],
+                        ]) as f64
+                            / i64::MAX as f64) as f32,
+                    )
+                }
+            }
+            format::Sample::F32(_) => {
+                if raw.len() < 4 {
+                    None
+                } else {
+                    Some(f32::from_ne_bytes([raw[0], raw[1], raw[2], raw[3]]))
+                }
+            }
+            format::Sample::F64(_) => {
+                if raw.len() < 8 {
+                    None
+                } else {
+                    Some(
+                        f64::from_ne_bytes([
+                            raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7],
+                        ]) as f32,
+                    )
+                }
+            }
+            format::Sample::None => None,
+        }
+    }
+
     /// Create a new AudioFifo with the specified parameters
     pub fn new(
         target_format: format::Sample,
@@ -115,10 +169,40 @@ impl AudioFifo {
                 }
             }
             _ => {
-                // Fallback: treat as f32-packed bytes if unknown; prevents panic.
-                if frame.is_packed() {
-                    let data: &[f32] = frame.plane(0);
-                    self.producer.push_slice(data);
+                // Never call frame.plane::<T>() with unknown formats. Parse raw bytes safely.
+                let sample_size = sample_format.bytes();
+                if sample_size == 0 {
+                    return;
+                }
+
+                if packed {
+                    let bytes = frame.data(0);
+                    let expected = frame.samples() * channels;
+                    let available = bytes.len() / sample_size;
+                    let count = expected.min(available);
+                    for i in 0..count {
+                        let start = i * sample_size;
+                        let end = start + sample_size;
+                        if let Some(value) = Self::sample_to_f32(sample_format, &bytes[start..end]) {
+                            let _ = self.producer.push(value);
+                        }
+                    }
+                } else {
+                    let samples_per_channel = frame.samples();
+                    for ch in 0..channels.min(frame.planes()) {
+                        let bytes = frame.data(ch);
+                        let available = bytes.len() / sample_size;
+                        let count = samples_per_channel.min(available);
+                        for i in 0..count {
+                            let start = i * sample_size;
+                            let end = start + sample_size;
+                            if let Some(value) =
+                                Self::sample_to_f32(sample_format, &bytes[start..end])
+                            {
+                                let _ = self.producer.push(value);
+                            }
+                        }
+                    }
                 }
             }
         }

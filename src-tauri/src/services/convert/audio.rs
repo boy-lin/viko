@@ -9,7 +9,7 @@ use crate::events::TaskEmitter;
 use crate::media_common;
 pub use crate::media_common::audio_transcode::AudioEncodingParams;
 use crate::media_common::audio_transcode::{
-    AudioOutputSummary, AudioTranscodeTrack, build_transcode_track, run_audio_transcode,
+    AudioOutputSummary, AudioTranscodeTrack, build_transcode_track_with_filter, run_audio_transcode,
     try_stream_copy_audio,
 };
 use crate::services::ffmpeg::media_info::{self, MediaDetails, StreamDetails};
@@ -19,12 +19,15 @@ pub struct AudioTrackConfig {
     pub source_stream_index: Option<usize>,
     #[serde(flatten)]
     pub encoding: AudioEncodingParams,
+    #[serde(default)]
+    pub filter_spec: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 struct ResolvedAudioTrack {
     source_stream_index: usize,
     encoding: AudioEncodingParams,
+    filter_spec: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +68,7 @@ pub struct AudioConversionParams {
     pub use_hardware_acceleration: Option<bool>,
     pub use_ultra_fast_speed: Option<bool>,
     pub audio_tracks: Option<Vec<AudioTrackConfig>>,
+    pub audio_filter_spec: Option<String>,
 }
 
 fn resolve_format(params: &AudioConversionParams) -> String {
@@ -127,6 +131,7 @@ fn resolve_audio_tracks(
     input_audio_indices: &[usize],
     default_codec: &str,
     is_amr: bool,
+    default_filter_spec: Option<String>,
 ) -> Vec<ResolvedAudioTrack> {
     let mut default_encoding = AudioEncodingParams {
         codec: Some(default_codec.to_string()),
@@ -168,6 +173,7 @@ fn resolve_audio_tracks(
             resolved.push(ResolvedAudioTrack {
                 source_stream_index,
                 encoding,
+                filter_spec: cfg.filter_spec.clone().or(default_filter_spec.clone()),
             });
         }
         resolved
@@ -177,6 +183,7 @@ fn resolve_audio_tracks(
             .map(|&idx| ResolvedAudioTrack {
                 source_stream_index: idx,
                 encoding: default_encoding.clone(),
+                filter_spec: default_filter_spec.clone(),
             })
             .collect()
     }
@@ -216,6 +223,7 @@ pub fn convert_audio<E: TaskEmitter>(
         &input_audio_indices,
         &codec_name,
         is_amr,
+        params.audio_filter_spec.clone(),
     );
     if resolved_tracks.is_empty() {
         return Err("未解析出可用的音频轨道配置".to_string());
@@ -223,7 +231,13 @@ pub fn convert_audio<E: TaskEmitter>(
 
     let tracks: Vec<AudioTranscodeTrack> = resolved_tracks
         .iter()
-        .map(|track| build_transcode_track(track.source_stream_index, track.encoding.clone()))
+        .map(|track| {
+            build_transcode_track_with_filter(
+                track.source_stream_index,
+                track.encoding.clone(),
+                track.filter_spec.clone(),
+            )
+        })
         .collect();
 
     if try_stream_copy_audio(

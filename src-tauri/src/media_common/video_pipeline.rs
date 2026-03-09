@@ -1,5 +1,5 @@
 use crate::media_common::audio_transcode::{
-    build_transcode_track, AudioEncodingParams, AudioTrackConfig, AudioTranscodeTrack,
+    build_transcode_track_with_filter, AudioEncodingParams, AudioTrackConfig, AudioTranscodeTrack,
 };
 use crate::events::TaskEmitter;
 use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
@@ -33,6 +33,7 @@ pub struct VideoPipelineResolveOptions {
     pub crop: Option<String>,
     pub audio_tracks: Option<Vec<AudioTrackConfig>>,
     pub default_audio_params: Option<AudioEncodingParams>,
+    pub audio_filter_spec: Option<String>,
     pub audio_encoder: Option<String>,
     pub use_hardware_acceleration: bool,
     pub use_ultra_fast_speed: bool,
@@ -149,6 +150,7 @@ pub fn resolve_video_encoder(requested_encoder: Option<&str>, default_encoder: &
 
 pub fn resolve_audio_tracks_for_convert(
     default_audio_params: Option<AudioEncodingParams>,
+    default_filter_spec: Option<String>,
     legacy_audio_encoder: Option<&str>,
     explicit_tracks: Option<&[AudioTrackConfig]>,
     input_audio_indices: &[usize],
@@ -193,13 +195,23 @@ pub fn resolve_audio_tracks_for_convert(
                 bit_depth: cfg.encoding.bit_depth.or(default_encoding.bit_depth),
                 quality: cfg.encoding.quality.or(default_encoding.quality),
             };
-            resolved.push(build_transcode_track(src_idx, merged_encoding));
+            resolved.push(build_transcode_track_with_filter(
+                src_idx,
+                merged_encoding,
+                cfg.filter_spec.clone().or(default_filter_spec.clone()),
+            ));
         }
         resolved
     } else {
         input_audio_indices
             .iter()
-            .map(|&idx| build_transcode_track(idx, default_encoding.clone()))
+            .map(|&idx| {
+                build_transcode_track_with_filter(
+                    idx,
+                    default_encoding.clone(),
+                    default_filter_spec.clone(),
+                )
+            })
             .collect()
     }
 }
@@ -212,6 +224,7 @@ pub fn resolve_video_params_for_convert(
     let video_encoder = resolve_video_encoder(options.video_encoder.as_deref(), "h264");
     let audio_tracks = resolve_audio_tracks_for_convert(
         options.default_audio_params.clone(),
+        options.audio_filter_spec.clone(),
         options.audio_encoder.as_deref(),
         options.audio_tracks.as_deref(),
         input_audio_indices,

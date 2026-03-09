@@ -36,6 +36,22 @@ export interface AudioTrackConfig {
   channels?: number;
   bit_depth?: number;
   quality?: number;
+  filter_spec?: string;
+}
+
+export interface DenoiseFilterConfig {
+  remove_low?: boolean;
+  remove_high?: boolean;
+  fft_denoise?: boolean;
+  noise_gate?: boolean;
+  low_cutoff_hz?: number;
+  high_cutoff_hz?: number;
+  fft_nr?: number;
+  fft_nf?: number;
+  gate_threshold?: number;
+  gate_ratio?: number;
+  gate_attack_ms?: number;
+  gate_release_ms?: number;
 }
 
 /** 与 Rust TextWatermark 对应 */
@@ -162,6 +178,18 @@ export interface ConvertImageTaskArgs {
 export interface WatermarkTaskArgs extends ConvertVideoTaskArgs {
   /** Optional hint for backend dispatch. */
   input_file_type?: FileType;
+}
+
+export interface DenoiseTaskArgs {
+  task_id: string;
+  input_path: string;
+  input_file_type?: FileType;
+  output_path?: string;
+  format?: FormatEnum | string;
+  engine?: "ffmpeg" | "ai";
+  filter?: DenoiseFilterConfig;
+  use_hardware_acceleration?: boolean;
+  use_ultra_fast_speed?: boolean;
 }
 
 export interface CompressVideoTaskArgs {

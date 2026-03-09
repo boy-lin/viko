@@ -14,6 +14,7 @@ const CompressorImagePage = lazy(() => import("./pages/compressor/images"));
 const ConverterVideoPage = lazy(() => import("./pages/converter/videos"));
 const ConverterAudioPage = lazy(() => import("./pages/converter/audios"));
 const ConverterImagePage = lazy(() => import("./pages/converter/images"));
+const DenoisePage = lazy(() => import("./pages/denoise"));
 
 // const Mp3ConverterPage = lazy(() => import("./pages/demo/converter"));
 // const AudioTestPage = lazy(() => import("./pages/demo/AudioTestPage"));
@@ -73,6 +74,11 @@ const router = createHashRouter([
               { path: "audios", element: withSuspense(<ConverterAudioPage />) },
               { path: "images", element: withSuspense(<ConverterImagePage />) },
             ]
+          },
+          {
+            path: "denoise",
+            element: withSuspense(<DenoisePage />),
+            loader: preloadI18nNamespaces(["task"]),
           },
           {
             path: "my",

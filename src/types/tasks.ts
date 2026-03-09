@@ -5,6 +5,7 @@ export enum MediaTaskType {
   ConvertAudio = "convert-audio",
   ConvertGif = "convert-gif",
   ConvertImage = "convert-image",
+  ConvertDenoise = "convert-denoise",
   CompressVideo = "compress-video",
   CompressAudio = "compress-audio",
   CompressImage = "compress-image",

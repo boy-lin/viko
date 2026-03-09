@@ -195,6 +195,38 @@
       }
     }
   },
+  "denoise": {
+    "settings_title": "Denoise Settings",
+    "controls": {
+      "remove_low": {
+        "label": "Remove Low Frequency",
+        "desc": "Suppresses low-frequency noise such as wind and electrical hum."
+      },
+      "remove_high": {
+        "label": "Remove High Frequency",
+        "desc": "Reduces harsh high-frequency background noise."
+      },
+      "fft_denoise": {
+        "label": "FFT Denoise",
+        "desc": "Frequency-domain noise estimation, effective for continuous noise."
+      },
+      "noise_gate": {
+        "label": "Noise Gate",
+        "desc": "Attenuates silent segments to reduce residual background noise."
+      }
+    },
+    "fields": {
+      "low_cutoff_hz": "Low Cutoff (Hz)",
+      "high_cutoff_hz": "High Cutoff (Hz)",
+      "fft_nr": "FFT Noise Reduction (nr)",
+      "fft_nf": "FFT Threshold (nf)",
+      "gate_threshold": "Gate Threshold"
+    },
+    "footer": {
+      "start_denoise": "Start Denoise",
+      "denoise_all_failed": "Failed to denoise all tasks"
+    }
+  },
   "videoSimpleSettings": {
     "clarity": "Clarity",
     "mode": {

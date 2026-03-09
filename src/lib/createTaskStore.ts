@@ -99,14 +99,18 @@ const removeTaskAtIndex = <TTask extends TaskWithIndex>(
 const mergeTaskUpdate = <TTask extends TaskWithIndex>(
   current: TTask,
   updates: Partial<TTask>,
-): TTask => ({
-  ...current,
-  ...updates,
-  args: {
-    ...current.args,
-    ...((updates.args ?? {}) as Record<string, unknown>),
-  } as TTask["args"],
-});
+): TTask => {
+  const currentArgs = current.args;
+  const updatesArgs = updates.args || {};
+  return {
+    ...current,
+    ...updates,
+    args: {
+      ...currentArgs,
+      ...updatesArgs,
+    } as TTask["args"],
+  };
+};
 
 export function createTaskStore<
   TTask extends TaskWithIndex,

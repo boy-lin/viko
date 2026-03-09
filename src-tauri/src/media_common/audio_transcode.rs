@@ -1,5 +1,5 @@
 use crate::media_common::{self, AudioFifo};
-use ffmpeg::{codec, decoder, encoder, format, frame, packet, software, Rational};
+use ffmpeg::{codec, decoder, encoder, filter, format, frame, packet, software, Rational};
 use ffmpeg_next as ffmpeg;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -20,6 +20,8 @@ pub struct AudioTrackConfig {
     pub source_stream_index: Option<usize>,
     #[serde(flatten)]
     pub encoding: AudioEncodingParams,
+    #[serde(default)]
+    pub filter_spec: Option<String>,
 }
 
 pub struct AudioTrackProcessor {
@@ -27,6 +29,8 @@ pub struct AudioTrackProcessor {
     decoder: decoder::Audio,
     encoder: encoder::Audio,
     resampler: software::resampling::Context,
+    filter: Option<filter::Graph>,
+    filter_enabled: bool,
     fifo: Option<AudioFifo>,
     frame_size: usize,
     target_layout: ffmpeg::ChannelLayout,
@@ -56,6 +60,7 @@ pub struct AudioOutputSummary {
 pub struct AudioTranscodeTrack {
     pub source_stream_index: usize,
     pub encoding: AudioEncodingParams,
+    pub filter_spec: Option<String>,
 }
 
 pub fn build_transcode_track(
@@ -65,6 +70,19 @@ pub fn build_transcode_track(
     AudioTranscodeTrack {
         source_stream_index,
         encoding,
+        filter_spec: None,
+    }
+}
+
+pub fn build_transcode_track_with_filter(
+    source_stream_index: usize,
+    encoding: AudioEncodingParams,
+    filter_spec: Option<String>,
+) -> AudioTranscodeTrack {
+    AudioTranscodeTrack {
+        source_stream_index,
+        encoding,
+        filter_spec,
     }
 }
 
@@ -92,6 +110,15 @@ pub fn calc_audio_bitrate_from_kbps(
 }
 
 fn can_stream_copy_track(track: &AudioTranscodeTrack, ist: &format::stream::Stream) -> bool {
+    if track
+        .filter_spec
+        .as_ref()
+        .map(|s| !s.trim().is_empty() && s.trim() != "anull")
+        .unwrap_or(false)
+    {
+        return false;
+    }
+
     if track.encoding.bitrate.is_some()
         || track.encoding.sample_rate.is_some()
         || track.encoding.channels.is_some()
@@ -159,6 +186,57 @@ fn pick_audio_encoder(
     encoder::find(fallback_id).or_else(|| encoder::find_by_name(fallback_name))
 }
 
+fn build_audio_filter_graph(
+    sample_rate: u32,
+    sample_format: format::Sample,
+    channel_layout: ffmpeg::ChannelLayout,
+    frame_size: usize,
+    filter_spec: &str,
+) -> Result<filter::Graph, String> {
+    let mut graph = filter::Graph::new();
+    let args = format!(
+        "time_base=1/{sample_rate}:sample_rate={sample_rate}:sample_fmt={}:channel_layout=0x{:x}",
+        sample_format.name(),
+        channel_layout.bits()
+    );
+
+    graph
+        .add(
+            &filter::find("abuffer").ok_or("Failed to find abuffer filter")?,
+            "in",
+            &args,
+        )
+        .map_err(|e| format!("create audio filter source failed: {}", e))?;
+    graph
+        .add(
+            &filter::find("abuffersink").ok_or("Failed to find abuffersink filter")?,
+            "out",
+            "",
+        )
+        .map_err(|e| format!("create audio filter sink failed: {}", e))?;
+
+    {
+        let mut out = graph
+            .get("out")
+            .ok_or("Failed to get audio filter sink node")?;
+        out.set_sample_format(sample_format);
+        out.set_channel_layout(channel_layout);
+        out.set_sample_rate(sample_rate);
+        out.sink().set_frame_size(frame_size as u32);
+    }
+
+    graph
+        .output("in", 0)
+        .and_then(|p| p.input("out", 0))
+        .and_then(|p| p.parse(filter_spec))
+        .map_err(|e| format!("parse audio filter failed: {}", e))?;
+    graph
+        .validate()
+        .map_err(|e| format!("validate audio filter failed: {}", e))?;
+
+    Ok(graph)
+}
+
 impl AudioTrackProcessor {
     fn packet_diag(&self, encoded: &packet::Packet, ost_time_base: Rational) -> String {
         let codec_name = self
@@ -209,6 +287,16 @@ impl AudioTrackProcessor {
         octx: &mut format::context::Output,
         params: &AudioEncodingParams,
         start_time: i64,
+    ) -> Result<Self, String> {
+        Self::new_with_filter(ist, octx, params, start_time, None)
+    }
+
+    pub fn new_with_filter(
+        ist: &format::stream::Stream,
+        octx: &mut format::context::Output,
+        params: &AudioEncodingParams,
+        start_time: i64,
+        filter_spec: Option<&str>,
     ) -> Result<Self, String> {
         let source_stream_index = ist.index();
         let decoder_ctx = codec::context::Context::from_parameters(ist.parameters())
@@ -349,6 +437,23 @@ impl AudioTrackProcessor {
         )?;
 
         let frame_size = encoder.frame_size() as usize;
+        let effective_frame_size = if frame_size == 0 { 1024 } else { frame_size };
+
+        let filter_spec = filter_spec
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty() && *s != "anull");
+        let filter = if let Some(spec) = filter_spec {
+            Some(build_audio_filter_graph(
+                target_rate,
+                target_format,
+                target_layout,
+                effective_frame_size,
+                spec,
+            )?)
+        } else {
+            None
+        };
+
         let fifo = if frame_size > 0 {
             Some(AudioFifo::new(target_format, target_layout, target_rate))
         } else {
@@ -366,8 +471,10 @@ impl AudioTrackProcessor {
             decoder,
             encoder,
             resampler,
+            filter,
+            filter_enabled: filter_spec.is_some(),
             fifo,
-            frame_size: if frame_size == 0 { 1024 } else { frame_size },
+            frame_size: effective_frame_size,
             target_layout,
             target_format,
             target_rate,
@@ -456,11 +563,6 @@ impl AudioTrackProcessor {
                 continue;
             }
 
-            let keep_frame = frame_hook(&mut resampled)?;
-            if !keep_frame {
-                continue;
-            }
-
             if !self.first_pts_set {
                 if let Some(pts) = decoded.pts() {
                     let mut p = pts;
@@ -480,36 +582,116 @@ impl AudioTrackProcessor {
                 self.first_pts_set = true;
             }
 
-            if self.fifo.is_some() {
-                {
-                    // Push into FIFO first to avoid empty pops later.
-                    let fifo = self.fifo.as_mut().unwrap();
-                    fifo.push_frame(&resampled);
-                }
-                loop {
-                    let mut output_frame =
-                        frame::Audio::new(self.target_format, self.frame_size, self.target_layout);
-                    output_frame.set_rate(self.target_rate);
-                    let popped = {
-                        let fifo = self.fifo.as_mut().unwrap();
-                        if !fifo.has_samples(self.frame_size) {
-                            false
-                        } else {
-                            fifo.pop_into_frame(&mut output_frame, self.frame_size)
-                        }
-                    };
-                    if !popped {
-                        break;
-                    }
-                    output_frame.set_pts(Some(self.next_pts));
-                    self.next_pts += self.frame_size as i64;
-                    self.encode_and_write(&output_frame, ost_time_base, octx)?;
-                }
+            if self.filter_enabled {
+                self.add_frame_to_filter(&resampled)?;
+                self.drain_filter_to_encoder(ost_time_base, octx, &mut frame_hook)?;
             } else {
-                resampled.set_pts(Some(self.next_pts));
-                self.next_pts += resampled.samples() as i64;
-                self.encode_and_write(&resampled, ost_time_base, octx)?;
+                self.process_post_filter_frame(&mut resampled, ost_time_base, octx, &mut frame_hook)?;
             }
+        }
+        Ok(())
+    }
+
+    fn add_frame_to_filter(&mut self, frame: &frame::Audio) -> Result<(), String> {
+        let graph = self
+            .filter
+            .as_mut()
+            .ok_or("Audio filter graph not initialized")?;
+        graph
+            .get("in")
+            .ok_or("Audio filter source not found")?
+            .source()
+            .add(frame)
+            .map_err(|e| format!("audio filter source add frame failed: {}", e))
+    }
+
+    fn flush_filter(&mut self) -> Result<(), String> {
+        let graph = self
+            .filter
+            .as_mut()
+            .ok_or("Audio filter graph not initialized")?;
+        graph
+            .get("in")
+            .ok_or("Audio filter source not found")?
+            .source()
+            .flush()
+            .map_err(|e| format!("audio filter source flush failed: {}", e))
+    }
+
+    fn drain_filter_to_encoder<F>(
+        &mut self,
+        ost_time_base: Rational,
+        octx: &mut format::context::Output,
+        frame_hook: &mut F,
+    ) -> Result<(), String>
+    where
+        F: FnMut(&mut frame::Audio) -> Result<bool, String>,
+    {
+        let mut filtered = frame::Audio::empty();
+        loop {
+            let got_frame = {
+                let graph = self
+                    .filter
+                    .as_mut()
+                    .ok_or("Audio filter graph not initialized")?;
+                graph
+                    .get("out")
+                    .ok_or("Audio filter sink not found")?
+                    .sink()
+                    .frame(&mut filtered)
+                    .is_ok()
+            };
+            if !got_frame {
+                break;
+            }
+            self.process_post_filter_frame(&mut filtered, ost_time_base, octx, frame_hook)?;
+        }
+        Ok(())
+    }
+
+    fn process_post_filter_frame<F>(
+        &mut self,
+        frame: &mut frame::Audio,
+        ost_time_base: Rational,
+        octx: &mut format::context::Output,
+        frame_hook: &mut F,
+    ) -> Result<(), String>
+    where
+        F: FnMut(&mut frame::Audio) -> Result<bool, String>,
+    {
+        let keep_frame = frame_hook(frame)?;
+        if !keep_frame {
+            return Ok(());
+        }
+
+        if self.fifo.is_some() {
+            {
+                let fifo = self.fifo.as_mut().unwrap();
+                fifo.push_frame(frame);
+            }
+            loop {
+                let mut output_frame =
+                    frame::Audio::new(self.target_format, self.frame_size, self.target_layout);
+                output_frame.set_rate(self.target_rate);
+                let popped = {
+                    let fifo = self.fifo.as_mut().unwrap();
+                    if !fifo.has_samples(self.frame_size) {
+                        false
+                    } else {
+                        fifo.pop_into_frame(&mut output_frame, self.frame_size)
+                    }
+                };
+                if !popped {
+                    break;
+                }
+                output_frame.set_pts(Some(self.next_pts));
+                self.next_pts += self.frame_size as i64;
+                self.encode_and_write(&output_frame, ost_time_base, octx)?;
+            }
+        } else {
+            frame.set_pts(Some(self.next_pts));
+            self.next_pts += frame.samples() as i64;
+            self.encode_and_write(frame, ost_time_base, octx)?;
         }
         Ok(())
     }
@@ -519,6 +701,23 @@ impl AudioTrackProcessor {
         ost_time_base: Rational,
         octx: &mut format::context::Output,
     ) -> Result<(), String> {
+        self.finish_with(ost_time_base, octx, |_| Ok(true))
+    }
+
+    pub fn finish_with<F>(
+        &mut self,
+        ost_time_base: Rational,
+        octx: &mut format::context::Output,
+        mut frame_hook: F,
+    ) -> Result<(), String>
+    where
+        F: FnMut(&mut frame::Audio) -> Result<bool, String>,
+    {
+        if self.filter_enabled {
+            self.flush_filter()?;
+            self.drain_filter_to_encoder(ost_time_base, octx, &mut frame_hook)?;
+        }
+
         if let Some(fifo) = self.fifo.as_mut() {
             let remaining_samples = fifo.available_samples();
             if remaining_samples > 0 {
@@ -532,9 +731,7 @@ impl AudioTrackProcessor {
                 let copy_len = padded.len().min(data.len());
                 padded[..copy_len].copy_from_slice(&data[..copy_len]);
                 fifo.fill_frame(&mut output_frame, &padded, frame_samples);
-                output_frame.set_pts(Some(self.next_pts));
-                self.next_pts += frame_samples as i64;
-                self.encode_and_write(&output_frame, ost_time_base, octx)?;
+                self.process_post_filter_frame(&mut output_frame, ost_time_base, octx, &mut frame_hook)?;
             }
         }
 
@@ -670,7 +867,13 @@ where
             ));
         }
 
-        let processor = AudioTrackProcessor::new(&ist, octx, &track.encoding, start_time)?;
+        let processor = AudioTrackProcessor::new_with_filter(
+            &ist,
+            octx,
+            &track.encoding,
+            start_time,
+            track.filter_spec.as_deref(),
+        )?;
         let ost_time_base = octx
             .stream(processor.ost_index)
             .ok_or_else(|| format!("无法获取输出音频流: ost_index={}", processor.ost_index))?
@@ -732,7 +935,7 @@ where
 
     for (idx, processor) in processors.iter_mut().enumerate() {
         processor
-            .finish(ost_time_bases[idx], octx)
+            .finish_with(ost_time_bases[idx], octx, |frame| frame_hook(idx, frame))
             .map_err(|e| {
                 format!(
                     "结束音频流失败(ist={}): {}",

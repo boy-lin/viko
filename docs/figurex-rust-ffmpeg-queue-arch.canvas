@@ -1,16 +1,16 @@
 {
 	"nodes":[
-		{"id":"root","type":"text","text":"Target: Rust-side Task Queue + Scheduler + Executor + Storage","x":-120,"y":-260,"width":360,"height":100},
 		{"id":"ui","type":"text","text":"UI\n- ConverterFooter.handleConvertAll\n- stores (Converter/Compressor)\n- submit/query/render only","x":-480,"y":-100,"width":280,"height":160},
 		{"id":"bridge","type":"text","text":"Bridge API (src/lib/bridge.ts)\n- submit_tasks\n- query_task(s)\n- control_task (pause/cancel)\n- subscribe events","x":-500,"y":275,"width":300,"height":170},
-		{"id":"progress","type":"text","text":"Progress/Event Bus\n- media_task_event\n- progress/error/complete","x":120,"y":820,"width":260,"height":140},
-		{"id":"queue","type":"text","text":"Queue\n- priority\n- dedupe\n- concurrency limit\n- retry/backoff","x":680,"y":200,"width":240,"height":160},
-		{"id":"scheduler","type":"text","text":"Scheduler\n- pull pending\n- resource control\n- failure policy","x":460,"y":560,"width":240,"height":150},
-		{"id":"executor","type":"text","text":"Executor\n- ffmpeg orchestration\n- process lifecycle\n- timeout/cancel/cleanup","x":740,"y":535,"width":260,"height":160},
-		{"id":"ffmpeg","type":"text","text":"FFmpeg Process\n- convert_* / compress_*\n- unified params model","x":1040,"y":385,"width":240,"height":120},
-		{"id":"task-api","type":"text","text":"Task Service\n- validate/normalize args\n- generate TaskId\n- init task status\n- enqueue","x":120,"y":365,"width":300,"height":170},
-		{"id":"tauri-commands","type":"text","text":"Tauri Commands (src-tauri/src/commands.rs)\n- submit_task(s)\n- get_task / list_tasks\n- cancel / pause / resume\n- retry / delete","x":-50,"y":60,"width":320,"height":220},
-		{"id":"storage","type":"text","text":"Storage\n- tasks table\n- outputs table\n- logs/metrics\n- status transitions","x":500,"y":-60,"width":260,"height":180}
+		{"id":"root","type":"text","text":"Target: Rust-side Task Queue + Scheduler + Executor + Storage","x":-50,"y":-320,"width":360,"height":100},
+		{"id":"task-api","type":"text","text":"Task Service\n- validate/normalize args\n- generate TaskId\n- init task status\n- enqueue","x":0,"y":600,"width":300,"height":170},
+		{"id":"queue","type":"text","text":"Queue\n- priority\n- dedupe\n- concurrency limit\n- retry/backoff","x":360,"y":770,"width":240,"height":160},
+		{"id":"scheduler","type":"text","text":"Scheduler\n- pull pending\n- resource control\n- failure policy","x":120,"y":985,"width":240,"height":150},
+		{"id":"executor","type":"text","text":"Executor\n- ffmpeg orchestration\n- process lifecycle\n- timeout/cancel/cleanup","x":520,"y":1120,"width":260,"height":160},
+		{"id":"ffmpeg","type":"text","text":"FFmpeg Process\n- convert_* / compress_*\n- unified params model","x":540,"y":1560,"width":240,"height":120},
+		{"id":"storage","type":"text","text":"Storage\n- tasks table\n- outputs table\n- logs/metrics\n- status transitions","x":840,"y":590,"width":260,"height":180},
+		{"id":"tauri-commands","type":"text","text":"Tauri Commands (src-tauri/src/commands.rs)\n- submit_task(s)\n- get_task / list_tasks\n- cancel / pause / resume\n- retry / delete","x":-10,"y":250,"width":320,"height":220},
+		{"id":"progress","type":"text","text":"Progress/Event Bus\n- media_task_event\n- progress/error/complete","x":-110,"y":1280,"width":260,"height":140}
 	],
 	"edges":[
 		{"id":"e1","fromNode":"root","fromSide":"bottom","toNode":"ui","toSide":"right","label":"submit/render"},

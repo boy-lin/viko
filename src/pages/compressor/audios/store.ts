@@ -66,7 +66,7 @@ export const useCompressorStore = create<CompressorStore>(
       const useHw = settings.useHardwareAcceleration;
       const useUFS = settings.useUltraFastSpeed;
 
-      await getMediaTaskQueue().addCompressTasks(
+      await getMediaTaskQueue().addTasks(
         tasks.map((task) => {
           const outputDir = settings.getOutputDir(task.args.input_path);
           const outputTitle = task.outputTitle || extractFilenameFromPath(task.args.input_path);

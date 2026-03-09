@@ -125,6 +125,7 @@ fn task_kind(task: &MediaTaskRequest) -> &'static str {
         MediaTaskRequest::CompressAudio(_) => "compress-audio",
         MediaTaskRequest::CompressImage(_) => "compress-image",
         MediaTaskRequest::Watermark(_) => "watermark",
+        MediaTaskRequest::ConvertDenoise(_) => "convert-denoise",
     }
 }
 
@@ -138,6 +139,7 @@ fn task_id(task: &MediaTaskRequest) -> Option<&str> {
         MediaTaskRequest::CompressAudio(args) => Some(args.task_id.as_str()),
         MediaTaskRequest::CompressImage(args) => Some(args.task_id.as_str()),
         MediaTaskRequest::Watermark(args) => Some(args.task_id.as_str()),
+        MediaTaskRequest::ConvertDenoise(args) => Some(args.task_id.as_str()),
     }
 }
 
