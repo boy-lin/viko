@@ -80,6 +80,8 @@ export type BridgeEvents = {
     result: ThumbnailPayload | null;
     error?: string | null;
   };
+  "video-mse-stream-end": string;
+  "video-mse-stream-error": string;
 };
 
 type KnownEvent = keyof BridgeEvents;
@@ -168,6 +170,12 @@ export interface VideoPlayerOpenInput {
 export interface VideoPlayerSize {
   width: number;
   height: number;
+}
+
+export interface WebPlaybackPrepareResult {
+  playPath: string;
+  prepared: boolean;
+  reason: string;
 }
 
 class Bridge {
@@ -731,6 +739,45 @@ class Bridge {
   async videoPlayerClose(): Promise<void> {
     await this.invoke("video_player_close");
     this.videoFrameChannel = null;
+  }
+
+  async prepareVideoForWebPlayback(
+    path: string,
+  ): Promise<WebPlaybackPrepareResult> {
+    return this.invoke<WebPlaybackPrepareResult>(
+      "prepare_video_for_web_playback",
+      { path },
+    );
+  }
+
+  async videoMseStreamOpen(
+    path: string,
+    onChunk: (chunk: ArrayBuffer) => void,
+  ): Promise<void> {
+    const channel = new Channel<unknown>();
+    channel.onmessage = (payload) => {
+      if (payload instanceof ArrayBuffer) {
+        onChunk(payload);
+        return;
+      }
+      if (ArrayBuffer.isView(payload)) {
+        const view = payload;
+        onChunk(
+          view.buffer.slice(
+            view.byteOffset,
+            view.byteOffset + view.byteLength,
+          ) as ArrayBuffer,
+        );
+      }
+    };
+    await this.invoke("video_mse_stream_open", {
+      path,
+      chunkChannel: channel,
+    });
+  }
+
+  async videoMseStreamClose(): Promise<void> {
+    await this.invoke("video_mse_stream_close");
   }
 
   async audioPlayerOpen(path: string): Promise<string> {

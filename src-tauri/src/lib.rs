@@ -184,6 +184,9 @@ pub fn run() {
             crate::commands::video_player_get_size,
             crate::commands::video_player_close,
             crate::commands::video_player_set_volume,
+            crate::commands::prepare_video_for_web_playback,
+            crate::commands::video_mse_stream_open,
+            crate::commands::video_mse_stream_close,
             crate::commands::audio_player_open,
             crate::commands::audio_player_play,
             crate::commands::audio_player_pause,
@@ -293,6 +296,9 @@ pub fn run() {
             ));
             app.manage(std::sync::Mutex::new(
                 None::<crate::services::player::audio::AudioPlayer<crate::events::WindowEmitter>>,
+            ));
+            app.manage(std::sync::Mutex::new(
+                None::<crate::commands::VideoMseStreamSession>,
             ));
 
             log::info!("Tauri application setup completed");

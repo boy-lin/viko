@@ -1,4 +1,4 @@
-// Tauri 后端命令定义 - 使用 ffmpeg-next
+﻿// Tauri 后端命令定义 - 使用 ffmpeg-next
 // 注意：ffmpeg-next 需要在编译时链接 FFmpeg 库
 // 如果需要在运行时使用动态加载的 FFmpeg，需要：
 // 1. 设置环境变量指向 FFmpeg 库路径
@@ -8,27 +8,31 @@ use std::fs;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
+use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::command;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
 use tauri::State;
-use tauri::ipc::JavaScriptChannelId;
+use tauri::ipc::{InvokeResponseBody, JavaScriptChannelId};
 
 use ffmpeg_next as ffmpeg;
 
-use crate::events::{TaskEmitter, WindowEmitter};
+use crate::events::{MockEmitter, TaskEmitter, WindowEmitter};
 use crate::media_common;
 use crate::services::convert::audio::{self, AudioConversionParams};
 use crate::services::convert::gif;
+use crate::services::convert::video::{self as convert_video_service, VideoConversionParams};
 use crate::services::ffmpeg::media_info::{self, MediaDetails};
-use crate::services::media_probe::{self, MediaProbeResult};
+use crate::services::media_probe::{self, MediaProbeDetails, MediaProbeResult};
 use crate::services::media_tools::image_info;
 use crate::services::player::audio::AudioPlayer;
 use crate::services::player::video::{FrameChannel, PreviewSize, VideoPlayer};
@@ -822,6 +826,391 @@ fn parse_ffmpeg_args(
 pub type PlayerState = Mutex<Option<VideoPlayer<WindowEmitter>>>;
 pub type AudioPlayerState = Mutex<Option<AudioPlayer<WindowEmitter>>>;
 static AUDIO_OPEN_SEQ: AtomicU64 = AtomicU64::new(0);
+pub type VideoMseStreamState = Mutex<Option<VideoMseStreamSession>>;
+
+pub struct VideoMseStreamSession {
+    stop: Arc<AtomicBool>,
+    handle: Option<JoinHandle<()>>,
+}
+
+impl VideoMseStreamSession {
+    fn stop(mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
+fn resolve_ffmpeg_executable(app: &AppHandle) -> String {
+    if cfg!(target_os = "windows") {
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                let candidate = exe_dir.join("ffmpeg.exe");
+                if candidate.exists() {
+                    return candidate.to_string_lossy().to_string();
+                }
+            }
+        }
+
+        if let Ok(resource_dir) = app.path().resource_dir() {
+            let candidates = [
+                resource_dir.join("ffmpeg.exe"),
+                resource_dir.join("resources").join("ffmpeg.exe"),
+                resource_dir.join("ffmpeg").join("windows").join("ffmpeg.exe"),
+            ];
+            for candidate in candidates {
+                if candidate.exists() {
+                    return candidate.to_string_lossy().to_string();
+                }
+            }
+        }
+    }
+
+    "ffmpeg".to_string()
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebPlaybackPrepareResult {
+    pub play_path: String,
+    pub prepared: bool,
+    pub reason: String,
+}
+
+fn sanitize_stem(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for ch in input.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+            out.push(ch);
+        } else {
+            out.push('_');
+        }
+    }
+    if out.is_empty() {
+        "video".to_string()
+    } else {
+        out
+    }
+}
+
+fn normalize_codec(codec: &str) -> String {
+    codec.trim().to_lowercase()
+}
+
+fn should_prepare_for_web_playback(probe: &MediaProbeResult) -> (bool, String) {
+    let ext = probe.base.extension.trim().to_lowercase();
+    let container_ok = matches!(ext.as_str(), "mp4" | "m4v" | "mov");
+
+    let (video_codec, audio_codecs) = match &probe.details {
+        MediaProbeDetails::Video(details) => {
+            let mut video = details.video_codec.clone().unwrap_or_default();
+            let mut audios: Vec<String> = Vec::new();
+            for s in &details.streams {
+                if s.codec_type == "video" && video.is_empty() {
+                    video = s.codec_name.clone();
+                } else if s.codec_type == "audio" {
+                    audios.push(s.codec_name.clone());
+                }
+            }
+            (video, audios)
+        }
+        _ => (String::new(), Vec::new()),
+    };
+
+    let video_codec_norm = normalize_codec(&video_codec);
+    let video_ok = matches!(video_codec_norm.as_str(), "h264" | "avc1" | "libx264");
+
+    let audio_ok = audio_codecs.is_empty()
+        || audio_codecs.iter().all(|codec| {
+            matches!(
+                normalize_codec(codec).as_str(),
+                "aac" | "mp3" | "opus" | "vorbis" | "mp4a" | "mp4a.40.2"
+            )
+        });
+
+    let reason = format!(
+        "container={} video_codec={} audio_codecs={}",
+        ext,
+        if video_codec.is_empty() {
+            "unknown".to_string()
+        } else {
+            video_codec
+        },
+        if audio_codecs.is_empty() {
+            "none".to_string()
+        } else {
+            audio_codecs.join(",")
+        }
+    );
+
+    let need_prepare = !(container_ok && video_ok && audio_ok);
+    (need_prepare, reason)
+}
+
+fn build_web_cache_output_path(input_path: &str) -> Result<PathBuf, String> {
+    let source_path = Path::new(input_path);
+    let metadata = fs::metadata(source_path)
+        .map_err(|e| format!("[PLAYER_PREPARE] read source metadata failed: {}", e))?;
+    let modified_secs = metadata
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or_default();
+    let source_size = metadata.len();
+
+    let stem = source_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(sanitize_stem)
+        .unwrap_or_else(|| "video".to_string());
+
+    let cache_dir = std::env::temp_dir().join("figurex-web-playback-cache");
+    fs::create_dir_all(&cache_dir)
+        .map_err(|e| format!("[PLAYER_PREPARE] create cache dir failed: {}", e))?;
+
+    Ok(cache_dir.join(format!(
+        "{}-{}-{}.mp4",
+        stem, source_size, modified_secs
+    )))
+}
+
+fn is_valid_web_cache_mp4(path: &Path) -> bool {
+    let meta = match fs::metadata(path) {
+        Ok(m) => m,
+        Err(_) => return false,
+    };
+    if meta.len() < 4096 {
+        return false;
+    }
+
+    let path_str = path.to_string_lossy().to_string();
+    let probe = match media_probe::probe_media_details(&path_str) {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+    let (need_prepare, _) = should_prepare_for_web_playback(&probe);
+    !need_prepare
+}
+
+#[command]
+pub async fn prepare_video_for_web_playback(path: String) -> Result<WebPlaybackPrepareResult, String> {
+    run_blocking("prepare_video_for_web_playback", move || {
+        let probe = media_probe::probe_media_details(&path)?;
+        let (need_prepare, probe_reason) = should_prepare_for_web_playback(&probe);
+
+        if !need_prepare {
+            return Ok(WebPlaybackPrepareResult {
+                play_path: path.clone(),
+                prepared: false,
+                reason: format!("native-compatible: {}", probe_reason),
+            });
+        }
+
+        let out_path = build_web_cache_output_path(&path)?;
+        let need_rebuild_cache = !is_valid_web_cache_mp4(&out_path);
+        if need_rebuild_cache {
+            if out_path.exists() {
+                let _ = fs::remove_file(&out_path);
+            }
+            let params = VideoConversionParams {
+                input_path: path.clone(),
+                output_path: out_path.to_string_lossy().to_string(),
+                format: Some("mp4".to_string()),
+                video_encoder: Some("h264".to_string()),
+                video_bitrate: Some(2200),
+                min_bitrate: None,
+                max_bitrate: None,
+                rc_mode: Some("bitrate".to_string()),
+                crf: None,
+                resolution: Some("original".to_string()),
+                frame_rate: Some("original".to_string()),
+                aspect_ratio: None,
+                scaling_mode: None,
+                gop_size: Some(30),
+                preset: Some("veryfast".to_string()),
+                profile: None,
+                tune: None,
+                color_space: None,
+                color_range: None,
+                bit_depth: Some(8),
+                crop: None,
+                audio_tracks: None,
+                default_audio_params: None,
+                audio_filter_spec: None,
+                audio_encoder: Some("aac".to_string()),
+                use_hardware_acceleration: true,
+                use_ultra_fast_speed: true,
+                watermark: None,
+            };
+
+            let emitter = MockEmitter::new();
+            convert_video_service::convert_video(emitter, params)
+                .map_err(|e| format!("[PLAYER_PREPARE] transcode to web mp4 failed: {}", e))?;
+        }
+
+        Ok(WebPlaybackPrepareResult {
+            play_path: out_path.to_string_lossy().to_string(),
+            prepared: true,
+            reason: format!("prepared-web-mp4: {}", probe_reason),
+        })
+    })
+    .await
+}
+
+#[command]
+pub async fn video_mse_stream_open(
+    app: AppHandle,
+    path: String,
+    chunk_channel: JavaScriptChannelId,
+    stream_state: State<'_, VideoMseStreamState>,
+) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or("[MSE_STREAM] main window not found")?;
+    let channel = chunk_channel.channel_on(window.as_ref().clone());
+
+    if let Ok(mut guard) = stream_state.lock() {
+        if let Some(session) = guard.take() {
+            session.stop();
+        }
+    }
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let stop_clone = Arc::clone(&stop);
+    let ffmpeg_path = resolve_ffmpeg_executable(&app);
+
+    let handle = std::thread::spawn(move || {
+        let mut child = match Command::new(&ffmpeg_path)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                &path,
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-tune",
+                "zerolatency",
+                "-profile:v",
+                "baseline",
+                "-level:v",
+                "3.1",
+                "-g",
+                "30",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "128k",
+                "-movflags",
+                "+frag_keyframe+empty_moov+default_base_moof",
+                "-f",
+                "mp4",
+                "-",
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(err) => {
+                let _ = window.emit(
+                    "video-mse-stream-error",
+                    format!("[MSE_STREAM] failed to start ffmpeg: {}", err),
+                );
+                return;
+            }
+        };
+
+        let Some(mut stdout) = child.stdout.take() else {
+            let _ = window.emit(
+                "video-mse-stream-error",
+                "[MSE_STREAM] ffmpeg stdout unavailable".to_string(),
+            );
+            let _ = child.kill();
+            let _ = child.wait();
+            return;
+        };
+
+        let stderr_text: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
+        if let Some(mut stderr) = child.stderr.take() {
+            let stderr_text_clone = Arc::clone(&stderr_text);
+            let _ = std::thread::spawn(move || {
+                let mut s = String::new();
+                let _ = stderr.read_to_string(&mut s);
+                if let Ok(mut guard) = stderr_text_clone.lock() {
+                    *guard = s;
+                }
+            });
+        }
+
+        let mut buf = vec![0_u8; 64 * 1024];
+        loop {
+            if stop_clone.load(Ordering::Relaxed) {
+                let _ = child.kill();
+                let _ = child.wait();
+                break;
+            }
+
+            match stdout.read(&mut buf) {
+                Ok(0) => {
+                    let _ = child.wait();
+                    let _ = window.emit("video-mse-stream-end", "eos");
+                    break;
+                }
+                Ok(n) => {
+                    let chunk = buf[..n].to_vec();
+                    let _ = channel.send(InvokeResponseBody::Raw(chunk));
+                }
+                Err(err) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    let stderr_buf = stderr_text
+                        .lock()
+                        .ok()
+                        .map(|s| s.clone())
+                        .unwrap_or_default();
+                    let _ = window.emit(
+                        "video-mse-stream-error",
+                        format!(
+                            "[MSE_STREAM] read stdout failed: {}{}",
+                            err,
+                            if stderr_buf.is_empty() {
+                                String::new()
+                            } else {
+                                format!(" | ffmpeg: {}", stderr_buf)
+                            }
+                        ),
+                    );
+                    break;
+                }
+            }
+        }
+    });
+
+    *stream_state.lock().unwrap() = Some(VideoMseStreamSession {
+        stop,
+        handle: Some(handle),
+    });
+
+    Ok(())
+}
+
+#[command]
+pub async fn video_mse_stream_close(
+    stream_state: State<'_, VideoMseStreamState>,
+) -> Result<(), String> {
+    let mut guard = stream_state.lock().unwrap();
+    if let Some(session) = guard.take() {
+        session.stop();
+    }
+    Ok(())
+}
 
 #[command]
 pub async fn video_player_open(

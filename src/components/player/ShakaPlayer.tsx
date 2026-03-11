@@ -1,29 +1,8 @@
-// Shaka Player 风格的现代化视频播放器组件
-import React, { useRef, useEffect, useState, useCallback } from "react";
+﻿import React, { useCallback, useEffect, useRef, useState } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
+
 import { bridge } from "@/lib/bridge";
-import { getBridgeErrorMessage } from "@/lib/bridgeError";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import { PlayIcon } from "@/components/icons/play";
-import { PauseIcon } from "@/components/icons/pause";
-import { VolumeIcon } from "@/components/icons/volume";
-import { VolumeMutedIcon } from "@/components/icons/volume-muted";
-import { SkipBackIcon } from "@/components/icons/skip-back";
-import { SkipForwardIcon } from "@/components/icons/skip-forward";
-import { FullscreenIcon } from "@/components/icons/fullscreen";
-import { FullscreenExitIcon } from "@/components/icons/fullscreen-exit";
-import { SettingsIcon } from "@/components/icons/settings";
+import type { MediaDetailsWithResolve } from "@/types/tasks";
 import { cn } from "@/lib/utils";
 
 interface ShakaPlayerProps {
@@ -34,456 +13,568 @@ interface ShakaPlayerProps {
   showControls?: boolean;
 }
 
-type FrameImageDataCache = {
-  width: number;
-  height: number;
-  imageData: ImageData;
-};
+type PlaybackMode = "mse" | "direct";
 
-const SEEK_GUARD_MS = 2000;
-const SEEK_POSITION_TOLERANCE_SEC = 0.08;
+const MIME_CANDIDATES = [
+  'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+  'video/mp4; codecs="avc1.64001F, mp4a.40.2"',
+  'video/mp4; codecs="avc1.4D401F, mp4a.40.2"',
+  'video/mp4; codecs="avc1.42E01E"',
+  "video/mp4",
+] as const;
+const BUFFER_KEEP_BACK_SECONDS = 30;
+const BUFFER_EVICT_HEADROOM_SECONDS = 10;
 
-// 格式化时间
+function canUseMse() {
+  return typeof window !== "undefined" && "MediaSource" in window;
+}
+
+function pickSupportedMimeType() {
+  if (!canUseMse()) return undefined;
+  return MIME_CANDIDATES.find((mime) => MediaSource.isTypeSupported(mime));
+}
+
 function formatTime(seconds: number): string {
-  if (!isFinite(seconds) || seconds < 0) return "00:00";
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
+  if (!Number.isFinite(seconds) || seconds < 0) return "00:00";
+  const total = Math.floor(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
-  if (hours > 0) {
-    return `${hours}:${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
-  }
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
+function normalizeCodec(codec: string) {
+  return codec.trim().toLowerCase();
+}
+
+function shouldTranscodeForWebPlayback(details: MediaDetailsWithResolve | null, path: string) {
+  const ext = (details?.extension || path.split(".").pop() || "").toLowerCase();
+  const containerOk = ext === "mp4" || ext === "m4v" || ext === "mov";
+
+  const videoStream = details?.streams.find((s) => s.codec_type === "video");
+  const audioStreams = details?.streams.filter((s) => s.codec_type === "audio") ?? [];
+
+  const videoCodec = normalizeCodec(videoStream?.codec_name || "");
+  const videoOk = videoCodec === "h264" || videoCodec === "avc1" || videoCodec === "libx264";
+
+  const audioOk =
+    audioStreams.length === 0 ||
+    audioStreams.every((s) => {
+      const c = normalizeCodec(s.codec_name || "");
+      return c === "aac" || c === "mp3" || c === "opus" || c === "vorbis" || c === "mp4a" || c === "mp4a.40.2";
+    });
+
+  return !(containerOk && videoOk && audioOk);
+}
+
+function isWhitelistedForMse(path: string) {
+  const lower = path.toLowerCase();
+  return (
+    lower.endsWith(".fmp4.mp4") ||
+    lower.endsWith(".frag.mp4") ||
+    lower.endsWith(".mse.mp4")
+  );
 }
 
 export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
   filePath,
   className,
   autoPlay = false,
-  showControls: initialShowControls = true,
+  showControls = true,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const progressBarRef = useRef<HTMLDivElement>(null);
-  const [previewSize, setPreviewSize] = useState<{
-    width: number;
-    height: number;
-  }>({
-    width: 640,
-    height: 360,
-  });
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentPosition, setCurrentPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaSourceRef = useRef<MediaSource | null>(null);
+  const sourceBufferRef = useRef<SourceBuffer | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const queueRef = useRef<Uint8Array[]>([]);
+  const sourceEndedRef = useRef(false);
+  const streamFinishedRef = useRef(false);
+  const appendingRef = useRef(false);
+  const mseDisabledRef = useRef(false);
+  const lastFilePathRef = useRef("");
+  const sessionIdRef = useRef(0);
+  const mseEventDisposersRef = useRef<Array<() => void>>([]);
+  const msePipelineTokenRef = useRef(0);
+
   const [isLoading, setIsLoading] = useState(false);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [showControls, setShowControls] = useState(initialShowControls);
-  const [isHovering, setIsHovering] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [error, setError] = useState("");
-  const lastInitKeyRef = useRef<string>("");
-  const frameSizeRef = useRef<{ width: number; height: number }>({
-    width: 0,
-    height: 0,
-  });
-  const latestFrameRef = useRef<ArrayBuffer | null>(null);
-  const rafIdRef = useRef<number | null>(null);
-  const imageDataCacheRef = useRef<FrameImageDataCache | null>(null);
-  const cacheValueRef = useRef<{
-    duration: number;
-    isDragging: boolean;
-  }>({
-    duration: 0,
-    isDragging: false,
-  });
-  const seekGuardRef = useRef<{
-    target: number;
-    expiresAt: number;
-  }>({
-    target: 0,
-    expiresAt: 0,
-  });
+  const [mode, setMode] = useState<PlaybackMode>("direct");
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [playbackPath, setPlaybackPath] = useState("");
 
-  useEffect(() => {
-    cacheValueRef.current.duration = duration;
-  }, [duration]);
-
-  useEffect(() => {
-    cacheValueRef.current.isDragging = isDragging;
-  }, [isDragging]);
-
-  const stopFrameRenderLoop = useCallback(() => {
-    if (rafIdRef.current !== null) {
-      cancelAnimationFrame(rafIdRef.current);
-      rafIdRef.current = null;
-    }
-    latestFrameRef.current = null;
-    imageDataCacheRef.current = null;
-  }, []);
-
-  const startFrameRenderLoop = useCallback(() => {
-    if (rafIdRef.current !== null) return;
-    const draw = () => {
-      rafIdRef.current = requestAnimationFrame(draw);
-
-      const frameBuffer = latestFrameRef.current;
-      if (!frameBuffer) return;
-      latestFrameRef.current = null;
-
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const { width, height } = frameSizeRef.current;
-      if (!width || !height) return;
-
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-        imageDataCacheRef.current = null;
-      }
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      let cache = imageDataCacheRef.current;
-      if (!cache || cache.width !== width || cache.height !== height) {
-        cache = { width, height, imageData: new ImageData(width, height) };
-        imageDataCacheRef.current = cache;
-      }
-
-      const source = new Uint8ClampedArray(frameBuffer);
-      if (source.length !== cache.imageData.data.length) return;
-      cache.imageData.data.set(source);
-      ctx.putImageData(cache.imageData, 0, 0);
-    };
-    rafIdRef.current = requestAnimationFrame(draw);
-  }, []);
-
-  // 根据容器尺寸更新预览目标分辨率
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node) return;
-
-    const updateSize = () => {
-      const rect = node.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        const maxW = 1280;
-        const maxH = 720;
-        const w = Math.round(Math.min(rect.width, maxW));
-        const h = Math.round(Math.min(rect.height, maxH));
-        const next = { width: w, height: h };
-        setPreviewSize((prev) =>
-          prev.width === next.width && prev.height === next.height ? prev : next
-        );
-      }
-    };
-
-    updateSize();
-    window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
-  }, []);
-
-  // 初始化视频播放器
-  useEffect(() => {
-    if (
-      !filePath ||
-      filePath === "undefined" ||
-      previewSize.width <= 0 ||
-      previewSize.height <= 0
-    ) {
-      return;
-    }
-
-    const initKey = `${filePath}-${previewSize.width}x${previewSize.height}`;
-    if (lastInitKeyRef.current === initKey) {
-      return;
-    }
-    lastInitKeyRef.current = initKey;
-
-    const initPlayer = async () => {
-      try {
-        setIsLoading(true);
-        latestFrameRef.current = null;
-        imageDataCacheRef.current = null;
-        await bridge.videoPlayerOpen(
-          {
-            path: filePath,
-            preview: {
-              width: previewSize.width,
-              height: previewSize.height,
-            },
-          },
-          (frameBuffer) => {
-            latestFrameRef.current = frameBuffer;
-          }
-        );
-        const size = await bridge.videoPlayerGetSize();
-        frameSizeRef.current = size;
-        if (canvasRef.current) {
-          canvasRef.current.width = size.width;
-          canvasRef.current.height = size.height;
-        }
-        startFrameRenderLoop();
-        const dur = await bridge.videoPlayerGetDuration();
-        setDuration(dur);
-        if (autoPlay) {
-          await bridge.videoPlayerPlay();
-          setIsPlaying(true);
-        }
-        setError("");
-      } catch (error) {
-        setError(getBridgeErrorMessage(error, "初始化视频播放器失败"));
-        console.error("初始化视频播放器失败:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initPlayer();
-
-    return () => {
-      stopFrameRenderLoop();
-      bridge.videoPlayerClose().catch(console.error);
-    };
-  }, [filePath, previewSize, autoPlay, startFrameRenderLoop, stopFrameRenderLoop]);
-
-  // 监听播放器状态事件
-  useEffect(() => {
-    if (!filePath) return;
-    let unlistenComplete: (() => void) | undefined;
-    let unlistenState: (() => void) | undefined;
-
-    bridge
-      .on("video-complete", () => {
-        setIsPlaying(false);
-        setCurrentPosition(cacheValueRef.current.duration);
-      })
-      .then((off) => {
-        unlistenComplete = off;
+  const playVideoElement = useCallback(
+    (video: HTMLVideoElement) => {
+      if (!autoPlay) return;
+      void video.play().catch(() => {
+        // autoplay may be blocked
       });
+    },
+    [autoPlay],
+  );
 
-    bridge
-      .on("player-state-update", (payload) => {
-        if (!payload || typeof payload !== "object") return;
-        const state = payload as {
-          position: number;
-          duration: number;
-          state: string;
-          volume: number;
-        };
+  const cleanupMse = useCallback(() => {
+    msePipelineTokenRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    queueRef.current = [];
+    appendingRef.current = false;
+    sourceEndedRef.current = false;
+    streamFinishedRef.current = false;
+    void bridge.videoMseStreamClose().catch(() => {});
+    mseEventDisposersRef.current.forEach((dispose) => {
+      try {
+        dispose();
+      } catch {
+        // ignore
+      }
+    });
+    mseEventDisposersRef.current = [];
 
-        if (!cacheValueRef.current.isDragging) {
-          const now = Date.now();
-          const seekGuard = seekGuardRef.current;
-          const guardActive = now < seekGuard.expiresAt;
-          if (!guardActive && seekGuard.expiresAt > 0) {
-            seekGuardRef.current = { target: 0, expiresAt: 0 };
-          }
-          const isSeekRollback =
-            guardActive &&
-            state.position + SEEK_POSITION_TOLERANCE_SEC < seekGuard.target;
+    const sourceBuffer = sourceBufferRef.current;
+    if (sourceBuffer) {
+      try {
+        sourceBuffer.abort();
+      } catch {
+        // ignore
+      }
+    }
 
-          if (!isSeekRollback) {
-            setCurrentPosition(state.position);
-            if (
-              guardActive &&
-              state.position + SEEK_POSITION_TOLERANCE_SEC >= seekGuard.target
-            ) {
-              seekGuardRef.current = { target: 0, expiresAt: 0 };
+    sourceBufferRef.current = null;
+    mediaSourceRef.current = null;
+
+    const video = videoRef.current;
+    if (video) {
+      video.removeAttribute("src");
+      video.load();
+    }
+
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+  }, []);
+
+  const pumpQueue = useCallback(() => {
+    const sourceBuffer = sourceBufferRef.current;
+    const mediaSource = mediaSourceRef.current;
+    const video = videoRef.current;
+    if (!sourceBuffer || !mediaSource) return;
+    if (!video) return;
+    if (mediaSource.readyState !== "open") return;
+    if (appendingRef.current || sourceBuffer.updating) return;
+
+    const chunk = queueRef.current.shift();
+    if (chunk) {
+      appendingRef.current = true;
+      try {
+        sourceBuffer.appendBuffer(chunk);
+      } catch (err) {
+        appendingRef.current = false;
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[ShakaPlayer] mse:append:error", msg);
+        if (msg.includes("SourceBuffer has been removed")) {
+          queueRef.current = [];
+          sourceBufferRef.current = null;
+          return;
+        }
+        const quotaExceeded =
+          (err instanceof DOMException && err.name === "QuotaExceededError") ||
+          msg.toLowerCase().includes("sourcebuffer is full");
+        if (quotaExceeded) {
+          queueRef.current.unshift(chunk);
+          const safeTail = Math.max(
+            0,
+            (Number.isFinite(video.currentTime) ? video.currentTime : 0) - BUFFER_EVICT_HEADROOM_SECONDS,
+          );
+          const evictTo = Math.max(0, safeTail - BUFFER_KEEP_BACK_SECONDS);
+          for (let i = 0; i < sourceBuffer.buffered.length; i += 1) {
+            const start = sourceBuffer.buffered.start(i);
+            const end = sourceBuffer.buffered.end(i);
+            const removeEnd = Math.min(end, evictTo);
+            if (removeEnd - start > 0.5) {
+              try {
+                sourceBuffer.remove(start, removeEnd);
+                console.warn(
+                  "[ShakaPlayer] mse:buffer-evict",
+                  JSON.stringify({
+                    removeStart: start,
+                    removeEnd,
+                    currentTime: video.currentTime,
+                  }),
+                );
+                return;
+              } catch (removeErr) {
+                console.warn(
+                  "[ShakaPlayer] mse:buffer-evict:error",
+                  removeErr instanceof Error ? removeErr.message : String(removeErr),
+                );
+                break;
+              }
             }
           }
+          return;
         }
-        setDuration(state.duration);
-        setIsPlaying(state.state === "playing");
-        setVolume(state.volume);
-        setIsMuted(state.volume === 0);
-      })
-      .then((off) => {
-        unlistenState = off;
-      });
-
-    return () => {
-      unlistenComplete?.();
-      unlistenState?.();
-    };
-  }, [filePath]);
-
-  // 控制栏自动隐藏
-  useEffect(() => {
-    if (!isHovering && isPlaying && !isDragging) {
-      const timer = setTimeout(() => {
-        setShowControls(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    } else {
-      setShowControls(true);
-    }
-  }, [isHovering, isPlaying, isDragging]);
-
-  const handlePlay = useCallback(async () => {
-    try {
-      if (duration > 0 && currentPosition >= duration) {
-        await bridge.videoPlayerSeek(0);
-        setCurrentPosition(0);
+        setError(msg);
       }
-      await bridge.videoPlayerPlay();
-      setIsPlaying(true);
-      setError("");
-    } catch (error) {
-      setError(getBridgeErrorMessage(error, "播放失败"));
-      console.error("播放失败:", error);
+      return;
     }
-  }, [duration, currentPosition]);
 
-  const handlePause = useCallback(async () => {
-    try {
-      await bridge.videoPlayerPause();
-      setIsPlaying(false);
-      setError("");
-    } catch (error) {
-      setError(getBridgeErrorMessage(error, "暂停失败"));
-      console.error("暂停失败:", error);
+    if (
+      streamFinishedRef.current &&
+      !sourceEndedRef.current &&
+      mediaSource.readyState === "open"
+    ) {
+      try {
+        mediaSource.endOfStream();
+        sourceEndedRef.current = true;
+      } catch {
+        // ignore
+      }
     }
   }, []);
 
-  const handleSeek = useCallback(async (newPosition: number) => {
-    const clampedPosition =
-      duration > 0 ? Math.max(0, Math.min(duration, newPosition)) : newPosition;
-    seekGuardRef.current = {
-      target: clampedPosition,
-      expiresAt: Date.now() + SEEK_GUARD_MS,
-    };
-    setCurrentPosition(clampedPosition);
-
-    try {
-      await bridge.videoPlayerSeek(clampedPosition);
-      setError("");
-    } catch (error) {
-      seekGuardRef.current = { target: 0, expiresAt: 0 };
-      setError(getBridgeErrorMessage(error, "跳转失败"));
-      console.error("跳转失败:", error);
-    }
-  }, [duration]);
-
-  const handleVolumeChange = useCallback(async (value: number[]) => {
-    const nextVolume = Math.max(0, Math.min(1.5, value[0]));
-    setVolume(nextVolume);
-    setIsMuted(nextVolume === 0);
-    try {
-      await bridge.videoPlayerSetVolume(nextVolume);
-      setError("");
-    } catch (error) {
-      setError(getBridgeErrorMessage(error, "调整音量失败"));
-      console.error("调整音量失败:", error);
-    }
-  }, []);
-
-  const handleMuteToggle = useCallback(async () => {
-    if (isMuted) {
-      await handleVolumeChange([volume > 0 ? volume : 0.5]);
-    } else {
-      await handleVolumeChange([0]);
-    }
-  }, [isMuted, volume, handleVolumeChange]);
-
-  const handleProgressChange = useCallback(
-    (value: number[]) => {
-      if (duration > 0) {
-        const newPosition = (value[0] / 100) * duration;
-        setCurrentPosition(newPosition);
-        setIsDragging(true);
-      }
+  const fallbackToDirect = useCallback(
+    (url: string, reason?: string, pathForUi?: string) => {
+      const video = videoRef.current;
+      if (!video) return;
+      mseDisabledRef.current = true;
+      queueRef.current = [];
+      setMode("direct");
+      setIsLoading(false);
+      setError(reason ?? "MSE failed, fallback to direct mode");
+      if (pathForUi) setPlaybackPath(pathForUi);
+      cleanupMse();
+      video.src = url;
+      video.load();
+      playVideoElement(video);
     },
-    [duration]
+    [cleanupMse, playVideoElement],
   );
 
-  const handleProgressCommit = useCallback(
-    (value: number[]) => {
-      if (duration > 0) {
-        const newPosition = (value[0] / 100) * duration;
-        void handleSeek(newPosition).finally(() => {
-          setIsDragging(false);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onTime = () => setCurrentTime(video.currentTime);
+    const onDuration = () => setDuration(video.duration || 0);
+
+    video.addEventListener("timeupdate", onTime);
+    video.addEventListener("loadedmetadata", onDuration);
+    video.addEventListener("durationchange", onDuration);
+
+    return () => {
+      video.removeEventListener("timeupdate", onTime);
+      video.removeEventListener("loadedmetadata", onDuration);
+      video.removeEventListener("durationchange", onDuration);
+    };
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    let cancelled = false;
+    const sessionId = ++sessionIdRef.current;
+    const isStale = () => cancelled || sessionIdRef.current !== sessionId;
+
+    if (lastFilePathRef.current !== (filePath || "")) {
+      lastFilePathRef.current = filePath || "";
+      mseDisabledRef.current = false;
+    }
+
+    void bridge.videoPlayerClose().catch(() => {});
+    cleanupMse();
+
+    setError("");
+    setIsLoading(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setPlaybackPath("");
+
+    if (!filePath || filePath === "undefined") return;
+
+    const init = async () => {
+      const initialDirectUrl = convertFileSrc(filePath);
+      const initStartAt = performance.now();
+      setIsLoading(true);
+      console.warn("[ShakaPlayer] init:start", { filePath });
+      const initWatchdog = window.setTimeout(() => {
+        if (!isStale()) {
+          console.warn("[ShakaPlayer] init:watchdog-timeout -> direct fallback");
+          fallbackToDirect(initialDirectUrl, "init watchdog timeout");
+        }
+      }, 15000);
+
+      let details: MediaDetailsWithResolve | null = null;
+      try {
+        console.warn("[ShakaPlayer] init:probe:start");
+        details = await bridge.getMediaDetails(filePath);
+        console.warn("[ShakaPlayer] init:probe:done", {
+          extension: details.extension,
+          streams: details.streams.length,
         });
-      } else {
-        setIsDragging(false);
+      } catch {
+        console.warn("[ShakaPlayer] init:probe:failed");
+        details = null;
       }
-    },
-    [duration, handleSeek]
-  );
 
-  const handleSkip = useCallback(
-    async (seconds: number) => {
-      const newPosition = Math.max(
-        0,
-        Math.min(duration, currentPosition + seconds)
-      );
-      await handleSeek(newPosition);
-    },
-    [currentPosition, duration, handleSeek]
-  );
+      if (isStale()) return;
 
-  const handlePlaybackRateChange = useCallback(async (rate: number) => {
-    setPlaybackRate(rate);
-    // 注意: 这里需要后端支持播放速度调整
-    // await bridge.invoke("video_player_set_playback_rate", { rate });
-  }, []);
-
-  const handleFullscreen = useCallback(async () => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    try {
-      if (!isFullscreen) {
-        if (container.requestFullscreen) {
-          await container.requestFullscreen();
+      const needLiveTranscode = shouldTranscodeForWebPlayback(details, filePath);
+      const fallbackToPreparedDirect = async (reason: string) => {
+        const prepareStartAt = performance.now();
+        try {
+          setIsLoading(true);
+          const prepared = await bridge.prepareVideoForWebPlayback(filePath);
+          if (isStale()) return;
+          const preparedPath = prepared.playPath || filePath;
+          const preparedUrl = convertFileSrc(preparedPath);
+          console.warn("[ShakaPlayer] init:prepared", JSON.stringify(prepared));
+          console.warn(
+            "[ShakaPlayer] init:latency:prepare",
+            JSON.stringify({
+              originalPath: filePath,
+              playPath: preparedPath,
+              prepareMs: Math.round(performance.now() - prepareStartAt),
+              totalMsFromInitStart: Math.round(performance.now() - initStartAt),
+              fallbackReason: reason,
+            }),
+          );
+          window.clearTimeout(initWatchdog);
+          fallbackToDirect(preparedUrl, reason, preparedPath);
+        } catch (err) {
+          if (isStale()) return;
+          console.warn("[ShakaPlayer] init:prepare-failed", err);
+          console.warn(
+            "[ShakaPlayer] init:latency:prepare-failed",
+            JSON.stringify({
+              originalPath: filePath,
+              prepareMs: Math.round(performance.now() - prepareStartAt),
+              totalMsFromInitStart: Math.round(performance.now() - initStartAt),
+              fallbackReason: reason,
+            }),
+          );
+          window.clearTimeout(initWatchdog);
+          fallbackToDirect(directUrl, `${reason} | prepare failed`, filePath);
         }
-      } else {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
+      };
+
+      const directPath = filePath;
+      const directUrl = convertFileSrc(directPath);
+      const mimeType = pickSupportedMimeType();
+      const canUseMseNow =
+        !mseDisabledRef.current &&
+        Boolean(mimeType) &&
+        (needLiveTranscode || isWhitelistedForMse(directPath));
+      console.warn("[ShakaPlayer] init:plan", JSON.stringify({ needLiveTranscode, canUseMseNow, mimeType, resolvedPath: directPath }));
+
+      if (!canUseMseNow) {
+        if (needLiveTranscode) {
+          await fallbackToPreparedDirect("mse unavailable, fallback to prepare+direct");
+        } else {
+          console.warn(
+            "[ShakaPlayer] init:latency:prepare-skip",
+            JSON.stringify({
+              originalPath: filePath,
+              playPath: directPath,
+              prepareMs: 0,
+              totalMsFromInitStart: Math.round(performance.now() - initStartAt),
+            }),
+          );
+          setMode("direct");
+          setError("");
+          setPlaybackPath(directPath);
+          video.src = directUrl;
+          video.load();
+          setIsLoading(false);
+          window.clearTimeout(initWatchdog);
+          playVideoElement(video);
         }
+        return;
       }
-    } catch (error) {
-      console.error("全屏切换失败:", error);
-    }
-  }, [isFullscreen]);
 
+      setMode("mse");
+      const pipelineToken = ++msePipelineTokenRef.current;
+      streamFinishedRef.current = false;
+      const mediaSource = new MediaSource();
+      mediaSourceRef.current = mediaSource;
+      const objectUrl = URL.createObjectURL(mediaSource);
+      objectUrlRef.current = objectUrl;
+      video.src = objectUrl;
 
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const onSourceOpen = () => {
+        if (!mediaSourceRef.current || isStale() || !mimeType) return;
+        if (msePipelineTokenRef.current !== pipelineToken) return;
+        console.warn("[ShakaPlayer] mse:sourceopen");
+        setPlaybackPath(needLiveTranscode ? `${filePath} (live-transcode)` : directPath);
+        let gotFirstChunk = false;
+        const firstChunkTimeout = window.setTimeout(() => {
+          if (!gotFirstChunk) {
+            if (needLiveTranscode) {
+              void fallbackToPreparedDirect("mse first chunk timeout");
+            } else {
+              fallbackToDirect(directUrl, "mse first chunk timeout", directPath);
+            }
+          }
+        }, 8000);
+
+        let sourceBuffer: SourceBuffer;
+        try {
+          sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+        } catch (err) {
+          window.clearTimeout(firstChunkTimeout);
+          if (needLiveTranscode) {
+            void fallbackToPreparedDirect(
+              `source buffer init failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          } else {
+            fallbackToDirect(
+              directUrl,
+              `source buffer init failed: ${err instanceof Error ? err.message : String(err)}`,
+              directPath,
+            );
+          }
+          return;
+        }
+
+        sourceBufferRef.current = sourceBuffer;
+
+        sourceBuffer.addEventListener("updateend", () => {
+          appendingRef.current = false;
+          pumpQueue();
+        });
+
+        sourceBuffer.addEventListener("error", () => {
+          if (msePipelineTokenRef.current !== pipelineToken) return;
+          msePipelineTokenRef.current += 1;
+          abortController.abort();
+          queueRef.current = [];
+          sourceBufferRef.current = null;
+          window.clearTimeout(firstChunkTimeout);
+          if (needLiveTranscode) {
+            void fallbackToPreparedDirect("source buffer error");
+          } else {
+            fallbackToDirect(directUrl, "source buffer error", directPath);
+          }
+        });
+
+        const onVideoError = () => {
+          if (msePipelineTokenRef.current !== pipelineToken) return;
+          msePipelineTokenRef.current += 1;
+          abortController.abort();
+          queueRef.current = [];
+          sourceBufferRef.current = null;
+          window.clearTimeout(firstChunkTimeout);
+          if (needLiveTranscode) {
+            void fallbackToPreparedDirect("video element resource error");
+          } else {
+            fallbackToDirect(directUrl, "video element resource error", directPath);
+          }
+        };
+        video.addEventListener("error", onVideoError, { once: true });
+
+        const abortController = new AbortController();
+        abortRef.current = abortController;
+
+        void (async () => {
+          try {
+            if (needLiveTranscode) {
+              const offEnd = await bridge.on("video-mse-stream-end", () => {
+                if (isStale() || msePipelineTokenRef.current !== pipelineToken) return;
+                window.clearTimeout(firstChunkTimeout);
+                window.clearTimeout(initWatchdog);
+                streamFinishedRef.current = true;
+                sourceEndedRef.current = false;
+                pumpQueue();
+              });
+              const offError = await bridge.on("video-mse-stream-error", (msg) => {
+                if (isStale() || msePipelineTokenRef.current !== pipelineToken) return;
+                msePipelineTokenRef.current += 1;
+                abortController.abort();
+                queueRef.current = [];
+                sourceBufferRef.current = null;
+                window.clearTimeout(firstChunkTimeout);
+                window.clearTimeout(initWatchdog);
+                void fallbackToPreparedDirect(`mse stream error: ${msg}`);
+              });
+              mseEventDisposersRef.current.push(offEnd, offError);
+
+              await bridge.videoMseStreamOpen(filePath, (chunk) => {
+                if (isStale() || abortController.signal.aborted) return;
+                if (msePipelineTokenRef.current !== pipelineToken) return;
+                if (chunk.byteLength <= 0) return;
+                if (!sourceBufferRef.current || !mediaSourceRef.current) return;
+                if (mediaSourceRef.current.readyState !== "open") return;
+                if (!gotFirstChunk) {
+                  gotFirstChunk = true;
+                  window.clearTimeout(firstChunkTimeout);
+                  setIsLoading(false);
+                  window.clearTimeout(initWatchdog);
+                }
+                queueRef.current.push(new Uint8Array(chunk));
+                pumpQueue();
+              });
+            } else {
+              const response = await fetch(directUrl, {
+                signal: abortController.signal,
+                cache: "no-store",
+              });
+              if (!response.ok || !response.body) {
+                throw new Error(`Load failed: HTTP ${response.status}`);
+              }
+
+              const reader = response.body.getReader();
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (value && value.byteLength > 0) {
+                  if (!gotFirstChunk) {
+                    gotFirstChunk = true;
+                    window.clearTimeout(firstChunkTimeout);
+                    setIsLoading(false);
+                    window.clearTimeout(initWatchdog);
+                  }
+                  queueRef.current.push(value);
+                  pumpQueue();
+                }
+              }
+
+              streamFinishedRef.current = true;
+              sourceEndedRef.current = false;
+              pumpQueue();
+            }
+            playVideoElement(video);
+          } catch (err) {
+            if (abortController.signal.aborted) return;
+            window.clearTimeout(firstChunkTimeout);
+            window.clearTimeout(initWatchdog);
+            if (needLiveTranscode) {
+              void fallbackToPreparedDirect(err instanceof Error ? err.message : String(err));
+            } else {
+              fallbackToDirect(directUrl, err instanceof Error ? err.message : String(err), directPath);
+            }
+          }
+        })();
+      };
+
+      mediaSource.addEventListener("sourceopen", onSourceOpen, { once: true });
     };
 
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    void init();
+
     return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      cancelled = true;
+      cleanupMse();
     };
-  }, []);
-
-  const progressPercentage =
-    duration > 0 ? (currentPosition / duration) * 100 : 0;
+  }, [cleanupMse, fallbackToDirect, filePath, playVideoElement, pumpQueue]);
 
   if (!filePath || filePath === "undefined") {
     return (
-      <div
-        className={cn("mb-4 p-4 border rounded shadow-sm bg-card", className)}
-      >
-        <div className="mb-2 font-semibold">视频预览</div>
-        <div className="text-muted-foreground">请先选择视频文件</div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div
-        className={cn("mb-4 p-4 border rounded shadow-sm bg-card", className)}
-      >
-        <div className="mb-2 font-semibold">视频预览</div>
-        <div className="text-muted-foreground">正在加载视频...</div>
+      <div className={cn("mb-4 rounded border bg-card p-4", className)}>
+        <div className="text-sm text-muted-foreground">No video selected</div>
       </div>
     );
   }
@@ -495,213 +586,30 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
           {error}
         </div>
       )}
-      <div
-        ref={containerRef}
-        className="relative w-full bg-foreground rounded-lg overflow-hidden group"
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
-        onMouseMove={() => setIsHovering(true)}
-      >
-        {/* 视频画布 */}
-        <div className="relative w-full aspect-video bg-foreground flex items-center justify-center">
-          <canvas ref={canvasRef} className="w-full h-full object-contain" />
 
-          {/* 中央播放按钮 */}
-          {!isPlaying && showControls && (
-            <div className="absolute inset-0 flex items-center justify-center z-10">
-              <button
-                aria-label="播放"
-                className="rounded-full bg-background/90 hover:bg-background p-4 flex items-center justify-center transition-all group shadow-lg cursor-pointer"
-                onClick={handlePlay}
-              >
-                <PlayIcon className="w-12 h-12 text-foreground ml-1" />
-              </button>
-            </div>
-          )}
+      <div className="rounded-lg border bg-card p-2">
+        <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+          <span>Playback Engine: {mode === "mse" ? "MSE" : "Direct"}</span>
+          <span>
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
+        </div>
+        <div className="mb-2 space-y-1 text-xs text-muted-foreground">
+          <div>Input: {filePath}</div>
+          <div>Playing: {playbackPath || filePath}</div>
         </div>
 
-        {/* 底部控制栏 - Shaka Player 风格 */}
-        <div
-          className={cn(
-            "absolute bottom-0 left-0 right-0 z-[10] transition-all duration-300",
-            showControls
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-4 pointer-events-none"
-          )}
-        >
-          {/* 渐变遮罩 */}
-          <div className="absolute inset-0 bg-gradient-to-t from-foreground/90 via-foreground/60 to-transparent pointer-events-none" />
+        <video
+          ref={videoRef}
+          className="h-auto w-full rounded bg-black"
+          controls={showControls}
+          playsInline
+          preload="metadata"
+        />
 
-          {/* 控制内容 */}
-          <div className="relative px-4 pb-4 pt-6">
-            {/* 进度条 */}
-            <div ref={progressBarRef} className="mb-3">
-              <Slider
-                value={[progressPercentage]}
-                min={0}
-                max={100}
-                step={0.1}
-                onValueChange={handleProgressChange}
-                onValueCommit={handleProgressCommit}
-                className="cursor-pointer"
-              />
-            </div>
-
-            {/* 控制按钮栏 */}
-            <div className="flex items-center gap-2">
-              {/* 播放/暂停按钮 */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-transparent hover:bg-white/20 text-white hover:text-white p-0 h-9 w-9"
-                onClick={isPlaying ? handlePause : handlePlay}
-                aria-label={isPlaying ? "暂停" : "播放"}
-              >
-                {isPlaying ? (
-                  <PauseIcon className="w-5 h-5" />
-                ) : (
-                  <PlayIcon className="w-5 h-5 ml-0.5" />
-                )}
-              </Button>
-
-              {/* 快退按钮 */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-transparent hover:text-white hover:bg-white/20 text-white p-0 h-9 w-9"
-                onClick={() => handleSkip(-10)}
-                aria-label="快退 10 秒"
-              >
-                <SkipBackIcon className="w-4 h-4" />
-              </Button>
-
-              {/* 快进按钮 */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-transparent hover:text-white hover:bg-white/20 text-white p-0 h-9 w-9"
-                onClick={() => handleSkip(10)}
-                aria-label="快进 10 秒"
-              >
-                <SkipForwardIcon className="w-4 h-4" />
-              </Button>
-
-              {/* 音量控制 */}
-              <HoverCard openDelay={0} closeDelay={100}>
-                <HoverCardTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="bg-transparent hover:text-white hover:bg-white/20 text-white p-0 h-9 w-9"
-                    onClick={handleMuteToggle}
-                    aria-label={isMuted ? "取消静音" : "静音"}
-                  >
-                    {isMuted || volume === 0 ? (
-                      <VolumeMutedIcon className="w-5 h-5" />
-                    ) : (
-                      <VolumeIcon className="w-5 h-5" />
-                    )}
-                  </Button>
-                </HoverCardTrigger>
-                <HoverCardContent
-                  side="top"
-                  align="center"
-                  sideOffset={8}
-                  className="w-auto p-3 bg-foreground/90 border-background/20"
-                >
-                  <Slider
-                    value={[isMuted ? 0 : volume * 100]}
-                    min={0}
-                    max={150}
-                    step={1}
-                    orientation="vertical"
-                    onValueChange={(value) =>
-                      handleVolumeChange([value[0] / 100])
-                    }
-                    className="h-24"
-                  />
-                </HoverCardContent>
-              </HoverCard>
-
-              {/* 时间显示 */}
-              <div className="flex items-center gap-1 text-background text-sm font-medium ml-2 select-none">
-                <span>{formatTime(currentPosition)}</span>
-                <span className="text-background/70">/</span>
-                <span className="text-background/70">{formatTime(duration)}</span>
-              </div>
-
-              {/* 播放速度 */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled
-                    className="bg-transparent hover:bg-background/20 text-background hover:text-background  ml-auto h-9 px-2"
-                  >
-                    {playbackRate}x
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-32">
-                  {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((rate) => (
-                    <DropdownMenuItem
-                      key={rate}
-                      onClick={() => handlePlaybackRateChange(rate)}
-                      className={cn(
-                        "cursor-pointer",
-                        playbackRate === rate && "bg-accent"
-                      )}
-                    >
-                      {rate}x
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* 设置按钮 */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled
-                    className=" bg-transparent hover:bg-background/20 text-background p-0 h-9 w-9 hover:text-background "
-                    aria-label="设置"
-                  >
-                    <SettingsIcon className="w-5 h-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem className="cursor-pointer">
-                    字幕
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer">
-                    画质
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer">
-                    音频轨道
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* 全屏按钮 */}
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled
-                className="bg-transparent hover:bg-background/20 text-background p-0 h-9 w-9 hover:text-background "
-                onClick={handleFullscreen}
-                aria-label={isFullscreen ? "退出全屏" : "全屏"}
-              >
-                {isFullscreen ? (
-                  <FullscreenExitIcon className="w-5 h-5" />
-                ) : (
-                  <FullscreenIcon className="w-5 h-5" />
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
+        {isLoading && (
+          <div className="mt-2 text-xs text-muted-foreground">Preparing playback...</div>
+        )}
       </div>
     </div>
   );
