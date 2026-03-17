@@ -19,8 +19,6 @@ const DenoisePage = lazy(() => import("./pages/denoise"));
 // const Mp3ConverterPage = lazy(() => import("./pages/demo/converter"));
 // const AudioTestPage = lazy(() => import("./pages/demo/AudioTestPage"));
 const MyFilesPage = lazy(() => import("./pages/myfiles"));
-const SignInPage = lazy(() => import("./pages/auth/sign-in"));
-const SignUpPage = lazy(() => import("./pages/auth/sign-up"));
 const MetadataEditorPage = lazy(() => import("./pages/metadata"));
 const WatermarkPage = lazy(() => import("./pages/watermark"));
 const ForceUpdatePage = lazy(() => import("./pages/force-update"));
@@ -104,18 +102,6 @@ const router = createHashRouter([
         ],
       },
     ],
-  },
-  {
-    path: "/sign-in", element: withSuspense(<SignInPage />),
-    errorElement: <ErrorPage />,
-    hydrateFallbackElement,
-    loader: preloadI18nNamespaces(["auth", "common"])
-  },
-  {
-    path: "/sign-up", element: withSuspense(<SignUpPage />),
-    errorElement: <ErrorPage />,
-    hydrateFallbackElement,
-    loader: preloadI18nNamespaces(["auth", "common"])
   },
   {
     path: "/force-update",
