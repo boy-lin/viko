@@ -1063,6 +1063,7 @@ pub async fn prepare_video_for_web_playback(path: String) -> Result<WebPlaybackP
 pub async fn video_mse_stream_open(
     app: AppHandle,
     path: String,
+    start_seconds: Option<f64>,
     chunk_channel: JavaScriptChannelId,
     stream_state: State<'_, VideoMseStreamState>,
 ) -> Result<(), String> {
@@ -1080,39 +1081,52 @@ pub async fn video_mse_stream_open(
     let stop = Arc::new(AtomicBool::new(false));
     let stop_clone = Arc::clone(&stop);
     let ffmpeg_path = resolve_ffmpeg_executable(&app);
+    let seek_seconds = start_seconds.unwrap_or(0.0).max(0.0);
 
     let handle = std::thread::spawn(move || {
+        let mut ffmpeg_args = vec![
+            "-hide_banner".to_string(),
+            "-loglevel".to_string(),
+            "error".to_string(),
+        ];
+        if seek_seconds > 0.0 {
+            ffmpeg_args.push("-ss".to_string());
+            ffmpeg_args.push(format!("{seek_seconds:.3}"));
+        }
+        ffmpeg_args.extend([
+            "-i".to_string(),
+            path.clone(),
+            "-fflags".to_string(),
+            "+genpts".to_string(),
+            "-avoid_negative_ts".to_string(),
+            "make_zero".to_string(),
+            "-c:v".to_string(),
+            "libx264".to_string(),
+            "-preset".to_string(),
+            "ultrafast".to_string(),
+            "-tune".to_string(),
+            "zerolatency".to_string(),
+            "-profile:v".to_string(),
+            "baseline".to_string(),
+            "-level:v".to_string(),
+            "3.1".to_string(),
+            "-g".to_string(),
+            "30".to_string(),
+            "-pix_fmt".to_string(),
+            "yuv420p".to_string(),
+            "-c:a".to_string(),
+            "aac".to_string(),
+            "-b:a".to_string(),
+            "128k".to_string(),
+            "-movflags".to_string(),
+            "+frag_keyframe+empty_moov+default_base_moof".to_string(),
+            "-f".to_string(),
+            "mp4".to_string(),
+            "-".to_string(),
+        ]);
+
         let mut child = match Command::new(&ffmpeg_path)
-            .args([
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-i",
-                &path,
-                "-c:v",
-                "libx264",
-                "-preset",
-                "ultrafast",
-                "-tune",
-                "zerolatency",
-                "-profile:v",
-                "baseline",
-                "-level:v",
-                "3.1",
-                "-g",
-                "30",
-                "-pix_fmt",
-                "yuv420p",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "128k",
-                "-movflags",
-                "+frag_keyframe+empty_moov+default_base_moof",
-                "-f",
-                "mp4",
-                "-",
-            ])
+            .args(&ffmpeg_args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()

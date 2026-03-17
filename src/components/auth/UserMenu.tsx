@@ -31,9 +31,18 @@ export const UserMenu = () => {
     () => userInfo?.name || session?.user?.name || session?.user?.email || t("auth.user_menu.default_user"),
     [session?.user, t, userInfo]
   );
+
+  const clearLoggedInState = () => {
+    analytics.reset();
+    clearDesktopToken();
+    setDesktopLoggedIn(false);
+    clearUser();
+  };
+
   useEffect(() => {
     if (isLoggedIn) {
       fetchUserInfo().catch((e: any) => {
+        clearLoggedInState();
         toast.error(e.message || t("auth.user_menu.toast.fetch_user_failed"));
       });
     }

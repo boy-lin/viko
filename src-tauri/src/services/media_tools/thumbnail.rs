@@ -409,7 +409,10 @@ fn generate_video_stream_thumbnail(
         return Ok(None);
     };
     let stream_index = stream.index();
+    let stream_time_base = stream.time_base();
     let stream_params = stream.parameters().to_owned();
+    let codec_id = stream_params.id();
+    let codec_name = codec_id.name().to_string();
 
     let decoder_ctx = ffmpeg::codec::context::Context::from_parameters(stream_params)
         .map_err(|e| format!("Decoder context failed: {}", e))?;
@@ -444,7 +447,27 @@ fn generate_video_stream_thumbnail(
 
         decoder
             .send_packet(&packet)
-            .map_err(|e| format!("Send packet failed: {}", e))?;
+            .map_err(|e| {
+                log::error!(
+                    "[THUMBNAIL] send_packet failed path={} stream_index={} codec_id={:?} codec_name={} stream_tb={}/{} decoder_tb={}/{} packet_pts={:?} packet_dts={:?} packet_size={} decoder_size={}x{} decoder_format={:?} err={}",
+                    path,
+                    stream_index,
+                    codec_id,
+                    codec_name,
+                    stream_time_base.numerator(),
+                    stream_time_base.denominator(),
+                    decoder.time_base().numerator(),
+                    decoder.time_base().denominator(),
+                    packet.pts(),
+                    packet.dts(),
+                    packet.size(),
+                    decoder.width(),
+                    decoder.height(),
+                    decoder.format(),
+                    e
+                );
+                format!("Send packet failed: {}", e)
+            })?;
 
         let mut decoded = ffmpeg::frame::Video::empty();
         if decoder.receive_frame(&mut decoded).is_ok() {

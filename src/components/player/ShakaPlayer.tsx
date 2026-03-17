@@ -24,6 +24,7 @@ const MIME_CANDIDATES = [
 ] as const;
 const BUFFER_KEEP_BACK_SECONDS = 30;
 const BUFFER_EVICT_HEADROOM_SECONDS = 10;
+const MSE_SEEK_BUFFER_TOLERANCE_SECONDS = 0.35;
 
 function canUseMse() {
   return typeof window !== "undefined" && "MediaSource" in window;
@@ -77,6 +78,28 @@ function isWhitelistedForMse(path: string) {
   );
 }
 
+function getVideoAspectRatio(details: MediaDetailsWithResolve | null) {
+  const videoStream = details?.streams.find((s) => s.codec_type === "video");
+  const width = Number(videoStream?.width || 0);
+  const height = Number(videoStream?.height || 0);
+  if (width > 0 && height > 0) {
+    return width / height;
+  }
+  return 16 / 9;
+}
+
+function isTimeBuffered(video: HTMLVideoElement, seconds: number) {
+  if (!Number.isFinite(seconds)) return false;
+  for (let i = 0; i < video.buffered.length; i += 1) {
+    const start = video.buffered.start(i) - MSE_SEEK_BUFFER_TOLERANCE_SECONDS;
+    const end = video.buffered.end(i) + MSE_SEEK_BUFFER_TOLERANCE_SECONDS;
+    if (seconds >= start && seconds <= end) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
   filePath,
   className,
@@ -97,6 +120,10 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
   const sessionIdRef = useRef(0);
   const mseEventDisposersRef = useRef<Array<() => void>>([]);
   const msePipelineTokenRef = useRef(0);
+  const liveTranscodeMseRef = useRef(false);
+  const internalSeekRef = useRef(false);
+  const resumeAfterReloadRef = useRef(false);
+  const pendingResumeRef = useRef(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -104,15 +131,26 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackPath, setPlaybackPath] = useState("");
+  const [playbackRequest, setPlaybackRequest] = useState({ token: 0, startAt: 0 });
+  const [aspectRatio, setAspectRatio] = useState(16 / 9);
 
   const playVideoElement = useCallback(
-    (video: HTMLVideoElement) => {
-      if (!autoPlay) return;
+    (video: HTMLVideoElement, force = false) => {
+      if (!force && !autoPlay) return;
       void video.play().catch(() => {
         // autoplay may be blocked
       });
     },
     [autoPlay],
+  );
+
+  const requestResume = useCallback(
+    (video: HTMLVideoElement, shouldResume: boolean) => {
+      pendingResumeRef.current = shouldResume;
+      if (!shouldResume) return;
+      playVideoElement(video, true);
+    },
+    [playVideoElement],
   );
 
   const cleanupMse = useCallback(() => {
@@ -174,7 +212,6 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
       } catch (err) {
         appendingRef.current = false;
         const msg = err instanceof Error ? err.message : String(err);
-        console.warn("[ShakaPlayer] mse:append:error", msg);
         if (msg.includes("SourceBuffer has been removed")) {
           queueRef.current = [];
           sourceBufferRef.current = null;
@@ -197,20 +234,8 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
             if (removeEnd - start > 0.5) {
               try {
                 sourceBuffer.remove(start, removeEnd);
-                console.warn(
-                  "[ShakaPlayer] mse:buffer-evict",
-                  JSON.stringify({
-                    removeStart: start,
-                    removeEnd,
-                    currentTime: video.currentTime,
-                  }),
-                );
                 return;
               } catch (removeErr) {
-                console.warn(
-                  "[ShakaPlayer] mse:buffer-evict:error",
-                  removeErr instanceof Error ? removeErr.message : String(removeErr),
-                );
                 break;
               }
             }
@@ -237,10 +262,14 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
   }, []);
 
   const fallbackToDirect = useCallback(
-    (url: string, reason?: string, pathForUi?: string) => {
+    (url: string, reason?: string, pathForUi?: string, seekTo?: number) => {
       const video = videoRef.current;
       if (!video) return;
+      const shouldResume = resumeAfterReloadRef.current || autoPlay;
+      resumeAfterReloadRef.current = false;
+      pendingResumeRef.current = shouldResume;
       mseDisabledRef.current = true;
+      liveTranscodeMseRef.current = false;
       queueRef.current = [];
       setMode("direct");
       setIsLoading(false);
@@ -248,10 +277,28 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
       if (pathForUi) setPlaybackPath(pathForUi);
       cleanupMse();
       video.src = url;
+      if (seekTo && seekTo > 0) {
+        video.addEventListener(
+          "loadedmetadata",
+          () => {
+            try {
+              internalSeekRef.current = true;
+              video.currentTime = seekTo;
+              setCurrentTime(seekTo);
+            } catch {
+              // ignore
+            }
+            requestResume(video, shouldResume);
+          },
+          { once: true },
+        );
+      }
       video.load();
-      playVideoElement(video);
+      if (!(seekTo && seekTo > 0)) {
+        requestResume(video, shouldResume);
+      }
     },
-    [cleanupMse, playVideoElement],
+    [autoPlay, cleanupMse, requestResume],
   );
 
   useEffect(() => {
@@ -260,17 +307,59 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
 
     const onTime = () => setCurrentTime(video.currentTime);
     const onDuration = () => setDuration(video.duration || 0);
+    const onLoadedData = () => {
+      if (pendingResumeRef.current && !video.ended) {
+        playVideoElement(video, true);
+      }
+    };
+    const onCanPlay = () => {
+      if (pendingResumeRef.current && !video.ended) {
+        playVideoElement(video, true);
+      }
+    };
+    const onPlay = () => {
+      pendingResumeRef.current = false;
+    };
+    const onPause = () => {};
+    const onWaiting = () => {};
+    const onSeeked = () => {};
+    const onSeeking = () => {
+      if (internalSeekRef.current) {
+        internalSeekRef.current = false;
+        return;
+      }
+      if (!liveTranscodeMseRef.current) return;
+      const target = video.currentTime;
+      if (!Number.isFinite(target) || target < 0) return;
+      if (isTimeBuffered(video, target)) return;
+      resumeAfterReloadRef.current = !video.paused && !video.ended;
+      setPlaybackRequest((prev) => ({ token: prev.token + 1, startAt: target }));
+    };
 
     video.addEventListener("timeupdate", onTime);
     video.addEventListener("loadedmetadata", onDuration);
     video.addEventListener("durationchange", onDuration);
+    video.addEventListener("loadeddata", onLoadedData);
+    video.addEventListener("canplay", onCanPlay);
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("waiting", onWaiting);
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("seeking", onSeeking);
 
     return () => {
       video.removeEventListener("timeupdate", onTime);
       video.removeEventListener("loadedmetadata", onDuration);
       video.removeEventListener("durationchange", onDuration);
+      video.removeEventListener("loadeddata", onLoadedData);
+      video.removeEventListener("canplay", onCanPlay);
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("waiting", onWaiting);
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("seeking", onSeeking);
     };
-  }, []);
+  }, [playVideoElement]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -279,51 +368,62 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
     let cancelled = false;
     const sessionId = ++sessionIdRef.current;
     const isStale = () => cancelled || sessionIdRef.current !== sessionId;
+    const isNewFile = lastFilePathRef.current !== (filePath || "");
+    const requestedStartAt = isNewFile ? 0 : playbackRequest.startAt;
 
-    if (lastFilePathRef.current !== (filePath || "")) {
+    if (isNewFile) {
       lastFilePathRef.current = filePath || "";
       mseDisabledRef.current = false;
     }
 
     void bridge.videoPlayerClose().catch(() => {});
     cleanupMse();
+    liveTranscodeMseRef.current = false;
 
     setError("");
     setIsLoading(false);
-    setCurrentTime(0);
-    setDuration(0);
-    setPlaybackPath("");
+    setCurrentTime(requestedStartAt > 0 ? requestedStartAt : 0);
+    if (isNewFile) {
+      setDuration(0);
+      setPlaybackPath("");
+    }
 
     if (!filePath || filePath === "undefined") return;
 
     const init = async () => {
       const initialDirectUrl = convertFileSrc(filePath);
       const initStartAt = performance.now();
+      const clampedRequestedStartAt = Math.max(0, requestedStartAt);
+      const shouldResume =
+        requestedStartAt > 0 ? resumeAfterReloadRef.current || autoPlay : autoPlay;
+      resumeAfterReloadRef.current = false;
+      pendingResumeRef.current = shouldResume;
       setIsLoading(true);
-      console.warn("[ShakaPlayer] init:start", { filePath });
       const initWatchdog = window.setTimeout(() => {
         if (!isStale()) {
-          console.warn("[ShakaPlayer] init:watchdog-timeout -> direct fallback");
-          fallbackToDirect(initialDirectUrl, "init watchdog timeout");
+          fallbackToDirect(initialDirectUrl, "init watchdog timeout", filePath, clampedRequestedStartAt);
         }
       }, 15000);
 
       let details: MediaDetailsWithResolve | null = null;
       try {
-        console.warn("[ShakaPlayer] init:probe:start");
         details = await bridge.getMediaDetails(filePath);
-        console.warn("[ShakaPlayer] init:probe:done", {
-          extension: details.extension,
-          streams: details.streams.length,
-        });
+        setAspectRatio(getVideoAspectRatio(details));
       } catch {
-        console.warn("[ShakaPlayer] init:probe:failed");
         details = null;
       }
 
       if (isStale()) return;
 
       const needLiveTranscode = shouldTranscodeForWebPlayback(details, filePath);
+      const mediaDuration = Math.max(0, details?.duration || 0);
+      if (mediaDuration > 0) {
+        setDuration(mediaDuration);
+      }
+      const effectiveStartAt =
+        mediaDuration > 0
+          ? Math.min(clampedRequestedStartAt, Math.max(0, mediaDuration - 0.25))
+          : clampedRequestedStartAt;
       const fallbackToPreparedDirect = async (reason: string) => {
         const prepareStartAt = performance.now();
         try {
@@ -332,33 +432,12 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
           if (isStale()) return;
           const preparedPath = prepared.playPath || filePath;
           const preparedUrl = convertFileSrc(preparedPath);
-          console.warn("[ShakaPlayer] init:prepared", JSON.stringify(prepared));
-          console.warn(
-            "[ShakaPlayer] init:latency:prepare",
-            JSON.stringify({
-              originalPath: filePath,
-              playPath: preparedPath,
-              prepareMs: Math.round(performance.now() - prepareStartAt),
-              totalMsFromInitStart: Math.round(performance.now() - initStartAt),
-              fallbackReason: reason,
-            }),
-          );
           window.clearTimeout(initWatchdog);
-          fallbackToDirect(preparedUrl, reason, preparedPath);
+          fallbackToDirect(preparedUrl, reason, preparedPath, effectiveStartAt);
         } catch (err) {
           if (isStale()) return;
-          console.warn("[ShakaPlayer] init:prepare-failed", err);
-          console.warn(
-            "[ShakaPlayer] init:latency:prepare-failed",
-            JSON.stringify({
-              originalPath: filePath,
-              prepareMs: Math.round(performance.now() - prepareStartAt),
-              totalMsFromInitStart: Math.round(performance.now() - initStartAt),
-              fallbackReason: reason,
-            }),
-          );
           window.clearTimeout(initWatchdog);
-          fallbackToDirect(directUrl, `${reason} | prepare failed`, filePath);
+          fallbackToDirect(directUrl, `${reason} | prepare failed`, filePath, effectiveStartAt);
         }
       };
 
@@ -369,34 +448,43 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
         !mseDisabledRef.current &&
         Boolean(mimeType) &&
         (needLiveTranscode || isWhitelistedForMse(directPath));
-      console.warn("[ShakaPlayer] init:plan", JSON.stringify({ needLiveTranscode, canUseMseNow, mimeType, resolvedPath: directPath }));
 
       if (!canUseMseNow) {
         if (needLiveTranscode) {
           await fallbackToPreparedDirect("mse unavailable, fallback to prepare+direct");
         } else {
-          console.warn(
-            "[ShakaPlayer] init:latency:prepare-skip",
-            JSON.stringify({
-              originalPath: filePath,
-              playPath: directPath,
-              prepareMs: 0,
-              totalMsFromInitStart: Math.round(performance.now() - initStartAt),
-            }),
-          );
           setMode("direct");
           setError("");
           setPlaybackPath(directPath);
           video.src = directUrl;
+          if (effectiveStartAt > 0) {
+            video.addEventListener(
+              "loadedmetadata",
+              () => {
+                try {
+                  internalSeekRef.current = true;
+                  video.currentTime = effectiveStartAt;
+                  setCurrentTime(effectiveStartAt);
+                } catch {
+                  // ignore
+                }
+                requestResume(video, shouldResume);
+              },
+              { once: true },
+            );
+          }
           video.load();
           setIsLoading(false);
           window.clearTimeout(initWatchdog);
-          playVideoElement(video);
+          if (effectiveStartAt <= 0) {
+            requestResume(video, shouldResume);
+          }
         }
         return;
       }
 
       setMode("mse");
+      liveTranscodeMseRef.current = needLiveTranscode;
       const pipelineToken = ++msePipelineTokenRef.current;
       streamFinishedRef.current = false;
       const mediaSource = new MediaSource();
@@ -408,15 +496,22 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
       const onSourceOpen = () => {
         if (!mediaSourceRef.current || isStale() || !mimeType) return;
         if (msePipelineTokenRef.current !== pipelineToken) return;
-        console.warn("[ShakaPlayer] mse:sourceopen");
         setPlaybackPath(needLiveTranscode ? `${filePath} (live-transcode)` : directPath);
+        if (mediaDuration > 0) {
+          try {
+            mediaSource.duration = mediaDuration;
+          } catch {
+            // ignore
+          }
+        }
         let gotFirstChunk = false;
+        let appliedInitialSeek = effectiveStartAt <= 0;
         const firstChunkTimeout = window.setTimeout(() => {
           if (!gotFirstChunk) {
             if (needLiveTranscode) {
               void fallbackToPreparedDirect("mse first chunk timeout");
             } else {
-              fallbackToDirect(directUrl, "mse first chunk timeout", directPath);
+              fallbackToDirect(directUrl, "mse first chunk timeout", directPath, effectiveStartAt);
             }
           }
         }, 8000);
@@ -435,15 +530,39 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
               directUrl,
               `source buffer init failed: ${err instanceof Error ? err.message : String(err)}`,
               directPath,
+              effectiveStartAt,
             );
           }
           return;
         }
 
         sourceBufferRef.current = sourceBuffer;
+        if (effectiveStartAt > 0) {
+          try {
+            sourceBuffer.timestampOffset = effectiveStartAt;
+          } catch {
+            // ignore
+          }
+        }
+
+        const applyInitialSeek = () => {
+          if (appliedInitialSeek || effectiveStartAt <= 0) return;
+          try {
+            internalSeekRef.current = true;
+            video.currentTime = effectiveStartAt;
+            setCurrentTime(effectiveStartAt);
+            appliedInitialSeek = true;
+            if (shouldResume) {
+              requestResume(video, true);
+            }
+          } catch {
+            // ignore
+          }
+        };
 
         sourceBuffer.addEventListener("updateend", () => {
           appendingRef.current = false;
+          applyInitialSeek();
           pumpQueue();
         });
 
@@ -457,7 +576,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
           if (needLiveTranscode) {
             void fallbackToPreparedDirect("source buffer error");
           } else {
-            fallbackToDirect(directUrl, "source buffer error", directPath);
+            fallbackToDirect(directUrl, "source buffer error", directPath, effectiveStartAt);
           }
         });
 
@@ -471,7 +590,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
           if (needLiveTranscode) {
             void fallbackToPreparedDirect("video element resource error");
           } else {
-            fallbackToDirect(directUrl, "video element resource error", directPath);
+            fallbackToDirect(directUrl, "video element resource error", directPath, effectiveStartAt);
           }
         };
         video.addEventListener("error", onVideoError, { once: true });
@@ -513,10 +632,11 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
                   window.clearTimeout(firstChunkTimeout);
                   setIsLoading(false);
                   window.clearTimeout(initWatchdog);
+                  applyInitialSeek();
                 }
                 queueRef.current.push(new Uint8Array(chunk));
                 pumpQueue();
-              });
+              }, effectiveStartAt);
             } else {
               const response = await fetch(directUrl, {
                 signal: abortController.signal,
@@ -536,6 +656,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
                     window.clearTimeout(firstChunkTimeout);
                     setIsLoading(false);
                     window.clearTimeout(initWatchdog);
+                    applyInitialSeek();
                   }
                   queueRef.current.push(value);
                   pumpQueue();
@@ -546,7 +667,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
               sourceEndedRef.current = false;
               pumpQueue();
             }
-            playVideoElement(video);
+            requestResume(video, shouldResume);
           } catch (err) {
             if (abortController.signal.aborted) return;
             window.clearTimeout(firstChunkTimeout);
@@ -554,7 +675,12 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
             if (needLiveTranscode) {
               void fallbackToPreparedDirect(err instanceof Error ? err.message : String(err));
             } else {
-              fallbackToDirect(directUrl, err instanceof Error ? err.message : String(err), directPath);
+              fallbackToDirect(
+                directUrl,
+                err instanceof Error ? err.message : String(err),
+                directPath,
+                effectiveStartAt,
+              );
             }
           }
         })();
@@ -569,7 +695,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
       cancelled = true;
       cleanupMse();
     };
-  }, [cleanupMse, fallbackToDirect, filePath, playVideoElement, pumpQueue]);
+  }, [cleanupMse, fallbackToDirect, filePath, playbackRequest, playVideoElement, pumpQueue]);
 
   if (!filePath || filePath === "undefined") {
     return (
@@ -580,36 +706,29 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
   }
 
   return (
-    <div className={cn("mb-4 w-full", className)}>
+    <div className={cn("relative flex-1 h-full w-full", className)}>
       {error && (
-        <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="absolute z-10 mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      <div className="rounded-lg border bg-card p-2">
-        <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-          <span>Playback Engine: {mode === "mse" ? "MSE" : "Direct"}</span>
-          <span>
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </span>
+      <div className={cn("relative flex-1 max-h-full", aspectRatio > 1 ? "h-auto w-full top-1/2 -translate-y-1/2" : "h-full w-auto")}>
+        <div
+          className={cn(
+            "relative m-auto", 
+            aspectRatio > 1 ? "h-auto w-full" : "h-full w-auto"
+          )}
+          style={{ aspectRatio: String(aspectRatio) }}
+        >
+          <video
+            ref={videoRef}
+            className="absolute inset-0 h-full w-full object-contain m-auto overflow-hidden rounded-xl"
+            controls={showControls}
+            playsInline
+            preload="metadata"
+          />
         </div>
-        <div className="mb-2 space-y-1 text-xs text-muted-foreground">
-          <div>Input: {filePath}</div>
-          <div>Playing: {playbackPath || filePath}</div>
-        </div>
-
-        <video
-          ref={videoRef}
-          className="h-auto w-full rounded bg-black"
-          controls={showControls}
-          playsInline
-          preload="metadata"
-        />
-
-        {isLoading && (
-          <div className="mt-2 text-xs text-muted-foreground">Preparing playback...</div>
-        )}
       </div>
     </div>
   );

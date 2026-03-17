@@ -52,23 +52,8 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const isDraggingRef = useRef(false);
   const pendingSeekTargetRef = useRef<number | null>(null);
   const seekHoldUntilRef = useRef(0);
-  const instanceIdRef = useRef(
-    `music-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-  );
   const log = useCallback(
-    (message: string, extra?: unknown) => {
-      if (extra === undefined) {
-        console.info(`[MusicPlayer:${instanceIdRef.current}] ${message}`);
-        return;
-      }
-      try {
-        const serialized =
-          typeof extra === "string" ? extra : JSON.stringify(extra);
-        console.info(`[MusicPlayer:${instanceIdRef.current}] ${message} ${serialized}`);
-      } catch {
-        console.info(`[MusicPlayer:${instanceIdRef.current}] ${message}`, extra);
-      }
-    },
+    (_message: string, _extra?: unknown) => {},
     []
   );
 
@@ -131,7 +116,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         setIsReady(false);
         setIsPlaying(false);
         setError(getBridgeErrorMessage(err, "打开文件失败"));
-        console.error(`[MusicPlayer:${instanceIdRef.current}] 打开音频文件失败:`, err);
       } finally {
         setIsLoading(false);
         log("effect:init finished");
@@ -165,7 +149,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       log("handlePlay success");
     } catch (err) {
       setError(getBridgeErrorMessage(err, "播放失败"));
-      console.error(`[MusicPlayer:${instanceIdRef.current}] 播放失败:`, err);
     }
   }, [duration, currentPosition, isReady, log]);
 
@@ -179,7 +162,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       log("handlePause success");
     } catch (err) {
       setError(getBridgeErrorMessage(err, "暂停失败"));
-      console.error(`[MusicPlayer:${instanceIdRef.current}] 暂停失败:`, err);
     }
   }, [isReady, log]);
 
@@ -194,8 +176,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         await bridge.audioPlayerSeek(newPosition);
         setCurrentPosition(newPosition);
         log(`handleSkip success current=${current} newPosition=${newPosition}`);
-      } catch (err) {
-        console.error(`[MusicPlayer:${instanceIdRef.current}] 跳转失败:`, err);
+      } catch {
       }
     },
     [duration, isReady, log]
@@ -212,8 +193,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       const corrected = await bridge.audioPlayerGetPosition();
       setCurrentPosition(corrected);
       log("handleSeek success");
-    } catch (err) {
-      console.error(`[MusicPlayer:${instanceIdRef.current}] 跳转失败:`, err);
+    } catch {
     }
   }, [isReady, log]);
 
@@ -249,8 +229,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     if (!isReady) return;
     try {
       await bridge.audioPlayerSetVolume(nextVolume);
-    } catch (err) {
-      console.error(`[MusicPlayer:${instanceIdRef.current}] 调整音量失败:`, err);
+    } catch {
     }
   }, [isReady, log]);
 
@@ -355,7 +334,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           log("component unmount stop ignored: player not initialized");
           return;
         }
-        console.error(`[MusicPlayer:${instanceIdRef.current}] unmount stop failed:`, err);
       });
     };
   }, [log]);

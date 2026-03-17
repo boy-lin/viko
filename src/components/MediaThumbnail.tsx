@@ -128,8 +128,11 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
           setThumbnailResolution(null);
           setIsDialogOpen(false);
         }
+        if (!missing) {
+          setThumbnail(null);
+          setThumbnailResolution(null);
+        }
         setIsLoading(false);
-        console.error("Failed to load thumbnail:", err);
       }
     };
 
@@ -165,7 +168,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
           <ShakaPlayer
             filePath={path}
             title={title}
-            className="w-full"
+            className=""
             autoPlay={false}
           />
         );
@@ -244,11 +247,11 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
 
       {/* 播放器 Dialog */}
       {
-        isDialogOpen && <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        isDialogOpen && <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen} modal={true} >
           <DialogContent
             className={cn(
-              "bg-transparent border-0 shadow-none max-w-6xl w-[95vw] p-0",
-              (fileType === FileType.Image || fileType === FileType.Gif) && "max-w-[95vw] h-[95vh]"
+              "border-0 bg-transparent p-0 shadow-none",
+              "flex h-[92vh] max-w-[92vw] items-center justify-center overflow-hidden"
             )}
             showCloseButton={true}
           >
@@ -258,7 +261,9 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
               </DialogTitle>
               <DialogDescription className="sr-only"></DialogDescription>
             </DialogHeader>
-            {renderPlayer()}
+            <div className="h-full w-full flex items-center justify-center">
+              {renderPlayer()}
+            </div>
           </DialogContent>
         </Dialog>
       }

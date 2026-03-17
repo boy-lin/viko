@@ -753,6 +753,7 @@ class Bridge {
   async videoMseStreamOpen(
     path: string,
     onChunk: (chunk: ArrayBuffer) => void,
+    startSeconds = 0,
   ): Promise<void> {
     const channel = new Channel<unknown>();
     channel.onmessage = (payload) => {
@@ -772,6 +773,7 @@ class Bridge {
     };
     await this.invoke("video_mse_stream_open", {
       path,
+      startSeconds,
       chunkChannel: channel,
     });
   }
