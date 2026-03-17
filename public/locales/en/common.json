@@ -105,8 +105,8 @@
         "remaining_seconds": "{{seconds}}s remaining"
       },
       "debug": {
-        "placeholder": "Debug: paste auth/callback URL or code",
-        "submit": "Debug submit URL/code"
+        "placeholder": "Failed to auto-launch, please manually paste callback URL/code",
+        "submit": "Submit"
       },
       "toast": {
         "browser_opened": "Browser opened, please complete authorization",

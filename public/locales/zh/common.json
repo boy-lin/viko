@@ -105,8 +105,8 @@
         "remaining_seconds": "剩余 {{seconds}}s"
       },
       "debug": {
-        "placeholder": "调试：粘贴授权/回调 URL 或 code",
-        "submit": "调试提交 URL/code"
+        "placeholder": "自动唤起失败，请手动粘贴 URL/code",
+        "submit": "提交"
       },
       "toast": {
         "browser_opened": "已打开浏览器，请完成授权",
