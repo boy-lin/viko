@@ -27,28 +27,32 @@ interface TaskItemProps {
   onRetryMeta?: () => void;
 }
 
-export function buildTaskDefaultsFromMedia(mediaInfo: MediaDetails, task: ConverterTask) {
+export function buildTaskDefaultsFromMedia(mediaDetails: MediaDetails, task: ConverterTask) {
   let format = FormatEnum.PNG;
-  if (mediaInfo.extension === FormatEnum.PNG) {
+  if (mediaDetails.extension === FormatEnum.PNG) {
     format = FormatEnum.PNG;
   } else {
     format = FormatEnum.JPG;
   }
   const containerDefinition = IMAGE_CONTAINER_DEFINITIONS[format as FormatEnum];
+  const primaryStream = mediaDetails.streams[0];
   const outputArgs: ConvertImageTaskArgs = {
     ...task.args,
     task_id: task.args.task_id || task.id,
-    input_path: mediaInfo.path,
+    input_path: mediaDetails.path,
     format,
     image_encoder: containerDefinition?.allowedEncoders[0],
+    output_path: task.args.output_path ?? "",
+    width: task.args.width ?? primaryStream?.width,
+    height: task.args.height ?? primaryStream?.height
   };
 
   return {
-    mediaDetails: mediaInfo,
+    mediaDetails: mediaDetails,
     args: outputArgs,
     fileType: FileType.Image,
     taskType: MediaTaskType.ConvertImage,
-    outputTitle: mediaInfo.title,
+    outputTitle: mediaDetails.title,
   } as ConverterTask;
 }
 

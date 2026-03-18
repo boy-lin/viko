@@ -14,17 +14,15 @@ import {
 } from "@/components/ui/input-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import CorrectNumberInput from "@/components/ui-lab/correct-number-input";
+import { VIDEO_FRAME_RATES } from "@/data/capabilities";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
-const DEFAULT_DPI_OPTIONS = [72, 96, 150, 300, 600];
-
-interface DpiSelectProps {
-  value?: number;
-  onValueChange: (value?: number) => void;
-  options?: number[];
-  minDpi?: number;
-  maxDpi?: number;
+interface VideoFrameRateSelectGroupProps {
+  value?: string;
+  onValueChange: (value?: string) => void;
+  maxFrameRate?: number;
+  minFrameRate?: number;
   step?: number;
   className?: string;
   placeholder?: string;
@@ -34,13 +32,12 @@ interface DpiSelectProps {
   hideLabel?: boolean;
 }
 
-export const DpiSelect: React.FC<DpiSelectProps> = ({
+export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps> = ({
   value,
   onValueChange,
-  options = DEFAULT_DPI_OPTIONS,
-  minDpi,
-  maxDpi,
-  step = 1,
+  maxFrameRate,
+  minFrameRate = 1,
+  step = 0.001,
   className,
   placeholder,
   autoLabel,
@@ -50,30 +47,61 @@ export const DpiSelect: React.FC<DpiSelectProps> = ({
 }) => {
   const { t } = useTranslation("task");
   const resolvedAutoLabel = autoLabel ?? t("common.auto");
-  const optionItems = useMemo(() => {
-    const dedup = new Set<number>(options.filter((n) => Number.isFinite(n)));
-    if (typeof value === "number" && Number.isFinite(value)) {
-      dedup.add(value);
-    }
-    return Array.from(dedup)
-      .sort((a, b) => a - b)
-      .map((n) => ({ value: String(n), label: String(n) }));
-  }, [options, value]);
 
-  const numericValue = typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  const numericValue = useMemo(() => {
+    if (!value || value === "auto") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, [value]);
+
+  const optionItems = useMemo(() => {
+    const dedup = new Map<string, string>();
+
+    VIDEO_FRAME_RATES.forEach((option) => {
+      if (option.value === "auto") return;
+      const parsed = Number(option.value);
+      if (!Number.isFinite(parsed)) return;
+      if (parsed < minFrameRate) return;
+      if (typeof maxFrameRate === "number" && parsed > maxFrameRate) return;
+      dedup.set(option.value, option.label);
+    });
+
+    if (typeof numericValue === "number" && numericValue >= minFrameRate) {
+      if (typeof maxFrameRate !== "number" || numericValue <= maxFrameRate) {
+        const key = String(numericValue);
+        if (!dedup.has(key)) {
+          dedup.set(key, `${key} FPS`);
+        }
+      }
+    }
+
+    return Array.from(dedup.entries())
+      .map(([itemValue, itemLabel]) => ({
+        value: itemValue,
+        label: itemLabel,
+        numeric: Number(itemValue),
+      }))
+      .sort((a, b) => a.numeric - b.numeric)
+      .map(({ value: itemValue, label: itemLabel }) => ({
+        value: itemValue,
+        label: itemLabel,
+      }));
+  }, [maxFrameRate, minFrameRate, numericValue]);
+
   const clampedValue = numericValue === undefined
     ? undefined
     : Math.min(
-      maxDpi ?? Number.MAX_SAFE_INTEGER,
-      Math.max(minDpi ?? 0, numericValue),
+      maxFrameRate ?? Number.MAX_SAFE_INTEGER,
+      Math.max(minFrameRate, numericValue),
     );
-  const selectValue = optionItems.some((item) => item.value === String(value))
+
+  const selectValue = optionItems.some((item) => item.value === value)
     ? String(value)
     : "auto";
 
   useEffect(() => {
     if (numericValue !== undefined && clampedValue !== numericValue) {
-      onValueChange(clampedValue);
+      onValueChange(String(clampedValue));
     }
   }, [clampedValue, numericValue, onValueChange]);
 
@@ -81,30 +109,34 @@ export const DpiSelect: React.FC<DpiSelectProps> = ({
     <div className={cn("space-y-2", className)}>
       {!hideLabel && (
         <div className="flex items-center gap-1">
-          <Label>{label ?? t("bizForm.dpi.label")}</Label>
+          <Label>{label ?? t("video_advance.frame_rate")}</Label>
           <Tooltip>
             <TooltipTrigger asChild>
               <BadgeQuestionMark className="h-4 w-4 cursor-help text-muted-foreground" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {helpText ?? t("bizForm.dpi.help")}
+              {helpText ?? t("settings.video.fields.frameRateHelp")}
             </TooltipContent>
           </Tooltip>
         </div>
       )}
       <InputGroup>
         <CorrectNumberInput
-          min={minDpi}
-          max={maxDpi}
+          min={0}
+          max={maxFrameRate}
           step={step}
-          placeholder={placeholder ?? t("bizForm.dpi.inputPlaceholder")}
+          placeholder={placeholder ?? t("settings.video.placeholders.frameRate", "Frame rate")}
           value={clampedValue}
           onChange={(nextValue) => {
+            if (!Number.isFinite(nextValue) || nextValue <= 0) {
+              onValueChange(undefined);
+              return;
+            }
             const clamped = Math.min(
-              maxDpi ?? Number.MAX_SAFE_INTEGER,
-              Math.max(minDpi ?? 0, nextValue),
+              maxFrameRate ?? Number.MAX_SAFE_INTEGER,
+              Math.max(minFrameRate, nextValue),
             );
-            onValueChange(clamped);
+            onValueChange(String(clamped));
           }}
         />
         <InputGroupAddon align="inline-end" className="pr-1">
@@ -115,13 +147,12 @@ export const DpiSelect: React.FC<DpiSelectProps> = ({
                 onValueChange(undefined);
                 return;
               }
-              const parsed = Number(next);
-              onValueChange(Number.isFinite(parsed) ? parsed : undefined);
+              onValueChange(next);
             }}
           >
-              <SelectTrigger className="h-7 w-[6em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
+            <SelectTrigger className="h-7 w-[8.5em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
               <SelectValue placeholder={t("bizForm.common.commonValues")} />
-              </SelectTrigger>
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="auto">{resolvedAutoLabel}</SelectItem>
               {optionItems.map((item) => (
@@ -136,3 +167,5 @@ export const DpiSelect: React.FC<DpiSelectProps> = ({
     </div>
   );
 };
+
+export default VideoFrameRateSelectGroup;

@@ -1,4 +1,4 @@
-use crate::events::TaskEmitter;
+﻿use crate::events::TaskEmitter;
 use crate::media_common;
 use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
 use image::codecs::jpeg::JpegEncoder;
@@ -21,6 +21,7 @@ pub struct ImageCompressionParams {
     pub width: Option<u32>,              // 目标宽度
     pub height: Option<u32>,             // 目标高度
     pub color_mode: Option<String>,      // "RGB", "RGBA", "Gray", "CMYK" (转RGB)
+    pub colors: Option<u32>,             // GIF/APNG 调色板颜色数
     pub strip_metadata: Option<bool>,    // 是否去除元数据(默认去除)
     pub keep_transparency: Option<bool>, // 是否保留透明通道
     pub dpi: Option<f64>,                // 图片分辨率密度(DPI)
@@ -30,6 +31,33 @@ pub struct ImageCompressionParams {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageCompressionReport {
     pub output_media: MediaDetails,
+}
+
+pub fn is_animated_image_target(
+    format: Option<&str>,
+    output_path: &str,
+    input_path: &str,
+) -> bool {
+    let normalized = format
+        .map(|value| value.trim().to_lowercase())
+        .filter(|value| !value.is_empty());
+    if matches!(normalized.as_deref(), Some("gif" | "apng")) {
+        return true;
+    }
+
+    let output_ext = std::path::Path::new(output_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase());
+    if matches!(output_ext.as_deref(), Some("gif" | "apng")) {
+        return true;
+    }
+
+    let input_ext = std::path::Path::new(input_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase());
+    matches!(input_ext.as_deref(), Some("gif" | "apng"))
 }
 
 // 仍待优化：strip_metadata、dpi 参数未实际生效，WebP 质量粒度受当前编码器限制。
@@ -291,3 +319,4 @@ pub fn compress_image_file<E: TaskEmitter>(
 
     Ok(ImageCompressionReport { output_media })
 }
+

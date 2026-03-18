@@ -2,7 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { ConvertImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { cn } from "@/lib/utils";
-import { VideoResolutionSection } from "./VideoResolutionSection";
+import { VideoResolutionGroup } from "./VideoResolutionGroup";
 
 type ImageConfig = Pick<ConvertImageTaskArgs, "format" | "image_encoder" | "width" | "height">
 
@@ -25,7 +25,7 @@ export const ImageSettingsSection: React.FC<ImageSettingsSectionProps> = ({
   return (
     <div className={cn("flex-1 overflow-hidden p-2 space-y-4", className)}>
       <div className="gap-x-8 gap-y-4">
-        <VideoResolutionSection
+        <VideoResolutionGroup
           label={t("settings.image.fields.resolution")}
           helpText={t("settings.image.fields.resolutionHelp")}
           resolution={resolution}

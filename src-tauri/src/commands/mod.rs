@@ -29,7 +29,6 @@ use ffmpeg_next as ffmpeg;
 use crate::events::{MockEmitter, TaskEmitter, WindowEmitter};
 use crate::media_common;
 use crate::services::convert::audio::{self, AudioConversionParams};
-use crate::services::convert::gif;
 use crate::services::convert::video::{self as convert_video_service, VideoConversionParams};
 use crate::services::ffmpeg::media_info::{self, MediaDetails};
 use crate::services::media_probe::{self, MediaProbeDetails, MediaProbeResult};
@@ -1735,72 +1734,6 @@ pub struct GifConversionArgs {
     pub denoise: Option<bool>,
 }
 
-#[command]
-pub async fn convert_gif_file(app: AppHandle, args: GifConversionArgs) -> Result<(), String> {
-    let window = app.get_webview_window("main").ok_or("未找到主窗口")?;
-
-    // 如果没有提供输出路径，自动生成
-    let output_path = if let Some(path) = args.output_path {
-        path
-    } else {
-        let path = Path::new(&args.input_path);
-        let stem = path.file_stem().unwrap().to_str().unwrap();
-        let parent = path.parent().unwrap();
-        parent
-            .join(format!("{}.gif", stem))
-            .to_str()
-            .unwrap()
-            .to_string()
-    };
-
-    let window = window.clone();
-    let task_id = args.task_id.clone();
-
-    tauri::async_runtime::spawn(async move {
-        let params = gif::GifConversionParams {
-            input_path: args.input_path,
-            output_path: output_path.clone(),
-            width: args.width,
-            height: args.height,
-            frame_rate: args.frame_rate,
-            quality: args.quality,
-            preserve_transparency: args.preserve_transparency,
-            color_mode: args.color_mode,
-            dpi: args.dpi,
-            loop_count: args.loop_count,
-            frame_delay: args.frame_delay,
-            colors: args.colors,
-            preserve_extensions: args.preserve_extensions,
-            sharpen: args.sharpen,
-            denoise: args.denoise,
-        };
-
-        let emitter = WindowEmitter::new(window, task_id, "convert-gif".to_string(), "image".to_string());
-        let emitter_for_task = emitter.clone();
-        let outcome = tauri::async_runtime::spawn_blocking(move || {
-            gif::convert_video_to_gif(emitter_for_task, params).map(|_| ())
-        })
-        .await;
-
-        match outcome {
-            Ok(Ok(_)) => {}
-            Ok(Err(e)) => {
-                emitter.emit("error", None, None, Some(e));
-            }
-            Err(e) => {
-                emitter.emit(
-                    "error",
-                    None,
-                    None,
-                    Some(format!("convert_gif task join error: {}", e)),
-                );
-            }
-        }
-    });
-
-    Ok(())
-}
-
 // ==================== 媒体缩略图相关命令 ====================
 
 #[command]
@@ -2000,6 +1933,7 @@ pub struct ImageCompressionArgs {
     pub width: Option<u32>,              // 目标宽度
     pub height: Option<u32>,             // 目标高度
     pub color_mode: Option<String>,      // "RGB", "RGBA", "Gray", "CMYK"
+    pub colors: Option<u32>,           // GIF/APNG 调色板颜色数
     pub strip_metadata: Option<bool>,    // 是否去除元数据
     pub keep_transparency: Option<bool>, // 是否保留透明通道
     pub dpi: Option<f64>,                // DPI
@@ -2021,6 +1955,7 @@ pub async fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> 
             width: args.width,
             height: args.height,
             color_mode: args.color_mode,
+            colors: args.colors,
             strip_metadata: args.strip_metadata,
             keep_transparency: args.keep_transparency,
             dpi: args.dpi,
@@ -2132,3 +2067,4 @@ pub async fn clear_task_history(task_type: Option<String>) -> Result<(), String>
         .await
         .map_err(|e| e.to_string())
 }
+

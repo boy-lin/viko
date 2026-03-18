@@ -8,7 +8,6 @@ import {
   ConvertVideoTaskArgs,
   ConvertAudioTaskArgs,
   ConvertImageTaskArgs,
-  ConvertGifTaskArgs,
   DenoiseTaskArgs,
   WatermarkTaskArgs,
 } from "./mediaTaskEvent";
@@ -30,7 +29,6 @@ type TaskRequest = {
     | ConvertVideoTaskArgs
     | ConvertAudioTaskArgs
     | ConvertImageTaskArgs
-    | ConvertGifTaskArgs
     | DenoiseTaskArgs
     | WatermarkTaskArgs;
 };
@@ -75,7 +73,7 @@ class MediaTaskQueue {
       if (route) {
         this.taskStoreRoutes.set(task.args.task_id, route);
       }
-      console.log("Adding task args", task.args);
+      console.log("Adding task args", JSON.stringify(task));
     });
 
     this.ensureEventListener();
@@ -213,7 +211,6 @@ class MediaTaskQueue {
         MediaTaskType.ConvertVideo,
         MediaTaskType.ConvertAudio,
         MediaTaskType.ConvertImage,
-        MediaTaskType.ConvertGif,
       ].includes(task_type)
     ) {
       if (file_type === FileType.Video) {

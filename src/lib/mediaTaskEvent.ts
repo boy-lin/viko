@@ -134,27 +134,6 @@ export interface ConvertAudioTaskArgs {
   use_ultra_fast_speed?: boolean;
 }
 
-export interface ConvertGifTaskArgs {
-  task_id: string;
-  input_path: string;
-  input_file_type?: FileType;
-  format: string;
-  output_path?: string;
-  width?: number;
-  height?: number;
-  frame_rate?: number;
-  quality?: number;
-  preserve_transparency?: boolean;
-  color_mode?: string;
-  dpi?: number;
-  loop_count?: number;
-  frame_delay?: number;
-  colors?: number;
-  preserve_extensions?: boolean;
-  sharpen?: boolean;
-  denoise?: boolean;
-}
-
 export interface ConvertImageTaskArgs {
   /** Required task id for queue/event tracking. */
   task_id: string;
@@ -171,6 +150,28 @@ export interface ConvertImageTaskArgs {
   image_encoder?: string;
   /** Optional output file path. Backend auto-generates one if omitted. */
   output_path?: string;
+  /** Optional animation frame rate for GIF/APNG outputs. */
+  frame_rate?: number;
+  /** Optional image quality 1-100. */
+  quality?: number;
+  /** Optional transparency preservation for GIF/APNG outputs. */
+  preserve_transparency?: boolean;
+  /** Optional color mode such as rgb/grayscale. */
+  color_mode?: string;
+  /** Optional target DPI metadata. */
+  dpi?: number;
+  /** Optional loop count for animated outputs, 0 means infinite. */
+  loop_count?: number;
+  /** Optional per-frame delay in milliseconds. */
+  frame_delay?: number;
+  /** Optional color palette size for GIF outputs. */
+  colors?: number;
+  /** Optional flag to preserve animation extensions when possible. */
+  preserve_extensions?: boolean;
+  /** Optional sharpen filter flag. */
+  sharpen?: boolean;
+  /** Optional denoise filter flag. */
+  denoise?: boolean;
   /** Optional watermark (text/image). */
   watermark?: WatermarkConfig;
 }
@@ -256,6 +257,7 @@ export interface CompressImageTaskArgs {
   /** 扩展待同步到rust */
   output_path?: string;
   color_mode?: string;
+  colors?: number;
   strip_metadata?: boolean;
   keep_transparency?: boolean;
   dpi?: number;

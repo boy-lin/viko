@@ -16,7 +16,7 @@ import { VideoSizeInputGroup } from "@/components/biz-form/VideoSizeInputGroup";
 
 const normalizeResolution = (value: string) => value.replace("×", "x");
 
-interface VideoResolutionSectionProps {
+interface VideoResolutionGroupProps {
   label?: string;
   helpText?: string;
   resolution?: string;
@@ -25,14 +25,14 @@ interface VideoResolutionSectionProps {
   showMoreBtns?: boolean;
 }
 
-export function VideoResolutionSection({
+export function VideoResolutionGroup({
   label,
   helpText,
   resolution,
   onChange,
   className,
   showMoreBtns = false,
-}: VideoResolutionSectionProps) {
+}: VideoResolutionGroupProps) {
   const { t } = useTranslation("task");
   const [resolutionMode, setResolutionMode] = useState("preset");
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);

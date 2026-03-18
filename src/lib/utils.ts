@@ -44,3 +44,14 @@ export const parseOptionalInt = (value: string) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isNaN(parsed) ? undefined : parsed;
 };
+
+export const normalizeFrameRate = (value?: string) => {
+  if (!value) return undefined;
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return Number.isInteger(parsed)
+    ? String(parsed)
+    : parsed.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+};

@@ -1,8 +1,9 @@
-import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
+import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { isAudioFormat, isImageFormat, isVideoFormat } from "@/data/formats";
+import { FormatEnum } from "@/types/options";
 
 interface MediaTargetInfoGridProps {
-  args: ConvertVideoTaskArgs;
+  args: any;
   className?: string;
 }
 
@@ -15,29 +16,41 @@ export default function MediaTargetInfoGrid({
   className = "grid grid-cols-2 mt-1 text-sm text-muted-foreground",
 }: MediaTargetInfoGridProps) {
   const format = normalizeExt(args.format);
-  const firstAudioTrack = args.audio_tracks?.[0];
 
   let parts: Array<string | undefined> = [];
   if (isVideoFormat(format as any)) {
+    const videoArgs = args as ConvertVideoTaskArgs;
     parts = [
-      args.format?.toUpperCase?.(),
-      args.video_encoder?.toUpperCase?.(),
-      args.resolution,
-      args.video_bitrate ? String(args.video_bitrate) : undefined,
+      format?.toUpperCase?.(),
+      videoArgs.video_encoder?.toUpperCase?.(),
+      videoArgs.resolution,
+      videoArgs.video_bitrate ? String(videoArgs.video_bitrate) : undefined,
     ];
   } else if (isAudioFormat(format as any)) {
+    const audioArgs = args as ConvertAudioTaskArgs;
+    const firstAudioTrack = audioArgs.audio_tracks?.[0];
+
     parts = [
-      args.format?.toUpperCase?.(),
+      format?.toUpperCase?.(),
       firstAudioTrack?.codec?.toUpperCase?.(),
       firstAudioTrack?.bitrate ? `${firstAudioTrack.bitrate}` : undefined,
       firstAudioTrack?.sample_rate ? `${firstAudioTrack.sample_rate}` : undefined,
     ];
-  } else if (isImageFormat(format as any)) {
+  } else if (format === FormatEnum.GIF || format === FormatEnum.APNG) {
+    const imageArgs = args as ConvertImageTaskArgs;
     parts = [
-      args.format?.toUpperCase?.(),
-      undefined,
-      args.resolution,
-      undefined,
+      format?.toUpperCase?.(),
+      imageArgs.image_encoder?.toUpperCase?.(),
+      `${imageArgs.width}x${imageArgs.height}`,
+      imageArgs.frame_rate ? `${imageArgs.frame_rate}` : undefined,
+    ];
+  } else if (isImageFormat(format as any)) {
+    const imageArgs = args as ConvertImageTaskArgs;
+    parts = [
+      format?.toUpperCase?.(),
+      imageArgs.image_encoder?.toUpperCase?.(),
+      `${imageArgs.width}x${imageArgs.height}`,
+      imageArgs.quality ? `${imageArgs.quality}` : undefined,
     ];
   } else {
     parts = [args.format?.toUpperCase?.(), args.video_encoder?.toUpperCase?.()];

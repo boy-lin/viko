@@ -6,7 +6,7 @@ import { VideoQualitySelect } from "@/components/biz-form/VideoQualitySelect";
 import { Label } from "@/components/ui/label";
 import { useTranslation } from "react-i18next";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { VideoResolutionSection } from "@/components/biz-form/VideoResolutionSection";
+import { VideoResolutionGroup } from "@/components/biz-form/VideoResolutionGroup";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface VideoSimpleSettingsProps {
@@ -99,7 +99,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
         </div>
 
       </div>
-      <VideoResolutionSection
+      <VideoResolutionGroup
         label={t("settings.video.fields.resolution")}
         helpText={t("settings.video.fields.resolutionHelp")}
         resolution={resolution}

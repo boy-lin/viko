@@ -19,6 +19,7 @@ import TaskLoadingCard from "@/components/ui-biz/TaskLoadingCard";
 import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
 import MediaOriginalInfoGrid from "@/components/ui-biz/MediaOriginalInfoGrid";
 import MediaTargetInfoGrid from "@/components/ui-biz/MediaTargetInfoGrid";
+import { normalizeFrameRate } from "@/lib/utils";
 
 interface TaskItemProps {
   task: ConverterTask;
@@ -36,18 +37,16 @@ export const buildTaskDefaultsFromDetails = (task: ConverterTask, details: Media
   };
   const containerDefinition = VIDEO_CONTAINER_DEFINITIONS[format as FormatEnum];
   outputArgs.video_encoder = containerDefinition?.video?.allowedEncoders[0];
-  outputArgs.audio_tracks =
-    details?.streams
-      ?.filter((stream: any) => stream.codec_type === "audio")
-      .map((stream: any) => ({
-        source_stream_index: stream.index,
-        codec: containerDefinition?.audio?.allowedEncoders[0],
-        bitrate: 128,
-        sample_rate: 32000,
-        channels: stream.channels,
-        bit_depth: stream.bit_depth,
-      })) || [];
+  const primaryVideoStream = details.streams.find((stream: any) => stream.codec_type === "video");
+  const primaryAudioStream = details.streams.find((stream: any) => stream.codec_type === "audio");
+  outputArgs.resolution = `${primaryVideoStream?.width}x${primaryVideoStream?.height}`;
+  outputArgs.frame_rate = normalizeFrameRate(primaryVideoStream?.frame_rate);
 
+  outputArgs.audio_tracks = [{
+    source_stream_index: primaryAudioStream?.index,
+    codec: containerDefinition?.audio?.allowedEncoders[0],
+  }];
+  
   return {
     mediaDetails: details,
     args: outputArgs,
@@ -145,6 +144,7 @@ export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: T
             args: task.args,
             taskType: task.taskType,
             activeCategory: task.activeCategory,
+            fileType: task.fileType,
           }}
           recentKey="converter-videos-task-item"
           onValueChange={(config) => {

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -21,7 +22,7 @@ import { Settings } from "lucide-react";
 import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { getImageCompressionPresetByRatio } from "./compressionPreset";
 import { FormatEnum } from "@/types/options";
-import { DpiSelect } from "@/components/biz-form/DpiSelect";
+import { DpiSelectGroup } from "@/components/biz-form/DpiSelectGroup";
 import { ColorModeSelect } from "@/components/biz-form/ColorModeSelect";
 import { useTranslation } from "react-i18next";
 
@@ -71,9 +72,31 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         />
       </div>
 
+      {config.format?.toLowerCase() === FormatEnum.GIF && (
+        <div className="space-y-2">
+          <Label>GIF Colors</Label>
+          <Input
+            type="number"
+            min={2}
+            max={256}
+            value={config.colors ?? ""}
+            onChange={(e) => {
+              const next = e.target.value ? Number(e.target.value) : undefined;
+              onConfigChange({
+                colors:
+                  next === undefined || Number.isNaN(next)
+                    ? undefined
+                    : Math.min(256, Math.max(2, next)),
+              });
+            }}
+            placeholder="2-256"
+          />
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label>{t("imageCompressor.fields.dpi")}</Label>
-        <DpiSelect
+        <DpiSelectGroup
           value={config.dpi}
           onValueChange={(dpi) => onConfigChange({ dpi })}
         />

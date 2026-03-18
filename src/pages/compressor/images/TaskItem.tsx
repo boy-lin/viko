@@ -39,6 +39,47 @@ const formatDpiFromTags = (tags?: Record<string, string>) => {
   return `${x ?? y} ${unitLabel}`;
 };
 
+const parseDpiFromTags = (tags?: Record<string, string>) => {
+  if (!tags) return undefined;
+  const dpiX = Number.parseFloat(tags.dpi_x ?? "");
+  const dpiY = Number.parseFloat(tags.dpi_y ?? "");
+  if (!Number.isFinite(dpiX) && !Number.isFinite(dpiY)) return undefined;
+  const primary = Number.isFinite(dpiX) ? dpiX : dpiY;
+  return primary && Number.isFinite(primary) ? Math.round(primary) : undefined;
+};
+
+const inferImageColorMode = (mediaDetails: MediaDetailsWithResolve) => {
+  const stream = mediaDetails.streams[0] as (typeof mediaDetails.streams[number] & { pix_fmt?: string }) | undefined;
+  const pixFmt = (stream?.pix_fmt || "").toLowerCase();
+  if (pixFmt.includes("gray") || pixFmt.includes("ya")) return "Gray";
+  if (pixFmt.includes("rgba") || pixFmt.includes("argb") || pixFmt.includes("bgra")) return "RGBA";
+  if (pixFmt.includes("cmyk")) return "CMYK";
+  if (pixFmt.includes("rgb")) return "RGB";
+
+  const streamTags = mediaDetails.stream_tags?.[0];
+  const tagColorMode = (
+    streamTags?.color_mode ||
+    streamTags?.colormode ||
+    mediaDetails.tags?.color_mode ||
+    mediaDetails.tags?.colormode
+  )?.trim();
+  return tagColorMode || undefined;
+};
+
+const parseImageQuality = (mediaDetails: MediaDetailsWithResolve) => {
+  const candidates = [
+    mediaDetails.tags?.quality,
+    mediaDetails.tags?.["exif.JPEGInterchangeFormatLength"],
+  ];
+  for (const candidate of candidates) {
+    const parsed = Number.parseInt(candidate ?? "", 10);
+    if (Number.isFinite(parsed) && parsed > 0 && parsed <= 100) {
+      return parsed;
+    }
+  }
+  return undefined;
+};
+
 export const buildDefaultImageArgs = (task: CompressingImageTask, mediaDetails: MediaDetailsWithResolve): CompressImageTaskArgs => {
   const taskId = task.id;
   const path = task.args.input_path;
@@ -47,6 +88,7 @@ export const buildDefaultImageArgs = (task: CompressingImageTask, mediaDetails: 
   const format = task.args.format || mediaDetails?.extension || "jpg";
   const ratio = typeof task.args.ratio === "number" ? task.args.ratio : 50;
   const presetResult = getImageCompressionPresetByRatio(ratio, format);
+  const primaryStream = mediaDetails.streams[0];
   const outputArgs: CompressImageTaskArgs = {
     ...task.args,
     ...presetResult.patch,
@@ -55,6 +97,11 @@ export const buildDefaultImageArgs = (task: CompressingImageTask, mediaDetails: 
     input_path: path,
     ratio,
     output_path: task.args.output_path ?? "",
+    width: task.args.width ?? primaryStream?.width,
+    height: task.args.height ?? primaryStream?.height,
+    quality: task.args.quality ?? parseImageQuality(mediaDetails) ?? presetResult.patch.quality,
+    color_mode: task.args.color_mode ?? inferImageColorMode(mediaDetails) ?? presetResult.patch.color_mode,
+    dpi: task.args.dpi ?? parseDpiFromTags(mediaDetails.tags) ?? presetResult.patch.dpi,
   };
   outputArgs.output_path = `${outputDir}/${mediaTitle}.${outputArgs.format ?? format}`;
 
@@ -219,4 +266,3 @@ export default function TaskItem({
     </div>
   );
 }
-

@@ -74,6 +74,7 @@ export default function VideoSettingsSection({
           resolution={config.resolution}
           video_bitrate={config.video_bitrate}
           crf={config.crf}
+          
           onChange={onChange}
         />
       )}

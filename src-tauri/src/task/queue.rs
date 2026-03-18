@@ -8,14 +8,14 @@ use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
 use crate::commands::{
-    AudioCompressionArgs, AudioConversionArgs, GifConversionArgs, ImageCompressionArgs,
-    DenoiseMediaArgs, VideoCompressionArgs, VideoConversionArgs,
+    AudioCompressionArgs, AudioConversionArgs, ImageCompressionArgs, DenoiseMediaArgs,
+    VideoCompressionArgs, VideoConversionArgs,
 };
 use crate::events;
 use crate::events::TaskEmitter;
 use crate::services::convert::audio::{self, AudioConversionParams};
 use crate::services::convert::denoise;
-use crate::services::convert::gif::{self, GifConversionParams};
+use crate::services::convert::gif;
 use crate::services::convert::image::{self, ImageConversionParams};
 use crate::services::convert::video::{self, VideoConversionParams};
 use crate::shared::get_millis;
@@ -30,9 +30,7 @@ pub enum MediaTaskRequest {
     ConvertAudio(AudioConversionArgs),
     #[serde(rename = "convert-video")]
     ConvertVideo(VideoConversionArgs),
-    #[serde(rename = "convert-gif")]
-    ConvertGif(GifConversionArgs),
-    #[serde(rename = "convert-image")]
+    #[serde(rename = "convert-image", alias = "convert-gif")]
     ConvertImage(ImageConversionParams),
     #[serde(rename = "compress-video")]
     CompressVideo(VideoCompressionArgs),
@@ -85,7 +83,6 @@ fn task_kind(task: &MediaTaskRequest) -> &'static str {
     match task {
         MediaTaskRequest::ConvertAudio(_) => "convert-audio",
         MediaTaskRequest::ConvertVideo(_) => "convert-video",
-        MediaTaskRequest::ConvertGif(_) => "convert-gif",
         MediaTaskRequest::ConvertImage(_) => "convert-image",
         MediaTaskRequest::CompressVideo(_) => "compress-video",
         MediaTaskRequest::CompressAudio(_) => "compress-audio",
@@ -99,7 +96,6 @@ fn task_id(task: &MediaTaskRequest) -> Option<String> {
     match task {
         MediaTaskRequest::ConvertAudio(args) => Some(args.task_id.clone()),
         MediaTaskRequest::ConvertVideo(args) => Some(args.task_id.clone()),
-        MediaTaskRequest::ConvertGif(args) => Some(args.task_id.clone()),
         MediaTaskRequest::ConvertImage(args) => Some(args.task_id.clone()),
         MediaTaskRequest::CompressVideo(args) => Some(args.task_id.clone()),
         MediaTaskRequest::CompressAudio(args) => Some(args.task_id.clone()),
@@ -277,7 +273,6 @@ fn execute_task(app: &AppHandle, task: MediaTaskRequest) -> Result<(), String> {
     match task {
         MediaTaskRequest::ConvertAudio(args) => run_convert_audio(app, args),
         MediaTaskRequest::ConvertVideo(args) => run_convert_video(app, args),
-        MediaTaskRequest::ConvertGif(args) => run_convert_gif(app, args),
         MediaTaskRequest::ConvertImage(args) => run_convert_image(app, args),
         MediaTaskRequest::CompressVideo(args) => run_compress_video(app, args),
         MediaTaskRequest::CompressAudio(args) => run_compress_audio(app, args),
@@ -497,6 +492,17 @@ fn run_watermark_task(app: &AppHandle, args: VideoConversionArgs) -> Result<(), 
             height: None,
             format: resolved_format,
             image_encoder: None,
+            frame_rate: None,
+            quality: None,
+            preserve_transparency: None,
+            color_mode: None,
+            dpi: None,
+            loop_count: None,
+            frame_delay: None,
+            colors: None,
+            preserve_extensions: None,
+            sharpen: None,
+            denoise: None,
             watermark: args.watermark,
         };
         return run_convert_image_with_task_type(app, image_args, "watermark");
@@ -786,93 +792,6 @@ fn run_convert_video_with_task_type(
     Ok(())
 }
 
-fn run_convert_gif(app: &AppHandle, args: GifConversionArgs) -> Result<(), String> {
-    let output_path = if let Some(path) = args.output_path.as_ref() {
-        path.clone()
-    } else {
-        let path = Path::new(&args.input_path);
-        let stem = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("output");
-        let parent = path.parent().unwrap_or_else(|| Path::new("."));
-        parent
-            .join(format!("{}.gif", stem))
-            .to_string_lossy()
-            .to_string()
-    };
-
-    let start_time = get_millis();
-    record_history_start(
-        args.task_id.clone(),
-        "convert-gif".into(),
-        "gif".into(),
-        args.input_path.clone(),
-        output_path.clone(),
-        start_time,
-        &args,
-    );
-
-    let params = GifConversionParams {
-        input_path: args.input_path.clone(),
-        output_path: output_path.clone(),
-        width: args.width,
-        height: args.height,
-        quality: args.quality,
-        preserve_transparency: args.preserve_transparency,
-        color_mode: args.color_mode.clone(),
-        dpi: args.dpi,
-        frame_rate: args.frame_rate,
-        loop_count: args.loop_count,
-        frame_delay: args.frame_delay,
-        colors: args.colors,
-        preserve_extensions: args.preserve_extensions,
-        sharpen: args.sharpen,
-        denoise: args.denoise,
-    };
-
-    let file_type = args
-        .input_file_type
-        .clone()
-        .unwrap_or_else(|| "video".to_string());
-    let emitter =
-        events::window_emitter(app, args.task_id.clone(), "convert-gif".into(), file_type)?; // GIF treated as video/image hybrid.
-
-    let result = gif::convert_video_to_gif(emitter.clone(), params);
-    let (error, final_output_path, effective_params, output_size_hint) = match result {
-        Ok(report) => (
-            None,
-            report.output_media.path.clone(),
-            serde_json::to_value(&report).ok(),
-            Some(report.output_media.size as i64),
-        ),
-        Err(e) => {
-            emitter.emit("error", None, None, Some(e.clone()));
-            (
-                Some(e),
-                output_path.clone(),
-                serde_json::to_value(&args).ok(),
-                None,
-            )
-        }
-    };
-
-    record_history(
-        args.task_id.clone(),
-        "convert-gif".into(),
-        "gif".into(),
-        args.input_path.clone(),
-        final_output_path,
-        start_time,
-        error,
-        args,
-        effective_params,
-        output_size_hint,
-    );
-
-    Ok(())
-}
-
 fn run_convert_image(app: &AppHandle, args: ImageConversionParams) -> Result<(), String> {
     run_convert_image_with_task_type(app, args, "convert-image")
 }
@@ -926,8 +845,12 @@ fn run_convert_image_with_task_type(
         .unwrap_or_else(|| "image".to_string());
     let emitter = events::window_emitter(app, task_id.clone(), task_type.into(), file_type)?;
 
-    let result =
-        tauri::async_runtime::block_on(image::convert_image_file_with_report(args.clone()));
+    let result = if image::is_animated_image_target(&args.format, &args.output_path, &args.input_path)
+    {
+        gif::convert_image_with_ril(app, task_id.clone(), task_type, args.clone())
+    } else {
+        tauri::async_runtime::block_on(image::convert_image_file_with_report(args.clone()))
+    };
 
     let (error, final_output_path, effective_params, output_size_hint) = match result {
         Ok(report) => {
@@ -1128,6 +1051,7 @@ fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(),
         width: args.width,
         height: args.height,
         color_mode: args.color_mode.clone(),
+        colors: args.colors,
         strip_metadata: args.strip_metadata,
         keep_transparency: args.keep_transparency,
         dpi: args.dpi,
@@ -1145,7 +1069,15 @@ fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(),
         file_type,
     )?;
 
-    let result = crate::services::compress::image::compress_image_file(emitter.clone(), params);
+    let result = if crate::services::compress::image::is_animated_image_target(
+        params.format.as_deref(),
+        &params.output_path,
+        &params.input_path,
+    ) {
+        gif::compress_image_with_ril(app, args.task_id.clone(), "compress-image", params)
+    } else {
+        crate::services::compress::image::compress_image_file(emitter.clone(), params)
+    };
     let (error, final_output_path, effective_params, output_size_hint) = match result {
         Ok(report) => (
             None,

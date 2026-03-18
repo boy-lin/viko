@@ -12,6 +12,7 @@ type BaseImageCompressionConfig = Pick<CompressImageTaskArgs, "ratio">;
 
 export const baseDefaultImageCompressionConfig: BaseImageCompressionConfig = {
   ratio: 50
+  
 };
 
 type CompressorStore = CreateTaskStoreState<

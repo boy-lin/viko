@@ -16,8 +16,6 @@ const ConverterAudioPage = lazy(() => import("./pages/converter/audios"));
 const ConverterImagePage = lazy(() => import("./pages/converter/images"));
 const DenoisePage = lazy(() => import("./pages/denoise"));
 
-// const Mp3ConverterPage = lazy(() => import("./pages/demo/converter"));
-// const AudioTestPage = lazy(() => import("./pages/demo/AudioTestPage"));
 const MyFilesPage = lazy(() => import("./pages/myfiles"));
 const MetadataEditorPage = lazy(() => import("./pages/metadata"));
 const WatermarkPage = lazy(() => import("./pages/watermark"));
@@ -90,13 +88,6 @@ const router = createHashRouter([
               { index: true, element: withSuspense(<TaskHistoryPage />) },
             ],
           },
-          // {
-          //   path: "demo",
-          //   children: [
-          //     { path: "mp3", element: withSuspense(<Mp3ConverterPage />) },
-          //     { path: "audio-test", element: withSuspense(<AudioTestPage />) },
-          //   ],
-          // },
           { path: "metadata", element: withSuspense(<MetadataEditorPage />), loader: preloadI18nNamespaces(["metadata"]) },
           { path: "watermark", element: withSuspense(<WatermarkPage />), loader: preloadI18nNamespaces(["watermark"]) },
         ],

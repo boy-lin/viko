@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
 import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
-import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect";
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { ColorSpaceSelect } from "@/components/biz-form/ColorSpaceSelect";
 import { ColorRangeSelect } from "@/components/biz-form/ColorRangeSelect";
@@ -8,9 +7,10 @@ import { VIDEO_CONTAINER_DEFINITIONS, VIDEO_ENCODER_DEFINITIONS } from "@/data/c
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { useTranslation } from "react-i18next";
 import { FormatEnum, VideoEncoderEnum } from "@/types/options";
-import { VideoResolutionSection } from "./VideoResolutionSection";
+import { VideoResolutionGroup } from "./VideoResolutionGroup";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { VideoFrameRateSelectGroup } from "./VideoFrameRateSelectGroup";
 
 export type VideoConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "video_encoder" | "video_bitrate" | "resolution" | "frame_rate" | "color_space" | "color_range">
 
@@ -78,7 +78,7 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           maxBitrate={encoderDef.video?.maxBitrate}
         />
 
-        <VideoResolutionSection
+        <VideoResolutionGroup
           label={t("settings.video.fields.resolution")}
           helpText={t("settings.video.fields.resolutionHelp")}
           className="space-y-2 col-span-2"
@@ -87,10 +87,11 @@ export const VideoAdvanceSetting: React.FC<VideoSettingsSectionProps> = ({
           showMoreBtns={false}
         />
 
-        <VideoFrameRateSelect
+        <VideoFrameRateSelectGroup
           className="space-y-2"
           label={t("video_advance.frame_rate", "Frame Rate")}
           helpText={t("settings.video.fields.frameRateHelp")}
+          hideLabel={false}
           value={frame_rate}
           onValueChange={(v) => onChange?.({ frame_rate: v })}
           maxFrameRate={encoderDef.video?.maxFrameRate}

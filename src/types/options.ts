@@ -94,7 +94,8 @@ export enum FormatEnum {
   HEIC = "heic",
   TIFF = "tiff",
   BMP = "bmp",
-  ICO = "ico"
+  ICO = "ico",
+  APNG = "apng",
 }
 
 /**

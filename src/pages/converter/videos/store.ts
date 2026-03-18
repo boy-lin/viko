@@ -17,6 +17,7 @@ export interface ConverterTask extends FFmpegTask {
 
 export interface GlobalConverterConfig {
   taskType: FFmpegTask["taskType"];
+  fileType: FFmpegTask["fileType"];
   activeCategory: FFmpegTask["activeCategory"];
   args: any;
 }
@@ -48,6 +49,7 @@ const mergeAudioTracks = (currentTracks: AudioTrackConfig[] = [], patchTracks: A
 
 export const defaultVideoConfig: GlobalConverterConfig = {
   taskType: MediaTaskType.ConvertVideo,
+  fileType: FileType.Video,
   activeCategory: FileType.Video,
   args: {
     format: FormatEnum.MP4,
@@ -91,8 +93,7 @@ const baseStoreCreator = createTaskStore<
         id: outputArgs.task_id,
         status: "idle",
         progress: 0,
-        args: outputArgs,
-        fileType: FileType.Video,
+        args: outputArgs
       };
     },
     mergeConfig: (current, patch) => {

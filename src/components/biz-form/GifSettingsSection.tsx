@@ -3,17 +3,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { VideoResolutionSection } from "@/components/biz-form/VideoResolutionSection";
-import { DpiSelect } from "@/components/biz-form/DpiSelect";
+import { VideoResolutionGroup } from "@/components/biz-form/VideoResolutionGroup";
+import { DpiSelectGroup } from "@/components/biz-form/DpiSelectGroup";
 import { ColorModeSelect } from "@/components/biz-form/ColorModeSelect";
-import { ConvertGifTaskArgs } from "@/lib/mediaTaskEvent";
+import { VideoFrameRateSelectGroup } from "@/components/biz-form/VideoFrameRateSelectGroup";
+import { ConvertImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { BadgeQuestionMark } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 type GifConfig = Pick<
-  ConvertGifTaskArgs,
+  ConvertImageTaskArgs,
   | "format"
   | "width"
   | "height"
@@ -78,7 +79,7 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
   return (
     <ScrollArea className={cn("flex-1 overflow-hidden p-2 space-y-4", className)}>
       <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-        <VideoResolutionSection
+        <VideoResolutionGroup
           className="col-span-2"
           label={t("settings.image.fields.resolution")}
           helpText={t("settings.image.fields.resolutionHelp")}
@@ -109,15 +110,14 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
         </div>
 
         <div className="space-y-2">
-          <FieldLabelWithHelp
+          <VideoFrameRateSelectGroup
+            hideLabel={false}
             label={t("settings.gif.fields.frameRate")}
             helpText={t("settings.gif.fields.frameRateHelp")}
-          />
-          <Input
-            type="number"
-            min={1}
-            value={frame_rate ?? ""}
-            onChange={(e) => onChange({ frame_rate: parseNumberOrUndefined(e.target.value) })}
+            value={frame_rate === undefined ? undefined : String(frame_rate)}
+            onValueChange={(nextFrameRate) => onChange({
+              frame_rate: nextFrameRate === undefined ? undefined : parseNumberOrUndefined(nextFrameRate),
+            })}
             placeholder={t("settings.gif.placeholders.frameRate")}
           />
         </div>
@@ -167,7 +167,7 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
             label={t("settings.gif.fields.dpi")}
             helpText={t("settings.gif.fields.dpiHelp")}
           />
-          <DpiSelect
+          <DpiSelectGroup
             value={dpi}
             onValueChange={(nextDpi) => onChange({ dpi: nextDpi })}
           />

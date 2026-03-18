@@ -82,6 +82,7 @@ mod tests {
             width: config.width,
             height: config.height,
             color_mode: config.color_mode.map(|v| v.to_string()),
+            colors: None,
             strip_metadata: Some(true),
             keep_transparency: config.keep_transparency,
             dpi: None,

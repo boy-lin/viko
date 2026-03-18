@@ -119,7 +119,6 @@ fn task_kind(task: &MediaTaskRequest) -> &'static str {
     match task {
         MediaTaskRequest::ConvertAudio(_) => "convert-audio",
         MediaTaskRequest::ConvertVideo(_) => "convert-video",
-        MediaTaskRequest::ConvertGif(_) => "convert-gif",
         MediaTaskRequest::ConvertImage(_) => "convert-image",
         MediaTaskRequest::CompressVideo(_) => "compress-video",
         MediaTaskRequest::CompressAudio(_) => "compress-audio",
@@ -133,7 +132,6 @@ fn task_id(task: &MediaTaskRequest) -> Option<&str> {
     match task {
         MediaTaskRequest::ConvertAudio(args) => Some(args.task_id.as_str()),
         MediaTaskRequest::ConvertVideo(args) => Some(args.task_id.as_str()),
-        MediaTaskRequest::ConvertGif(args) => Some(args.task_id.as_str()),
         MediaTaskRequest::ConvertImage(args) => Some(args.task_id.as_str()),
         MediaTaskRequest::CompressVideo(args) => Some(args.task_id.as_str()),
         MediaTaskRequest::CompressAudio(args) => Some(args.task_id.as_str()),

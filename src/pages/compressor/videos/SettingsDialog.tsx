@@ -18,7 +18,7 @@ import {
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { VideoColorDepthSelect } from "@/components/biz-form/VideoColorDepthSelect";
 import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
-import { VideoFrameRateSelect } from "@/components/biz-form/VideoFrameRateSelect";
+import { VideoFrameRateSelectGroup } from "@/components/biz-form/VideoFrameRateSelectGroup";
 import { VideoFormatSelector } from "@/components/biz-form/VideoFormatSelector";
 import { VideoGopSelect } from "@/components/biz-form/VideoGopSelect";
 import { VideoPresetSelect } from "@/components/biz-form/VideoPresetSelect";
@@ -114,7 +114,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           })
         }
       />
-      <VideoFrameRateSelect
+      <VideoFrameRateSelectGroup
         className="space-y-2 w-full"
         label={t("video_advance.frame_rate", "Frame Rate")}
         helpText={t("settings.video.fields.frameRateHelp")}
@@ -122,7 +122,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         value={config.frame_rate === undefined ? "auto" : String(config.frame_rate)}
         onValueChange={(val) =>
           onConfigChange({
-            frame_rate: val === "auto" ? undefined : Number.parseFloat(val),
+            frame_rate: val ? Number.parseFloat(val) : undefined,
           })
         }
       />

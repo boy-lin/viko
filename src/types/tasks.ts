@@ -3,7 +3,6 @@ import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs, } fro
 export enum MediaTaskType {
   ConvertVideo = "convert-video",
   ConvertAudio = "convert-audio",
-  ConvertGif = "convert-gif",
   ConvertImage = "convert-image",
   ConvertDenoise = "convert-denoise",
   CompressVideo = "compress-video",

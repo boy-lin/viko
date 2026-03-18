@@ -1,413 +1,332 @@
+use std::path::Path;
+
+use image::{DynamicImage, GenericImageView, RgbaImage};
+use ril::{Image, ImageSequence, LoopCount, Quantizer, ResizeAlgorithm, Rgba};
+use tauri::AppHandle;
+
+use crate::events;
 use crate::events::TaskEmitter;
-use crate::media_common;
-use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
-use ffmpeg::{codec, encoder, format, frame, packet, software};
-use ffmpeg_next as ffmpeg;
-use serde::{Deserialize, Serialize};
-use std::time::Instant;
+use crate::services::compress::image::{ImageCompressionParams, ImageCompressionReport};
+use crate::services::convert::image::{ImageConversionParams, ImageConversionReport};
+use crate::services::ffmpeg::media_info;
+use crate::services::media_tools::watermark::WatermarkConfig;
 
-/// GIF 转换参数（全部可选）
-#[derive(Deserialize, Clone)]
-pub struct GifConversionParams {
-    pub input_path: String,
-    pub output_path: String,
-    pub width: Option<u32>,                  // 目标宽度
-    pub height: Option<u32>,                 // 目标高度
-    pub quality: Option<u32>,                // 画质 0-100
-    pub preserve_transparency: Option<bool>, // 保留透明通道
-    pub color_mode: Option<String>,          // "rgb" | "grayscale"
-    pub dpi: Option<f64>,                    // 元数据记录 DPI
-    pub frame_rate: Option<f32>,             // 帧率 (fps)
-    pub loop_count: Option<i32>,             // 0=无限, -1=不循环
-    pub frame_delay: Option<u32>,            // 每帧延迟 ms（仅在未设置 frame_rate 时生效）
-    pub colors: Option<u32>,                 // 色彩数 2-256
-    pub preserve_extensions: Option<bool>,   // 预留（当前未改写扩展块）
-    pub sharpen: Option<bool>,               // 锐化
-    pub denoise: Option<bool>,               // 降噪
+fn parse_output_format(format: &str, output_path: &str) -> String {
+    let normalized = format.trim().to_lowercase();
+    if normalized == "gif" || normalized == "apng" {
+        return normalized;
+    }
+
+    Path::new(output_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase())
+        .filter(|ext| ext == "gif" || ext == "apng")
+        .unwrap_or_else(|| "gif".to_string())
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GifConversionReport {
-    pub output_media: MediaDetails,
+fn parse_output_format_optional(format: Option<&str>, output_path: &str) -> String {
+    let normalized = format
+        .map(|value| value.trim().to_lowercase())
+        .filter(|value| !value.is_empty());
+    if let Some(value) = normalized {
+        return parse_output_format(&value, output_path);
+    }
+    parse_output_format("", output_path)
 }
 
-/// 使用 FFmpeg 将视频转换为 GIF 动图（带可选参数）
-pub fn convert_video_to_gif<E: TaskEmitter>(
-    emitter: E,
-    params: GifConversionParams,
-) -> Result<GifConversionReport, String> {
-    media_common::init_ffmpeg()?;
-    let mut params = params;
-    params.output_path = media_common::ensure_unique_output_path(&params.output_path);
+fn map_resize_algorithm(sharpen: bool) -> ResizeAlgorithm {
+    if sharpen {
+        ResizeAlgorithm::Lanczos3
+    } else {
+        ResizeAlgorithm::Bilinear
+    }
+}
 
-    let mut ictx = media_common::open_input(&params.input_path)?;
-
-    let mut octx =
-        format::output(&params.output_path).map_err(|e| format!("无法打开输出文件: {}", e))?;
-
-    let duration = media_common::video_pipeline::media_duration_seconds(&ictx);
-
-    let stream_index =
-        media_common::video_pipeline::best_video_stream_index(&ictx).ok_or("未找到视频流")?;
-    let video_stream = ictx.stream(stream_index).ok_or("未找到视频流")?;
-    let source_fps = {
-        let avg = video_stream.avg_frame_rate();
-        if avg.numerator() > 0 && avg.denominator() > 0 {
-            avg.numerator() as f64 / avg.denominator() as f64
-        } else {
-            0.0
+fn ril_rgba_to_image_rgba(source: &Image<Rgba>) -> RgbaImage {
+    let (width, height) = source.dimensions();
+    let mut output = RgbaImage::new(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = source.pixel(x, y);
+            output.put_pixel(x, y, image::Rgba([pixel.r, pixel.g, pixel.b, pixel.a]));
         }
-    };
+    }
+    output
+}
 
-    let decoder_ctx = codec::context::Context::from_parameters(video_stream.parameters())
-        .map_err(|e| format!("无法创建解码器上下文: {}", e))?;
-    let mut decoder = decoder_ctx
-        .decoder()
-        .video()
-        .map_err(|e| format!("无法创建视频解码器: {}", e))?;
+fn image_rgba_to_ril_rgba(source: &RgbaImage) -> Image<Rgba> {
+    let (width, height) = source.dimensions();
+    Image::from_fn(width, height, |x, y| {
+        let pixel = source.get_pixel(x, y);
+        Rgba::new(pixel[0], pixel[1], pixel[2], pixel[3])
+    })
+}
 
-    let (target_width, target_height) = media_common::calculate_scaled_dimensions(
-        decoder.width(),
-        decoder.height(),
+fn apply_watermark(frame: &mut Image<Rgba>, watermark: &WatermarkConfig) -> Result<(), String> {
+    let mut rgba = ril_rgba_to_image_rgba(frame);
+    watermark.apply_watermark(&mut rgba)?;
+    let replaced = image_rgba_to_ril_rgba(&rgba);
+    for y in 0..frame.height() {
+        for x in 0..frame.width() {
+            *frame.pixel_mut(x, y) = *replaced.pixel(x, y);
+        }
+    }
+    Ok(())
+}
+
+fn load_sequence(args: &ImageConversionParams) -> Result<ImageSequence<Rgba>, String> {
+    load_sequence_from_path(&args.input_path)
+}
+
+fn load_sequence_from_path(input_path: &str) -> Result<ImageSequence<Rgba>, String> {
+    let input_ext = Path::new(input_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase())
+        .unwrap_or_default();
+
+    if input_ext == "gif" || input_ext == "apng" {
+        return ImageSequence::<Rgba>::open(input_path)
+            .and_then(|decoder| decoder.into_sequence())
+            .map_err(|error| format!("Failed to open animated image: {}", error));
+    }
+
+    let image = Image::<Rgba>::open(input_path)
+        .map_err(|error| format!("Failed to open source image: {}", error))?;
+    let mut sequence = ImageSequence::<Rgba>::new();
+    sequence.push_frame(image.into());
+    Ok(sequence)
+}
+
+fn crop_whitespace_dynamic(mut img: DynamicImage) -> DynamicImage {
+    let (width, height) = img.dimensions();
+    if width == 0 || height == 0 {
+        return img;
+    }
+
+    let top_left_pixel = img.get_pixel(0, 0);
+    let mut min_x = width;
+    let mut min_y = height;
+    let mut max_x = 0;
+    let mut max_y = 0;
+    let mut found = false;
+
+    for y in 0..height {
+        for x in 0..width {
+            if img.get_pixel(x, y) != top_left_pixel {
+                min_x = min_x.min(x);
+                min_y = min_y.min(y);
+                max_x = max_x.max(x);
+                max_y = max_y.max(y);
+                found = true;
+            }
+        }
+    }
+
+    if found {
+        img.crop(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+    } else {
+        img
+    }
+}
+
+fn compress_frame_image(
+    frame: &Image<Rgba>,
+    params: &ImageCompressionParams,
+) -> Result<Image<Rgba>, String> {
+    let mut dynamic = DynamicImage::ImageRgba8(ril_rgba_to_image_rgba(frame));
+
+    if params.crop_whitespace.unwrap_or(false) {
+        dynamic = crop_whitespace_dynamic(dynamic);
+    }
+
+    let (target_width, target_height) = crate::media_common::calculate_scaled_dimensions(
+        dynamic.width(),
+        dynamic.height(),
         params.width,
         params.height,
     );
-
-    let pixel_format = media_common::gif_pipeline::pick_pixel_format(params.color_mode.as_deref());
-
-    let mut scaler = software::scaling::context::Context::get(
-        decoder.format(),
-        decoder.width(),
-        decoder.height(),
-        pixel_format,
-        target_width,
-        target_height,
-        if params.sharpen.unwrap_or(false) {
-            software::scaling::flag::Flags::LANCZOS
-        } else {
-            software::scaling::flag::Flags::BILINEAR
-        },
-    )
-    .map_err(|e| format!("无法创建缩放器: {}", e))?;
-
-    let codec = encoder::find_by_name("gif").ok_or("未找到 GIF 编码器")?;
-    let mut ost = octx
-        .add_stream(codec)
-        .map_err(|e| format!("无法添加输出流: {}", e))?;
-
-    let (target_fps, time_base, _pts_step_hint) =
-        media_common::gif_pipeline::compute_fps(params.frame_delay, params.frame_rate);
-
-    let mut encoder = codec::context::Context::new_with_codec(codec)
-        .encoder()
-        .video()
-        .map_err(|e| format!("无法创建 GIF 编码器: {}", e))?;
-
-    encoder.set_width(target_width);
-    encoder.set_height(target_height);
-    encoder.set_format(pixel_format);
-    encoder.set_frame_rate(Some((time_base.1, time_base.0))); // fps = denom / numer
-    encoder.set_time_base(time_base);
-
-    let quality = params.quality.unwrap_or(75).min(100);
-    let (_dither, _bayer_scale) = media_common::gif_pipeline::dither_from_quality(quality);
-
-    // 设置 loop
-    let mut opts = ffmpeg::Dictionary::new();
-    if let Some(loop_count) = params.loop_count {
-        if loop_count >= 0 {
-            opts.set("loop", loop_count.to_string().as_str());
-        }
-    } else {
-        opts.set("loop", "0"); // 默认无限循环
+    if target_width != dynamic.width() || target_height != dynamic.height() {
+        dynamic = dynamic.resize(target_width, target_height, image::imageops::FilterType::Lanczos3);
     }
 
-    // 打开编码器
-    let mut encoder = encoder
-        .open_with(opts)
-        .map_err(|e| format!("无法打开 GIF 编码器: {}", e))?;
-    let encoder_time_base = encoder.time_base();
-    let pts_step = {
-        let tb_num = encoder_time_base.numerator() as f64;
-        let tb_den = encoder_time_base.denominator() as f64;
-        if target_fps > 0.0 && tb_num > 0.0 && tb_den > 0.0 {
-            (tb_den / (tb_num * target_fps as f64)).round().max(1.0) as i64
-        } else {
-            1
-        }
-    };
-
-    ost.set_parameters(&encoder);
-    let ost_index = ost.index();
-
-    // 记录 DPI 元数据（GIF 原生不支持，作为标签存储）
-    if let Some(dpi_val) = params.dpi.or(Some(72.0)) {
-        let mut meta = ffmpeg::Dictionary::new();
-        meta.set("dpi", format!("{:.2}", dpi_val).as_str());
-        octx.set_metadata(meta);
-    }
-
-    media_common::video_pipeline::write_header_with_stream_dump(
-        &mut octx,
-        "convert_gif write_header",
-        "无法写入文件头",
-    )?;
-    let ost_time_base = octx
-        .stream(ost_index)
-        .ok_or("无法获取输出流 time_base")?
-        .time_base();
-
-    let start_time = Instant::now();
-    let mut frame_count = 0;
-    let mut decoded_index: i64 = 0;
-    let mut last_progress_emitted = 0.0;
-    let mut next_pts: i64 = 0;
-    let mut next_packet_ts: i64 = 0;
-    let mut written_bytes: u64 = 0;
-    let frame_step = if source_fps > 0.0 && target_fps > 0.0 {
-        (source_fps / target_fps as f64).max(1.0)
-    } else {
-        1.0
-    };
-    let mut next_emit_index: f64 = 0.0;
-
-    for (stream, packet) in ictx.packets() {
-        if stream.index() == stream_index {
-            decoder
-                .send_packet(&packet)
-                .map_err(|e| format!("发送数据包失败: {}", e))?;
-
-            let mut decoded = frame::Video::empty();
-            while decoder.receive_frame(&mut decoded).is_ok() {
-                let current_index = decoded_index as f64;
-                let should_emit = current_index + 1e-9 >= next_emit_index;
-                if !should_emit {
-                    decoded_index += 1;
-                    continue; // 按源帧率降帧
-                }
-                next_emit_index += frame_step;
-
-                let mut converted = frame::Video::empty();
-                scaler
-                    .run(&decoded, &mut converted)
-                    .map_err(|e| format!("缩放失败: {}", e))?;
-
-                // 简单降噪：再次平滑缩放一步（近似处理）
-                if params.denoise.unwrap_or(false) {
-                    let mut smooth = frame::Video::empty();
-                    software::scaling::context::Context::get(
-                        converted.format(),
-                        converted.width(),
-                        converted.height(),
-                        converted.format(),
-                        converted.width(),
-                        converted.height(),
-                        software::scaling::flag::Flags::BILINEAR,
-                    )
-                    .map_err(|e| format!("创建降噪缩放器失败: {}", e))?
-                    .run(&converted, &mut smooth)
-                    .map_err(|e| format!("降噪缩放失败: {}", e))?;
-                    converted = smooth;
-                }
-
-                if crate::task::cancel::is_cancelled() {
-                    return Err("Task cancelled".to_string());
-                }
-                converted.set_pts(Some(next_pts));
-                next_pts = next_pts.saturating_add(pts_step);
-
-                encoder
-                    .send_frame(&converted)
-                    .map_err(|e| format!("发送帧到编码器失败: {}", e))?;
-
-                let mut encoded = packet::Packet::empty();
-                while encoder.receive_packet(&mut encoded).is_ok() {
-                    if encoded.pts().is_none() {
-                        encoded.set_pts(Some(next_packet_ts));
-                    }
-                    if encoded.dts().is_none() {
-                        encoded.set_dts(Some(next_packet_ts));
-                    }
-                    if encoded.duration() <= 0 {
-                        encoded.set_duration(pts_step);
-                    }
-                    encoded.set_stream(ost_index);
-                    encoded.rescale_ts(encoder_time_base, ost_time_base);
-                    encoded
-                        .write_interleaved(&mut octx)
-                        .map_err(|e| format!("写入数据包失败: {}", e))?;
-                    written_bytes = written_bytes.saturating_add(encoded.size() as u64);
-                    let step = encoded.duration().max(1);
-                    let base = encoded.dts().or(encoded.pts()).unwrap_or(next_packet_ts);
-                    next_packet_ts = base.saturating_add(step);
-                }
-
-                frame_count += 1;
-                decoded_index += 1;
-
-                if frame_count % 10 == 0 || start_time.elapsed().as_secs_f64() >= 1.0 {
-                    let progress = if duration > 0.0 {
-                        let current_time = if let Some(pts) = decoded.pts() {
-                            pts as f64 * decoder.time_base().0 as f64 / decoder.time_base().1 as f64
-                        } else if source_fps > 0.0 {
-                            decoded_index as f64 / source_fps
-                        } else {
-                            0.0
-                        };
-                        ((current_time / duration) * 100.0).min(100.0)
-                    } else {
-                        0.0
-                    };
-
-                    if (progress - last_progress_emitted).abs() >= 1.0 {
-                        emitter.emit("progress", Some(progress), None, None);
-                        last_progress_emitted = progress;
-                    }
-                }
+    let keep_transparency = params.keep_transparency.unwrap_or(true);
+    let target_color_mode = params.color_mode.as_deref().unwrap_or("Default");
+    if !keep_transparency || target_color_mode == "RGB" || target_color_mode == "CMYK" {
+        if dynamic.color().has_alpha() {
+            let mut rgb_img = image::RgbImage::new(dynamic.width(), dynamic.height());
+            for (x, y, pixel) in dynamic.pixels() {
+                let alpha = pixel[3] as f32 / 255.0;
+                let r = (pixel[0] as f32 * alpha + 255.0 * (1.0 - alpha)) as u8;
+                let g = (pixel[1] as f32 * alpha + 255.0 * (1.0 - alpha)) as u8;
+                let b = (pixel[2] as f32 * alpha + 255.0 * (1.0 - alpha)) as u8;
+                rgb_img.put_pixel(x, y, image::Rgb([r, g, b]));
             }
+            dynamic = DynamicImage::ImageRgb8(rgb_img);
         }
     }
 
-    decoder
-        .send_eof()
-        .map_err(|e| format!("发送 EOF 到解码器失败: {}", e))?;
-    let mut decoded = frame::Video::empty();
-    while decoder.receive_frame(&mut decoded).is_ok() {
-        let current_index = decoded_index as f64;
-        let should_emit = current_index + 1e-9 >= next_emit_index;
-        if !should_emit {
-            decoded_index += 1;
-            continue;
+    if target_color_mode == "Gray" {
+        if keep_transparency && dynamic.color().has_alpha() {
+            dynamic = DynamicImage::ImageLumaA8(dynamic.to_luma_alpha8());
+        } else {
+            dynamic = DynamicImage::ImageLuma8(dynamic.to_luma8());
         }
-        next_emit_index += frame_step;
+    }
 
-        let mut converted = frame::Video::empty();
-        scaler
-            .run(&decoded, &mut converted)
-            .map_err(|e| format!("缩放失败: {}", e))?;
+    let mut output = image_rgba_to_ril_rgba(&dynamic.to_rgba8());
 
-        if params.denoise.unwrap_or(false) {
-            let mut smooth = frame::Video::empty();
-            software::scaling::context::Context::get(
-                converted.format(),
-                converted.width(),
-                converted.height(),
-                converted.format(),
-                converted.width(),
-                converted.height(),
-                software::scaling::flag::Flags::BILINEAR,
-            )
-            .map_err(|e| format!("创建降噪缩放器失败: {}", e))?
-            .run(&converted, &mut smooth)
-            .map_err(|e| format!("降噪缩放失败: {}", e))?;
-            converted = smooth;
+    if let Some(colors) = params.colors {
+        let palette_size = colors.clamp(2, 256) as usize;
+        let quantizer_quality = if let Some(quality) = params.quality {
+            let normalized = quality.clamp(1, 100) as f32 / 100.0;
+            (1.0 + normalized * 29.0).round() as u8
+        } else {
+            20
+        };
+        let (palette, indices) = Quantizer::new()
+            .with_palette_size(palette_size)
+            .with_gif_optimization(true)
+            .with_quality(quantizer_quality.clamp(1, 30))
+            .quantize(output.data.as_slice())
+            .map_err(|error| format!("Failed to quantize animated frame: {}", error))?;
+        let pixels = indices
+            .into_iter()
+            .map(|index| palette[index as usize])
+            .collect::<Vec<_>>();
+        output = Image::from_pixels(output.width(), pixels);
+    }
+
+    Ok(output)
+}
+
+pub fn convert_image_with_ril(
+    app: &AppHandle,
+    task_id: String,
+    task_type: &str,
+    args: ImageConversionParams,
+) -> Result<ImageConversionReport, String> {
+    let emitter = events::window_emitter(
+        app,
+        task_id,
+        task_type.to_string(),
+        args.input_file_type
+            .clone()
+            .unwrap_or_else(|| "image".to_string()),
+    )?;
+
+    let mut args = args;
+    args.output_path = crate::media_common::ensure_unique_output_path(&args.output_path);
+
+    let mut sequence = load_sequence(&args)?;
+    let total_frames = sequence.len().max(1);
+    let resize_algorithm = map_resize_algorithm(args.sharpen.unwrap_or(false));
+
+    if let Some(loop_count) = args.loop_count {
+        if loop_count == 0 {
+            sequence.set_loop_count(LoopCount::Infinite);
+        } else if loop_count > 0 {
+            sequence.set_loop_count(LoopCount::Exactly(loop_count as u32));
+        } else {
+            sequence.set_loop_count(LoopCount::Exactly(1));
         }
+    }
 
+    for (index, frame) in sequence.iter_mut().enumerate() {
         if crate::task::cancel::is_cancelled() {
             return Err("Task cancelled".to_string());
         }
-        converted.set_pts(Some(next_pts));
-        next_pts = next_pts.saturating_add(pts_step);
 
-        encoder
-            .send_frame(&converted)
-            .map_err(|e| format!("发送帧到编码器失败: {}", e))?;
-
-        let mut encoded = packet::Packet::empty();
-        while encoder.receive_packet(&mut encoded).is_ok() {
-            if encoded.pts().is_none() {
-                encoded.set_pts(Some(next_packet_ts));
-            }
-            if encoded.dts().is_none() {
-                encoded.set_dts(Some(next_packet_ts));
-            }
-            if encoded.duration() <= 0 {
-                encoded.set_duration(pts_step);
-            }
-            encoded.set_stream(ost_index);
-            encoded.rescale_ts(encoder_time_base, ost_time_base);
-            encoded
-                .write_interleaved(&mut octx)
-                .map_err(|e| format!("写入数据包失败: {}", e))?;
-            written_bytes = written_bytes.saturating_add(encoded.size() as u64);
-            let step = encoded.duration().max(1);
-            let base = encoded.dts().or(encoded.pts()).unwrap_or(next_packet_ts);
-            next_packet_ts = base.saturating_add(step);
+        let (target_width, target_height) = crate::media_common::calculate_scaled_dimensions(
+            frame.width(),
+            frame.height(),
+            args.width,
+            args.height,
+        );
+        if target_width != frame.width() || target_height != frame.height() {
+            frame.resize(target_width, target_height, resize_algorithm);
         }
 
-        frame_count += 1;
-        decoded_index += 1;
+        if let Some(watermark) = &args.watermark {
+            apply_watermark(frame, watermark)?;
+        }
+
+        if args.denoise.unwrap_or(false) {
+            let blurred = image::imageops::blur(&ril_rgba_to_image_rgba(frame), 0.6);
+            let replaced = image_rgba_to_ril_rgba(&blurred);
+            for y in 0..frame.height() {
+                for x in 0..frame.width() {
+                    *frame.pixel_mut(x, y) = *replaced.pixel(x, y);
+                }
+            }
+        }
+
+        let progress = ((index + 1) as f64 / total_frames as f64) * 90.0;
+        emitter.emit("progress", Some(progress), None, None);
     }
 
-    encoder
-        .send_eof()
-        .map_err(|e| format!("发送 EOF 失败: {}", e))?;
-
-    let mut encoded = packet::Packet::empty();
-    while encoder.receive_packet(&mut encoded).is_ok() {
-        if encoded.pts().is_none() {
-            encoded.set_pts(Some(next_packet_ts));
+    let output_format = parse_output_format(&args.format, &args.output_path);
+    if output_format == "apng" {
+        if !args.output_path.to_lowercase().ends_with(".png") {
+            let path = Path::new(&args.output_path);
+            let stem = path.file_stem().and_then(|value| value.to_str()).unwrap_or("output");
+            let parent = path.parent().unwrap_or_else(|| Path::new("."));
+            args.output_path = parent.join(format!("{stem}.png")).to_string_lossy().to_string();
         }
-        if encoded.dts().is_none() {
-            encoded.set_dts(Some(next_packet_ts));
-        }
-        if encoded.duration() <= 0 {
-            encoded.set_duration(pts_step);
-        }
-        encoded.set_stream(ost_index);
-        encoded.rescale_ts(encoder_time_base, ost_time_base);
-        encoded
-            .write_interleaved(&mut octx)
-            .map_err(|e| format!("写入尾部数据包失败: {}", e))?;
-        written_bytes = written_bytes.saturating_add(encoded.size() as u64);
-        let step = encoded.duration().max(1);
-        let base = encoded.dts().or(encoded.pts()).unwrap_or(next_packet_ts);
-        next_packet_ts = base.saturating_add(step);
     }
 
-    octx.write_trailer()
-        .map_err(|e| format!("写入文件尾失败: {}", e))?;
+    sequence
+        .save_inferred(&args.output_path)
+        .map_err(|error| format!("Failed to save animated image: {}", error))?;
 
-    let stream = StreamDetails {
-        index: ost_index,
-        codec_type: "video".to_string(),
-        codec_name: "gif".to_string(),
-        codec_long_name: None,
-        time_base: Some(format!(
-            "{}/{}",
-            encoder.time_base().numerator(),
-            encoder.time_base().denominator()
-        )),
-        pix_fmt: pixel_format
-            .descriptor()
-            .map(|desc| desc.name().to_string())
-            .or_else(|| Some(format!("{:?}", pixel_format))),
-        width: Some(target_width),
-        height: Some(target_height),
-        frame_rate: Some(format!("{:.2}", target_fps)),
-        channels: None,
-        sample_rate: None,
-        bit_rate: None,
-        bit_depth: None,
-        bits_per_sample: None,
-    };
-    let output_media = media_common::video_pipeline::build_output_media(
-        params.output_path.clone(),
-        "gif".to_string(),
-        duration,
-        written_bytes,
-        vec![stream],
-    );
-    media_common::video_pipeline::log_video_pipeline_summary(
-        "convert_gif",
-        &params.output_path,
-        duration,
-        written_bytes,
-        None,
-        None,
-        None,
-    );
-    media_common::video_pipeline::emit_complete_with_path(&emitter, &params.output_path);
+    let output_media = media_info::get_media_details(&args.output_path)?;
+    emitter.emit("complete", Some(100.0), Some(args.output_path.clone()), None);
+    Ok(ImageConversionReport { output_media })
+}
 
-    Ok(GifConversionReport { output_media })
+pub fn compress_image_with_ril(
+    app: &AppHandle,
+    task_id: String,
+    task_type: &str,
+    mut params: ImageCompressionParams,
+) -> Result<ImageCompressionReport, String> {
+    let emitter = events::window_emitter(
+        app,
+        task_id,
+        task_type.to_string(),
+        "image".to_string(),
+    )?;
+
+    params.output_path = crate::media_common::ensure_unique_output_path(&params.output_path);
+    let mut sequence = load_sequence_from_path(&params.input_path)?;
+    let total_frames = sequence.len().max(1);
+
+    for (index, frame) in sequence.iter_mut().enumerate() {
+        if crate::task::cancel::is_cancelled() {
+            return Err("Task cancelled".to_string());
+        }
+
+        let processed = compress_frame_image(frame, &params)?;
+        *frame.image_mut() = processed;
+
+        let progress = ((index + 1) as f64 / total_frames as f64) * 90.0;
+        emitter.emit("progress", Some(progress), None, None);
+    }
+
+    let output_format = parse_output_format_optional(params.format.as_deref(), &params.output_path);
+    if output_format == "apng" && !params.output_path.to_lowercase().ends_with(".png") {
+        let path = Path::new(&params.output_path);
+        let stem = path.file_stem().and_then(|value| value.to_str()).unwrap_or("output");
+        let parent = path.parent().unwrap_or_else(|| Path::new("."));
+        params.output_path = parent.join(format!("{stem}.png")).to_string_lossy().to_string();
+    }
+
+    sequence
+        .save_inferred(&params.output_path)
+        .map_err(|error| format!("Failed to save animated image: {}", error))?;
+
+    let output_media = media_info::get_media_details(&params.output_path)?;
+    emitter.emit("complete", Some(100.0), Some(params.output_path.clone()), None);
+    Ok(ImageCompressionReport { output_media })
 }

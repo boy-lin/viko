@@ -21,6 +21,29 @@ pub struct ImageConversionParams {
     pub format: String, // jpg, png, webp, etc.
     #[serde(default)]
     pub image_encoder: Option<String>,
+    #[serde(default)]
+    pub frame_rate: Option<f32>,
+    #[serde(default)]
+    pub quality: Option<u32>,
+    #[serde(default)]
+    pub preserve_transparency: Option<bool>,
+    #[serde(default)]
+    pub color_mode: Option<String>,
+    #[serde(default)]
+    pub dpi: Option<f64>,
+    #[serde(default)]
+    pub loop_count: Option<i32>,
+    #[serde(default)]
+    pub frame_delay: Option<u32>,
+    #[serde(default)]
+    pub colors: Option<u32>,
+    #[serde(default)]
+    pub preserve_extensions: Option<bool>,
+    #[serde(default)]
+    pub sharpen: Option<bool>,
+    #[serde(default)]
+    pub denoise: Option<bool>,
+    #[serde(default)]
     pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
@@ -33,6 +56,7 @@ fn canonical_image_codec_name(codec: &str) -> Option<&'static str> {
     match codec.trim().to_lowercase().as_str() {
         "jpg" | "jpeg" | "mjpeg" => Some("jpeg"),
         "png" => Some("png"),
+        "apng" => Some("apng"),
         "webp" => Some("webp"),
         "gif" => Some("gif"),
         "bmp" => Some("bmp"),
@@ -215,4 +239,25 @@ fn convert_image_file_impl(args: ImageConversionParams) -> Result<ImageConversio
     };
 
     Ok(ImageConversionReport { output_media })
+}
+
+pub fn is_animated_image_target(format: &str, output_path: &str, input_path: &str) -> bool {
+    let normalized = format.trim().to_lowercase();
+    if normalized == "gif" || normalized == "apng" {
+        return true;
+    }
+
+    let output_ext = std::path::Path::new(output_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase());
+    if matches!(output_ext.as_deref(), Some("gif" | "apng")) {
+        return true;
+    }
+
+    let input_ext = std::path::Path::new(input_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase());
+    matches!(input_ext.as_deref(), Some("gif" | "apng"))
 }

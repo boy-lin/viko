@@ -55,6 +55,7 @@ smol = "2"
 anyhow = "1"
 futures = "0.3"
 image = "0.25.9"
+ril = { version = "0.10", features = ["all-pure"] }
 exif = { version = "0.6", package = "kamadak-exif" }
 base64 = "0.22.1"
 machine-uid = "0.5.4"

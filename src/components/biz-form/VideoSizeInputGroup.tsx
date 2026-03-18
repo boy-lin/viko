@@ -50,7 +50,7 @@ export function VideoSizeInputGroup({
   };
 
   return (
-    <InputGroup className="bg-muted/30 w-auto">
+    <InputGroup className="bg-muted/30 w-auto text-sm">
       <CorrectNumberInput
         value={width}
         onChange={handleWidthChange}
