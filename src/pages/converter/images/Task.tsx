@@ -6,6 +6,7 @@ import { MediaDetailsWithResolve } from "@/types/tasks";
 import { UploadPanel } from "./UploadPanel";
 import { useConverterStore } from "./store";
 import TaskItem, { buildTaskDefaultsFromMedia } from "./TaskItem";
+import { cn } from "@/lib/utils";
 
 interface ConvertingTaskProps {
   globalFilter?: string;
@@ -14,7 +15,7 @@ interface ConvertingTaskProps {
 export default function ConvertingTask({
   globalFilter = "",
 }: ConvertingTaskProps) {
-  const convertingTasks = useConverterStore((state) => state.convertingTasks);
+  const convertingTasks = useConverterStore((state) => state.tasks);
   const updateTaskById = useConverterStore((state) => state.updateTaskById);
 
   const buildTaskUpdate = useCallback(
@@ -38,17 +39,20 @@ export default function ConvertingTask({
     });
   }, [convertingTasks, globalFilter]);
 
-  return filteredTasks.length === 0 ? (
-    <UploadPanel supportedExtensions={IMAGE_SUPPORT_FORMATS} />
-  ) : (
-    filteredTasks.map((task) => (
-      <TaskItem
-        key={task.id}
-        task={task}
-        metaStatus={metaStateById[task.id]?.status}
-        metaError={metaStateById[task.id]?.error}
-        onRetryMeta={() => retryMeta(task.id)}
-      />
-    ))
-  )
+  return <>
+    {
+      <UploadPanel className={cn(filteredTasks.length > 0 ? "sr-only" : "")} supportedExtensions={IMAGE_SUPPORT_FORMATS} />
+    }
+    {
+      filteredTasks.map((task) => (
+        <TaskItem
+          key={task.id}
+          task={task}
+          metaStatus={metaStateById[task.id]?.status}
+          metaError={metaStateById[task.id]?.error}
+          onRetryMeta={() => retryMeta(task.id)}
+        />
+      ))
+    }
+  </>
 }

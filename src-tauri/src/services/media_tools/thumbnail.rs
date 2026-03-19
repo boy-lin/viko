@@ -364,7 +364,7 @@ fn generate_thumbnail_inner(
     }
 }
 
-fn build_thumbnail_cache_key(
+pub(crate) fn build_thumbnail_cache_key(
     path: &Path,
     requested_width: Option<u32>,
     requested_height: Option<u32>,
@@ -520,7 +520,7 @@ fn generate_image_thumbnail(
     )
 }
 
-fn build_thumbnail_result(
+pub(crate) fn build_thumbnail_result(
     mut img_buffer: RgbImage,
     requested_width: Option<u32>,
     requested_height: Option<u32>,

@@ -10,24 +10,25 @@ export type MediaMetaStatus = {
 type TaskLike = {
   id: string;
   mediaDetails?: unknown;
+  thumbnailPath?: string;
   args?: {
     input_path?: string;
   };
 };
 
-interface UseBatchMediaDetailsParams<TTask extends TaskLike, TUpdate> {
+interface UseBatchMediaDetailsParams<TTask extends TaskLike> {
   tasks: TTask[];
-  updateTaskById: (taskId: string, patch: TUpdate) => void;
-  buildUpdate: (task: TTask, details: MediaDetailsWithResolve) => TUpdate;
+  updateTaskById: (taskId: string, patch: any) => void;
+  buildUpdate: (task: TTask, details: MediaDetailsWithResolve) => Partial<TTask>;
   errorMessage?: string;
 }
 
-export function useBatchMediaDetails<TTask extends TaskLike, TUpdate>({
+export function useBatchMediaDetails<TTask extends TaskLike>({
   tasks,
   updateTaskById,
   buildUpdate,
   errorMessage = "Failed to load media details",
-}: UseBatchMediaDetailsParams<TTask, TUpdate>) {
+}: UseBatchMediaDetailsParams<TTask>) {
   const [metaStateById, setMetaStateById] = useState<
     Record<string, MediaMetaStatus>
   >({});
@@ -57,25 +58,29 @@ export function useBatchMediaDetails<TTask extends TaskLike, TUpdate>({
 
     const paths = pending.map((task) => task.args!.input_path!);
     void bridge
-      .getMediaDetailsBatch(paths)
-      .then((detailsList) => {
+      .getMediaTaskCardBatch(paths, {
+        width: 160,
+        height: 90,
+        fitMode: "cover",
+      })
+      .then((cards) => {
         if (unmountedRef.current) return;
-        const byPath = new Map(
-          detailsList.map((details) => [details.path, details]),
-        );
-
+        const byPath = new Map(cards.map((card) => [card.details.path, card]));
+        console.log("cards", JSON.stringify(cards, null, 2));
         pending.forEach((task) => {
-          const details = byPath.get(task.args!.input_path!);
-          if (!details) return;
-          updateTaskById(task.id, buildUpdate(task, details));
-          console.log("details", JSON.stringify(details, null, 2));
+          const card = byPath.get(task.args!.input_path!);
+          if (!card) return;
+          updateTaskById(task.id, {
+            ...buildUpdate(task, card.details),
+            thumbnailPath: card.thumbnailPath,
+          });
         });
 
         setMetaStateById((prev) => {
           const next = { ...prev };
           pending.forEach((task) => {
-            const details = byPath.get(task.args!.input_path!);
-            if (!details) {
+            const card = byPath.get(task.args!.input_path!);
+            if (!card) {
               next[task.id] = {
                 status: "error",
                 error: errorMessage,
@@ -98,7 +103,7 @@ export function useBatchMediaDetails<TTask extends TaskLike, TUpdate>({
           return next;
         });
       });
-  }, [tasks]);
+  }, [errorMessage, tasks, metaStateById, updateTaskById, buildUpdate]);
 
   const retryMeta = useCallback((taskId: string) => {
     setMetaStateById((prev) => ({

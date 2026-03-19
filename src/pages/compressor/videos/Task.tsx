@@ -6,6 +6,7 @@ import { MediaDetailsWithResolve } from "@/types/tasks";
 import { UploadPanel } from "./UploadPanel";
 import { useCompressorStore } from "./store";
 import TaskItem, { buildDefaultTaskDetailsUpdates } from "./TaskItem";
+import { cn } from "@/lib/utils";
 
 interface ConvertingTaskProps {
   globalFilter?: string;
@@ -38,10 +39,11 @@ export default function ConvertingTask({
     });
   }, [compressingTasks, globalFilter]);
 
-  return (
-    filteredTasks.length === 0 ? (
-      <UploadPanel supportedExtensions={VIDEO_SUPPORT_FORMATS} />
-    ) : (
+  return <>
+    {
+      <UploadPanel className={cn(filteredTasks.length > 0 ? "sr-only" : "")} supportedExtensions={VIDEO_SUPPORT_FORMATS} />
+    }
+    {
       filteredTasks.map((task) => (
         <TaskItem
           key={task.id}
@@ -51,6 +53,6 @@ export default function ConvertingTask({
           onRetryMeta={() => retryMeta(task.id)}
         />
       ))
-    )
-  );
+    }
+  </>
 }

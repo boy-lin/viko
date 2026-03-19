@@ -17,6 +17,7 @@ import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { extractFilenameFromPath } from "@/lib/utils";
 import { getImageCompressionPresetByRatio } from "./compressionPreset";
+import { formatFileSize } from "@/lib/file";
 
 interface TaskItemProps {
   task: CompressingImageTask;
@@ -158,6 +159,8 @@ export default function TaskItem({
   const taskArgs = task.args as CompressImageTaskArgs;
   const originalInfoParts = [
     task.mediaDetails?.extension?.toUpperCase?.(),
+    formatFileSize(task.mediaDetails?.size, 0),
+    task.mediaDetails?.resolution,
     formatDpiFromTags(task.mediaDetails?.tags),
   ];
   const targetInfoParts = [
@@ -183,8 +186,8 @@ export default function TaskItem({
   };
 
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg">
+    <div className="flex items-center gap-4 p-1 rounded-lg border border-border">
+      <div className="h-22 aspect-square rounded-lg overflow-hidden flex-shrink-0">
         <MediaThumbnail
           path={task.mediaDetails?.path}
           title={task.mediaDetails?.title}
@@ -192,11 +195,11 @@ export default function TaskItem({
         />
       </div>
 
-      <div className="min-w-0 flex-1">
+      <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3">
-          <EllipsisName name={task.mediaDetails?.title} className="text-base font-semibold text-foreground" />
+          <EllipsisName name={task.mediaDetails?.title} className="text-base font-semibold text-foreground/80" />
         </div>
-        <div className="mt-2 grid grid-cols-2 text-sm text-muted-foreground">
+        <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground/80">
           {originalInfoParts.map((p, idx) => (
             <span key={idx}>{p || "-"}</span>
           ))}
@@ -207,9 +210,11 @@ export default function TaskItem({
         <TaskStatusLabel task={task} />
       </div>
 
-      <div className="min-w-0 flex-1">
-        <OutputTitleEditor value={task.outputTitle} onChange={handleOutputTitleChange} />
-        <div className="mt-1 grid grid-cols-2 text-sm text-muted-foreground">
+      <div className="flex-1 min-w-[300px] bg-card shadow-sm p-2 rounded-lg">
+        <div className="text-base font-semibold text-foreground/80">
+          <OutputTitleEditor value={task.outputTitle} onChange={handleOutputTitleChange} />
+        </div>
+        <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground/80">
           {targetInfoParts.map((p, idx) => (
             <span key={idx}>{p || "auto"}</span>
           ))}
@@ -251,7 +256,7 @@ export default function TaskItem({
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "ȡ��") : t("actions.delete")}</TooltipContent>
+          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel") : t("actions.delete")}</TooltipContent>
         </Tooltip>
 
         <Button
@@ -260,7 +265,7 @@ export default function TaskItem({
           onClick={handleConvertSingle}
           disabled={loading || isQueuedOrProcessing}
         >
-          {t("actions.compressSingle", "ѹ��")}
+          {t("actions.compressSingle")}
         </Button>
       </div>
     </div>

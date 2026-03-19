@@ -5,50 +5,20 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
-import { AudioTrackConfig } from "@/lib/mediaTaskEvent";
 
 export enum ActiveCategoryEnum {
   Recents = "recents",
 }
 
-export interface ConverterTask extends FFmpegTask {
-  args: any;
+export interface ConverterTask extends FFmpegTask<ConvertVideoTaskArgs> {
 }
 
-export interface GlobalConverterConfig {
-  taskType: FFmpegTask["taskType"];
-  fileType: FFmpegTask["fileType"];
-  activeCategory: FFmpegTask["activeCategory"];
-  args: any;
+export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "fileType" | "activeCategory"> {
+  args: Partial<ConvertVideoTaskArgs>;
 }
-
-
-const mergeAudioTracks = (currentTracks: AudioTrackConfig[] = [], patchTracks: AudioTrackConfig[] = []) => {
-  const mergedTracks = currentTracks.map((track) => ({ ...track }));
-
-  patchTracks.forEach((patchTrack, patchIndex) => {
-    const patchTrackKey = patchTrack.source_stream_index;
-    const matchedIndex = mergedTracks.findIndex((currentTrack, currentIndex) => {
-      const currentTrackKey = currentTrack.source_stream_index;
-      return patchTrackKey !== undefined ? currentTrackKey === patchTrackKey : currentIndex === patchIndex;
-    });
-
-    if (matchedIndex >= 0) {
-      mergedTracks[matchedIndex] = {
-        ...mergedTracks[matchedIndex],
-        ...patchTrack,
-      };
-      return;
-    }
-
-    mergedTracks.push({ ...patchTrack });
-  });
-
-  return mergedTracks;
-};
 
 export const defaultVideoConfig: GlobalConverterConfig = {
-  taskType: MediaTaskType.ConvertVideo,
+  taskType: MediaTaskType.ConvertToVideo,
   fileType: FileType.Video,
   activeCategory: FileType.Video,
   args: {
@@ -64,23 +34,21 @@ export const defaultVideoConfig: GlobalConverterConfig = {
 type ConverterStore = CreateTaskStoreState<
   ConverterTask,
   GlobalConverterConfig,
-  GlobalConverterConfig,
-  "convertingTasks",
+  "tasks",
   "globalConfig",
-  "clearConvertingTasks"
+  "clearTasks"
 >;
 
 const baseStoreCreator = createTaskStore<
     ConverterTask,
     GlobalConverterConfig,
-    GlobalConverterConfig,
-    "convertingTasks",
+    "tasks",
     "globalConfig",
-    "clearConvertingTasks"
+    "clearTasks"
   >({
-    tasksKey: "convertingTasks",
+    tasksKey: "tasks",
     configKey: "globalConfig",
-    clearActionKey: "clearConvertingTasks",
+    clearActionKey: "clearTasks",
     defaultConfig: defaultVideoConfig,
     createTaskByPath: (path, config) => {
       const outputArgs: ConvertVideoTaskArgs = {
@@ -95,35 +63,6 @@ const baseStoreCreator = createTaskStore<
         progress: 0,
         args: outputArgs
       };
-    },
-    mergeConfig: (current, patch) => {
-      const { args, ...rest } = current;
-      return {
-        ...rest,
-        ...patch,
-        args: {
-          ...args,
-          ...patch.args,
-        },
-      };
-    },
-    applyToTaskArgs: (task, config) => {
-      const clonedTask = structuredClone(task);
-      const clonedArgs = structuredClone(config.args);
-
-      clonedTask.taskType = config.taskType;
-      const mergedAudioTracks = mergeAudioTracks(
-        clonedTask.args.audio_tracks,
-        clonedArgs.audio_tracks,
-      );
-
-      clonedTask.args = {
-        ...clonedTask.args,
-        ...clonedArgs,
-        ...(mergedAudioTracks.length > 0 ? { audio_tracks: mergedAudioTracks } : {}),
-      };
-
-      return clonedTask;
     },
     queueAdapter: async (tasks) => {
       const settings = useSettingsStore.getState();

@@ -12,7 +12,6 @@ import { useCompressorStore } from './store'
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
-import { buildDefaultImageArgs } from "./TaskItem";
 
 export const CompressionFooter: React.FC = () => {
   const { t } = useTranslation("task");
@@ -22,6 +21,9 @@ export const CompressionFooter: React.FC = () => {
   );
   const clearCompressingTasks = useCompressorStore(
     (state) => state.clearCompressingImageTasks
+  );
+  const applyConfigToAllTasks = useCompressorStore(
+    (state) => state.applyConfigToAllTasks
   );
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
@@ -68,27 +70,17 @@ export const CompressionFooter: React.FC = () => {
           <div className="flex items-center gap-2">
             <div className="w-[10em]">
                 <Slider
-                value={[imageConfig.ratio??50]}
+                value={[imageConfig.args.quality??50]}
                   onValueChange={(ratio: number[]) => {
-                    updateGlobalConfig({ ratio: ratio[0] });
+                    updateGlobalConfig({ args: { quality: ratio[0] } });
 
-                    const tasks = useCompressorStore.getState().CompressingImageTasks;
-                    const updateTaskById = useCompressorStore.getState().updateTaskById;
-
-                    tasks.forEach((task) => {
-                      startTransition(() => {
-                        if (task.mediaDetails) {
-                          updateTaskById(task.id, {
-                            args: buildDefaultImageArgs({
-                              ...task,
-                              args: {
-                                ...task.args,
-                                ratio: ratio[0],
-                              }
-                            }, task.mediaDetails)
-                          });
-                        }
-                      })
+                    const globalConfig = useCompressorStore.getState().imageConfig;
+                    applyConfigToAllTasks({
+                      ...globalConfig,
+                      args: {
+                        ...globalConfig.args,
+                        quality: ratio[0]
+                      }
                     });
                   }}
                   min={10}

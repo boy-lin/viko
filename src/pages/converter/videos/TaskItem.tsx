@@ -2,7 +2,7 @@
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { FileType, MediaDetails } from "@/types/tasks";
+import { FileType, MediaDetailsWithResolve } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
@@ -28,7 +28,7 @@ interface TaskItemProps {
   onRetryMeta?: () => void;
 }
 
-export const buildTaskDefaultsFromDetails = (task: ConverterTask, details: MediaDetails) => {
+export const buildTaskDefaultsFromDetails = (task: ConverterTask, details: MediaDetailsWithResolve) => {
   let format = FormatEnum.MP4;
   const outputArgs: any = {
     task_id: task.id,
@@ -51,7 +51,7 @@ export const buildTaskDefaultsFromDetails = (task: ConverterTask, details: Media
     mediaDetails: details,
     args: outputArgs,
     fileType: FileType.Video,
-    taskType: MediaTaskType.ConvertVideo,
+    taskType: MediaTaskType.ConvertToVideo,
     outputTitle: details.title,
   } as Partial<ConverterTask>;
 };
@@ -110,18 +110,19 @@ export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: T
   };
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border shadow-sm">
-      <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+    <div className="flex items-center gap-4 p-1 rounded-lg border border-border">
+      <div className="h-22 aspect-square rounded-lg overflow-hidden flex-shrink-0">
         <MediaThumbnail
           path={task.mediaDetails?.path}
+          thumbnailPath={task.thumbnailPath}
           title={task.mediaDetails?.title}
-          className="w-full h-full"
+          className="h-full w-full"
         />
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3">
-          <EllipsisName name={task.mediaDetails?.title} className="text-base font-semibold text-foreground" />
+          <EllipsisName name={task.mediaDetails?.title} className="text-base font-semibold text-foreground/80" />
         </div>
         <MediaOriginalInfoGrid mediaDetails={task.mediaDetails} />
       </div>
@@ -130,7 +131,7 @@ export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: T
         <TaskStatusLabel task={task} />
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-[300px] bg-card shadow-sm p-2 rounded-lg">
         <OutputTitleEditor
           value={outputTitleValue}
           onChange={handleOutputTitleChange}
@@ -173,7 +174,7 @@ export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: T
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "ȡ��") : t("actions.delete")}</TooltipContent>
+          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel") : t("actions.delete")}</TooltipContent>
         </Tooltip>
 
         <Button

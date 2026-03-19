@@ -1,3 +1,4 @@
+pub mod animated_image;
 pub mod compress;
 pub mod convert;
 pub mod ffmpeg;

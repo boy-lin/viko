@@ -4,21 +4,24 @@ import { CompressImageTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
+import { FormatEnum } from "@/types/options";
 
-export interface CompressingImageTask extends FFmpegTask {
-  args: CompressImageTaskArgs;
+export interface CompressingImageTask extends FFmpegTask<CompressImageTaskArgs> {
 }
-type BaseImageCompressionConfig = Pick<CompressImageTaskArgs, "ratio">;
+export interface GlobalImageCompressionConfig extends Pick<CompressingImageTask, "taskType" | "fileType"> {
+  args: Partial<CompressImageTaskArgs>;
+}
 
-export const baseDefaultImageCompressionConfig: BaseImageCompressionConfig = {
-  ratio: 50
-  
+export const defaultImageCompressionConfig: GlobalImageCompressionConfig = {
+  taskType: MediaTaskType.CompressImage,
+  fileType: FileType.Image,
+  args: {
+    ratio: 50,
+  },
 };
-
 type CompressorStore = CreateTaskStoreState<
   CompressingImageTask,
-  BaseImageCompressionConfig,
-  Partial<CompressImageTaskArgs>,
+  GlobalImageCompressionConfig,
   "CompressingImageTasks",
   "imageConfig",
   "clearCompressingImageTasks"
@@ -27,8 +30,7 @@ type CompressorStore = CreateTaskStoreState<
 export const useCompressorStore = create<CompressorStore>(
   createTaskStore<
     CompressingImageTask,
-    BaseImageCompressionConfig,
-    Partial<CompressImageTaskArgs>,
+    GlobalImageCompressionConfig,
     "CompressingImageTasks",
     "imageConfig",
     "clearCompressingImageTasks"
@@ -36,10 +38,11 @@ export const useCompressorStore = create<CompressorStore>(
     tasksKey: "CompressingImageTasks",
     configKey: "imageConfig",
     clearActionKey: "clearCompressingImageTasks",
-    defaultConfig: baseDefaultImageCompressionConfig,
+    defaultConfig: defaultImageCompressionConfig,
     createTaskByPath: (path, config) => {
       const outputArgs = {
-        ...config,
+        quality: 50,
+        ...config.args,
         task_id: crypto.randomUUID(),
         input_path: path,
       };
@@ -52,24 +55,6 @@ export const useCompressorStore = create<CompressorStore>(
         fileType: FileType.Image,
         taskType: MediaTaskType.CompressImage,
       } as CompressingImageTask;
-    },
-    mergeConfig: (current, patch) => {
-      const merged = {
-        ...current,
-        ...patch,
-      } as CompressImageTaskArgs;
-      return merged
-    },
-    applyToTaskArgs: (task, config) => {
-      const clonedTask = structuredClone(task);
-      const clonedConfig = structuredClone(config);
-
-      clonedTask.args = {
-        ...clonedTask.args,
-        ...clonedConfig,
-      };
-
-      return clonedTask;
     },
     queueAdapter: async (tasks) => {
       const settings = useSettingsStore.getState();

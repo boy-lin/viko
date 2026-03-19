@@ -52,7 +52,7 @@ mod tests {
     async fn test_enqueue_dequeue() {
         let db_path = setup_test_db().await;
 
-        let task = MediaTaskRequest::ConvertAudio(AudioConversionArgs {
+        let task = MediaTaskRequest::ConvertToAudio(AudioConversionArgs {
             task_id: "task-1".into(),
             input_path: "input.mp3".into(),
             output_path: None,
@@ -75,7 +75,7 @@ mod tests {
         let fetched = media_queue::dequeue().await.expect("Dequeue failed");
         assert!(fetched.is_some());
 
-        if let Some(MediaTaskRequest::ConvertAudio(args)) = fetched {
+        if let Some(MediaTaskRequest::ConvertToAudio(args)) = fetched {
             assert_eq!(args.task_id, "task-1");
         } else {
             panic!("Wrong task type");
@@ -92,7 +92,7 @@ mod tests {
         let db_path = setup_test_db().await;
 
         for i in 0..3 {
-            let task = MediaTaskRequest::ConvertAudio(AudioConversionArgs {
+            let task = MediaTaskRequest::ConvertToAudio(AudioConversionArgs {
                 task_id: format!("task-{}", i),
                 input_path: "input.mp3".into(),
                 output_path: None,

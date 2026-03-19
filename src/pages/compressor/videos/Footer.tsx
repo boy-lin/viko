@@ -7,7 +7,6 @@ import {
   PopoverAnchor,
 } from "@/components/ui/popover";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
-import { CompressVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useCompressorStore } from './store'
 import { toast } from "sonner";
@@ -28,10 +27,6 @@ export const CompressionFooter: React.FC = () => {
   );
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
-
-  const handleSaveConfig = (vals: Partial<CompressVideoTaskArgs>) => {
-    applyConfigToAllTasks(vals);
-  };
 
   const handleCompressAll = async () => {
     try {
@@ -80,10 +75,17 @@ export const CompressionFooter: React.FC = () => {
                   className="h-9 w-[10em] cursor-pointer"
                 >
                   <Slider
-                    value={[videoConfig.ratio]}
+                    value={[videoConfig.args.ratio??20]}
                     onValueChange={(ratio: number[]) => {
-                      updateGlobalConfig({ ratio: ratio[0] });
-                      handleSaveConfig({ ratio: ratio[0] });
+                      updateGlobalConfig({ args: { ratio: ratio[0] } });
+                      const globalConfig = useCompressorStore.getState().videoConfig;
+                      applyConfigToAllTasks({
+                        ...globalConfig,
+                        args: {
+                          ...globalConfig.args,
+                          ratio: ratio[0]
+                        }
+                      });
                     }}
                     min={10}
                     max={100}

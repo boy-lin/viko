@@ -36,6 +36,21 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
   disableAutoGenerate = false,
   thumbnailOptions,
 }) => {
+  const isExpectedThumbnailAbort = useCallback((err: unknown) => {
+    if (err instanceof Error) {
+      const message = err.message;
+      return (
+        err.name === "AbortError" ||
+        message.includes('Event "media_thumbnail" aborted') ||
+        message.includes(
+          'generateMediaThumbnail failed: Event "media_thumbnail" aborted'
+        )
+      );
+    }
+
+    return String(err).includes('Event "media_thumbnail" aborted');
+  }, []);
+
   const resolvedThumbnailOptions = useMemo(
     () => ({
       width: thumbnailOptions?.width ?? 160,
@@ -116,6 +131,7 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
           setIsLoading(false);
         }
       } catch (err) {
+        if (controller.signal.aborted || isExpectedThumbnailAbort(err)) return;
         if (!isMounted) return;
         const errorMessage = err instanceof Error ? err.message : String(err);
         const missing =
@@ -140,9 +156,16 @@ export const MediaThumbnail: React.FC<MediaThumbnailProps> = ({
 
     return () => {
       isMounted = false;
-      controller.abort();
+      controller.abort("media-thumbnail cleanup");
     };
-  }, [path, thumbnailPath, disableAutoGenerate, resolvedThumbnailOptions, isUnsupported]);
+  }, [
+    path,
+    thumbnailPath,
+    disableAutoGenerate,
+    isExpectedThumbnailAbort,
+    resolvedThumbnailOptions,
+    isUnsupported,
+  ]);
 
   const icon = useMemo(() => {
     if (fileType === FileType.Video) return <FileVideo className="w-6 h-6" />;

@@ -7,7 +7,7 @@ import {
   AudioSettingsSection,
 } from "@/components/biz-form/AudioSettingsSection";
 import VideoSettingsSection from "@/components/biz-form/VideoSettingsSection";
-import { ActiveCategoryEnum, GlobalConverterConfig } from "@/pages/converter/videos/store";
+import { ActiveCategoryEnum } from "@/pages/converter/videos/store";
 import { FileType, MediaTaskType } from "@/types/tasks";
 import { ImageSettingsSection } from "@/components/biz-form/ImageSettingsSection";
 import { GifSettingsSection } from "@/components/biz-form/GifSettingsSection";
@@ -78,14 +78,7 @@ export default function FormatSelectorContent({
   }, [activeGroup])
 
 
-  const getSharedArgs = () => ({
-    task_id: config.args?.task_id,
-    input_path: config.args?.input_path,
-    input_file_type: config.args?.input_file_type,
-    output_path: config.args?.output_path,
-  });
-
-  const buildAudioArgs = (format: string): ConvertAudioTaskArgs => {
+  const buildAudioArgs = (format: string) => {
     const definition = AUDIO_CONTAINER_DEFINITIONS[format as FormatEnum];
     const audioCodec = definition?.allowedEncoders[0];
     const audioTracks = ((config.args?.audio_tracks as AudioTrackConfig[] | undefined) ?? []).map((track) => ({
@@ -94,14 +87,12 @@ export default function FormatSelectorContent({
     }));
 
     return {
-      ...getSharedArgs(),
       format,
       audio_tracks: audioTracks,
-    } as ConvertAudioTaskArgs;
+    };
   };
 
-  const buildVideoArgs = (format: string): ConvertVideoTaskArgs => {
-    const currentArgs = config.args as Partial<ConvertVideoTaskArgs>;
+  const buildVideoArgs = (format: string) => {
     const definition = VIDEO_CONTAINER_DEFINITIONS[format as FormatEnum];
     const videoEncoder = definition?.video?.allowedEncoders[0];
     const audioCodec = definition?.audio?.allowedEncoders[0];
@@ -111,34 +102,14 @@ export default function FormatSelectorContent({
     }));
 
     return {
-      ...getSharedArgs(),
       format,
       video_encoder: videoEncoder,
-      video_bitrate: currentArgs.video_bitrate,
-      min_bitrate: currentArgs.min_bitrate,
-      max_bitrate: currentArgs.max_bitrate,
-      rc_mode: currentArgs.rc_mode,
-      crf: currentArgs.crf,
-      resolution: currentArgs.resolution,
-      aspect_ratio: currentArgs.aspect_ratio,
-      scaling_mode: currentArgs.scaling_mode,
-      frame_rate: currentArgs.frame_rate,
-      gop_size: currentArgs.gop_size,
-      preset: currentArgs.preset,
-      profile: currentArgs.profile,
-      tune: currentArgs.tune,
-      color_space: currentArgs.color_space,
-      color_range: currentArgs.color_range,
-      bit_depth: currentArgs.bit_depth,
-      crop: currentArgs.crop,
       audio_tracks: audioTracks,
-      default_audio_params: currentArgs.default_audio_params,
-      watermark: currentArgs.watermark,
     };
   };
 
-  const buildImageArgs = (format: string): ConvertImageTaskArgs => {
-    const currentArgs = config.args as Partial<ConvertImageTaskArgs & ConvertVideoTaskArgs>;
+  const buildImageArgs = (format: string) => {
+    const currentArgs = config.args as ConvertImageTaskArgs;
     const definition = IMAGE_CONTAINER_DEFINITIONS[format as FormatEnum];
     const imageEncoder = definition?.allowedEncoders[0];
     const encoderDefinition = imageEncoder ? IMAGE_ENCODER_DEFINITIONS[imageEncoder] : undefined;
@@ -150,23 +121,10 @@ export default function FormatSelectorContent({
       : undefined;
 
     return {
-      ...getSharedArgs(),
       format,
       image_encoder: imageEncoder,
       width,
-      height,
-      frame_rate: typeof currentArgs.frame_rate === "number" ? currentArgs.frame_rate : undefined,
-      quality: currentArgs.quality,
-      preserve_transparency: currentArgs.preserve_transparency,
-      color_mode: currentArgs.color_mode,
-      dpi: currentArgs.dpi,
-      loop_count: currentArgs.loop_count,
-      frame_delay: currentArgs.frame_delay,
-      colors: currentArgs.colors,
-      preserve_extensions: currentArgs.preserve_extensions,
-      sharpen: currentArgs.sharpen,
-      denoise: currentArgs.denoise,
-      watermark: currentArgs.watermark,
+      height
     };
   };
 
@@ -180,8 +138,7 @@ export default function FormatSelectorContent({
     if (resetSearch) setSearchQuery("");
 
     if (!formatOpt.id) return;
-    const targetAnimatedImage = formatOpt.id === FormatEnum.GIF || formatOpt.id === FormatEnum.APNG;
-    const sourceIsVideo = config.fileType === FileType.Video;
+    const targetAnimatedImage = formatOpt.id === FormatEnum.GIF;
 
     const updates = {
       ...config,
@@ -192,17 +149,17 @@ export default function FormatSelectorContent({
     };
 
     if (formatOpt.category === FileType.Audio) {
-      updates.taskType = MediaTaskType.ConvertAudio;
+      updates.taskType = MediaTaskType.ConvertToAudio;
       updates.args = buildAudioArgs(formatOpt.id);
     } else if (formatOpt.category === FileType.Video) {
-      updates.taskType = MediaTaskType.ConvertVideo;
+      updates.taskType = MediaTaskType.ConvertToVideo;
       updates.args = buildVideoArgs(formatOpt.id);
     } else if (formatOpt.category === FileType.Image) {
-      if (targetAnimatedImage && sourceIsVideo) {
-        updates.taskType = MediaTaskType.ConvertVideo;
+      if (targetAnimatedImage) {
+        updates.taskType = MediaTaskType.ConvertToAnimatedImage;
         updates.args = buildImageArgs(formatOpt.id);
       } else {
-        updates.taskType = MediaTaskType.ConvertImage;
+        updates.taskType = MediaTaskType.ConvertToImage;
         updates.args = buildImageArgs(formatOpt.id);
       }
     }
@@ -226,9 +183,7 @@ export default function FormatSelectorContent({
             const next = tracks[0];
             if (!next) return;
             onValueChange({
-              ...config,
               args: {
-                ...config.args,
                 audio_tracks: tracks
               },
             });
@@ -245,11 +200,7 @@ export default function FormatSelectorContent({
           config={videoArgs}
           onChange={(next) => {
             onValueChange({
-              ...config,
-              args: {
-                ...config.args,
-                ...next,
-              },
+              args: next,
             });
           }}
         />
@@ -257,37 +208,33 @@ export default function FormatSelectorContent({
     }
 
     if (activeCategory?.id === FileType.Image) {
-      const imageArgs = config.args as ConvertImageTaskArgs;
-      if (imageArgs.format === FormatEnum.GIF) {
+      const gifArgs = config.args as ConvertImageTaskArgs;
+      if (gifArgs.format === FormatEnum.GIF) {
         return (
           <GifSettingsSection
-            format={imageArgs.format}
-            width={imageArgs.width}
-            height={imageArgs.height}
-            frame_rate={imageArgs.frame_rate}
-            quality={imageArgs.quality}
-            preserve_transparency={imageArgs.preserve_transparency}
-            color_mode={imageArgs.color_mode}
-            dpi={imageArgs.dpi}
-            loop_count={imageArgs.loop_count}
-            frame_delay={imageArgs.frame_delay}
-            colors={imageArgs.colors}
-            preserve_extensions={imageArgs.preserve_extensions}
-            sharpen={imageArgs.sharpen}
-            denoise={imageArgs.denoise}
+            format={gifArgs.format}
+            width={gifArgs.width}
+            height={gifArgs.height}
+            frame_rate={gifArgs.frame_rate}
+            quality={gifArgs.quality}
+            preserve_transparency={gifArgs.preserve_transparency}
+            color_mode={gifArgs.color_mode}
+            dpi={gifArgs.dpi}
+            loop_count={gifArgs.loop_count}
+            frame_delay={gifArgs.frame_delay}
+            colors={gifArgs.colors}
+            preserve_extensions={gifArgs.preserve_extensions}
+            sharpen={gifArgs.sharpen}
+            denoise={gifArgs.denoise}
             onChange={(next) => {
               onValueChange({
-                ...config,
-                args: {
-                  ...config.args,
-                  ...next,
-                },
+                args: next,
               });
             }}
           />
         );
       }
-
+      const imageArgs = config.args as ConvertImageTaskArgs;
       return (
         <ImageSettingsSection
           format={imageArgs.format}
@@ -296,11 +243,7 @@ export default function FormatSelectorContent({
           height={imageArgs.height}
           onChange={(next) => {
             onValueChange({
-              ...config,
-              args: {
-                ...config.args,
-                ...next,
-              },
+              args: next,
             });
           }}
         />
@@ -342,7 +285,6 @@ export default function FormatSelectorContent({
             }
             onClick={() => {
               onValueChange({
-                ...config,
                 activeCategory: ActiveCategoryEnum.Recents,
               });
               setSearchQuery("");
@@ -356,7 +298,7 @@ export default function FormatSelectorContent({
               active={config.activeCategory === cat.id && !searchQuery}
               onClick={() => {
                 const nextCategory = cat.id as any;
-                onValueChange({ ...config, activeCategory: nextCategory });
+                onValueChange({ activeCategory: nextCategory });
                 setSearchQuery("");
               }}
             />
@@ -421,12 +363,12 @@ export default function FormatSelectorContent({
                 className="cursor-pointer"
                 onClick={() => {
                   applyConfigToAllTasks({
-                    ...config,
+                    ...config,  
                     args: {
                       ...config.args,
                       format: activeGroup?.id,
                     },
-                  } as GlobalConverterConfig);
+                  });
                   onClose();
                 }}
               >

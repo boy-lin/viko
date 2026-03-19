@@ -7,7 +7,7 @@ import { extractFilenameFromPath } from "@/lib/utils";
 import { UploadPanel } from "./UploadPanel";
 import { useCompressorStore } from "./store";
 import TaskItem, { buildDefaultImageArgs } from "./TaskItem";
-
+import { cn } from "@/lib/utils";
 interface ConvertingTaskProps {
   globalFilter?: string;
 }
@@ -53,13 +53,12 @@ export default function ConvertingTask({
     });
   }, [compressingTasks, globalFilter]);
 
-  return (filteredTasks.length === 0 ? (
-    <UploadPanel
-      supportedExtensions={IMAGE_SUPPORT_FORMATS}
-    />
-  ) : (
-    filteredTasks.map((task) => {
-      return (
+  return <>
+    {
+      <UploadPanel className={cn(filteredTasks.length > 0 ? "sr-only" : "")} supportedExtensions={IMAGE_SUPPORT_FORMATS} />
+    }
+    {
+      filteredTasks.map((task) => (
         <TaskItem
           key={task.id}
           task={task}
@@ -67,7 +66,7 @@ export default function ConvertingTask({
           metaError={metaStateById[task.id]?.error}
           onRetryMeta={() => retryMeta(task.id)}
         />
-      );
-    })
-  ))
+      ))
+    }
+  </>
 }

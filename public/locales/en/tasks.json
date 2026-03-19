@@ -18,9 +18,9 @@
   "task_type": {
     "convert": "Convert",
     "compress": "Compress",
-    "convert-video": "Convert Video",
-    "convert-audio": "Convert Audio",
-    "convert-image": "Convert Image",
+    "convert-to-video": "Convert Video",
+    "convert-to-audio": "Convert Audio",
+    "convert-to-image": "Convert Image",
     "convert-gif": "Convert GIF",
     "compress-video": "Compress Video",
     "compress-audio": "Compress Audio",

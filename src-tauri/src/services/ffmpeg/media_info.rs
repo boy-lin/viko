@@ -49,11 +49,11 @@ fn parse_sample_fmt_bits(sample_fmt: &str) -> Option<u32> {
     digits.parse::<u32>().ok().filter(|value| *value > 0)
 }
 
-pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
-    media_common::init_ffmpeg()?;
-
+pub(crate) fn collect_media_details_from_context(
+    path_str: &str,
+    context: &ffmpeg::format::context::Input,
+) -> Result<MediaDetails, String> {
     let path = Path::new(path_str);
-    let context = media_common::open_input(path_str)?;
 
     let duration = context.duration() as f64 / ffmpeg::ffi::AV_TIME_BASE as f64;
     let format_ctx = context.format();
@@ -165,4 +165,10 @@ pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
         tags,
         stream_tags,
     })
+}
+
+pub fn get_media_details(path_str: &str) -> Result<MediaDetails, String> {
+    media_common::init_ffmpeg()?;
+    let context = media_common::open_input(path_str)?;
+    collect_media_details_from_context(path_str, &context)
 }

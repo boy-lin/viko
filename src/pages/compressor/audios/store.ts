@@ -5,21 +5,25 @@ import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { createTaskStore, CreateTaskStoreState } from "@/lib/createTaskStore";
 import { extractFilenameFromPath } from "@/lib/utils";
+import { AudioEncoderEnum } from "@/types/options";
 
-export interface CompressingAudioTask extends FFmpegTask {
-  args: CompressAudioTaskArgs;
+export interface CompressingAudioTask extends FFmpegTask<CompressAudioTaskArgs> {
 }
 
-type BaseAudioCompressionConfig = Pick<CompressAudioTaskArgs, "ratio">;
+export interface GlobalAudioCompressionConfig extends Pick<CompressingAudioTask, "taskType" | "fileType"> {
+  args: Partial<CompressAudioTaskArgs>;
+}
 
-export const baseAudioCompressionConfig: BaseAudioCompressionConfig = {
-  ratio: 50,
+export const defaultAudioCompressionConfig: GlobalAudioCompressionConfig = {
+  taskType: MediaTaskType.CompressAudio,
+  fileType: FileType.Audio,
+  args: {
+    ratio: 50,
+  },
 };
-
 type CompressorStore = CreateTaskStoreState<
   CompressingAudioTask,
-  BaseAudioCompressionConfig,
-  CompressAudioTaskArgs,
+  GlobalAudioCompressionConfig,
   "compressingTasks",
   "audioConfig",
   "clearCompressingTasks"
@@ -28,8 +32,7 @@ type CompressorStore = CreateTaskStoreState<
 export const useCompressorStore = create<CompressorStore>(
   createTaskStore<
     CompressingAudioTask,
-    BaseAudioCompressionConfig,
-    CompressAudioTaskArgs,
+    GlobalAudioCompressionConfig,
     "compressingTasks",
     "audioConfig",
     "clearCompressingTasks"
@@ -37,12 +40,15 @@ export const useCompressorStore = create<CompressorStore>(
     tasksKey: "compressingTasks",
     configKey: "audioConfig",
     clearActionKey: "clearCompressingTasks",
-    defaultConfig: baseAudioCompressionConfig,
+    defaultConfig: defaultAudioCompressionConfig,
     createTaskByPath: (path, config) => {
       const outputArgs = {
-        ...config,
+        codec: AudioEncoderEnum.MP3,
+        ratio: 50,
+        ...config.args,
         task_id: crypto.randomUUID(),
         input_path: path,
+        output_path: path,
       };
 
       return {
@@ -53,13 +59,6 @@ export const useCompressorStore = create<CompressorStore>(
         fileType: FileType.Audio,
         taskType: MediaTaskType.CompressAudio,
       } as CompressingAudioTask;
-    },
-    mergeConfig: (current, patch) => {
-      const merged = {
-        ...current,
-        ...patch,
-      } as CompressAudioTaskArgs;
-      return merged
     },
     queueAdapter: async (tasks) => {
       const settings = useSettingsStore.getState();

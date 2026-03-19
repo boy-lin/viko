@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { FFmpegTask, FileType, MediaTaskType } from "@/types/tasks";
-import { FormatEnum } from "@/types/options";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
@@ -10,52 +9,47 @@ export enum ActiveCategoryEnum {
   Recents = "recents",
 }
 
-export interface ConverterTask extends FFmpegTask {
-  args: ConvertImageTaskArgs;
+export interface ConverterTask extends FFmpegTask<ConvertImageTaskArgs> {
 }
 
-export interface GlobalConverterConfig {
-  taskType: FFmpegTask["taskType"];
-  activeCategory: FFmpegTask["activeCategory"];
-  args: any;
+export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "fileType" | "activeCategory"> {
+  args: Partial<ConvertImageTaskArgs>;
 }
 
 export const defaultVideoConfig: GlobalConverterConfig = {
-  taskType: MediaTaskType.ConvertImage,
+  taskType: MediaTaskType.ConvertToImage,
+  fileType: FileType.Image,
   activeCategory: FileType.Image,
   args: {
-    format: FormatEnum.PNG,
-  } as ConverterTask["args"],
+    
+  },
 };
 
 type ConverterStore = CreateTaskStoreState<
   ConverterTask,
   GlobalConverterConfig,
-  GlobalConverterConfig,
-  "convertingTasks",
+  "tasks",
   "globalConfig",
-  "clearConvertingTasks"
+  "clearTasks"
 >;
 
 export const useConverterStore = create<ConverterStore>(
   createTaskStore<
     ConverterTask,
     GlobalConverterConfig,
-    GlobalConverterConfig,
-    "convertingTasks",
+    "tasks",
     "globalConfig",
-    "clearConvertingTasks"
+    "clearTasks"
   >({
-    tasksKey: "convertingTasks",
+    tasksKey: "tasks",
     configKey: "globalConfig",
-    clearActionKey: "clearConvertingTasks",
+    clearActionKey: "clearTasks",
     defaultConfig: defaultVideoConfig,
     createTaskByPath: (path, config) => {
-      const outputArgs: ConvertImageTaskArgs = {
+      const outputArgs = {
         ...config.args,
         task_id: crypto.randomUUID(),
         input_path: path,
-        format: FormatEnum.PNG,
       };
       return {
         ...config,
@@ -64,30 +58,7 @@ export const useConverterStore = create<ConverterStore>(
         progress: 0,
         args: outputArgs,
         fileType: FileType.Image,
-      };
-    },
-    mergeConfig: (current, patch) => {
-      const { args, ...rest } = current;
-      return {
-        ...rest,
-        ...patch,
-        args: {
-          ...args,
-          ...patch.args,
-        },
-      };
-    },
-    applyToTaskArgs: (task, config) => {
-      const clonedTask = structuredClone(task);
-      const clonedArgs = structuredClone(config.args);
-
-      clonedTask.taskType = config.taskType;
-      clonedTask.args = {
-        ...clonedTask.args,
-        ...clonedArgs,
-      };
-      console.log('clonedTask', JSON.stringify(clonedTask));
-      return clonedTask;
+      } as ConverterTask;
     },
     queueAdapter: async (tasks) => {
       const settings = useSettingsStore.getState();

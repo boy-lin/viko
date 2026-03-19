@@ -50,7 +50,7 @@ export function buildDefaultArgs(mediaInfo: MediaDetails, task: ConverterTask) {
     mediaDetails: mediaInfo,
     args: outputArgs,
     fileType: FileType.Audio,
-    taskType: MediaTaskType.ConvertAudio,
+    taskType: MediaTaskType.ConvertToAudio,
     outputTitle,
   } as ConverterTask;
 }
@@ -133,12 +133,12 @@ export default function TaskItem({
   }
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border shadow-sm">
-      <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+    <div className="flex items-center gap-4 p-1 rounded-lg border border-border">
+      <div className="h-22 aspect-square rounded-lg overflow-hidden flex-shrink-0">
         <MediaThumbnail
           path={task.mediaDetails?.path}
           title={task.mediaDetails?.title}
-          className="w-full h-full"
+          className="h-full w-full"
         />
       </div>
 
@@ -146,10 +146,10 @@ export default function TaskItem({
         <div className="flex items-center gap-3">
           <EllipsisName
             name={task.mediaDetails?.title}
-            className="text-base font-semibold text-foreground"
+            className="text-base font-semibold text-foreground/80"
           />
         </div>
-        <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground">
+        <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground/80">
           {originalInfoParts.map((p, idx) => (
             <span key={idx}>{p || "-"}</span>
           ))}
@@ -160,11 +160,11 @@ export default function TaskItem({
         <TaskStatusLabel task={task} />
       </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="text-base font-semibold text-foreground">
+      <div className="flex-1 min-w-[300px] bg-card shadow-sm p-2 rounded-lg">
+        <div className="text-base font-semibold text-foreground/80">
           <OutputTitleEditor value={outputTitleValue} onChange={handleOutputTitleChange} />
         </div>
-        <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground">
+        <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground/80">
           {targetInfoParts.map((p, idx) => (
             <span key={idx}>{p || "auto"}</span>
           ))}
@@ -208,7 +208,7 @@ export default function TaskItem({
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {isQueuedOrProcessing ? t("actions.cancel", "取消") : t("actions.delete")}
+            {isQueuedOrProcessing ? t("actions.cancel") : t("actions.delete")}
           </TooltipContent>
         </Tooltip>
 

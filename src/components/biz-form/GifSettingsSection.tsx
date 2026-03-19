@@ -13,26 +13,8 @@ import { useTranslation } from "react-i18next";
 import { BadgeQuestionMark } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-type GifConfig = Pick<
-  ConvertImageTaskArgs,
-  | "format"
-  | "width"
-  | "height"
-  | "frame_rate"
-  | "quality"
-  | "preserve_transparency"
-  | "color_mode"
-  | "dpi"
-  | "loop_count"
-  | "frame_delay"
-  | "colors"
-  | "preserve_extensions"
-  | "sharpen"
-  | "denoise"
->;
-
-interface GifSettingsSectionProps extends GifConfig {
-  onChange: (config: Partial<GifConfig>) => void;
+interface GifSettingsSectionProps extends Partial<ConvertImageTaskArgs> {
+  onChange: (config: Partial<ConvertImageTaskArgs>) => void;
   className?: string;
 }
 

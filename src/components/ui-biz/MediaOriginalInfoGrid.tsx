@@ -12,7 +12,7 @@ function normalizeExt(extension?: string) {
 
 export default function MediaOriginalInfoGrid({
   mediaDetails,
-  className = "grid grid-cols-2 mt-2 text-sm text-muted-foreground",
+  className = "grid grid-cols-2 mt-2 text-sm text-muted-foreground/80",
 }: MediaOriginalInfoGridProps) {
   const extension = normalizeExt(mediaDetails?.extension);
   const videoStream = mediaDetails?.streams.find((s) => s.codec_type === "video");

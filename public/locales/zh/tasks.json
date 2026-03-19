@@ -18,9 +18,9 @@
   "task_type": {
     "convert": "转码",
     "compress": "压缩",
-    "convert-video": "视频转码",
-    "convert-audio": "音频转码",
-    "convert-image": "图片转码",
+    "convert-to-video": "视频转码",
+    "convert-to-audio": "音频转码",
+    "convert-to-image": "图片转码",
     "convert-gif": "GIF 转换",
     "compress-video": "视频压缩",
     "compress-audio": "音频压缩",

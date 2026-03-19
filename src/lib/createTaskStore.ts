@@ -1,10 +1,12 @@
 import { StateCreator } from "zustand";
+import { AudioTrackConfig } from "@/lib/mediaTaskEvent";
 
 export type TaskWithIndex = {
   id: string;
   status: string;
   args: any;
 };
+
 
 type WithTaskList<TTask, TTasksKey extends string> = Record<TTasksKey, TTask[]>;
 type WithConfig<TConfig, TConfigKey extends string> = Record<TConfigKey, TConfig>;
@@ -13,7 +15,6 @@ type WithClearAction<TClearActionKey extends string> = Record<TClearActionKey, (
 export type CreateTaskStoreState<
   TTask extends TaskWithIndex,
   TConfig,
-  TApplyConfig,
   TTasksKey extends string,
   TConfigKey extends string,
   TClearActionKey extends string,
@@ -23,8 +24,7 @@ export type CreateTaskStoreState<
     taskIndexById: Record<string, number>;
     addTasksByPaths: (paths: string[]) => void;
     updateTaskById: (id: string, updates: Partial<TTask>) => void;
-    applyToTaskArgs: (task: TTask, args: TApplyConfig) => TTask;
-    applyConfigToAllTasks: (args: TApplyConfig) => void;
+    applyConfigToAllTasks: (config: TConfig) => void;
     removeTask: (id: string) => void;
     updateGlobalConfig: (config: Partial<TConfig>) => void | Promise<void>;
     pushTasksToQueue: (tasks?: TTask[]) => Promise<void>;
@@ -33,7 +33,6 @@ export type CreateTaskStoreState<
 type CreateTaskStoreOptions<
   TTask extends TaskWithIndex,
   TConfig,
-  TApplyConfig,
   TTasksKey extends string,
   TConfigKey extends string,
   TClearActionKey extends string,
@@ -43,27 +42,8 @@ type CreateTaskStoreOptions<
   clearActionKey: TClearActionKey;
   defaultConfig: TConfig;
   createTaskByPath: (path: string, config: TConfig) => TTask | null;
-  mergeConfig: (current: TConfig, patch: Partial<TConfig>) => TConfig;
-  applyToTaskArgs?: (task: TTask, args: TApplyConfig) => TTask;
   queueAdapter: (tasks: TTask[]) => Promise<void>;
   shouldRemoveTask?: (task: TTask) => boolean;
-};
-
-const defaultApplyToTaskArgs = <
-  TTask extends TaskWithIndex,
-  TApplyConfig,
->(
-  task: TTask,
-  args: TApplyConfig,
-): TTask => {
-  const clonedTask = structuredClone(task);
-  const clonedArgs = structuredClone(args);
-
-  clonedTask.args = {
-    ...clonedTask.args,
-    ...clonedArgs,
-  };
-  return clonedTask;
 };
 
 const appendTaskIndex = <TTask extends TaskWithIndex>(
@@ -96,26 +76,56 @@ const removeTaskAtIndex = <TTask extends TaskWithIndex>(
   return { nextTasks, nextIndex };
 };
 
-const mergeTaskUpdate = <TTask extends TaskWithIndex>(
-  current: TTask,
-  updates: Partial<TTask>,
-): TTask => {
-  const currentArgs = current.args;
-  const updatesArgs = updates.args || {};
+
+const mergeAudioTracks = (currentTracks: AudioTrackConfig[] = [], patchTracks: AudioTrackConfig[] = []) => {
+  const mergedTracks = currentTracks.map((track) => ({ ...track }));
+
+  patchTracks.forEach((patchTrack, patchIndex) => {
+    const patchTrackKey = patchTrack.source_stream_index;
+    const matchedIndex = mergedTracks.findIndex((currentTrack, currentIndex) => {
+      const currentTrackKey = currentTrack.source_stream_index;
+      return patchTrackKey !== undefined ? currentTrackKey === patchTrackKey : currentIndex === patchIndex;
+    });
+
+    if (matchedIndex >= 0) {
+      mergedTracks[matchedIndex] = {
+        ...mergedTracks[matchedIndex],
+        ...patchTrack,
+      };
+      return;
+    }
+
+    mergedTracks.push({ ...patchTrack });
+  });
+
+  return mergedTracks;
+};
+
+const mergeTaskUpdate = (
+  current: any,
+  config: any,
+) => {
+  const currentArgs = current?.args || {}
+  const updatesArgs = config?.args || {}
+  const mergedAudioTracks = mergeAudioTracks(
+    currentArgs.audio_tracks ?? [],
+    updatesArgs.audio_tracks ?? [],
+  );
+  
   return {
     ...current,
-    ...updates,
+    ...config,
     args: {
       ...currentArgs,
       ...updatesArgs,
-    } as TTask["args"],
+      ...(mergedAudioTracks.length > 0 ? { audio_tracks: mergedAudioTracks } : {}),
+    },
   };
 };
 
 export function createTaskStore<
   TTask extends TaskWithIndex,
   TConfig,
-  TApplyConfig,
   TTasksKey extends string,
   TConfigKey extends string,
   TClearActionKey extends string,
@@ -123,7 +133,6 @@ export function createTaskStore<
   options: CreateTaskStoreOptions<
     TTask,
     TConfig,
-    TApplyConfig,
     TTasksKey,
     TConfigKey,
     TClearActionKey
@@ -132,7 +141,6 @@ export function createTaskStore<
   CreateTaskStoreState<
     TTask,
     TConfig,
-    TApplyConfig,
     TTasksKey,
     TConfigKey,
     TClearActionKey
@@ -144,8 +152,6 @@ export function createTaskStore<
     clearActionKey,
     defaultConfig,
     createTaskByPath,
-    mergeConfig,
-    applyToTaskArgs = defaultApplyToTaskArgs,
     queueAdapter,
     shouldRemoveTask = (task) => ["finished", "cancelled"].includes(task.status),
   } = options;
@@ -158,7 +164,6 @@ export function createTaskStore<
       const state = get() as CreateTaskStoreState<
         TTask,
         TConfig,
-        TApplyConfig,
         TTasksKey,
         TConfigKey,
         TClearActionKey
@@ -187,7 +192,6 @@ export function createTaskStore<
           CreateTaskStoreState<
             TTask,
             TConfig,
-            TApplyConfig,
             TTasksKey,
             TConfigKey,
             TClearActionKey
@@ -203,20 +207,16 @@ export function createTaskStore<
         CreateTaskStoreState<
           TTask,
           TConfig,
-          TApplyConfig,
           TTasksKey,
           TConfigKey,
           TClearActionKey
         >
       >);
     },
-    applyToTaskArgs: (task, args) => {
-      return applyToTaskArgs(task, args);
-    },
-    applyConfigToAllTasks: (args) => {
+    applyConfigToAllTasks: (config) => {
       set((state) => {
         const tasks = state[tasksKey] as TTask[];
-        const nextTasks = tasks.map((task) => applyToTaskArgs(task, args));
+        const nextTasks = tasks.map((task) => mergeTaskUpdate(task, config));
         const nextIndex = nextTasks.reduce<Record<string, number>>((acc, task, idx) => {
           acc[task.id] = idx;
           return acc;
@@ -229,7 +229,6 @@ export function createTaskStore<
           CreateTaskStoreState<
             TTask,
             TConfig,
-            TApplyConfig,
             TTasksKey,
             TConfigKey,
             TClearActionKey
@@ -237,7 +236,7 @@ export function createTaskStore<
         >;
       });
     },
-    updateTaskById: (id: string, updates: Partial<TTask>) => {
+    updateTaskById: (id: string, updates) => {
       const idx = get().taskIndexById[id];
       if (idx === undefined) return;
 
@@ -261,7 +260,6 @@ export function createTaskStore<
             CreateTaskStoreState<
               TTask,
               TConfig,
-              TApplyConfig,
               TTasksKey,
               TConfigKey,
               TClearActionKey
@@ -277,7 +275,6 @@ export function createTaskStore<
           CreateTaskStoreState<
             TTask,
             TConfig,
-            TApplyConfig,
             TTasksKey,
             TConfigKey,
             TClearActionKey
@@ -304,7 +301,6 @@ export function createTaskStore<
           CreateTaskStoreState<
             TTask,
             TConfig,
-            TApplyConfig,
             TTasksKey,
             TConfigKey,
             TClearActionKey
@@ -316,12 +312,11 @@ export function createTaskStore<
       set((state) => {
         const currentConfig = state[configKey] as TConfig;
         return {
-          [configKey]: mergeConfig(currentConfig, patch),
+          [configKey]: mergeTaskUpdate(currentConfig, patch),
         } as Partial<
           CreateTaskStoreState<
             TTask,
             TConfig,
-            TApplyConfig,
             TTasksKey,
             TConfigKey,
             TClearActionKey
@@ -345,7 +340,6 @@ export function createTaskStore<
   }) as CreateTaskStoreState<
     TTask,
     TConfig,
-    TApplyConfig,
     TTasksKey,
     TConfigKey,
     TClearActionKey

@@ -31,7 +31,7 @@ use crate::media_common;
 use crate::services::convert::audio::{self, AudioConversionParams};
 use crate::services::convert::video::{self as convert_video_service, VideoConversionParams};
 use crate::services::ffmpeg::media_info::{self, MediaDetails};
-use crate::services::media_probe::{self, MediaProbeDetails, MediaProbeResult};
+use crate::services::media_probe::{self, MediaCardResult, MediaProbeDetails, MediaProbeResult};
 use crate::services::media_tools::image_info;
 use crate::services::player::audio::AudioPlayer;
 use crate::services::player::video::{FrameChannel, PreviewSize, VideoPlayer};
@@ -182,6 +182,20 @@ pub async fn probe_media_info_batch(paths: Vec<String>) -> Result<Vec<MediaProbe
         paths
             .into_iter()
             .map(|path| media_probe::probe_media_details(&path))
+            .collect::<Result<Vec<_>, _>>()
+    })
+    .await
+}
+
+#[command]
+pub async fn probe_media_card_batch(
+    paths: Vec<String>,
+    thumbnail_options: Option<crate::services::media_tools::thumbnail::ThumbnailOptions>,
+) -> Result<Vec<MediaCardResult>, String> {
+    run_blocking("probe_media_card_batch", move || {
+        paths
+            .into_iter()
+            .map(|path| media_probe::probe_media_card(&path, thumbnail_options.clone()))
             .collect::<Result<Vec<_>, _>>()
     })
     .await
@@ -1625,7 +1639,7 @@ pub async fn convert_audio_file(app: AppHandle, args: AudioConversionArgs) -> Re
         let emitter = WindowEmitter::new(
             window_clone,
             task_id,
-            "convert-audio".to_string(),
+            "convert-to-audio".to_string(),
             "audio".to_string(),
         );
         let emitter_for_task = emitter.clone();
@@ -1732,6 +1746,8 @@ pub struct GifConversionArgs {
     pub sharpen: Option<bool>,
     #[serde(default)]
     pub denoise: Option<bool>,
+    #[serde(default)]
+    pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 // ==================== 媒体缩略图相关命令 ====================
@@ -1947,7 +1963,7 @@ pub async fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> 
     let task_id = args.task_id.clone();
 
     tauri::async_runtime::spawn(async move {
-        let params = crate::services::compress::image::ImageCompressionParams {
+        let params = crate::services::animated_image::ImageCompressionParams {
             input_path: args.input_path,
             output_path: args.output_path.clone(),
             quality: args.quality,

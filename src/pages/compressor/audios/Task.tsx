@@ -6,6 +6,7 @@ import { FileType, MediaDetailsWithResolve, MediaTaskType } from "@/types/tasks"
 import { UploadPanel } from "./UploadPanel";
 import { useCompressorStore } from "./store";
 import TaskItem, { buildDefaultAudioArgs } from "./TaskItem";
+import { cn } from "@/lib/utils";
 
 interface ConvertingTaskProps {
   globalFilter?: string;
@@ -46,17 +47,20 @@ export default function ConvertingTask({
     });
   }, [compressingTasks, globalFilter]);
 
-  return (filteredTasks.length === 0 ? (
-    <UploadPanel supportedExtensions={AUDIO_SUPPORT_FORMATS} />
-  ) : (
-    filteredTasks.map((task) => (
-      <TaskItem
-        key={task.id}
-        task={task}
-        metaStatus={metaStateById[task.id]?.status}
-        metaError={metaStateById[task.id]?.error}
-        onRetryMeta={() => retryMeta(task.id)}
-      />
-    ))
-  ))
+  return <>
+    {
+      <UploadPanel className={cn(filteredTasks.length > 0 ? "sr-only" : "")} supportedExtensions={AUDIO_SUPPORT_FORMATS} />
+    }
+    {
+      filteredTasks.map((task) => (
+        <TaskItem
+          key={task.id}
+          task={task}
+          metaStatus={metaStateById[task.id]?.status}
+          metaError={metaStateById[task.id]?.error}
+          onRetryMeta={() => retryMeta(task.id)}
+        />
+      ))
+    }
+  </>
 }

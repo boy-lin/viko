@@ -5,48 +5,21 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { createTaskStore, CreateTaskStoreState, resolveOutputTitle } from "@/lib/createTaskStore";
 import { ConvertAudioTaskArgs } from "@/lib/mediaTaskEvent";
-import { AudioTrackConfig } from "@/lib/mediaTaskEvent";
 
 export enum ActiveCategoryEnum {
   Recents = "recents",
 }
 
-export interface ConverterTask extends FFmpegTask {
-  args: ConvertAudioTaskArgs;
+export interface ConverterTask extends FFmpegTask<ConvertAudioTaskArgs> {
 }
 
-export interface GlobalConverterConfig {
-  taskType: FFmpegTask["taskType"];
-  activeCategory: FFmpegTask["activeCategory"];
-  args: any;
+export interface GlobalConverterConfig extends Pick<ConverterTask, "taskType" | "fileType" | "activeCategory"> {
+  args: Partial<ConvertAudioTaskArgs>;
 }
-
-const mergeAudioTracks = (currentTracks: AudioTrackConfig[] = [], patchTracks: AudioTrackConfig[] = []) => {
-  const mergedTracks = currentTracks.map((track) => ({ ...track }));
-
-  patchTracks.forEach((patchTrack, patchIndex) => {
-    const patchTrackKey = patchTrack.source_stream_index;
-    const matchedIndex = mergedTracks.findIndex((currentTrack, currentIndex) => {
-      const currentTrackKey = currentTrack.source_stream_index;
-      return patchTrackKey !== undefined ? currentTrackKey === patchTrackKey : currentIndex === patchIndex;
-    });
-
-    if (matchedIndex >= 0) {
-      mergedTracks[matchedIndex] = {
-        ...mergedTracks[matchedIndex],
-        ...patchTrack,
-      };
-      return;
-    }
-
-    mergedTracks.push({ ...patchTrack });
-  });
-
-  return mergedTracks;
-};
 
 export const defaultAudioConfig: GlobalConverterConfig = {
-  taskType: MediaTaskType.ConvertAudio,
+  taskType: MediaTaskType.ConvertToAudio,
+  fileType: FileType.Audio,
   activeCategory: FileType.Audio,
   args: {
     format: FormatEnum.MP3,
@@ -54,36 +27,35 @@ export const defaultAudioConfig: GlobalConverterConfig = {
       source_stream_index: 0,
       codec: AudioEncoderEnum.MP3,
     }],
-  } as ConverterTask["args"],
+  },
 };
 
 type ConverterStore = CreateTaskStoreState<
   ConverterTask,
   GlobalConverterConfig,
-  GlobalConverterConfig,
-  "convertingTasks",
+  "tasks",
   "globalConfig",
-  "clearConvertingTasks"
+  "clearTasks"
 >;
 
 export const useConverterStore = create<ConverterStore>(
   createTaskStore<
     ConverterTask,
     GlobalConverterConfig,
-    GlobalConverterConfig,
-    "convertingTasks",
+    "tasks",
     "globalConfig",
-    "clearConvertingTasks"
+    "clearTasks"
   >({
-    tasksKey: "convertingTasks",
+    tasksKey: "tasks",
     configKey: "globalConfig",
-    clearActionKey: "clearConvertingTasks",
+    clearActionKey: "clearTasks",
     defaultConfig: defaultAudioConfig,
     createTaskByPath: (path, config) => {
       const outputArgs: ConvertAudioTaskArgs = {
+        format: FormatEnum.MP3,
         ...config.args,
         task_id: crypto.randomUUID(),
-        input_path: path,
+        input_path: path
       };
       return {
         ...config,
@@ -93,35 +65,6 @@ export const useConverterStore = create<ConverterStore>(
         args: outputArgs,
         fileType: FileType.Audio,
       };
-    },
-    mergeConfig: (current, patch) => {
-      const { args, ...rest } = current;
-      return {
-        ...rest,
-        ...patch,
-        args: {
-          ...args,
-          ...patch.args,
-        },
-      };
-    },
-    applyToTaskArgs: (task, config) => {
-      const clonedTask = structuredClone(task);
-      const clonedArgs = structuredClone(config.args);
-
-      clonedTask.taskType = config.taskType;
-      const mergedAudioTracks = mergeAudioTracks(
-        clonedTask.args.audio_tracks,
-        clonedArgs.audio_tracks,
-      );
-
-      clonedTask.args = {
-        ...clonedTask.args,
-        ...clonedArgs,
-        ...(mergedAudioTracks.length > 0 ? { audio_tracks: mergedAudioTracks } : {}),
-      };
-
-      return clonedTask;
     },
     queueAdapter: async (tasks) => {
       const settings = useSettingsStore.getState();

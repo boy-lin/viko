@@ -353,8 +353,8 @@ export default function TaskItem({
   const compressibility = assessCompressibility(task.mediaDetails);
   const originalInfoParts = [
     task.mediaDetails?.extension?.toUpperCase?.(),
-    firstVideoStream?.codec_name?.toUpperCase?.(),
     formatFileSize(task.mediaDetails?.size),
+    task.mediaDetails?.resolution,
     formatBitrate(firstVideoStream?.bit_rate),
   ];
   const targetInfoParts = [
@@ -374,13 +374,13 @@ export default function TaskItem({
   };
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border shadow-sm">
+    <div className="flex items-center gap-4 p-1 rounded-lg border border-border">
       <div className="flex flex-col items-start gap-2 flex-shrink-0 relative">
-        <div className="w-20 h-20 rounded-lg overflow-hidden">
+        <div className="h-22 aspect-square rounded-lg overflow-hidden">
           <MediaThumbnail
             path={task.mediaDetails?.path}
             title={task.mediaDetails?.title}
-            className="w-full h-full"
+            className="h-full w-full"
           />
         </div>
         <span className={`absolute top-1 right-0 w-full text-xs text-center font-medium ${compressibility.colorClass}`}>
@@ -390,9 +390,9 @@ export default function TaskItem({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3">
-          <EllipsisName name={task.mediaDetails?.title} className="text-base font-semibold text-foreground" />
+          <EllipsisName name={task.mediaDetails?.title} className="text-base font-semibold text-foreground/80" />
         </div>
-        <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground">
+        <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground/80">
           {originalInfoParts.map((p, idx) => (
             <span key={idx}>{p || "-"}</span>
           ))}
@@ -403,9 +403,9 @@ export default function TaskItem({
         <TaskStatusLabel task={task} />
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-[300px] bg-card shadow-sm p-2 rounded-lg">
         <OutputTitleEditor value={outputTitleValue} onChange={handleOutputTitleChange} />
-        <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground">
+        <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground/80">
           {targetInfoParts.map((p, idx) => (
             <span key={idx}>{p || "auto"}</span>
           ))}
@@ -443,7 +443,7 @@ export default function TaskItem({
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "取消") : t("actions.delete")}</TooltipContent>
+          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel") : t("actions.delete")}</TooltipContent>
         </Tooltip>
 
         <Button
@@ -452,7 +452,7 @@ export default function TaskItem({
           onClick={handleConvertSingle}
           disabled={loading || isQueuedOrProcessing}
         >
-          {t("actions.compressSingle", "压缩")}
+          {t("actions.compressSingle")}
         </Button>
       </div>
     </div>

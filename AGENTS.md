@@ -24,7 +24,7 @@
 
 ## 依赖说明
 
-- **ffmpeg-next**: 版本 7.1.0，用于音视频处理
+- **ffmpeg-next**: 版本 8.0.0，用于音视频处理
   - Features: `codec`, `format`, `filter`, `software-scaling`, `software-resampling`
   - 需要编译时链接 FFmpeg 库（系统需安装 FFmpeg 开发库）
   - 用于视频/音频/图片转换、媒体信息获取、缩略图生成等功能

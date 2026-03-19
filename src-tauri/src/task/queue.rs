@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
 use crate::commands::{
-    AudioCompressionArgs, AudioConversionArgs, ImageCompressionArgs, DenoiseMediaArgs,
+    AudioCompressionArgs, AudioConversionArgs, GifConversionArgs, ImageCompressionArgs, DenoiseMediaArgs,
     VideoCompressionArgs, VideoConversionArgs,
 };
 use crate::events;
@@ -26,12 +26,14 @@ use crate::task::cancel;
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(tag = "type", content = "args")]
 pub enum MediaTaskRequest {
-    #[serde(rename = "convert-audio")]
-    ConvertAudio(AudioConversionArgs),
-    #[serde(rename = "convert-video")]
-    ConvertVideo(VideoConversionArgs),
-    #[serde(rename = "convert-image", alias = "convert-gif")]
-    ConvertImage(ImageConversionParams),
+    #[serde(rename = "convert-to-audio")]
+    ConvertToAudio(AudioConversionArgs),
+    #[serde(rename = "convert-to-video")]
+    ConvertToVideo(VideoConversionArgs),
+    #[serde(rename = "convert-to-image")]
+    ConvertToImage(ImageConversionParams),
+    #[serde(rename = "convert-to-animated-image")]
+    ConvertToAnimatedImage(GifConversionArgs),
     #[serde(rename = "compress-video")]
     CompressVideo(VideoCompressionArgs),
     #[serde(rename = "compress-audio")]
@@ -81,9 +83,10 @@ fn active_task_ids_by_type(task_type: Option<&str>) -> Vec<String> {
 
 fn task_kind(task: &MediaTaskRequest) -> &'static str {
     match task {
-        MediaTaskRequest::ConvertAudio(_) => "convert-audio",
-        MediaTaskRequest::ConvertVideo(_) => "convert-video",
-        MediaTaskRequest::ConvertImage(_) => "convert-image",
+        MediaTaskRequest::ConvertToAudio(_) => "convert-to-audio",
+        MediaTaskRequest::ConvertToVideo(_) => "convert-to-video",
+        MediaTaskRequest::ConvertToImage(_) => "convert-to-image",
+        MediaTaskRequest::ConvertToAnimatedImage(_) => "convert-to-animated-image",
         MediaTaskRequest::CompressVideo(_) => "compress-video",
         MediaTaskRequest::CompressAudio(_) => "compress-audio",
         MediaTaskRequest::CompressImage(_) => "compress-image",
@@ -94,9 +97,10 @@ fn task_kind(task: &MediaTaskRequest) -> &'static str {
 
 fn task_id(task: &MediaTaskRequest) -> Option<String> {
     match task {
-        MediaTaskRequest::ConvertAudio(args) => Some(args.task_id.clone()),
-        MediaTaskRequest::ConvertVideo(args) => Some(args.task_id.clone()),
-        MediaTaskRequest::ConvertImage(args) => Some(args.task_id.clone()),
+        MediaTaskRequest::ConvertToAudio(args) => Some(args.task_id.clone()),
+        MediaTaskRequest::ConvertToVideo(args) => Some(args.task_id.clone()),
+        MediaTaskRequest::ConvertToImage(args) => Some(args.task_id.clone()),
+        MediaTaskRequest::ConvertToAnimatedImage(args) => Some(args.task_id.clone()),
         MediaTaskRequest::CompressVideo(args) => Some(args.task_id.clone()),
         MediaTaskRequest::CompressAudio(args) => Some(args.task_id.clone()),
         MediaTaskRequest::CompressImage(args) => Some(args.task_id.clone()),
@@ -271,9 +275,10 @@ fn start_worker(app: AppHandle) {
 fn execute_task(app: &AppHandle, task: MediaTaskRequest) -> Result<(), String> {
     println!("execute_task: {:?}", task);
     match task {
-        MediaTaskRequest::ConvertAudio(args) => run_convert_audio(app, args),
-        MediaTaskRequest::ConvertVideo(args) => run_convert_video(app, args),
-        MediaTaskRequest::ConvertImage(args) => run_convert_image(app, args),
+        MediaTaskRequest::ConvertToAudio(args) => run_convert_audio(app, args),
+        MediaTaskRequest::ConvertToVideo(args) => run_convert_video(app, args),
+        MediaTaskRequest::ConvertToImage(args) => run_convert_image(app, args),
+        MediaTaskRequest::ConvertToAnimatedImage(args) => run_convert_animated_image(app, args),
         MediaTaskRequest::CompressVideo(args) => run_compress_video(app, args),
         MediaTaskRequest::CompressAudio(args) => run_compress_audio(app, args),
         MediaTaskRequest::CompressImage(args) => run_compress_image(app, args),
@@ -302,7 +307,7 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
     let start_time = get_millis();
     record_history_start(
         args.task_id.clone(),
-        "convert-audio".into(),
+        "convert-to-audio".into(),
         "audio".into(),
         args.input_path.clone(),
         output_path.clone(),
@@ -333,7 +338,7 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
     let emitter = events::window_emitter(
         app,
         args.task_id.clone(),
-        "convert-audio".into(),
+        "convert-to-audio".into(),
         file_type,
     )?;
 
@@ -358,7 +363,7 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
 
     record_history(
         args.task_id.clone(),
-        "convert-audio".into(),
+        "convert-to-audio".into(),
         "audio".into(),
         args.input_path.clone(),
         final_output_path,
@@ -373,7 +378,7 @@ fn run_convert_audio(app: &AppHandle, args: AudioConversionArgs) -> Result<(), S
 }
 
 fn run_convert_video(app: &AppHandle, args: VideoConversionArgs) -> Result<(), String> {
-    run_convert_video_with_task_type(app, args, "convert-video")
+    run_convert_video_with_task_type(app, args, "convert-to-video")
 }
 
 fn is_image_extension(ext: &str) -> bool {
@@ -793,7 +798,82 @@ fn run_convert_video_with_task_type(
 }
 
 fn run_convert_image(app: &AppHandle, args: ImageConversionParams) -> Result<(), String> {
-    run_convert_image_with_task_type(app, args, "convert-image")
+    run_convert_image_with_task_type(app, args, "convert-to-image")
+}
+
+fn run_convert_animated_image(app: &AppHandle, mut args: GifConversionArgs) -> Result<(), String> {
+    let normalized_format = args.format.trim().to_lowercase();
+    if normalized_format != "gif" {
+        return Err(format!(
+            "convert-to-animated-image 暂仅支持 GIF，收到格式: {}",
+            args.format
+        ));
+    }
+
+    let output_path = args
+        .output_path
+        .as_ref()
+        .filter(|path| !path.trim().is_empty())
+        .cloned()
+        .unwrap_or_else(|| {
+            let path = Path::new(&args.input_path);
+            let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
+            let parent = path.parent().unwrap_or_else(|| Path::new("."));
+            parent.join(format!("{stem}.gif")).to_string_lossy().to_string()
+        });
+    args.output_path = Some(output_path.clone());
+
+    let start_time = get_millis();
+    record_history_start(
+        args.task_id.clone(),
+        "convert-to-animated-image".into(),
+        "gif".into(),
+        args.input_path.clone(),
+        output_path.clone(),
+        start_time,
+        &args,
+    );
+
+    let emitter = events::window_emitter(
+        app,
+        args.task_id.clone(),
+        "convert-to-animated-image".into(),
+        "gif".to_string(),
+    )?;
+
+    let result = gif::convert_to_gif(emitter.clone(), args.clone());
+    let (error, final_output_path, effective_params, output_size_hint) = match result {
+        Ok(report) => (
+            None,
+            report.output_media.path.clone(),
+            serde_json::to_value(&report).ok(),
+            Some(report.output_media.size as i64),
+        ),
+        Err(e) => {
+            emitter.emit("error", None, None, Some(e.clone()));
+            (
+                Some(e),
+                output_path,
+                serde_json::to_value(&args).ok(),
+                None,
+            )
+        }
+    };
+
+    record_history(
+        args.task_id.clone(),
+        "convert-to-animated-image".into(),
+        "gif".into(),
+        args.input_path.clone(),
+        final_output_path,
+        start_time,
+        error,
+        args,
+        effective_params,
+        output_size_hint,
+    );
+
+    Ok(())
 }
 
 fn run_convert_image_with_task_type(
@@ -847,7 +927,7 @@ fn run_convert_image_with_task_type(
 
     let result = if image::is_animated_image_target(&args.format, &args.output_path, &args.input_path)
     {
-        gif::convert_image_with_ril(app, task_id.clone(), task_type, args.clone())
+        gif::convert_animated_image(app, task_id.clone(), task_type, args.clone())
     } else {
         tauri::async_runtime::block_on(image::convert_image_file_with_report(args.clone()))
     };
@@ -1043,7 +1123,7 @@ fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(),
         &args,
     );
 
-    let params = crate::services::compress::image::ImageCompressionParams {
+    let params = crate::services::animated_image::ImageCompressionParams {
         input_path: args.input_path.clone(),
         output_path: args.output_path.clone(),
         quality: args.quality,
@@ -1074,7 +1154,7 @@ fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(),
         &params.output_path,
         &params.input_path,
     ) {
-        gif::compress_image_with_ril(app, args.task_id.clone(), "compress-image", params)
+        gif::compress_animated_image(app, args.task_id.clone(), "compress-image", params)
     } else {
         crate::services::compress::image::compress_image_file(emitter.clone(), params)
     };

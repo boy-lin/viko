@@ -3,14 +3,12 @@ import { FileType } from "@/types/tasks";
 import { readDir, stat } from "@tauri-apps/plugin-fs";
 
 // 文件相关工具函数
-export function formatFileSize(size?: number): string {
-  if (!size) return "0 B";
-  if (size === 0) return "0 B";
-
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
-  if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`;
-  return `${(size / 1024 / 1024 / 1024).toFixed(2)} GB`;
+export function formatFileSize(size?: number, fixedNumber: number = 2): string {
+  if (!size || size === 0) return `${(0).toFixed(fixedNumber)} B`;
+  if (size < 1024) return `${size.toFixed(fixedNumber)} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(fixedNumber)} KB`;
+  if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(fixedNumber)} MB`;
+  return `${(size / 1024 / 1024 / 1024).toFixed(fixedNumber)} GB`;
 }
 
 /**

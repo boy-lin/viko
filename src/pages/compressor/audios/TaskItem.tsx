@@ -320,9 +320,9 @@ export default function TaskItem({
   };
 
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div className="relative flex flex-shrink-0 flex-col items-start gap-2">
-        <div className="h-20 w-20 overflow-hidden rounded-lg">
+    <div className="flex items-center gap-4 p-1 rounded-lg border border-border">
+      <div className="flex flex-col items-start gap-2 flex-shrink-0 relative">
+        <div className="h-22 aspect-square rounded-lg overflow-hidden flex-shrink-0">
           <MediaThumbnail
             path={task.mediaDetails?.path}
             title={task.mediaDetails?.title}
@@ -334,11 +334,11 @@ export default function TaskItem({
         </span>
       </div>
 
-      <div className="min-w-0 flex-1">
+      <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3">
-          <EllipsisName name={task.mediaDetails?.title} className="text-base font-semibold text-foreground" />
+          <EllipsisName name={task.mediaDetails?.title} className="text-base font-semibold text-foreground/80" />
         </div>
-        <div className="mt-2 grid grid-cols-2 text-sm text-muted-foreground">
+        <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground/80">
           {originalInfoParts.map((p, idx) => (
             <span key={idx}>{p || "-"}</span>
           ))}
@@ -349,9 +349,11 @@ export default function TaskItem({
         <TaskStatusLabel task={task} />
       </div>
 
-      <div className="min-w-0 flex-1">
-        <OutputTitleEditor value={outputTitleValue} onChange={handleOutputTitleChange} />
-        <div className="mt-1 grid grid-cols-2 text-sm text-muted-foreground">
+      <div className="flex-1 min-w-[300px] bg-card shadow-sm p-2 rounded-lg">
+        <div className="text-base font-semibold text-foreground/80">
+          <OutputTitleEditor value={outputTitleValue} onChange={handleOutputTitleChange} />
+        </div>
+        <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground/80">
           {targetInfoParts.map((p, idx) => (
             <span key={idx}>{p || "auto"}</span>
           ))}
@@ -371,7 +373,7 @@ export default function TaskItem({
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel", "取消") : t("actions.delete")}</TooltipContent>
+          <TooltipContent>{isQueuedOrProcessing ? t("actions.cancel") : t("actions.delete")}</TooltipContent>
         </Tooltip>
 
         <Button
@@ -380,7 +382,7 @@ export default function TaskItem({
           onClick={handleConvertSingle}
           disabled={loading || isQueuedOrProcessing}
         >
-          {t("actions.compressSingle", "压缩")}
+          {t("actions.compressSingle")}
         </Button>
       </div>
     </div>

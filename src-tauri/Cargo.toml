@@ -29,7 +29,6 @@ sea-query = "0.30"
 sea-query-binder = { version = "0.5", features = ["sqlx-sqlite"] }
 tokio = { version = "1", features = ["full"] }
 
-
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 lazy_static = "1.4"
@@ -55,7 +54,9 @@ smol = "2"
 anyhow = "1"
 futures = "0.3"
 image = "0.25.9"
-ril = { version = "0.10", features = ["all-pure"] }
+gifski = "1"
+imgref = "1"
+rgb = "0.8"
 exif = { version = "0.6", package = "kamadak-exif" }
 base64 = "0.22.1"
 machine-uid = "0.5.4"

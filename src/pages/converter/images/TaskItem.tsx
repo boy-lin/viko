@@ -17,7 +17,7 @@ import { IMAGE_CONTAINER_DEFINITIONS } from "@/data/capabilities";
 import { FormatEnum } from "@/types/options";
 import { FileType, MediaDetails, MediaTaskType } from "@/types/tasks";
 
-import { ConverterTask, useConverterStore } from "./store";
+import { ConverterTask, GlobalConverterConfig, useConverterStore } from "./store";
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 
 interface TaskItemProps {
@@ -28,12 +28,7 @@ interface TaskItemProps {
 }
 
 export function buildTaskDefaultsFromMedia(mediaDetails: MediaDetails, task: ConverterTask) {
-  let format = FormatEnum.PNG;
-  if (mediaDetails.extension === FormatEnum.PNG) {
-    format = FormatEnum.PNG;
-  } else {
-    format = FormatEnum.JPG;
-  }
+  let format = mediaDetails.extension || FormatEnum.PNG;
   const containerDefinition = IMAGE_CONTAINER_DEFINITIONS[format as FormatEnum];
   const primaryStream = mediaDetails.streams[0];
   const outputArgs: ConvertImageTaskArgs = {
@@ -51,7 +46,7 @@ export function buildTaskDefaultsFromMedia(mediaDetails: MediaDetails, task: Con
     mediaDetails: mediaDetails,
     args: outputArgs,
     fileType: FileType.Image,
-    taskType: MediaTaskType.ConvertImage,
+    taskType: MediaTaskType.ConvertToImage,
     outputTitle: mediaDetails.title,
   } as ConverterTask;
 }
@@ -132,12 +127,12 @@ export default function TaskItem({
   }
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border shadow-sm">
-      <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+    <div className="flex items-center gap-4 p-1 rounded-lg border border-border">
+      <div className="h-22 aspect-square rounded-lg overflow-hidden flex-shrink-0">
         <MediaThumbnail
           path={task.mediaDetails?.path}
           title={task.mediaDetails?.title}
-          className="w-full h-full"
+          className="h-full w-full"
         />
       </div>
 
@@ -145,10 +140,10 @@ export default function TaskItem({
         <div className="flex items-center gap-3">
           <EllipsisName
             name={task.mediaDetails?.title}
-            className="text-base font-semibold text-foreground"
+            className="text-base font-semibold text-foreground/80"
           />
         </div>
-        <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground">
+        <div className="grid grid-cols-2 mt-2 text-sm text-muted-foreground/80">
           {originalInfoParts.map((p, idx) => (
             <span key={idx}>{p || "-"}</span>
           ))}
@@ -159,11 +154,11 @@ export default function TaskItem({
         <TaskStatusLabel task={task} />
       </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="text-base font-semibold text-foreground">
+      <div className="flex-1 min-w-[300px] bg-card shadow-sm p-2 rounded-lg">
+        <div className="text-base font-semibold text-foreground/80">
           <OutputTitleEditor value={outputTitleValue} onChange={handleOutputTitleChange} />
         </div>
-        <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground">
+        <div className="grid grid-cols-2 mt-1 text-sm text-muted-foreground/80">
           {targetInfoParts.map((p, idx) => (
             <span key={idx}>{p || "auto"}</span>
           ))}
@@ -176,10 +171,9 @@ export default function TaskItem({
             args: task.args,
             taskType: task.taskType,
             activeCategory: task.activeCategory,
-          }}
+          } as GlobalConverterConfig}
           recentKey="converter-images-task-item"
           onValueChange={(config) => {
-            console.log('config', config)
             updateTaskById(task.id, {
               activeCategory: config.activeCategory,
               taskType: config.taskType,

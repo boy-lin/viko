@@ -57,7 +57,7 @@
     {
       "id": "n6",
       "type": "text",
-      "text": "src-tauri/src/commands/mod.rs\n#[command] media_task_submit(app, tasks, _priority)\n-> queue::submit_tasks(app, tasks)\n\n同文件定义 VideoConversionArgs\n作为 convert-video 任务参数契约",
+      "text": "src-tauri/src/commands/mod.rs\n#[command] media_task_submit(app, tasks, _priority)\n-> queue::submit_tasks(app, tasks)\n\n同文件定义 VideoConversionArgs\n作为 convert-to-video 任务参数契约",
       "x": 700,
       "y": 290,
       "width": 460,
@@ -66,7 +66,7 @@
     {
       "id": "n7",
       "type": "text",
-      "text": "src-tauri/src/task/queue.rs (补充)\nMediaTaskRequest::ConvertVideo(VideoConversionArgs)\nworker dequeues -> execute_task()\n-> run_convert_video_with_task_type()\n-> video::convert_video(emitter, params)",
+      "text": "src-tauri/src/task/queue.rs (补充)\nMediaTaskRequest::ConvertToVideo(VideoConversionArgs)\nworker dequeues -> execute_task()\n-> run_convert_video_with_task_type()\n-> video::convert_video(emitter, params)",
       "x": 700,
       "y": 540,
       "width": 460,
@@ -172,7 +172,7 @@
       "fromSide": "bottom",
       "toNode": "n8",
       "toSide": "top",
-      "label": "run convert-video"
+      "label": "run convert-to-video"
     },
     {
       "id": "e8",

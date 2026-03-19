@@ -1,9 +1,10 @@
 import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs, } from "@/lib/mediaTaskEvent";
 
 export enum MediaTaskType {
-  ConvertVideo = "convert-video",
-  ConvertAudio = "convert-audio",
-  ConvertImage = "convert-image",
+  ConvertToVideo = "convert-to-video",
+  ConvertToAudio = "convert-to-audio",
+  ConvertToImage = "convert-to-image",
+  ConvertToAnimatedImage = "convert-to-animated-image",
   ConvertDenoise = "convert-denoise",
   CompressVideo = "compress-video",
   CompressAudio = "compress-audio",
@@ -79,14 +80,16 @@ export enum ActiveCategoryEnum {
   Recents = "recents",
 }
 
-export interface FFmpegTask {
+export interface FFmpegTask<TArgs = any> {
   id: string;
   status: "idle" | "queued" | "processing" | "finished" | "error" | "cancelled";
   progress: number;
   errorMessage?: string;
   outputTitle?: string;
+  thumbnailPath?: string;
   fileType: FileType;
   taskType: MediaTaskType;
   mediaDetails?: MediaDetailsWithResolve;
   activeCategory?: FileType | ActiveCategoryEnum;
+  args: TArgs;
 }

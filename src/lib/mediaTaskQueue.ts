@@ -173,9 +173,9 @@ class MediaTaskQueue {
       file_type = payload.file_type;
     }
 
-    // if (["error"].includes(event_type)) {
-    console.log("Task event: " + event_type, payload);
-    // }
+    if (event_type !== "progress") {
+      console.log("Task event: " + event_type, payload);
+    }
 
     if (task_type === MediaTaskType.ConvertDenoise) {
       const { useDenoiseStore } = await import("@/pages/denoise/store");
@@ -208,9 +208,10 @@ class MediaTaskQueue {
 
     if (
       [
-        MediaTaskType.ConvertVideo,
-        MediaTaskType.ConvertAudio,
-        MediaTaskType.ConvertImage,
+        MediaTaskType.ConvertToVideo,
+        MediaTaskType.ConvertToAudio,
+        MediaTaskType.ConvertToImage,
+        MediaTaskType.ConvertToAnimatedImage,
       ].includes(task_type)
     ) {
       if (file_type === FileType.Video) {

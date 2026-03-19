@@ -22,17 +22,11 @@ export const ConverterFooter: React.FC<{}> = () => {
   const applyConfigToAllTasks = useConverterStore(
     (state) => state.applyConfigToAllTasks
   );
-  const clearConvertingTasks = useConverterStore(
-    (state) => state.clearConvertingTasks
+  const clearTasks = useConverterStore(
+    (state) => state.clearTasks
   );
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
-
-  const handleFormatChange = (
-    config: Partial<GlobalConverterConfig>
-  ) => {
-    updateGlobalConfig(config);
-  };
 
   const handleApplyConfigToAllTasks = async (config: GlobalConverterConfig) => {
     applyConfigToAllTasks(config);
@@ -52,7 +46,7 @@ export const ConverterFooter: React.FC<{}> = () => {
 
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
-      await clearConvertingTasks();
+      await clearTasks();
       await getMediaTaskQueue().clearQueueByType(true);
     } else {
       // 有运行中的任务，打开确认弹窗
@@ -64,7 +58,7 @@ export const ConverterFooter: React.FC<{}> = () => {
     // 清空队列
     await getMediaTaskQueue().clearQueueByType(true);
     // 清空转换中的任务
-    await clearConvertingTasks();
+    await clearTasks();
     // 关闭弹窗
     setIsDeletePopoverOpen(false);
   };
@@ -82,7 +76,7 @@ export const ConverterFooter: React.FC<{}> = () => {
               className="w-[14em]"
               config={globalConfig}
               recentKey="converter-images-footer"
-              onValueChange={handleFormatChange}
+              onValueChange={updateGlobalConfig}
               applyConfigToAllTasks={handleApplyConfigToAllTasks}
             />
           </div>

@@ -53,7 +53,7 @@ export default function ConvertionVideoPage() {
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 flex flex-col flex-1 min-h-0">
-        <div className="relative flex-1 overflow-auto">
+        <div className="relative flex-1 space-y-1 overflow-auto">
           <ConvertingTask
             globalFilter={globalFilter}
           />

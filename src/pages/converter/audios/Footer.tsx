@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { FormatSelectorPopover } from "@/components/biz-form/format-selector";
 import { OutputLocationSelect } from "@/components/biz-form/OutputLocationSelect";
-import { GlobalConverterConfig, useConverterStore } from "./store";
+import { useConverterStore } from "./store";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -22,21 +22,11 @@ export const ConverterFooter: React.FC<{}> = () => {
   const applyConfigToAllTasks = useConverterStore(
     (state) => state.applyConfigToAllTasks
   );
-  const clearConvertingTasks = useConverterStore(
-    (state) => state.clearConvertingTasks
+  const clearTasks = useConverterStore(
+    (state) => state.clearTasks
   );
 
   const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
-
-  const handleFormatChange = (
-    config: Partial<GlobalConverterConfig>
-  ) => {
-    updateGlobalConfig(config);
-  };
-
-  const handleApplyConfigToAllTasks = async (config: GlobalConverterConfig) => {
-    applyConfigToAllTasks(config);
-  };
 
   const handleConvertAll = async () => {
     try {
@@ -52,7 +42,7 @@ export const ConverterFooter: React.FC<{}> = () => {
 
     if (!hasRunningTasks) {
       // 没有运行中的任务，直接清空
-      await clearConvertingTasks();
+      await clearTasks();
       await getMediaTaskQueue().clearQueueByType();
     } else {
       // 有运行中的任务，打开确认弹窗
@@ -64,7 +54,7 @@ export const ConverterFooter: React.FC<{}> = () => {
     // 清空队列
     await getMediaTaskQueue().clearQueueByType();
     // 清空转换中的任务
-    await clearConvertingTasks();
+    await clearTasks();
     // 关闭弹窗
     setIsDeletePopoverOpen(false);
   };
@@ -82,8 +72,8 @@ export const ConverterFooter: React.FC<{}> = () => {
               className=""
               config={globalConfig}
               recentKey="converter-audios-footer"
-              onValueChange={handleFormatChange}
-              applyConfigToAllTasks={handleApplyConfigToAllTasks}
+              onValueChange={updateGlobalConfig}
+              applyConfigToAllTasks={applyConfigToAllTasks}
             />
           </div>
         </div>

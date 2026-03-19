@@ -1,10 +1,13 @@
 import { useCallback } from "react";
 import { useConverterStore } from "./store";
 import { UploadDrag } from '@/components/ui-biz/UploadDrag'
+import { cn } from "@/lib/utils";
 
 export function UploadPanel({
+  className,
   supportedExtensions,
 }: {
+  className?: string;
   supportedExtensions: string[];
 }) {
   const addTasksByPaths = useConverterStore(
@@ -17,7 +20,7 @@ export function UploadPanel({
 
   return (
     <UploadDrag
-      className="h-full"
+      className={cn("h-full", className)}
       supportedExtensions={supportedExtensions}
       onUploadComplete={onUploadComplete}
     />

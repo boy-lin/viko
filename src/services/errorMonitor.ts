@@ -27,6 +27,15 @@ class ErrorMonitor {
         return ErrorMonitor.instance;
     }
 
+    private shouldIgnorePromiseRejection(reason: unknown): boolean {
+        const message = reason instanceof Error ? reason.message : String(reason);
+        return (
+            message.includes('Event "media_thumbnail" aborted') ||
+            message.includes('generateMediaThumbnail failed: Event "media_thumbnail" aborted') ||
+            message.includes('AbortError: signal is aborted without reason')
+        );
+    }
+
     // 初始化全局监听
     private initGlobalListeners() {
         if (typeof window === 'undefined') return;
@@ -57,6 +66,13 @@ class ErrorMonitor {
 
         // 捕获未处理的 Promise 拒绝
         window.addEventListener('unhandledrejection', (event) => {
+            if (this.shouldIgnorePromiseRejection(event.reason)) {
+                event.preventDefault();
+                if (import.meta.env.DEV) {
+                    console.debug('Ignored expected promise rejection:', event.reason);
+                }
+                return;
+            }
             this.log({
                 type: 'promise',
                 message: event.reason instanceof Error ? event.reason.message : String(event.reason),

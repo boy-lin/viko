@@ -2,9 +2,10 @@ import { useCallback, useMemo } from "react";
 import { VIDEO_SUPPORT_FORMATS } from "@/data/formats";
 import { useBatchMediaDetails } from "@/hooks/useBatchMediaDetails";
 import { MediaDetailsWithResolve } from "@/types/tasks";
+import { cn } from "@/lib/utils";
 
 import { UploadPanel } from "./UploadPanel";
-import { useConverterStore } from "./store";
+import { ConverterTask, useConverterStore } from "./store";
 import TaskItem, { buildTaskDefaultsFromDetails } from "./TaskItem";
 
 interface ConvertingTaskProps {
@@ -14,19 +15,13 @@ interface ConvertingTaskProps {
 export default function ConvertingTask({
   globalFilter = "",
 }: ConvertingTaskProps) {
-  const convertingTasks = useConverterStore((state) => state.convertingTasks);
+  const convertingTasks = useConverterStore((state) => state.tasks);
   const updateTaskById = useConverterStore((state) => state.updateTaskById);
-
-  const buildTaskUpdate = useCallback(
-    (task: (typeof convertingTasks)[number], details: MediaDetailsWithResolve) =>
-      buildTaskDefaultsFromDetails(task, details),
-    [],
-  );
 
   const { metaStateById, retryMeta } = useBatchMediaDetails({
     tasks: convertingTasks,
     updateTaskById,
-    buildUpdate: buildTaskUpdate,
+    buildUpdate: buildTaskDefaultsFromDetails,
   });
 
   const filteredTasks = useMemo(() => {
@@ -37,20 +32,21 @@ export default function ConvertingTask({
       return fileName.includes(search);
     });
   }, [convertingTasks, globalFilter]);
-  return (filteredTasks.length === 0 ? (
-    <UploadPanel supportedExtensions={VIDEO_SUPPORT_FORMATS} />
-  ) : (
-    filteredTasks.map((task) => {
-      return (
-        <TaskItem
-          key={task.id}
-          task={task}
-          metaStatus={metaStateById[task.id]?.status}
-          metaError={metaStateById[task.id]?.error}
-          onRetryMeta={() => retryMeta(task.id)}
-        />
-      );
-    })
-  )
-  );
+  
+  return <>
+    <UploadPanel className={cn(filteredTasks.length > 0 ? "sr-only" : "")} supportedExtensions={VIDEO_SUPPORT_FORMATS} />
+    {
+      filteredTasks.map((task) => {
+        return (
+          <TaskItem
+            key={task.id}
+            task={task}
+            metaStatus={metaStateById[task.id]?.status}
+            metaError={metaStateById[task.id]?.error}
+            onRetryMeta={() => retryMeta(task.id)}
+          />
+        );
+      })
+    }
+  </>
 }

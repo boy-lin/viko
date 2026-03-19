@@ -62,7 +62,7 @@ export function VideoResolutionGroup({
             <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
           </TooltipTrigger>
           <TooltipContent className="max-w-64 whitespace-normal break-words">
-            {t(helpText ?? "videoCompressor.fields.clarityHelp")}
+            {helpText ?? t("videoCompressor.fields.clarityHelp")}
           </TooltipContent>
         </Tooltip>
       </div>

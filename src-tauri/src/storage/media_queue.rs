@@ -117,9 +117,10 @@ pub async fn count() -> Result<usize> {
 
 fn task_kind(task: &MediaTaskRequest) -> &'static str {
     match task {
-        MediaTaskRequest::ConvertAudio(_) => "convert-audio",
-        MediaTaskRequest::ConvertVideo(_) => "convert-video",
-        MediaTaskRequest::ConvertImage(_) => "convert-image",
+        MediaTaskRequest::ConvertToAudio(_) => "convert-to-audio",
+        MediaTaskRequest::ConvertToVideo(_) => "convert-to-video",
+        MediaTaskRequest::ConvertToImage(_) => "convert-to-image",
+        MediaTaskRequest::ConvertToAnimatedImage(_) => "convert-to-animated-image",
         MediaTaskRequest::CompressVideo(_) => "compress-video",
         MediaTaskRequest::CompressAudio(_) => "compress-audio",
         MediaTaskRequest::CompressImage(_) => "compress-image",
@@ -130,9 +131,10 @@ fn task_kind(task: &MediaTaskRequest) -> &'static str {
 
 fn task_id(task: &MediaTaskRequest) -> Option<&str> {
     match task {
-        MediaTaskRequest::ConvertAudio(args) => Some(args.task_id.as_str()),
-        MediaTaskRequest::ConvertVideo(args) => Some(args.task_id.as_str()),
-        MediaTaskRequest::ConvertImage(args) => Some(args.task_id.as_str()),
+        MediaTaskRequest::ConvertToAudio(args) => Some(args.task_id.as_str()),
+        MediaTaskRequest::ConvertToVideo(args) => Some(args.task_id.as_str()),
+        MediaTaskRequest::ConvertToImage(args) => Some(args.task_id.as_str()),
+        MediaTaskRequest::ConvertToAnimatedImage(args) => Some(args.task_id.as_str()),
         MediaTaskRequest::CompressVideo(args) => Some(args.task_id.as_str()),
         MediaTaskRequest::CompressAudio(args) => Some(args.task_id.as_str()),
         MediaTaskRequest::CompressImage(args) => Some(args.task_id.as_str()),

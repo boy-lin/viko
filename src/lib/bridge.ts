@@ -142,6 +142,12 @@ export interface BridgeInvokeError extends Error {
   originalMessage?: string;
 }
 
+interface BridgeEventWaitError extends Error {
+  event?: string;
+  reason?: unknown;
+  details?: Record<string, unknown>;
+}
+
 export type MediaTaskPriority = "high" | "normal" | "low";
 
 export type ThumbnailPayload = {
@@ -157,6 +163,11 @@ export type ThumbnailOptions = {
   width?: number;
   height?: number;
   fitMode?: "contain" | "cover";
+};
+
+export type MediaTaskCard = {
+  details: MediaDetailsWithResolve;
+  thumbnailPath?: string;
 };
 
 export interface VideoPlayerOpenInput {
@@ -305,8 +316,33 @@ class Bridge {
         else if (payload) resolve(payload);
       };
 
+      const createEventWaitError = (
+        kind: "aborted" | "timeout" | "cancelled",
+        reason?: unknown,
+      ): BridgeEventWaitError => {
+        const details: Record<string, unknown> = { timeoutMs };
+        if (reason !== undefined) {
+          details.reason = this.formatUnknownError(reason);
+        }
+        const err = new Error(
+          `Event "${String(event)}" ${kind}${
+            reason === undefined ? "" : `: ${this.formatUnknownError(reason)}`
+          }`,
+        ) as BridgeEventWaitError;
+        err.name = "BridgeEventWaitError";
+        err.event = String(event);
+        err.reason = reason;
+        err.details = details;
+        return err;
+      };
+
       const onAbort = () => {
-        finalize(new Error(`Event "${String(event)}" aborted`));
+        finalize(
+          createEventWaitError(
+            "aborted",
+            options?.signal ? options.signal.reason : undefined,
+          ),
+        );
       };
 
       this.on(event, (payload) => {
@@ -316,11 +352,13 @@ class Bridge {
         .then((dispose) => {
           unlisten = dispose;
           timeoutId = window.setTimeout(() => {
-            finalize(new Error(`Event "${String(event)}" timeout`));
+            finalize(createEventWaitError("timeout"));
           }, timeoutMs);
           if (options?.signal) {
             if (options.signal.aborted) {
-              finalize(new Error(`Event "${String(event)}" aborted`));
+              finalize(
+                createEventWaitError("aborted", options.signal.reason),
+              );
               return;
             }
             options.signal.addEventListener("abort", onAbort, { once: true });
@@ -328,9 +366,21 @@ class Bridge {
         })
         .catch((err) => finalize(err));
 
-      cancel = () => finalize(new Error(`Event "${String(event)}" cancelled`));
+      cancel = () => finalize(createEventWaitError("cancelled"));
     });
     return { promise, cancel };
+  }
+
+  private formatUnknownError(value: unknown): string {
+    if (value instanceof Error) {
+      return value.stack || value.message || value.name;
+    }
+    if (typeof value === "string") return value;
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
   }
 
   once<K extends string>(
@@ -568,6 +618,39 @@ class Bridge {
     return Promise.all(
       normalizedPaths.map((path) => this.getMediaDetails(path)),
     );
+  }
+
+  async getMediaTaskCardBatch(
+    paths: string[],
+    thumbnailOptions?: ThumbnailOptions,
+  ): Promise<MediaTaskCard[]> {
+    const normalizedPaths = paths
+      .map((path) => path.trim())
+      .filter((path) => path.length > 0);
+    if (normalizedPaths.length === 0) return [];
+
+    const cards = await this.invoke<
+      Array<{
+        probe: MediaProbeResult;
+        thumbnail?: ThumbnailPayload | null;
+      }>
+    >("probe_media_card_batch", {
+      paths: normalizedPaths,
+      thumbnailOptions,
+    });
+
+    return cards.map((card, index) => {
+      const sourcePath = normalizedPaths[index] ?? card.probe.base.path;
+      const details = this.normalizeMediaDetails(
+        sourcePath,
+        this.mapProbeToMediaDetails(card.probe),
+      );
+      this.mediaDetailsCache.set(`media:${sourcePath}`, details);
+      return {
+        details,
+        thumbnailPath: card.thumbnail?.thumbnailPath || undefined,
+      };
+    });
   }
 
   async getImageDetails(path: string): Promise<MediaDetailsWithResolve> {
@@ -840,9 +923,49 @@ class Bridge {
       throw err;
     }
 
-    const payload = await promise;
+    let payload;
+    try {
+      payload = await promise;
+    } catch (error) {
+      const detail = {
+        requestId,
+        path,
+        options,
+        timeoutMs: requestOptions?.timeoutMs,
+        aborted: requestOptions?.signal?.aborted ?? false,
+        abortReason: requestOptions?.signal?.aborted
+          ? this.formatUnknownError(requestOptions.signal.reason)
+          : undefined,
+      };
+      const message = `generateMediaThumbnail failed: ${this.formatUnknownError(error)} | detail=${JSON.stringify(detail)}`;
+      const wrapped = new Error(message) as BridgeEventWaitError;
+      wrapped.name =
+        error instanceof Error && error.name
+          ? error.name
+          : "BridgeEventWaitError";
+      wrapped.event = "media_thumbnail";
+      wrapped.reason = error;
+      wrapped.details = {
+        ...(error instanceof Error &&
+        "details" in error &&
+        (error as BridgeEventWaitError).details
+          ? (error as BridgeEventWaitError).details
+          : {}),
+        ...detail,
+      };
+      if (error instanceof Error) {
+        wrapped.stack = error.stack;
+      }
+      throw wrapped;
+    }
     if (payload.error) {
-      throw new Error(payload.error);
+      throw new Error(
+        `generateMediaThumbnail backend error: ${payload.error} | detail=${JSON.stringify({
+          requestId,
+          path,
+          options,
+        })}`,
+      );
     }
     return payload.result ?? null;
   }
