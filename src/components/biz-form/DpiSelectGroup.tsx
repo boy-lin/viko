@@ -46,7 +46,7 @@ export const DpiSelectGroup: React.FC<DpiSelectGroupProps> = ({
   autoLabel,
   label,
   helpText,
-  hideLabel = true,
+  hideLabel = false,
 }) => {
   const { t } = useTranslation("task");
   const resolvedAutoLabel = autoLabel ?? t("common.auto");

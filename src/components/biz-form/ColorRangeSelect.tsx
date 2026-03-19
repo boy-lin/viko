@@ -38,7 +38,7 @@ export const ColorRangeSelect: React.FC<ColorRangeSelectProps> = ({
   placeholder = "Color Range",
   label,
   helpText,
-  hideLabel = true,
+  hideLabel = false,
   className,
 }) => {
 

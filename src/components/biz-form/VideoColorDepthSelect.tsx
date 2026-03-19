@@ -32,7 +32,7 @@ export const VideoColorDepthSelect: React.FC<VideoColorDepthSelectProps> = ({
   placeholder,
   label,
   helpText,
-  hideLabel = true,
+  hideLabel = false,
   className,
 }) => {
   const { t } = useTranslation("task");

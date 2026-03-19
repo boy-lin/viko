@@ -24,7 +24,7 @@ export const VideoQualitySelect: React.FC<VideoQualitySelectProps> = ({
   onValueChange,
   options,
   label,
-  hideLabel = true,
+  hideLabel = false,
   className,
 }) => {
   const qualityOptions = options ?? VIDEO_QUALITIES;

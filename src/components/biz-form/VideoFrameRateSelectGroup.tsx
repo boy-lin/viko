@@ -43,7 +43,7 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
   autoLabel,
   label,
   helpText,
-  hideLabel = true,
+  hideLabel = false,
 }) => {
   const { t } = useTranslation("task");
   const resolvedAutoLabel = autoLabel ?? t("common.auto");
@@ -127,6 +127,7 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
           step={step}
           placeholder={placeholder ?? t("settings.video.placeholders.frameRate", "Frame rate")}
           value={clampedValue}
+          className="text-sm max-w-[6em]"
           onChange={(nextValue) => {
             if (!Number.isFinite(nextValue) || nextValue <= 0) {
               onValueChange(undefined);
@@ -139,7 +140,7 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
             onValueChange(String(clamped));
           }}
         />
-        <InputGroupAddon align="inline-end" className="pr-1">
+        <InputGroupAddon align="inline-end" className="pr-1 flex-1">
           <Select
             value={selectValue}
             onValueChange={(next) => {
@@ -150,7 +151,7 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
               onValueChange(next);
             }}
           >
-            <SelectTrigger className="h-7 w-[8.5em] border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
+            <SelectTrigger className="h-7 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
               <SelectValue placeholder={t("bizForm.common.commonValues")} />
             </SelectTrigger>
             <SelectContent>

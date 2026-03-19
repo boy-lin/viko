@@ -32,7 +32,7 @@ export const VideoPresetSelect: React.FC<VideoPresetSelectProps> = ({
   placeholder,
   label,
   helpText,
-  hideLabel = true,
+  hideLabel = false,
   className,
 }) => {
   const { t } = useTranslation("task");

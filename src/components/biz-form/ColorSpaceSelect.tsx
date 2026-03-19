@@ -37,7 +37,7 @@ export const ColorSpaceSelect: React.FC<ColorSpaceSelectProps> = ({
   allowedColorSpaces,
   label,
   helpText,
-  hideLabel = true,
+  hideLabel = false,
   className,
 }) => {
   const colorSpaceOptions = useMemo(() => {

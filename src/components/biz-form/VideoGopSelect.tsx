@@ -31,7 +31,7 @@ export const VideoGopSelect: React.FC<VideoGopSelectProps> = ({
   placeholder,
   label,
   helpText,
-  hideLabel = true,
+  hideLabel = false,
   className,
   gopOptions,
 }) => {

@@ -29,7 +29,7 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
   allowedEncoders,
   label,
   helpText,
-  hideLabel = true,
+  hideLabel = false,
   className,
 }) => {
 
