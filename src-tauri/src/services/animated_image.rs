@@ -15,6 +15,7 @@ pub struct ImageCompressionParams {
     pub keep_transparency: Option<bool>,
     pub dpi: Option<f64>,
     pub crop_whitespace: Option<bool>,
+    pub forced_watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

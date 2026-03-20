@@ -197,7 +197,17 @@ export default function FormatSelectorContent({
       const videoArgs = config.args as ConvertVideoTaskArgs;
       return (
         <VideoSettingsSection
-          config={videoArgs}
+          format={videoArgs.format}
+          video_encoder={videoArgs.video_encoder}
+          rc_mode={videoArgs.rc_mode}
+          crf={videoArgs.crf}
+          video_bitrate={videoArgs.video_bitrate}
+          min_bitrate={videoArgs.min_bitrate}
+          max_bitrate={videoArgs.max_bitrate}
+          resolution={videoArgs.resolution}
+          frame_rate={videoArgs.frame_rate}
+          color_space={videoArgs.color_space}
+          color_range={videoArgs.color_range}
           onChange={(args) => {
             onValueChange({ args });
           }}

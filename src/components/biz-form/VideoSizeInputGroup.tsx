@@ -30,6 +30,9 @@ export function VideoSizeInputGroup({
   onChange,
 }: VideoSizeInputGroupProps) {
   const [ratioLocked, setRatioLocked] = useState(true);
+  console.log("resolutionresolution", {
+    resolution
+  })
   const { width, height } = parseResolution(resolution);
   const ratio = height ? width / height : 16 / 9;
 
@@ -46,6 +49,11 @@ export function VideoSizeInputGroup({
     const nextWidth = ratioLocked
       ? Math.max(1, Math.round(safeHeight * ratio))
       : width;
+
+    console.log("handleHeightChange", {
+      nextHeight, safeHeight
+    })
+
     onChange(`${nextWidth}x${safeHeight}`);
   };
 

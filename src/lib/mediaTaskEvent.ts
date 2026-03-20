@@ -90,14 +90,16 @@ export interface WatermarkConfig {
   image?: ImageWatermark;
 }
 
+export type TaskFrameRate = string;
+
 /** 与 Rust VideoConversionArgs 对应，用于 convert_video_file */
 export interface ConvertVideoTaskArgs {
   task_id: string;
   input_path: string;
   input_file_type?: FileType;
   output_path?: string;
-  format?: string;
-  video_encoder?: string;
+  format: FormatEnum;
+  video_encoder: VideoEncoderEnum;
   video_bitrate?: number;
   min_bitrate?: number;
   max_bitrate?: number;
@@ -106,7 +108,7 @@ export interface ConvertVideoTaskArgs {
   resolution?: string;
   aspect_ratio?: string;
   scaling_mode?: string;
-  frame_rate?: string;
+  frame_rate?: TaskFrameRate;
   gop_size?: number;
   preset?: string;
   profile?: string;
@@ -120,13 +122,14 @@ export interface ConvertVideoTaskArgs {
   use_hardware_acceleration?: boolean;
   use_ultra_fast_speed?: boolean;
   watermark?: WatermarkConfig;
+  forced_watermark?: WatermarkConfig;
 }
 
 export interface ConvertAudioTaskArgs {
   task_id: string;
   input_path: string;
   input_file_type?: FileType;
-  format: string;
+  format: FormatEnum;
   // 扩展待同步到rust
   output_path?: string;
   audio_tracks?: AudioTrackConfig[];
@@ -151,7 +154,7 @@ export interface ConvertImageTaskArgs {
   /** Optional output file path. Backend auto-generates one if omitted. */
   output_path?: string;
   /** Optional animation frame rate for GIF/APNG outputs. */
-  frame_rate?: number;
+  frame_rate?: TaskFrameRate;
   /** Optional image quality 1-100. */
   quality?: number;
   /** Optional transparency preservation for GIF/APNG outputs. */
@@ -174,6 +177,7 @@ export interface ConvertImageTaskArgs {
   denoise?: boolean;
   /** Optional watermark (text/image). */
   watermark?: WatermarkConfig;
+  forced_watermark?: WatermarkConfig;
 }
 
 export interface WatermarkTaskArgs extends ConvertVideoTaskArgs {
@@ -191,6 +195,7 @@ export interface DenoiseTaskArgs {
   filter?: DenoiseFilterConfig;
   use_hardware_acceleration?: boolean;
   use_ultra_fast_speed?: boolean;
+  forced_watermark?: WatermarkConfig;
 }
 
 export interface CompressVideoTaskArgs {
@@ -201,7 +206,7 @@ export interface CompressVideoTaskArgs {
   resolution?: string;
   bitrate?: number;
   quality?: number;
-  frame_rate?: number;
+  frame_rate?: TaskFrameRate;
   output_path?: string;
   keyframe_interval?: number;
   color_depth?: number;
@@ -223,6 +228,7 @@ export interface CompressVideoTaskArgs {
   source_keyframe_interval?: number;
   /** frontend-only: 源音轨参数，用于 ratio 重算 */
   source_audio_tracks?: AudioTrackConfig[];
+  forced_watermark?: WatermarkConfig;
 }
 
 export interface CompressAudioTaskArgs {
@@ -262,4 +268,5 @@ export interface CompressImageTaskArgs {
   keep_transparency?: boolean;
   dpi?: number;
   crop_whitespace?: boolean;
+  forced_watermark?: WatermarkConfig;
 }

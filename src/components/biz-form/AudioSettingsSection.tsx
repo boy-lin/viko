@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AudioTrackConfig, ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
+import { AudioTrackConfig, ConvertAudioTaskArgs } from "@/lib/mediaTaskEvent";
 import { RefreshCw } from "lucide-react";
 import { AudioEncoderSelect } from "@/components/biz-form/AudioEncoderSelect";
 import { AudioChannelSelect } from "@/components/biz-form/AudioChannelSelect";
@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { AudioEncoderEnum, FormatEnum } from "@/types/options";
 
-type AudioConversionConfig = Pick<ConvertVideoTaskArgs, "format" | "audio_tracks">
+type AudioConversionConfig = Pick<ConvertAudioTaskArgs, "format" | "audio_tracks">
 
 
 interface AudioSettingsSectionProps extends AudioConversionConfig {

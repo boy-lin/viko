@@ -123,6 +123,7 @@ export const RESOLUTION_OPTIONS = [
     label: "",
     options: [
       { value: "auto", label: "Auto" },
+      { value: "custom", label: "Custom" },
     ]
   },
   {

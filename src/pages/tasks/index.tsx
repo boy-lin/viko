@@ -10,9 +10,6 @@ import {
 import { ArrowUpDown, FolderOpen, RefreshCw, Search } from "lucide-react";
 import { bridge, type TaskHistoryItem } from "@/lib/bridge";
 import { useSession } from "@/lib/auth-client";
-import {
-  syncLocalTaskHistoryToRemote,
-} from "@/services/task-history-api";
 import { formatDuration, getDurationSecondsFromTimestamps, formatDateTime } from "@/lib/time";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { Button } from "@/components/ui/button";
@@ -60,13 +57,6 @@ export default function TaskHistoryPage() {
           : "created_at";
       const sortOrder: "asc" | "desc" = primarySort?.desc ? "desc" : "asc";
       const keyword = globalFilter.trim();
-      try {
-        await syncLocalTaskHistoryToRemote({
-          userId: session?.user?.id || undefined,
-        });
-      } catch (error) {
-        console.warn("Failed to sync local task history to remote:", error);
-      }
       const history = await bridge.getTaskHistory(
         PAGE_SIZE + 1,
         targetPage * PAGE_SIZE,

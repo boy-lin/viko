@@ -1,5 +1,5 @@
 use ab_glyph::{FontRef, PxScale};
-use image::{imageops, GenericImageView, RgbaImage};
+use image::{imageops, RgbaImage};
 use imageproc::drawing::draw_text_mut;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
@@ -16,14 +16,30 @@ impl WatermarkConfig {
         let mut filter = String::new();
         let mut current_stream = "in".to_string();
         let mut stage = 0;
+        self.append_filter_chain(&mut filter, &mut current_stream, &mut stage, width, height)?;
 
-        // Base scaling if needed (optional, provided by caller typically, but here we assume 'in' is ready)
-        // If we needed to ensure pixel format, we might start with format=pix_fmts=...
+        if filter.is_empty() {
+            return Ok("null".to_string());
+        }
+        if current_stream != "out" {
+            write!(filter, "[{}]null[out];", current_stream).unwrap();
+        }
 
+        Ok(filter)
+    }
+
+    pub fn append_filter_chain(
+        &self,
+        filter: &mut String,
+        current_stream: &mut String,
+        stage: &mut usize,
+        width: u32,
+        height: u32,
+    ) -> Result<(), String> {
         // Handle Image Watermark
         if let Some(img) = &self.image {
-            let next_stream = format!("wm_img_{}", stage);
-            stage += 1;
+            let next_stream = format!("wm_img_{}", *stage);
+            *stage += 1;
 
             // 1. Load image as overlay source
             // escape path for ffmpeg: \ -> \\, : -> \:
@@ -32,8 +48,8 @@ impl WatermarkConfig {
             // Prepare overlay input
             // movie=filename [logo]; [logo] scale=... [logo_scaled]
             // We append this to the start of the filter string
-            let overlay_id = "wm_overlay";
-            let overlay_scaled_id = "wm_overlay_scaled";
+            let overlay_id = format!("wm_overlay_{}", *stage);
+            let overlay_scaled_id = format!("wm_overlay_scaled_{}", *stage);
 
             let mut overlay_pipeline = format!("movie={}[{}];", safe_path, overlay_id);
 
@@ -64,9 +80,9 @@ impl WatermarkConfig {
                     overlay_scaled_id
                 )
                 .unwrap();
-                overlay_scaled_id
+                overlay_scaled_id.as_str()
             } else {
-                overlay_id
+                overlay_id.as_str()
             };
 
             filter.push_str(&overlay_pipeline);
@@ -91,10 +107,10 @@ impl WatermarkConfig {
             write!(
                 filter,
                 "[{}][{}]overlay=x={}:y={}[{}];",
-                current_stream, overlay_output, overlay_x, overlay_y, next_stream
+                current_stream.as_str(), overlay_output, overlay_x, overlay_y, next_stream
             )
             .unwrap();
-            current_stream = next_stream;
+            *current_stream = next_stream;
         }
 
         // Handle Text Watermark
@@ -102,8 +118,8 @@ impl WatermarkConfig {
             if txt.content.is_empty() {
                 return Err("Text watermark content is empty".to_string());
             }
-            let next_stream = format!("wm_txt_{}", stage);
-            stage += 1;
+            let next_stream = format!("wm_txt_{}", *stage);
+            *stage += 1;
 
             // escape text
             let safe_text = txt.content.replace("'", "'\\''").replace(":", "\\:");
@@ -140,20 +156,13 @@ impl WatermarkConfig {
             write!(
                 filter,
                 "[{}]{}[{}];",
-                current_stream, drawtext_cmd, next_stream
+                current_stream.as_str(), drawtext_cmd, next_stream
             )
             .unwrap();
-            current_stream = next_stream.to_string();
+            *current_stream = next_stream.to_string();
         }
 
-        if filter.is_empty() {
-            return Ok("null".to_string());
-        }
-        if current_stream != "out" {
-            write!(filter, "[{}]null[out];", current_stream).unwrap();
-        }
-
-        Ok(filter)
+        Ok(())
     }
 
     pub fn apply_watermark(&self, image: &mut RgbaImage) -> Result<(), String> {
@@ -222,6 +231,47 @@ impl WatermarkConfig {
 
         Ok(())
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.text.is_none() && self.image.is_none()
+    }
+}
+
+pub fn build_combined_filter_string(
+    watermarks: &[&WatermarkConfig],
+    width: u32,
+    height: u32,
+) -> Result<String, String> {
+    let mut filter = String::new();
+    let mut current_stream = "in".to_string();
+    let mut stage = 0;
+
+    for watermark in watermarks {
+        if watermark.is_empty() {
+            continue;
+        }
+        watermark.append_filter_chain(&mut filter, &mut current_stream, &mut stage, width, height)?;
+    }
+
+    if filter.is_empty() {
+        return Ok("null".to_string());
+    }
+
+    write!(filter, "[{}]null[out];", current_stream).unwrap();
+    Ok(filter)
+}
+
+pub fn apply_all_watermarks(
+    image: &mut RgbaImage,
+    watermarks: &[&WatermarkConfig],
+) -> Result<(), String> {
+    for watermark in watermarks {
+        if watermark.is_empty() {
+            continue;
+        }
+        watermark.apply_watermark(image)?;
+    }
+    Ok(())
 }
 
 fn load_font_bytes_with_fallback(user_font_path: Option<&str>) -> Result<Vec<u8>, String> {
@@ -248,11 +298,24 @@ fn load_font_bytes_with_fallback(user_font_path: Option<&str>) -> Result<Vec<u8>
     Err("No usable font found. Please set watermark.text.font_path or ensure system fonts are available.".to_string())
 }
 
+pub fn preferred_system_font_path() -> Option<String> {
+    system_font_candidates()
+        .into_iter()
+        .find(|candidate| Path::new(candidate).exists())
+}
+
 fn system_font_candidates() -> Vec<String> {
     #[cfg(target_os = "windows")]
     {
         let windir = std::env::var("WINDIR").unwrap_or_else(|_| "C:\\Windows".to_string());
         return vec![
+            format!("{windir}\\Fonts\\NotoSansSC-Regular.otf"),
+            format!("{windir}\\Fonts\\NotoSansCJKsc-Regular.otf"),
+            format!("{windir}\\Fonts\\SourceHanSansSC-Regular.otf"),
+            format!("{windir}\\Fonts\\msyh.ttc"),
+            format!("{windir}\\Fonts\\msyh.ttf"),
+            format!("{windir}\\Fonts\\msyhbd.ttc"),
+            format!("{windir}\\Fonts\\simhei.ttf"),
             format!("{windir}\\Fonts\\arial.ttf"),
             format!("{windir}\\Fonts\\segoeui.ttf"),
             format!("{windir}\\Fonts\\tahoma.ttf"),
@@ -263,6 +326,10 @@ fn system_font_candidates() -> Vec<String> {
     #[cfg(target_os = "macos")]
     {
         return vec![
+            "/System/Library/Fonts/Helvetica.ttc".to_string(),
+            "/System/Library/Fonts/PingFang.ttc".to_string(),
+            "/System/Library/Fonts/Supplemental/NotoSansSC-Regular.otf".to_string(),
+            "/System/Library/Fonts/Supplemental/SourceHanSansSC-Regular.otf".to_string(),
             "/System/Library/Fonts/Supplemental/Arial.ttf".to_string(),
             "/System/Library/Fonts/Supplemental/Helvetica.ttf".to_string(),
             "/System/Library/Fonts/Supplemental/Times New Roman.ttf".to_string(),
@@ -272,6 +339,9 @@ fn system_font_candidates() -> Vec<String> {
     #[cfg(target_os = "linux")]
     {
         return vec![
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc".to_string(),
+            "/usr/share/fonts/opentype/noto/NotoSansSC-Regular.otf".to_string(),
+            "/usr/share/fonts/opentype/source-han-sans/SourceHanSansSC-Regular.otf".to_string(),
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf".to_string(),
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf".to_string(),
             "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf".to_string(),

@@ -31,6 +31,7 @@ struct FrameTransformOptions<'a> {
     width: Option<u32>,
     height: Option<u32>,
     watermark: Option<&'a crate::services::media_tools::watermark::WatermarkConfig>,
+    forced_watermark: Option<&'a crate::services::media_tools::watermark::WatermarkConfig>,
     denoise: bool,
     sharpen: bool,
     color_mode: Option<&'a str>,
@@ -223,9 +224,16 @@ fn transform_frame(
         dynamic = dynamic.resize_exact(target_width, target_height, filter_type(options.sharpen));
     }
 
-    if let Some(watermark) = options.watermark {
+    let watermarks: Vec<&crate::services::media_tools::watermark::WatermarkConfig> = [
+        options.watermark,
+        options.forced_watermark,
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    if !watermarks.is_empty() {
         let mut rgba = dynamic.to_rgba8();
-        watermark.apply_watermark(&mut rgba)?;
+        crate::services::media_tools::watermark::apply_all_watermarks(&mut rgba, &watermarks)?;
         dynamic = DynamicImage::ImageRgba8(rgba);
     }
 
@@ -396,6 +404,7 @@ fn collect_video_frames<E: TaskEmitter>(
         width: args.width,
         height: args.height,
         watermark: args.watermark.as_ref(),
+        forced_watermark: args.forced_watermark.as_ref(),
         denoise: args.denoise.unwrap_or(false),
         sharpen: args.sharpen.unwrap_or(false),
         color_mode: args.color_mode.as_deref(),
@@ -471,6 +480,7 @@ fn collect_image_conversion_frames<E: TaskEmitter>(
         width: args.width,
         height: args.height,
         watermark: args.watermark.as_ref(),
+        forced_watermark: args.forced_watermark.as_ref(),
         denoise: args.denoise.unwrap_or(false),
         sharpen: args.sharpen.unwrap_or(false),
         color_mode: args.color_mode.as_deref(),
@@ -504,6 +514,7 @@ fn collect_image_compression_frames<E: TaskEmitter>(
         width: params.width,
         height: params.height,
         watermark: None,
+        forced_watermark: params.forced_watermark.as_ref(),
         denoise: false,
         sharpen: true,
         color_mode: params.color_mode.as_deref(),
@@ -735,6 +746,7 @@ pub fn convert_to_gif<E: TaskEmitter>(
             sharpen: args.sharpen,
             denoise: args.denoise,
             watermark: args.watermark,
+            forced_watermark: args.forced_watermark,
         };
         collect_image_conversion_frames(&emitter, &image_args)?
     };
@@ -806,6 +818,7 @@ pub fn convert_to_apng<E: TaskEmitter>(
             sharpen: args.sharpen,
             denoise: args.denoise,
             watermark: args.watermark,
+            forced_watermark: args.forced_watermark,
         };
         collect_image_conversion_frames(&emitter, &image_args)?
     };
@@ -851,6 +864,7 @@ pub fn convert_animated_image(
         sharpen: args.sharpen,
         denoise: args.denoise,
         watermark: args.watermark,
+        forced_watermark: args.forced_watermark,
     };
 
     if output_format == "apng" {

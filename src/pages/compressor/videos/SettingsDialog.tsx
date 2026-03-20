@@ -122,7 +122,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         value={config.frame_rate === undefined ? "auto" : String(config.frame_rate)}
         onValueChange={(val) =>
           onConfigChange({
-            frame_rate: val ? Number.parseFloat(val) : undefined,
+            frame_rate: val || undefined,
           })
         }
       />

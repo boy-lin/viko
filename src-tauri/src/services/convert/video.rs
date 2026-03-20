@@ -60,6 +60,7 @@ pub struct VideoConversionParams {
     pub use_hardware_acceleration: bool,
     pub use_ultra_fast_speed: bool,
     pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
+    pub forced_watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 type ResolvedVideoParams = ResolvedVideoPipelineParams;
@@ -119,6 +120,7 @@ impl From<VideoConversionParams> for VideoPipelineResolveOptions {
             use_hardware_acceleration: params.use_hardware_acceleration,
             use_ultra_fast_speed: params.use_ultra_fast_speed,
             watermark: params.watermark,
+            forced_watermark: params.forced_watermark,
         }
     }
 }
@@ -477,26 +479,38 @@ impl<E: TaskEmitter> Transcoder<E> {
 
         let mut filter_graph = None;
         let mut filter_enabled = false;
-        if let Some(wm) = &params.watermark {
-            if let Some(txt) = &wm.text {
-                if txt
-                    .font_path
-                    .as_deref()
-                    .unwrap_or("")
-                    .trim()
-                    .is_empty()
-                {
-                    log::warn!("convert_video watermark text has empty font_path; drawtext will rely on system defaults.");
+        let watermarks: Vec<&crate::services::media_tools::watermark::WatermarkConfig> = [
+            params.watermark.as_ref(),
+            params.forced_watermark.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        if !watermarks.is_empty() {
+            for wm in &watermarks {
+                if let Some(txt) = &wm.text {
+                    if txt
+                        .font_path
+                        .as_deref()
+                        .unwrap_or("")
+                        .trim()
+                        .is_empty()
+                    {
+                        log::warn!("convert_video watermark text has empty font_path; drawtext will rely on system defaults.");
+                    }
+                }
+                if let Some(img) = &wm.image {
+                    if !std::path::Path::new(&img.path).exists() {
+                        log::warn!("convert_video watermark image not found: {}", img.path);
+                    }
                 }
             }
-            if let Some(img) = &wm.image {
-                if !std::path::Path::new(&img.path).exists() {
-                    log::warn!("convert_video watermark image not found: {}", img.path);
-                }
-            }
-            let filter_spec = wm
-                .build_filter_string(width, height)
-                .map_err(|e| format!("构建水印滤镜失败: {}", e))?;
+            let filter_spec = crate::services::media_tools::watermark::build_combined_filter_string(
+                &watermarks,
+                width,
+                height,
+            )
+            .map_err(|e| format!("构建水印滤镜失败: {}", e))?;
             let frame_rate = target_frame_rate;
             let graph = build_video_filter_graph(
                 width,

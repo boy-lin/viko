@@ -1,15 +1,15 @@
-use std::path::Path;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::commands::{
-    AudioCompressionArgs, AudioConversionArgs, GifConversionArgs, ImageCompressionArgs, DenoiseMediaArgs,
-    VideoCompressionArgs, VideoConversionArgs,
+    AudioCompressionArgs, AudioConversionArgs, DenoiseMediaArgs, GifConversionArgs, ImageCompressionArgs,
+    MediaTaskSubmitResult, TaskSubmitClientContext, VideoCompressionArgs, VideoConversionArgs,
 };
 use crate::events;
 use crate::events::TaskEmitter;
@@ -50,6 +50,8 @@ static WORKER_RUNNING: AtomicBool = AtomicBool::new(false);
 static ACTIVE_TASKS: LazyLock<Mutex<HashMap<String, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 static ACTIVE_COUNT: AtomicUsize = AtomicUsize::new(0);
+const FREE_VISIBLE_MEDIA_LIMIT: u64 = 3;
+const FREE_VISIBLE_MEDIA_FEATURE: &str = "free_visible_media_submit";
 
 fn worker_parallelism() -> usize {
     let env_limit = std::env::var("FIGUREX_TASK_PARALLELISM")
@@ -109,8 +111,179 @@ fn task_id(task: &MediaTaskRequest) -> Option<String> {
     }
 }
 
-pub async fn submit_tasks(app: AppHandle, tasks: Vec<MediaTaskRequest>) -> Result<usize, String> {
-    for task in tasks {
+fn resolve_client_identity(context: Option<&TaskSubmitClientContext>) -> Option<(String, String)> {
+    let context = context?;
+    if context.is_logged_in {
+        return None;
+    }
+    let identity_key = context.identity_key.trim();
+    if identity_key.is_empty() {
+        return None;
+    }
+    let identity_scope = if context.identity_scope.trim().is_empty() {
+        "guest".to_string()
+    } else {
+        context.identity_scope.clone()
+    };
+    Some((identity_scope, identity_key.to_string()))
+}
+
+fn visible_media_kind(task: &MediaTaskRequest) -> Option<&'static str> {
+    match task {
+        MediaTaskRequest::ConvertToVideo(_) => Some("video"),
+        MediaTaskRequest::ConvertToImage(_) => Some("image"),
+        MediaTaskRequest::ConvertToAnimatedImage(_) => Some("animated_image"),
+        MediaTaskRequest::CompressVideo(_) => Some("video"),
+        MediaTaskRequest::CompressImage(_) => Some("image"),
+        MediaTaskRequest::Watermark(args) => {
+            if args.input_file_type.as_deref() == Some("image") {
+                Some("image")
+            } else {
+                Some("video")
+            }
+        }
+        MediaTaskRequest::ConvertDenoise(args) => {
+            let input_ext = Path::new(&args.input_path)
+                .extension()
+                .and_then(|ext| ext.to_str());
+            let format_ext = args.format.as_deref();
+            let media_type = resolve_denoise_media_type(
+                args.input_file_type.as_deref(),
+                input_ext,
+                format_ext,
+            );
+            if media_type.as_deref() == Some("audio") {
+                None
+            } else {
+                Some("video")
+            }
+        }
+        MediaTaskRequest::ConvertToAudio(_) | MediaTaskRequest::CompressAudio(_) => None,
+    }
+}
+
+fn default_watermark_icon_path(app: &AppHandle) -> Option<String> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir.join("icons").join("128x128.png"));
+        candidates.push(resource_dir.join("icons").join("icon.png"));
+        candidates.push(resource_dir.join("resources").join("icons").join("128x128.png"));
+    }
+    candidates.push(PathBuf::from("src-tauri").join("icons").join("128x128.png"));
+
+    candidates
+        .into_iter()
+        .find(|path| path.exists())
+        .map(|path| path.to_string_lossy().to_string())
+}
+
+fn build_default_forced_watermark(app: &AppHandle) -> crate::services::media_tools::watermark::WatermarkConfig {
+    let image = default_watermark_icon_path(app).map(|path| crate::services::media_tools::watermark::ImageWatermark {
+        path,
+        scale: 1.0,
+        opacity: 0.16,
+        x: "0".to_string(),
+        y: "0".to_string(),
+        anchor: Some("br".to_string()),
+        offset_x: Some(4.0),
+        offset_y: Some(4.0),
+        offset_unit: Some("percent".to_string()),
+        size_mode: Some("video_width_ratio".to_string()),
+        size_value: Some(0.08),
+    });
+
+    crate::services::media_tools::watermark::WatermarkConfig {
+        image,
+        text: Some(crate::services::media_tools::watermark::TextWatermark {
+            content: "Exported by viko Free".to_string(),
+            font_path: crate::services::media_tools::watermark::preferred_system_font_path(),
+            font_size: 24.0,
+            color: "#FFFFFF".to_string(),
+            opacity: 0.55,
+            x: "0".to_string(),
+            y: "0".to_string(),
+            anchor: Some("br".to_string()),
+            offset_x: Some(4.0),
+            offset_y: Some(14.0),
+            offset_unit: Some("percent".to_string()),
+        }),
+    }
+}
+
+fn apply_forced_watermark(
+    app: &AppHandle,
+    task: &mut MediaTaskRequest,
+) -> bool {
+    let forced = build_default_forced_watermark(app);
+    match task {
+        MediaTaskRequest::ConvertToVideo(args) | MediaTaskRequest::Watermark(args) => {
+            args.forced_watermark = Some(forced);
+            true
+        }
+        MediaTaskRequest::ConvertToImage(args) => {
+            args.forced_watermark = Some(forced);
+            true
+        }
+        MediaTaskRequest::ConvertToAnimatedImage(args) => {
+            args.forced_watermark = Some(forced);
+            true
+        }
+        MediaTaskRequest::CompressImage(args) => {
+            args.forced_watermark = Some(forced);
+            true
+        }
+        MediaTaskRequest::ConvertDenoise(args) => {
+            args.forced_watermark = Some(forced);
+            true
+        }
+        MediaTaskRequest::CompressVideo(args) => {
+            args.forced_watermark = Some(forced);
+            true
+        }
+        MediaTaskRequest::ConvertToAudio(_) | MediaTaskRequest::CompressAudio(_) => false,
+    }
+}
+
+pub async fn submit_tasks(
+    app: AppHandle,
+    tasks: Vec<MediaTaskRequest>,
+    client_context: Option<TaskSubmitClientContext>,
+) -> Result<MediaTaskSubmitResult, String> {
+    let identity = resolve_client_identity(client_context.as_ref());
+    let day_key = crate::storage::usage_gate::current_day_key();
+    let mut forced_watermark_count = 0usize;
+
+    for mut task in tasks {
+        if let (Some((identity_scope, identity_key)), Some(media_kind)) =
+            (identity.as_ref(), visible_media_kind(&task))
+        {
+            let current_count = crate::storage::usage_gate::count_today(
+                identity_key,
+                FREE_VISIBLE_MEDIA_FEATURE,
+                &day_key,
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+
+            if current_count >= FREE_VISIBLE_MEDIA_LIMIT && apply_forced_watermark(&app, &mut task) {
+                forced_watermark_count += 1;
+            }
+
+            if let Some(task_id) = task_id(&task) {
+                crate::storage::usage_gate::record_submit(
+                    &day_key,
+                    identity_scope,
+                    identity_key,
+                    FREE_VISIBLE_MEDIA_FEATURE,
+                    &task_id,
+                    task_kind(&task),
+                    media_kind,
+                    get_millis(),
+                )
+                .await
+                .map_err(|e| e.to_string())?;
+            }
+        }
         media_queue::enqueue(&task).await.map_err(|e| {
             println!("enqueue err: {e}");
             e.to_string()
@@ -121,7 +294,23 @@ pub async fn submit_tasks(app: AppHandle, tasks: Vec<MediaTaskRequest>) -> Resul
         e.to_string()
     })?;
     start_worker(app);
-    Ok(pending)
+    let remaining_free_count = if let Some((_, identity_key)) = identity.as_ref() {
+        let total = crate::storage::usage_gate::count_today(
+            identity_key,
+            FREE_VISIBLE_MEDIA_FEATURE,
+            &day_key,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        Some(FREE_VISIBLE_MEDIA_LIMIT.saturating_sub(total) as usize)
+    } else {
+        None
+    };
+    Ok(MediaTaskSubmitResult {
+        pending_count: pending,
+        forced_watermark_count,
+        remaining_free_count,
+    })
 }
 
 pub async fn has_running(task_type: Option<String>) -> bool {
@@ -509,6 +698,7 @@ fn run_watermark_task(app: &AppHandle, args: VideoConversionArgs) -> Result<(), 
             sharpen: None,
             denoise: None,
             watermark: args.watermark,
+            forced_watermark: args.forced_watermark,
         };
         return run_convert_image_with_task_type(app, image_args, "watermark");
     }
@@ -651,6 +841,7 @@ fn run_convert_denoise(app: &AppHandle, args: DenoiseMediaArgs) -> Result<(), St
             use_hardware_acceleration,
             use_ultra_fast_speed,
             watermark: None,
+            forced_watermark: args.forced_watermark.clone(),
         };
         match video::convert_video(emitter.clone(), params) {
             Ok(report) => (
@@ -754,6 +945,7 @@ fn run_convert_video_with_task_type(
         use_ultra_fast_speed: args.use_ultra_fast_speed.unwrap_or(false),
         audio_filter_spec: None,
         watermark: args.watermark.clone(),
+        forced_watermark: args.forced_watermark.clone(),
     };
 
     let file_type = args
@@ -803,9 +995,9 @@ fn run_convert_image(app: &AppHandle, args: ImageConversionParams) -> Result<(),
 
 fn run_convert_animated_image(app: &AppHandle, mut args: GifConversionArgs) -> Result<(), String> {
     let normalized_format = args.format.trim().to_lowercase();
-    if normalized_format != "gif" {
+    if normalized_format != "gif" && normalized_format != "apng" {
         return Err(format!(
-            "convert-to-animated-image 暂仅支持 GIF，收到格式: {}",
+            "convert-to-animated-image 暂仅支持 GIF/APNG，收到格式: {}",
             args.format
         ));
     }
@@ -819,7 +1011,8 @@ fn run_convert_animated_image(app: &AppHandle, mut args: GifConversionArgs) -> R
             let path = Path::new(&args.input_path);
             let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
             let parent = path.parent().unwrap_or_else(|| Path::new("."));
-            parent.join(format!("{stem}.gif")).to_string_lossy().to_string()
+            let ext = if normalized_format == "apng" { "png" } else { "gif" };
+            parent.join(format!("{stem}.{ext}")).to_string_lossy().to_string()
         });
     args.output_path = Some(output_path.clone());
 
@@ -827,7 +1020,7 @@ fn run_convert_animated_image(app: &AppHandle, mut args: GifConversionArgs) -> R
     record_history_start(
         args.task_id.clone(),
         "convert-to-animated-image".into(),
-        "gif".into(),
+        normalized_format.clone(),
         args.input_path.clone(),
         output_path.clone(),
         start_time,
@@ -838,10 +1031,14 @@ fn run_convert_animated_image(app: &AppHandle, mut args: GifConversionArgs) -> R
         app,
         args.task_id.clone(),
         "convert-to-animated-image".into(),
-        "gif".to_string(),
+        normalized_format.clone(),
     )?;
 
-    let result = gif::convert_to_gif(emitter.clone(), args.clone());
+    let result = if normalized_format == "apng" {
+        gif::convert_to_apng(app, emitter.clone(), args.clone())
+    } else {
+        gif::convert_to_gif(emitter.clone(), args.clone())
+    };
     let (error, final_output_path, effective_params, output_size_hint) = match result {
         Ok(report) => (
             None,
@@ -863,7 +1060,7 @@ fn run_convert_animated_image(app: &AppHandle, mut args: GifConversionArgs) -> R
     record_history(
         args.task_id.clone(),
         "convert-to-animated-image".into(),
-        "gif".into(),
+        normalized_format,
         args.input_path.clone(),
         final_output_path,
         start_time,
@@ -968,6 +1165,50 @@ fn run_convert_image_with_task_type(
 }
 
 fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(), String> {
+    if args.forced_watermark.is_some() {
+        let video_args = VideoConversionArgs {
+            task_id: args.task_id,
+            input_path: args.input_path,
+            input_file_type: args.input_file_type,
+            output_path: Some(args.output_path),
+            format: None,
+            video_encoder: args.codec,
+            video_bitrate: args.bitrate,
+            min_bitrate: None,
+            max_bitrate: None,
+            rc_mode: Some("vbr".to_string()),
+            crf: None,
+            resolution: match (args.width, args.height) {
+                (Some(width), Some(height)) => Some(format!("{width}x{height}")),
+                _ => None,
+            },
+            aspect_ratio: args.aspect_ratio,
+            scaling_mode: None,
+            frame_rate: args.frame_rate.map(|value| value.to_string()),
+            gop_size: args.keyframe_interval,
+            preset: args.preset,
+            profile: None,
+            tune: None,
+            color_space: None,
+            color_range: None,
+            bit_depth: args.color_depth,
+            crop: None,
+            audio_encoder: None,
+            audio_bitrate: None,
+            audio_sample_rate: None,
+            audio_channels: None,
+            audio_bit_depth: None,
+            audio_quality: None,
+            audio_tracks: None,
+            default_audio_params: None,
+            use_hardware_acceleration: args.use_hardware_acceleration,
+            use_ultra_fast_speed: args.use_ultra_fast_speed,
+            watermark: None,
+            forced_watermark: args.forced_watermark,
+        };
+        return run_convert_video_with_task_type(app, video_args, "compress-video");
+    }
+
     let start_time = get_millis();
     record_history_start(
         args.task_id.clone(),
@@ -995,6 +1236,7 @@ fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(),
         preset: args.preset.clone(),
         use_hardware_acceleration: args.use_hardware_acceleration,
         use_ultra_fast_speed: args.use_ultra_fast_speed,
+        forced_watermark: args.forced_watermark.clone(),
     };
 
     let file_type = args
@@ -1136,6 +1378,7 @@ fn run_compress_image(app: &AppHandle, args: ImageCompressionArgs) -> Result<(),
         keep_transparency: args.keep_transparency,
         dpi: args.dpi,
         crop_whitespace: args.crop_whitespace,
+        forced_watermark: args.forced_watermark.clone(),
     };
 
     let file_type = args

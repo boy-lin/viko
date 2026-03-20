@@ -130,6 +130,21 @@ export interface AuthExchangeCodeInput {
   redirectUri: string;
 }
 
+export interface MediaTaskClientContext {
+  is_logged_in: boolean;
+  user_id?: string;
+  device_id?: string;
+  identity_scope: "user" | "guest";
+  identity_key: string;
+  is_token_preview?: boolean;
+}
+
+export interface MediaTaskSubmitResult {
+  pending_count: number;
+  forced_watermark_count: number;
+  remaining_free_count?: number | null;
+}
+
 export interface UpdaterGuardStatus {
   shouldForceUpdate: boolean;
   effectiveFailCount: number;
@@ -724,8 +739,9 @@ class Bridge {
   async submitMediaTasks(
     tasks: unknown[],
     priority: MediaTaskPriority = "normal",
-  ): Promise<void> {
-    await this.invoke("media_task_submit", { tasks, priority });
+    clientContext?: MediaTaskClientContext,
+  ): Promise<MediaTaskSubmitResult> {
+    return this.invoke("media_task_submit", { tasks, priority, clientContext });
   }
 
   async hasRunningMediaTasksByType(taskType?: MediaTaskType): Promise<boolean> {

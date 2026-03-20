@@ -268,7 +268,7 @@ export const getVideoCompressionPresetByRatio = (
   const frame_rate = resolveFrameRate(
     encoderDefinition?.video?.maxFrameRate,
     sourceBasedFrameRate || fallbackFrameRateByTier,
-  );
+  ).toString();
   const keyframe_interval = resolveKeyframeInterval(
     encoderDefinition?.video?.gopOptions,
     sourceBasedKeyframe,

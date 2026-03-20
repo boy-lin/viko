@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { RESOLUTION_OPTIONS } from "@/data/resolution";
 import { cn } from "@/lib/utils";
 
+const DEFAULT_RESOLUTION = { width: 1920, height: 1080 };
 interface VideoResolutionSelectProps {
   value?: string;
   onValueChange: (value: string) => void;
@@ -24,7 +25,6 @@ interface VideoResolutionSelectProps {
   label?: string;
   helpText?: string;
   hideLabel?: boolean;
-  showNumberInput?: boolean;
 }
 
 const parseResolution = (value?: string): { width: number; height: number } | null => {
@@ -44,13 +44,12 @@ export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
   label,
   helpText,
   hideLabel = false,
-  showNumberInput = true,
 }) => {
   const groups = useMemo(() => {
     if (!maxResolution) return RESOLUTION_OPTIONS;
     return RESOLUTION_OPTIONS.filter((group) => {
       return group.options.some((opt) => {
-        if (opt.value === "auto") return true;
+        if (opt.value === "custom") return true;
         const [width, height] = opt.value.split("x").map((v) => parseInt(v));
         return width <= maxResolution[0] && height <= maxResolution[1];
       });
@@ -62,28 +61,13 @@ export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
     [groups],
   );
 
-  const firstPreset = useMemo(
-    () => groups.flatMap((group) => group.options).find((option) => option.value !== "auto")?.value,
-    [groups],
-  );
-
-  const fallbackResolution = useMemo(() => {
-    const parsed = parseResolution(firstPreset);
-    return parsed ?? { width: 1920, height: 1080 };
-  }, [firstPreset]);
-
-  const parsed = parseResolution(value) ?? fallbackResolution;
   const selectedPresetValue =
-    value && presetValues.includes(value) ? value : value === "auto" || !value ? "auto" : "custom";
+    value && presetValues.includes(value) ? value : "custom";
 
   useEffect(() => {
-    const current = value ?? "auto";
-    const isPreset = presetValues.includes(current);
-    const isCustom = Boolean(parseResolution(current));
-
-    if (isPreset || (showNumberInput && isCustom)) return;
-    onValueChange(groups[0]?.options[0]?.value ?? "auto");
-  }, [groups, onValueChange, presetValues, showNumberInput, value]);
+    if (value) return;
+    onValueChange(`${DEFAULT_RESOLUTION.width}x${DEFAULT_RESOLUTION.height}`);
+  }, [value]);
 
   const emitResolution = (nextWidth: number, nextHeight: number) => {
     const clampedWidth = Math.max(1, Math.round(nextWidth));
@@ -108,6 +92,7 @@ export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
         value={selectedPresetValue}
         onValueChange={(next) => {
           if (next === "custom") {
+            const parsed = parseResolution(value) ?? DEFAULT_RESOLUTION;
             emitResolution(parsed.width, parsed.height);
             return;
           }
@@ -118,7 +103,6 @@ export const VideoResolutionSelect: React.FC<VideoResolutionSelectProps> = ({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {showNumberInput && <SelectItem value="custom">Custom</SelectItem>}
           {groups.map((group) => (
             <SelectGroup key={group.label}>
               <SelectLabel>{group.label}</SelectLabel>

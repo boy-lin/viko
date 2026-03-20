@@ -212,10 +212,6 @@ export enum ImageEncoderEnum {
  * 编码器枚举（组合所有编码器类型）
  */
 export enum EncoderEnum {
-  // Special
-  AUTO = "auto",
-  COPY = "copy",
-
   // Audio
   AAC = AudioEncoderEnum.AAC,
   AAC_AT = AudioEncoderEnum.AAC_AT,

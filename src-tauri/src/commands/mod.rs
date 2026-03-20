@@ -206,10 +206,28 @@ pub async fn media_task_submit(
     app: AppHandle,
     tasks: Vec<MediaTaskRequest>,
     _priority: Option<String>,
-) -> Result<usize, String> {
-    queue::submit_tasks(app, tasks)
+    clientContext: Option<TaskSubmitClientContext>,
+) -> Result<MediaTaskSubmitResult, String> {
+    queue::submit_tasks(app, tasks, clientContext)
         .await
         .map_err(|e| format!("[TASK_SUBMIT] {}", e))
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct TaskSubmitClientContext {
+    pub is_logged_in: bool,
+    pub user_id: Option<String>,
+    pub device_id: Option<String>,
+    pub identity_scope: String,
+    pub identity_key: String,
+    pub is_token_preview: Option<bool>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct MediaTaskSubmitResult {
+    pub pending_count: usize,
+    pub forced_watermark_count: usize,
+    pub remaining_free_count: Option<usize>,
 }
 
 #[command]
@@ -1056,6 +1074,7 @@ pub async fn prepare_video_for_web_playback(path: String) -> Result<WebPlaybackP
                 use_hardware_acceleration: true,
                 use_ultra_fast_speed: true,
                 watermark: None,
+                forced_watermark: None,
             };
 
             let emitter = MockEmitter::new();
@@ -1566,6 +1585,7 @@ pub struct DenoiseMediaArgs {
     pub filter: Option<crate::services::convert::denoise::DenoiseFilterConfig>,
     pub use_hardware_acceleration: Option<bool>,
     pub use_ultra_fast_speed: Option<bool>,
+    pub forced_watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 #[command]
@@ -1707,6 +1727,7 @@ pub struct VideoConversionArgs {
     pub use_hardware_acceleration: Option<bool>,
     pub use_ultra_fast_speed: Option<bool>,
     pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
+    pub forced_watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 // ==================== GIF 转换相关命令 ====================
@@ -1748,6 +1769,8 @@ pub struct GifConversionArgs {
     pub denoise: Option<bool>,
     #[serde(default)]
     pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
+    #[serde(default)]
+    pub forced_watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 // ==================== 媒体缩略图相关命令 ====================
@@ -1823,6 +1846,7 @@ pub struct VideoCompressionArgs {
     pub preset: Option<String>,                  // ultrafast/fast/medium/slow
     pub use_hardware_acceleration: Option<bool>, // 硬件编码
     pub use_ultra_fast_speed: Option<bool>,      // 极速模式（优先 ultrafast）
+    pub forced_watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 #[command]
@@ -1848,6 +1872,7 @@ pub async fn compress_video_file(app: AppHandle, args: VideoCompressionArgs) -> 
             preset: args.preset,
             use_hardware_acceleration: args.use_hardware_acceleration,
             use_ultra_fast_speed: args.use_ultra_fast_speed,
+            forced_watermark: args.forced_watermark,
         };
 
         let emitter = WindowEmitter::new(window, task_id, "compress-video".to_string(), "video".to_string());
@@ -1954,6 +1979,7 @@ pub struct ImageCompressionArgs {
     pub keep_transparency: Option<bool>, // 是否保留透明通道
     pub dpi: Option<f64>,                // DPI
     pub crop_whitespace: Option<bool>,   // 自动裁剪
+    pub forced_watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 #[command]
@@ -1976,6 +2002,7 @@ pub async fn compress_image_file(app: AppHandle, args: ImageCompressionArgs) -> 
             keep_transparency: args.keep_transparency,
             dpi: args.dpi,
             crop_whitespace: args.crop_whitespace,
+            forced_watermark: args.forced_watermark,
         };
 
         let emitter = WindowEmitter::new(window, task_id, "compress-image".to_string(), "image".to_string());

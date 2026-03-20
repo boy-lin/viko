@@ -21,14 +21,7 @@ export const defaultVideoConfig: GlobalConverterConfig = {
   taskType: MediaTaskType.ConvertToVideo,
   fileType: FileType.Video,
   activeCategory: FileType.Video,
-  args: {
-    format: FormatEnum.MP4,
-    video_encoder: VideoEncoderEnum.H264,
-    audio_tracks: [{
-      source_stream_index: 0,
-      codec: AudioEncoderEnum.AAC,
-    }],
-  },
+  args: {},
 };
 
 type ConverterStore = CreateTaskStoreState<
@@ -51,7 +44,7 @@ const baseStoreCreator = createTaskStore<
     clearActionKey: "clearTasks",
     defaultConfig: defaultVideoConfig,
     createTaskByPath: (path, config) => {
-      const outputArgs: ConvertVideoTaskArgs = {
+      const outputArgs = {
         ...config.args,
         task_id: crypto.randomUUID(),
         input_path: path,
@@ -62,7 +55,7 @@ const baseStoreCreator = createTaskStore<
         status: "idle",
         progress: 0,
         args: outputArgs
-      };
+      } as ConverterTask;
     },
     queueAdapter: async (tasks) => {
       const settings = useSettingsStore.getState();

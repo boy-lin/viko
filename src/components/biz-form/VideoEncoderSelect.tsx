@@ -10,12 +10,12 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VIDEO_ENCODERS } from "@/data/encoders";
-import { EncoderEnum } from "@/types/options";
+import { EncoderEnum, VideoEncoderEnum } from "@/types/options";
 import { cn } from "@/lib/utils";
 
 interface VideoEncoderSelectProps {
-  value?: string;
-  onValueChange: (value: string) => void;
+  value?: VideoEncoderEnum;
+  onValueChange: (value: VideoEncoderEnum) => void;
   allowedEncoders?: string[];
   label?: string;
   helpText?: string;
@@ -36,14 +36,14 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
   const filteredEncoders = useMemo(() => {
     return allowedEncoders
       ? VIDEO_ENCODERS.filter(
-        (e) => allowedEncoders.includes(e.value) || e.value === EncoderEnum.AUTO
+        (e) => allowedEncoders.includes(e.value)
       )
-      : VIDEO_ENCODERS.filter((e) => [EncoderEnum.H264, EncoderEnum.H265, EncoderEnum.AUTO].includes(e.value));
+      : VIDEO_ENCODERS.filter((e) => [VideoEncoderEnum.H264, VideoEncoderEnum.H265].includes(e.value));
   }, [allowedEncoders]);
 
   useEffect(() => {
     if (value && !filteredEncoders.some((e) => e.value === value)) {
-      onValueChange(EncoderEnum.AUTO);
+      onValueChange(VideoEncoderEnum.H264);
     }
   }, [filteredEncoders, value])
 
@@ -62,7 +62,7 @@ export const VideoEncoderSelect: React.FC<VideoEncoderSelectProps> = ({
           </Tooltip>
         </div>
       )}
-      <Select value={value ?? EncoderEnum.AUTO} onValueChange={onValueChange}>
+      <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder="Select encoder" />
         </SelectTrigger>

@@ -68,52 +68,19 @@ export function VideoResolutionGroup({
       </div>
 
       <div className="flex items-center gap-4">
-        <RadioGroup
-          className="flex"
-          value={resolutionMode}
-          onValueChange={(val) => {
-            setResolutionMode(val);
-            // if (val === "custom_size") {
-            //   onChange("1920x1080");
-            // }
-          }}
-        >
-          {[
-            { value: "preset", label: t("bizForm.videoResolution.mode.preset") },
-            { value: "custom_size", label: t("bizForm.videoResolution.mode.custom") },
-          ].map((opt) => (
-            <Label
-              key={opt.value}
-              className="flex items-center gap-3 cursor-pointer"
-              htmlFor={opt.value}
-            >
-              <RadioGroupItem
-                className="cursor-pointer"
-                value={opt.value}
-                id={opt.value}
-              />
-              <span className="whitespace-nowrap text-sm">{opt.label}</span>
-            </Label>
-          ))}
-        </RadioGroup>
-        {resolutionMode === "custom_size" ? (
-          <VideoSizeInputGroup
-            resolution={resolution}
-            widthPlaceholder={t("settings.video.fields.width")}
-            heightPlaceholder={t("settings.video.fields.height")}
-            onChange={onChange}
-          />
-        ) : (
-          <VideoResolutionSelect
-            value={resolution}
-            onValueChange={onChange}
-            showNumberInput={false}
-            className="min-w-[8em] h-9 rounded-lg bg-muted/30 border-muted-foreground/10"
-            placeholder={t("common.auto")}
-          />
-        )}
+        <VideoSizeInputGroup
+          resolution={resolution}
+          widthPlaceholder={t("settings.video.fields.width")}
+          heightPlaceholder={t("settings.video.fields.height")}
+          onChange={onChange}
+        />
+        <VideoResolutionSelect
+          value={resolution}
+          onValueChange={onChange}
+          className="min-w-[8em] h-9 rounded-lg bg-muted/30 border-muted-foreground/10"
+          placeholder={t("common.auto")}
+        />
       </div>
-
       {
         showMoreBtns ? <div className="flex items-center gap-3">
           <Button

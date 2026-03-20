@@ -38,6 +38,7 @@ pub struct VideoPipelineResolveOptions {
     pub use_hardware_acceleration: bool,
     pub use_ultra_fast_speed: bool,
     pub watermark: Option<WatermarkConfig>,
+    pub forced_watermark: Option<WatermarkConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -67,6 +68,7 @@ pub struct ResolvedVideoPipelineParams {
     pub use_hardware_acceleration: bool,
     pub use_ultra_fast_speed: bool,
     pub watermark: Option<WatermarkConfig>,
+    pub forced_watermark: Option<WatermarkConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -257,6 +259,7 @@ pub fn resolve_video_params_for_convert(
         use_hardware_acceleration: options.use_hardware_acceleration,
         use_ultra_fast_speed: options.use_ultra_fast_speed,
         watermark: options.watermark,
+        forced_watermark: options.forced_watermark,
     }
 }
 

@@ -257,6 +257,9 @@ pub fn run() {
                 crate::storage::updater_guard::init()
                     .await
                     .expect("failed to init updater_guard");
+                crate::storage::usage_gate::init()
+                    .await
+                    .expect("failed to init usage_gate");
 
                 // Mark long-running tasks from previous sessions as interrupted.
                 // 24 hours cutoff to avoid false positives for long conversions.

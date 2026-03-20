@@ -137,6 +137,19 @@ pub fn compress_image_file<E: TaskEmitter>(
         }
     }
 
+    let watermarks: Vec<&crate::services::media_tools::watermark::WatermarkConfig> = [
+        params.forced_watermark.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    if !watermarks.is_empty() {
+        let mut rgba_img = img.to_rgba8();
+        crate::services::media_tools::watermark::apply_all_watermarks(&mut rgba_img, &watermarks)
+            .map_err(|e| format!("Watermark failed: {}", e))?;
+        img = image::DynamicImage::ImageRgba8(rgba_img);
+    }
+
     if crate::task::cancel::is_cancelled() {
         return Err("Task cancelled".to_string());
     }

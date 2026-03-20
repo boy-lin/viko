@@ -2,16 +2,13 @@
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { FileType, MediaDetailsWithResolve } from "@/types/tasks";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useTranslation } from "react-i18next";
 import { FormatSelectorDialog } from "@/components/biz-form/FormatSelector";
 import { ConverterTask, useConverterStore } from "./store";
-import { FormatEnum } from "@/types/options";
-import { VIDEO_CONTAINER_DEFINITIONS } from "@/data/capabilities";
-import { MediaTaskType } from "@/types/tasks";
+
 import OutputTitleEditor from "@/components/biz-form/OutputTitleEditor";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import TaskStatusLabel from "@/components/ui-biz/TaskStatusLabel";
@@ -19,7 +16,6 @@ import TaskLoadingCard from "@/components/ui-biz/TaskLoadingCard";
 import TaskLoadErrorCard from "@/components/ui-biz/TaskLoadErrorCard";
 import MediaOriginalInfoGrid from "@/components/ui-biz/MediaOriginalInfoGrid";
 import MediaTargetInfoGrid from "@/components/ui-biz/MediaTargetInfoGrid";
-import { normalizeFrameRate } from "@/lib/utils";
 
 interface TaskItemProps {
   task: ConverterTask;
@@ -27,34 +23,6 @@ interface TaskItemProps {
   metaError?: string;
   onRetryMeta?: () => void;
 }
-
-export const buildTaskDefaultsFromDetails = (task: ConverterTask, details: MediaDetailsWithResolve) => {
-  let format = FormatEnum.MP4;
-  const outputArgs: any = {
-    task_id: task.id,
-    format: format,
-    input_path: details.path,
-  };
-  const containerDefinition = VIDEO_CONTAINER_DEFINITIONS[format as FormatEnum];
-  outputArgs.video_encoder = containerDefinition?.video?.allowedEncoders[0];
-  const primaryVideoStream = details.streams.find((stream: any) => stream.codec_type === "video");
-  const primaryAudioStream = details.streams.find((stream: any) => stream.codec_type === "audio");
-  outputArgs.resolution = `${primaryVideoStream?.width}x${primaryVideoStream?.height}`;
-  outputArgs.frame_rate = normalizeFrameRate(primaryVideoStream?.frame_rate);
-
-  outputArgs.audio_tracks = [{
-    source_stream_index: primaryAudioStream?.index,
-    codec: containerDefinition?.audio?.allowedEncoders[0],
-  }];
-  
-  return {
-    mediaDetails: details,
-    args: outputArgs,
-    fileType: FileType.Video,
-    taskType: MediaTaskType.ConvertToVideo,
-    outputTitle: details.title,
-  } as Partial<ConverterTask>;
-};
 
 export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: TaskItemProps) {
   const { t } = useTranslation("task");

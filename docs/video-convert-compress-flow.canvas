@@ -7,7 +7,7 @@
 		{"id":"n3","type":"text","text":"转码水印滤镜\nbuild_video_filter_graph\nbuffer -> filter_spec -> buffersink\n支持文本/图片水印","x":-420,"y":490,"width":320,"height":170},
 		{"id":"n9","type":"text","text":"时间戳稳定性（压缩重点）\n- sync_ost_time_base_from_muxer\n- force_monotonic_ts_in_ost_tb","x":400,"y":505,"width":320,"height":140},
 		{"id":"n11","type":"text","text":"差异总结\n转码: 功能覆盖广(多轨/水印/黑屏兜底)\n压缩: 码率与封装稳定优先","x":50,"y":800,"width":360,"height":140},
-		{"id":"n0","type":"text","text":"FigureX 视频链路总览\nconvert/video.rs + compress/video.rs","x":240,"y":-680,"width":340,"height":100},
+		{"id":"n0","type":"text","text":"viko 视频链路总览\nconvert/video.rs + compress/video.rs","x":240,"y":-680,"width":340,"height":100},
 		{"id":"n4","type":"text","text":"转码音频处理\nAudioTrackProcessor (多轨)\n- source_stream_index 映射\n- 每轨独立编码参数","x":-90,"y":130,"width":320,"height":170},
 		{"id":"n2","type":"text","text":"转码视频处理\nTranscoder\n- 选择编码器\n- 分辨率/像素格式/帧率\n- CRF/bitrate策略\n- scaler 按需启用","x":-840,"y":130,"width":340,"height":200},
 		{"id":"n7","type":"text","text":"压缩视频处理\nVideoProcessor\n- calc_video_bitrate\n- x264/x265 VBV 参数\n- GOP/preset\n- scaler","x":780,"y":110,"width":320,"height":190},

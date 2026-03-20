@@ -18,12 +18,6 @@ interface GifSettingsSectionProps extends Partial<ConvertImageTaskArgs> {
   className?: string;
 }
 
-const parseNumberOrUndefined = (value: string) => {
-  if (!value) return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-};
-
 const FieldLabelWithHelp = ({ label, helpText }: { label: string; helpText: string }) => (
   <div className="flex items-center gap-1">
     <Label className="text-muted-foreground">{label}</Label>
@@ -98,7 +92,7 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
             helpText={t("settings.gif.fields.frameRateHelp")}
             value={frame_rate === undefined ? undefined : String(frame_rate)}
             onValueChange={(nextFrameRate) => onChange({
-              frame_rate: nextFrameRate === undefined ? undefined : parseNumberOrUndefined(nextFrameRate),
+              frame_rate: nextFrameRate === undefined ? undefined : nextFrameRate,
             })}
             placeholder={t("settings.gif.placeholders.frameRate")}
           />

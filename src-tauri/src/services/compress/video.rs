@@ -35,6 +35,7 @@ pub struct VideoCompressionParams {
     pub preset: Option<String>,                  // ultrafast/fast/medium/slow
     pub use_hardware_acceleration: Option<bool>, // 是否启用硬件编码（如可用）
     pub use_ultra_fast_speed: Option<bool>,      // 极速模式：优先使用 ultrafast preset
+    pub forced_watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -45,6 +45,8 @@ pub struct ImageConversionParams {
     pub denoise: Option<bool>,
     #[serde(default)]
     pub watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
+    #[serde(default)]
+    pub forced_watermark: Option<crate::services::media_tools::watermark::WatermarkConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -159,9 +161,16 @@ fn convert_image_file_impl(args: ImageConversionParams) -> Result<ImageConversio
         dynamic = dynamic.resize(target_width, target_height, image::imageops::FilterType::Lanczos3);
     }
 
-    if let Some(wm) = &args.watermark {
+    let watermarks: Vec<&crate::services::media_tools::watermark::WatermarkConfig> = [
+        args.watermark.as_ref(),
+        args.forced_watermark.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    if !watermarks.is_empty() {
         let mut rgba_img = dynamic.to_rgba8();
-        wm.apply_watermark(&mut rgba_img)
+        crate::services::media_tools::watermark::apply_all_watermarks(&mut rgba_img, &watermarks)
             .map_err(|e| format!("Watermark failed: {}", e))?;
         dynamic = image::DynamicImage::ImageRgba8(rgba_img);
     }
