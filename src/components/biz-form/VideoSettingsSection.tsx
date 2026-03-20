@@ -73,8 +73,10 @@ export default function VideoSettingsSection({
         <VideoSimpleSettings
           resolution={config.resolution}
           video_bitrate={config.video_bitrate}
+          min_bitrate={config.min_bitrate}
+          max_bitrate={config.max_bitrate}
           crf={config.crf}
-          
+          rc_mode={config.rc_mode}
           onChange={onChange}
         />
       )}

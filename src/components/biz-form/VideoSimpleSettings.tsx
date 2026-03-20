@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo } from "react";
 import { BadgeQuestionMark } from "lucide-react";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
@@ -12,28 +12,42 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 interface VideoSimpleSettingsProps {
   resolution?: string;
   video_bitrate?: number;
+  min_bitrate?: number;
+  max_bitrate?: number;
   crf?: number;
+  rc_mode?: string;
   onChange: (args: Partial<ConvertVideoTaskArgs>) => void;
 }
 
 export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
   resolution,
   video_bitrate,
+  min_bitrate,
+  max_bitrate,
   crf,
+  rc_mode,
   onChange,
 }) => {
 
   const { t } = useTranslation("task");
-  const [clarityMode, setClarityMode] = useState("quality");
+  const currentMode = useMemo(() => {
+    const normalized = rc_mode?.toLowerCase();
+    if (normalized === "cbr" || normalized === "vbr" || normalized === "crf") {
+      return normalized;
+    }
+    if (typeof crf === "number") return "crf";
+    return "vbr";
+  }, [crf, rc_mode]);
 
-  const applyResolution = (value: string) => {
-    onChange({ resolution: value });
-  };
+  const effectiveBitrate = useMemo(
+    () => video_bitrate ?? max_bitrate ?? min_bitrate,
+    [max_bitrate, min_bitrate, video_bitrate],
+  );
 
   return (
     <div className="space-y-4 p-2">
       <div className="grid gap-4">
-        <div className="flex flex-col gap-2">
+        <div className="space-y-2">
           <div className="flex items-center gap-1">
             <Label>{t("videoSimpleSettings.clarity")}</Label>
             <Tooltip>
@@ -45,15 +59,43 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
               </TooltipContent>
             </Tooltip>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="space-y-2">
             <RadioGroup
               className="flex items-center gap-4"
-              value={clarityMode}
-              onValueChange={setClarityMode}
+              value={currentMode}
+              onValueChange={(nextMode) => {
+                if (nextMode === "cbr") {
+                  onChange({
+                    rc_mode: "cbr",
+                    crf: undefined,
+                    min_bitrate: effectiveBitrate,
+                    max_bitrate: effectiveBitrate,
+                  });
+                  return;
+                }
+
+                if (nextMode === "vbr") {
+                  onChange({
+                    rc_mode: "vbr",
+                    crf: undefined,
+                    min_bitrate: undefined,
+                    max_bitrate: undefined,
+                  });
+                  return;
+                }
+
+                onChange({
+                  rc_mode: "crf",
+                  video_bitrate: undefined,
+                  min_bitrate: undefined,
+                  max_bitrate: undefined,
+                });
+              }}
             >
-              {[
-                { value: "quality", label: t("videoSimpleSettings.mode.quality") },
-                { value: "bitrate", label: t("videoSimpleSettings.mode.bitrate") },
+              {[ 
+                { value: "cbr", labelKey: "videoSimpleSettings.mode.cbr" },
+                { value: "vbr", labelKey: "videoSimpleSettings.mode.vbr" },
+                { value: "crf", labelKey: "videoSimpleSettings.mode.crf" },
               ].map((opt) => (
                 <Label
                   key={opt.value}
@@ -65,32 +107,37 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
                     value={opt.value}
                     id={`clarity-mode-${opt.value}`}
                   />
-                  <span className="whitespace-nowrap">{opt.label}</span>
+                  <span className="whitespace-nowrap">{t(opt.labelKey)}</span>
                 </Label>
               ))}
             </RadioGroup>
 
-            {clarityMode === "bitrate" ? (
-              <VideoBitrateSelect
-                
-                hideLabel={true}
-                value={video_bitrate ? video_bitrate.toString() : "auto"}
-                onValueChange={(val) => {
-                  onChange({
-                    video_bitrate: val === "auto" ? undefined : parseInt(val),
-                    crf: undefined,
-                    rc_mode: undefined
-                  });
-                }}
-              />
-            ) : (
+            {currentMode === "crf" ? (
               <VideoQualitySelect
                 value={crf}
                 onValueChange={(val) => {
                   onChange({
                     crf: val,
                     video_bitrate: undefined,
-                    rc_mode: val !== undefined ? "crf" : undefined
+                    min_bitrate: undefined,
+                    max_bitrate: undefined,
+                    rc_mode: val !== undefined ? "crf" : undefined,
+                  });
+                }}
+              />
+            ) : (
+              <VideoBitrateSelect
+                hideLabel
+                className="inline-block"
+                value={effectiveBitrate ? effectiveBitrate.toString() : "auto"}
+                onValueChange={(val) => {
+                  const nextBitrate = val === "auto" ? undefined : parseInt(val);
+                  onChange({
+                    video_bitrate: nextBitrate,
+                    crf: undefined,
+                    rc_mode: currentMode,
+                    min_bitrate: currentMode === "cbr" ? nextBitrate : undefined,
+                    max_bitrate: currentMode === "cbr" ? nextBitrate : undefined,
                   });
                 }}
               />
@@ -103,7 +150,7 @@ export const VideoSimpleSettings: React.FC<VideoSimpleSettingsProps> = ({
         label={t("settings.video.fields.resolution")}
         helpText={t("settings.video.fields.resolutionHelp")}
         resolution={resolution}
-        onChange={applyResolution}
+        onChange={(value) => onChange({ resolution: value })}
         showMoreBtns={true} />
     </div>
   );

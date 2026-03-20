@@ -1,11 +1,10 @@
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { VIDEO_SUPPORT_FORMATS } from "@/data/formats";
 import { useBatchMediaDetails } from "@/hooks/useBatchMediaDetails";
-import { MediaDetailsWithResolve } from "@/types/tasks";
 import { cn } from "@/lib/utils";
 
 import { UploadPanel } from "./UploadPanel";
-import { ConverterTask, useConverterStore } from "./store";
+import { useConverterStore } from "./store";
 import TaskItem, { buildTaskDefaultsFromDetails } from "./TaskItem";
 
 interface ConvertingTaskProps {

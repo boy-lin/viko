@@ -231,7 +231,10 @@
     "clarity": "Clarity",
     "mode": {
       "quality": "Quality",
-      "bitrate": "Bitrate"
+      "bitrate": "Bitrate",
+      "cbr": "Constant Bitrate",
+      "vbr": "Variable Bitrate",
+      "crf": "Constant Rate Factor"
     }
   },
   "bizForm": {

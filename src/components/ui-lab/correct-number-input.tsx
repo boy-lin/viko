@@ -1,6 +1,6 @@
 "use client"
 
-import { useId } from "react"
+import { useEffect, useId, useMemo, useState } from "react"
 import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -28,6 +28,19 @@ export default function CorrectNumberInput({
   const id = useId()
 
   const effectiveStep = typeof step === "number" && step > 0 ? step : 1
+  const allowDecimal = effectiveStep % 1 !== 0
+
+  const formatValue = (next?: number) => {
+    if (typeof next !== "number" || Number.isNaN(next)) return ""
+    return String(next)
+  }
+
+  const [rawValue, setRawValue] = useState(() => formatValue(value))
+
+  useEffect(() => {
+    setRawValue(formatValue(value))
+  }, [value])
+
   const clampValue = (next: number) => {
     const withMin = Math.max(min, next)
     if (typeof max === "number") {
@@ -36,22 +49,46 @@ export default function CorrectNumberInput({
     return withMin
   }
 
-  const increment = () => onChange(clampValue((value || 0) + effectiveStep))
-  const decrement = () => onChange(clampValue((value || 0) - effectiveStep))
+  const currentNumericValue = useMemo(() => {
+    const parsed = Number(rawValue)
+    if (Number.isFinite(parsed)) return parsed
+    return value ?? 0
+  }, [rawValue, value])
+
+  const increment = () => {
+    const nextValue = clampValue(currentNumericValue + effectiveStep)
+    setRawValue(formatValue(nextValue))
+    onChange(nextValue)
+  }
+
+  const decrement = () => {
+    const nextValue = clampValue(currentNumericValue - effectiveStep)
+    setRawValue(formatValue(nextValue))
+    onChange(nextValue)
+  }
+
+  const isAllowedInput = (next: string) => {
+    if (next === "") return true
+    if (next === "-" || next === "." || next === "-.") return true
+    const pattern = allowDecimal ? /^-?\d*\.?\d*$/ : /^-?\d*$/
+    return pattern.test(next)
+  }
 
   return (
     <div className={cn("w-full max-w-xs", className)}>
       <div className="relative text-foreground bg-muted/30 rounded-lg">
         <input
           id={id}
-          type="number"
-          inputMode={effectiveStep % 1 === 0 ? "numeric" : "decimal"}
+          type="text"
+          inputMode={allowDecimal ? "decimal" : "numeric"}
           min={min}
           max={max}
           step={effectiveStep}
-          value={!value ? "" : value}
+          value={rawValue}
           onChange={(e) => {
             const val = e.target.value
+            if (!isAllowedInput(val)) return
+            setRawValue(val)
             if (val === "") {
               onChange(0)
               return
@@ -59,6 +96,19 @@ export default function CorrectNumberInput({
             const parsed = Number(val)
             if (Number.isNaN(parsed)) return
             onChange(clampValue(parsed))
+          }}
+          onBlur={() => {
+            if (rawValue === "") return
+            const parsed = Number(rawValue)
+            if (Number.isNaN(parsed)) {
+              setRawValue(formatValue(value))
+              return
+            }
+            const normalized = clampValue(parsed)
+            setRawValue(formatValue(normalized))
+            if (normalized !== value) {
+              onChange(normalized)
+            }
           }}
           className="peer w-full h-9 pl-2 pr-6 text-foreground placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:m-0"
           placeholder={label ? " " : (placeholder ?? "")}
@@ -69,7 +119,7 @@ export default function CorrectNumberInput({
             htmlFor={id}
             className={cn(
               "absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm transition-all duration-200 pointer-events-none",
-              value !== 0
+              rawValue !== ""
                 ? "-translate-y-6 top-1/2 text-xs text-foreground"
                 : "peer-placeholder-shown:translate-y-1/2"
             )}

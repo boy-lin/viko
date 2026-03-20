@@ -198,10 +198,8 @@ export default function FormatSelectorContent({
       return (
         <VideoSettingsSection
           config={videoArgs}
-          onChange={(next) => {
-            onValueChange({
-              args: next,
-            });
+          onChange={(args) => {
+            onValueChange({ args });
           }}
         />
       );
@@ -226,11 +224,7 @@ export default function FormatSelectorContent({
             preserve_extensions={gifArgs.preserve_extensions}
             sharpen={gifArgs.sharpen}
             denoise={gifArgs.denoise}
-            onChange={(next) => {
-              onValueChange({
-                args: next,
-              });
-            }}
+            onChange={(args) => onValueChange({ args })}
           />
         );
       }
@@ -241,11 +235,7 @@ export default function FormatSelectorContent({
           image_encoder={imageArgs.image_encoder}
           width={imageArgs.width}
           height={imageArgs.height}
-          onChange={(next) => {
-            onValueChange({
-              args: next,
-            });
-          }}
+          onChange={(args) => onValueChange({ args })}
         />
       );
     }
@@ -362,13 +352,7 @@ export default function FormatSelectorContent({
               <Button
                 className="cursor-pointer"
                 onClick={() => {
-                  applyConfigToAllTasks({
-                    ...config,  
-                    args: {
-                      ...config.args,
-                      format: activeGroup?.id,
-                    },
-                  });
+                  applyConfigToAllTasks(config);
                   onClose();
                 }}
               >

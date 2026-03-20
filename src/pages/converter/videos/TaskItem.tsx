@@ -149,18 +149,10 @@ export default function TaskItem({ task, metaStatus, metaError, onRetryMeta }: T
           }}
           recentKey="converter-videos-task-item"
           onValueChange={(config) => {
-            updateTaskById(task.id, {
-              activeCategory: config.activeCategory,
-              taskType: config.taskType,
-              args: config.args,
-            });
+            updateTaskById(task.id, config);
           }}
           applyConfigToAllTasks={(config) => {
-            updateTaskById(task.id, {
-              activeCategory: config.activeCategory,
-              taskType: config.taskType,
-              args: config.args,
-            });
+            updateTaskById(task.id, config);
           }}
         />
         <Tooltip>

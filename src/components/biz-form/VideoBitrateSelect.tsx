@@ -90,7 +90,7 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
           step={100}
           placeholder={placeholder ?? t("bizForm.videoBitrate.inputPlaceholder")}
           value={clampedNumericValue}
-          className="max-w-[6em] text-sm"
+          className="text-sm"
           onChange={(nextValue) => {
             const parsed = nextValue;
             if (parsed === undefined) return;
@@ -101,12 +101,12 @@ export const VideoBitrateSelect: React.FC<VideoBitrateSelectProps> = ({
             onValueChange(String(clamped));
           }}
         />
-        <InputGroupAddon align="inline-end" className="pr-1 flex-1">
+        <InputGroupAddon align="inline-end" className="pr-1 flex-1 max-w-3/5">
           <Select
             value={selectValue}
             onValueChange={(next) => onValueChange(next)}
           >
-            <SelectTrigger className="h-7 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
+            <SelectTrigger className="h-7 w-full border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

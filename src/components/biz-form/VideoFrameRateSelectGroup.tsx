@@ -49,6 +49,7 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
   const resolvedAutoLabel = autoLabel ?? t("common.auto");
 
   const numericValue = useMemo(() => {
+    console.log("value", value);
     if (!value || value === "auto") return undefined;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
@@ -94,7 +95,7 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
       maxFrameRate ?? Number.MAX_SAFE_INTEGER,
       Math.max(minFrameRate, numericValue),
     );
-
+  
   const selectValue = optionItems.some((item) => item.value === value)
     ? String(value)
     : "auto";
@@ -127,7 +128,7 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
           step={step}
           placeholder={placeholder ?? t("settings.video.placeholders.frameRate", "Frame rate")}
           value={clampedValue}
-          className="text-sm max-w-[6em]"
+          className="text-sm"
           onChange={(nextValue) => {
             if (!Number.isFinite(nextValue) || nextValue <= 0) {
               onValueChange(undefined);
@@ -140,7 +141,7 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
             onValueChange(String(clamped));
           }}
         />
-        <InputGroupAddon align="inline-end" className="pr-1 flex-1">
+        <InputGroupAddon align="inline-end" className="pr-1 flex-1 max-w-3/5">
           <Select
             value={selectValue}
             onValueChange={(next) => {
@@ -151,7 +152,7 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
               onValueChange(next);
             }}
           >
-            <SelectTrigger className="h-7 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
+            <SelectTrigger className="h-7 w-full border-0 bg-transparent px-2 shadow-none focus-visible:ring-0">
               <SelectValue placeholder={t("bizForm.common.commonValues")} />
             </SelectTrigger>
             <SelectContent>

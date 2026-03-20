@@ -1,36 +1,13 @@
+## 多媒体知识
+CBR
+固定码率。编码器尽量让每秒输出的比特数接近固定值。
+结果是码率最稳定，文件大小和带宽最好预估，但复杂画面容易糊，简单画面又可能浪费码率。
 
-改造计划（分阶段）
+VBR
+可变码率。目标是让复杂画面多给码率，简单画面少给码率。
+结果是同样平均体积下，画质通常比 CBR 更好，但瞬时码率不稳定，最终文件大小也没那么好预测。
 
-  1. Phase A：通信收口（1-2天）
-
-  - 把 src 内直接 invoke/listen 全迁入 bridge。
-      - Layout.tsx (/D:/persional/figurex/src/components/Layout.tsx)
-      - RootPage.tsx (/D:/persional/figurex/src/layout/RootPage.tsx)
-      - SelfCheck.tsx (/D:/persional/figurex/src/components/SelfCheck.tsx)
-      - metadata/index.tsx (/D:/persional/figurex/src/pages/metadata/index.tsx)
-      - FileSelector.tsx (/D:/persional/figurex/src/components/FileSelector.tsx)
-      - mp3/converter.tsx (/D:/persional/figurex/src/components/mp3/converter.tsx)
-  2. Phase B：阻塞命令异步化（1-2天）
-
-  - Rust 侧把同步重命令改为 async + spawn_blocking。
-  - 目标命令：get_media_info、run_self_check、write_media_metadata、auth_exchange_code。
-  - 文件：commands/mod.rs (/D:/persional/figurex/src-tauri/src/commands/mod.rs)
-
-
-  - 前端增加流聚合器（requestId 管理、chunk 合并、超时取消）。
-
-  4. Phase D：高频链路降压（1-2天）
-
-  - 播放器 position 查询改“事件推送优先，轮询兜底”。
-  - media_task_event 的 store 更新改批量 flush。
-  - 文件：
-      - mediaTaskQueue.ts (/D:/persional/figurex/src/lib/mediaTaskQueue.ts)
-
-      
-  当前状态说明
-
-  - 你这批目标文件（Layout/RootPage/SelfCheck/FileSelector/metadata/desktop-auth/updater/force-update）里，直连 invoke(...) 已清理完毕或改
-    为 bridge。                                                                                                                           
-  - 项目里仍有其他模块保留直连（例如 mediaTaskQueue.ts、mp3/converter.tsx、revealItemInDir.ts），这是下一批可继续收口的点。               
-                                                                                                                                          
-  如果你同意，我下一步就把这些剩余直连点也统一迁移到 bridge.ts (/D:/persional/figurex/src/lib/bridge.ts)。
+CRF
+固定质量。不是直接指定码率，而是指定“质量等级”。
+编码器为了维持目标视觉质量，复杂画面自动给更多码率，简单画面给更少。
+结果通常是离线转码最常用、最省心的模式，画质更自然，但文件大小最难预估

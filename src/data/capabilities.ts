@@ -653,7 +653,6 @@ export const VIDEO_FRAME_RATES: SelectOption[] = [
   { value: "29.97", label: "29.97 FPS (NTSC)" },
   { value: "25", label: "25 FPS (PAL)" },
   { value: "24", label: "24 FPS" },
-  { value: "23.976", label: "23.976 FPS" },
 ];
 
 // ================= OPTION HELPERS =================

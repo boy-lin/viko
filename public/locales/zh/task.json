@@ -230,7 +230,10 @@
     "clarity": "清晰度",
     "mode": {
       "quality": "画质",
-      "bitrate": "按码率"
+      "bitrate": "按码率",
+      "cbr": "固定码率",
+      "vbr": "可变码率",
+      "crf": "恒定质量"
     }
   },
   "bizForm": {

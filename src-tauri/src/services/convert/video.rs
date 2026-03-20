@@ -277,7 +277,12 @@ impl<E: TaskEmitter> Transcoder<E> {
         let effective_rc_mode = if auto_crf_mode {
             "crf".to_string()
         } else {
-            requested_rc_mode.unwrap_or_else(|| "bitrate".to_string())
+            match requested_rc_mode.as_deref() {
+                Some("cbr") => "cbr".to_string(),
+                Some("vbr") => "vbr".to_string(),
+                Some("crf") => "crf".to_string(),
+                _ => "vbr".to_string(),
+            }
         };
         let effective_crf = if effective_rc_mode == "crf" && supports_crf {
             Some(params.crf.unwrap_or(if codec_name == "libx265" { 28 } else { 23 }))
@@ -368,16 +373,41 @@ impl<E: TaskEmitter> Transcoder<E> {
         if let Some(crf) = effective_crf {
             opts.set("crf", crf.to_string().as_str());
         }
-        if effective_rc_mode != "crf" && matches!(codec_name.as_str(), "libx264" | "libx265") {
+        if matches!(codec_name.as_str(), "libx264" | "libx265") {
             let fallback_kbps = configured_bit_rate
                 .map(|b| ((b.max(1) + 999) / 1000) as u32)
                 .unwrap_or(0);
-            let maxrate_kbps = params.max_bitrate.unwrap_or(fallback_kbps);
-            if maxrate_kbps > 0 {
-                let maxrate_s = format!("{}k", maxrate_kbps);
-                let bufsize_s = format!("{}k", maxrate_kbps.saturating_mul(2));
-                opts.set("maxrate", maxrate_s.as_str());
-                opts.set("bufsize", bufsize_s.as_str());
+            match effective_rc_mode.as_str() {
+                "cbr" => {
+                    let target_kbps = if let Some(bitrate) = params.video_bitrate {
+                        bitrate
+                    } else {
+                        fallback_kbps
+                    };
+                    if target_kbps > 0 {
+                        let minrate_kbps = params.min_bitrate.unwrap_or(target_kbps);
+                        let maxrate_kbps = params.max_bitrate.unwrap_or(target_kbps);
+                        let bufsize_kbps = maxrate_kbps.saturating_mul(2).max(target_kbps);
+                        opts.set("nal-hrd", "cbr");
+                        opts.set("minrate", format!("{}k", minrate_kbps).as_str());
+                        opts.set("maxrate", format!("{}k", maxrate_kbps).as_str());
+                        opts.set("bufsize", format!("{}k", bufsize_kbps).as_str());
+                    }
+                }
+                "vbr" => {
+                    let maxrate_kbps = params.max_bitrate.unwrap_or(fallback_kbps);
+                    if maxrate_kbps > 0 {
+                        let bufsize_kbps = maxrate_kbps.saturating_mul(2);
+                        opts.set("maxrate", format!("{}k", maxrate_kbps).as_str());
+                        opts.set("bufsize", format!("{}k", bufsize_kbps).as_str());
+                    }
+                    if let Some(minrate_kbps) = params.min_bitrate {
+                        if minrate_kbps > 0 {
+                            opts.set("minrate", format!("{}k", minrate_kbps).as_str());
+                        }
+                    }
+                }
+                _ => {}
             }
         }
 
