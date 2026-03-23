@@ -33,9 +33,12 @@ import {
 } from "@/data/capabilities";
 import { parseOptionalInt } from "@/lib/utils";
 import { AudioEncoderEnum } from "@/types/options";
+import { MediaDetailsWithResolve } from "@/types/tasks";
+import { getAudioEstimatedOutputSizeLabel } from "../estimateOutputSize";
 
 interface CompressionSettingsFormProps {
   config: CompressAudioTaskArgs;
+  mediaDetails?: MediaDetailsWithResolve;
   onConfigChange: (config: Partial<CompressAudioTaskArgs>) => void;
 }
 
@@ -45,6 +48,7 @@ interface CompressionSettingsProps extends CompressionSettingsFormProps {
 
 const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   config,
+  mediaDetails,
   onConfigChange,
 }) => {
   const { t } = useTranslation("task");
@@ -64,6 +68,11 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
     return Number.isNaN(parsed) ? undefined : parsed;
   };
 
+  const estimatedSizeLabel = useMemo(
+    () => getAudioEstimatedOutputSizeLabel(config, mediaDetails),
+    [config, mediaDetails],
+  );
+
   return (
     <div className="flex flex-col space-y-4 px-4 max-h-[60vh]">
       <div className="space-y-4">
@@ -80,6 +89,11 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
                 step={5}
                 className="w-full"
               />
+              {estimatedSizeLabel ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  预估输出大小 {estimatedSizeLabel}
+                </p>
+              ) : null}
             </div>
             <AudioSampleRateSelect
               className="space-y-2 w-full"
@@ -211,7 +225,11 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   );
 };
 
-export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ config, onConfigChange }) => {
+export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
+  config,
+  mediaDetails,
+  onConfigChange,
+}) => {
   const { t } = useTranslation("task");
   const [open, setOpen] = useState(false);
 
@@ -237,6 +255,7 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
             <ScrollArea className="flex-1">
               <CompressionSettingsForm
                 config={config}
+                mediaDetails={mediaDetails}
                 onConfigChange={onConfigChange}
               />
             </ScrollArea>
@@ -256,7 +275,12 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
   );
 };
 
-export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({ config, onConfigChange, onSave }) => {
+export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
+  config,
+  mediaDetails,
+  onConfigChange,
+  onSave,
+}) => {
   const { t } = useTranslation("task");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -291,6 +315,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
             <ScrollArea className="flex-1 overflow-hidden min-h-0 px-4">
               <CompressionSettingsForm
                 config={config}
+                mediaDetails={mediaDetails}
                 onConfigChange={onConfigChange}
               />
             </ScrollArea>

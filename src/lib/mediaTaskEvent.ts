@@ -58,6 +58,7 @@ export interface DenoiseFilterConfig {
 export interface TextWatermark {
   content: string;
   font_path?: string;
+  rotation?: number;
   font_size: number;
   color: string;
   opacity: number;
@@ -72,6 +73,7 @@ export interface TextWatermark {
 /** 与 Rust ImageWatermark 对应 */
 export interface ImageWatermark {
   path: string;
+  rotation?: number;
   scale: number;
   opacity: number;
   x: string;
@@ -229,6 +231,9 @@ export interface CompressVideoTaskArgs {
   /** frontend-only: 源音轨参数，用于 ratio 重算 */
   source_audio_tracks?: AudioTrackConfig[];
   forced_watermark?: WatermarkConfig;
+  /** need to be synced to rust */
+  rc_mode?: string;
+  crf?: number;
 }
 
 export interface CompressAudioTaskArgs {
@@ -260,6 +265,7 @@ export interface CompressImageTaskArgs {
   width?: number;
   height?: number;
   quality: number;
+  frame_rate?: TaskFrameRate;
   /** 扩展待同步到rust */
   output_path?: string;
   color_mode?: string;

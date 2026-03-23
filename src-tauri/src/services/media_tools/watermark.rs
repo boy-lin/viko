@@ -1,6 +1,7 @@
 use ab_glyph::{FontRef, PxScale};
 use image::{imageops, RgbaImage};
 use imageproc::drawing::draw_text_mut;
+use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 use std::path::Path;
@@ -70,6 +71,12 @@ impl WatermarkConfig {
                 overlay_filters.push("format=rgba".to_string());
                 overlay_filters.push(format!("colorchannelmixer=aa={}", img.opacity));
             }
+            if img.rotation.unwrap_or(0.0).abs() > f32::EPSILON {
+                overlay_filters.push(format!(
+                    "rotate={:.6}*PI/180:ow=rotw(iw):oh=roth(ih):c=none",
+                    img.rotation.unwrap_or(0.0)
+                ));
+            }
 
             let overlay_output = if !overlay_filters.is_empty() {
                 write!(
@@ -117,6 +124,9 @@ impl WatermarkConfig {
         if let Some(txt) = &self.text {
             if txt.content.is_empty() {
                 return Err("Text watermark content is empty".to_string());
+            }
+            if txt.rotation.unwrap_or(0.0).abs() > f32::EPSILON {
+                log::warn!("video text watermark rotation is not supported yet; ignoring rotation={}", txt.rotation.unwrap_or(0.0));
             }
             let next_stream = format!("wm_txt_{}", *stage);
             *stage += 1;
@@ -194,15 +204,27 @@ impl WatermarkConfig {
                 }
             }
 
-            // Position
-            // Parse x/y strings. For Image, standard is generic expressions, but here we only support simple integers or "center" logic maybe?
-            // Let's support simple parsing: integer, or "W-w-10" via simple eval?
-            // For now: try parse as integer. If fails, default to 0.
-            // A real eval engine is heavy. Let's support "10" and negative "-10" (from right?)
-            // TODO: robust expression parser.
+            if img_wm.rotation.unwrap_or(0.0).abs() > f32::EPSILON {
+                wm_rgba = rotate_image_rgba(&wm_rgba, img_wm.rotation.unwrap_or(0.0));
+            }
 
-            let x = parse_position(&img_wm.x, width, wm_rgba.width());
-            let y = parse_position(&img_wm.y, height, wm_rgba.height());
+            let (x, y) = if img_wm.anchor.is_some() {
+                resolve_anchor_position_px(
+                    img_wm.anchor.as_deref(),
+                    img_wm.offset_x,
+                    img_wm.offset_y,
+                    img_wm.offset_unit.as_deref(),
+                    width,
+                    height,
+                    wm_rgba.width(),
+                    wm_rgba.height(),
+                )
+            } else {
+                (
+                    parse_position(&img_wm.x, width, wm_rgba.width()),
+                    parse_position(&img_wm.y, height, wm_rgba.height()),
+                )
+            };
 
             imageops::overlay(image, &wm_rgba, x.into(), y.into());
         }
@@ -220,13 +242,47 @@ impl WatermarkConfig {
                 y: txt_wm.font_size,
             };
 
-            // Measure text for position calculation
             let (text_w, text_h) = imageproc::drawing::text_size(scale, &font, &txt_wm.content);
+            let padding = txt_wm.font_size.max(8.0).round() as u32;
+            let mut text_layer = RgbaImage::from_pixel(
+                text_w + padding * 2,
+                text_h + padding * 2,
+                image::Rgba([0, 0, 0, 0]),
+            );
+            draw_text_mut(
+                &mut text_layer,
+                color,
+                padding as i32,
+                padding as i32,
+                scale,
+                &font,
+                &txt_wm.content,
+            );
+            let rotated_text = if txt_wm.rotation.unwrap_or(0.0).abs() > f32::EPSILON {
+                rotate_image_rgba(&text_layer, txt_wm.rotation.unwrap_or(0.0))
+            } else {
+                text_layer
+            };
 
-            let x = parse_position(&txt_wm.x, width, text_w);
-            let y = parse_position(&txt_wm.y, height, text_h);
+            let (x, y) = if txt_wm.anchor.is_some() {
+                resolve_anchor_position_px(
+                    txt_wm.anchor.as_deref(),
+                    txt_wm.offset_x,
+                    txt_wm.offset_y,
+                    txt_wm.offset_unit.as_deref(),
+                    width,
+                    height,
+                    rotated_text.width(),
+                    rotated_text.height(),
+                )
+            } else {
+                (
+                    parse_position(&txt_wm.x, width, rotated_text.width()),
+                    parse_position(&txt_wm.y, height, rotated_text.height()),
+                )
+            };
 
-            draw_text_mut(image, color, x, y, scale, &font, &txt_wm.content);
+            imageops::overlay(image, &rotated_text, x.into(), y.into());
         }
 
         Ok(())
@@ -278,10 +334,23 @@ fn load_font_bytes_with_fallback(user_font_path: Option<&str>) -> Result<Vec<u8>
     if let Some(path) = user_font_path {
         let trimmed = path.trim();
         if !trimmed.is_empty() {
-            return std::fs::read(trimmed)
-                .map_err(|error| format!("Failed to read font: {}", error));
+            match std::fs::read(trimmed) {
+                Ok(bytes) => return Ok(bytes),
+                Err(error) => {
+                    log::warn!(
+                        "image text watermark custom font read failed: user_font_path='{}' error={}",
+                        trimmed,
+                        error
+                    );
+                }
+            }
         }
     }
+
+    log::warn!(
+        "image text watermark fallback start: user_font_path={:?}",
+        user_font_path
+    );
 
     for candidate in system_font_candidates() {
         if Path::new(&candidate).exists() {
@@ -393,6 +462,39 @@ fn resolve_overlay_position_expr(
     (x, y)
 }
 
+fn resolve_anchor_position_px(
+    anchor: Option<&str>,
+    offset_x: Option<f32>,
+    offset_y: Option<f32>,
+    offset_unit: Option<&str>,
+    width: u32,
+    height: u32,
+    object_width: u32,
+    object_height: u32,
+) -> (i32, i32) {
+    let a = anchor.unwrap_or("c");
+    let ox = resolve_offset_px(offset_x, offset_unit, width);
+    let oy = resolve_offset_px(offset_y, offset_unit, height);
+
+    let x = if a.contains('l') {
+        ox
+    } else if a.contains('r') {
+        width as i32 - object_width as i32 - ox
+    } else {
+        (width as i32 - object_width as i32) / 2 + ox
+    };
+
+    let y = if a.contains('t') {
+        oy
+    } else if a.contains('b') {
+        height as i32 - object_height as i32 - oy
+    } else {
+        (height as i32 - object_height as i32) / 2 + oy
+    };
+
+    (x, y)
+}
+
 fn resolve_text_position_expr(
     anchor: Option<&str>,
     offset_x: Option<f32>,
@@ -422,6 +524,16 @@ fn resolve_text_position_expr(
     };
 
     (x, y)
+}
+
+fn rotate_image_rgba(image: &RgbaImage, degrees: f32) -> RgbaImage {
+    let radians = degrees.to_radians();
+    rotate_about_center(
+        image,
+        radians,
+        Interpolation::Bilinear,
+        image::Rgba([0, 0, 0, 0]),
+    )
 }
 
 fn parse_position(pos_str: &str, container_dim: u32, object_dim: u32) -> i32 {
@@ -480,6 +592,7 @@ fn parse_color(color_str: &str, opacity: f32) -> image::Rgba<u8> {
 pub struct TextWatermark {
     pub content: String,
     pub font_path: Option<String>, // Absolute path to .ttf/.otf
+    pub rotation: Option<f32>,
     pub font_size: f32,
     pub color: String, // Hex "#FFFFFF" or "white"
     pub opacity: f32,  // 0.0 - 1.0
@@ -494,6 +607,7 @@ pub struct TextWatermark {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ImageWatermark {
     pub path: String,
+    pub rotation: Option<f32>,
     pub scale: f32, // 1.0 = original size
     pub opacity: f32,
     pub x: String,

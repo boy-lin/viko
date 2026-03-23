@@ -50,7 +50,7 @@ export const ColorModeSelect: React.FC<ColorModeSelectProps> = ({
         onValueChange(next === "auto" ? undefined : next);
       }}
     >
-      <SelectTrigger className={cn("w-full", className)} size="sm">
+      <SelectTrigger className={cn("w-full", className)}>
         <SelectValue placeholder={resolvedPlaceholder} />
       </SelectTrigger>
       <SelectContent>

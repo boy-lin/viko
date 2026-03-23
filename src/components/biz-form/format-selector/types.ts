@@ -1,5 +1,4 @@
 import { FormatGroup } from "@/types/options";
-import { GlobalConverterConfig } from "@/pages/converter/videos/store";
 
 export interface FormatSelectorValue {
   group: string;

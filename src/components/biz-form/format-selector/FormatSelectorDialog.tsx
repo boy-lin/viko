@@ -32,7 +32,7 @@ export default function FormatSelectorDialog(props: FormatSelectorProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
           aria-expanded={open}
           className={cn("cursor-pointer flex items-center justify-center", className)}

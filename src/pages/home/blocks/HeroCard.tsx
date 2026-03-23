@@ -9,7 +9,7 @@ import { CompressorLayer } from "@/components/icons/CompressorLayer";
 import { useAnalytics } from "@/lib/analytics";
 import { MenuItems } from "@/layout/sidebar/menu";
 import { useTranslation } from "react-i18next";
-import { AUDIO_SUPPORT_FORMATS, VIDEO_SUPPORT_FORMATS, IMAGE_SUPPORT_FORMATS } from "@/data/formats";
+import { AUDIO_SUPPORT_FORMATS, VIDEO_SUPPORT_FORMATS, IMAGE_SUPPORT_FORMATS, SUPPORT_FORMATS } from "@/data/formats";
 import { bridge } from "@/lib/bridge";
 
 type HeroCardAction = {
@@ -35,18 +35,8 @@ const heroCards: HeroCardItem[] = [
     description: "hero.converter.desc",
     actions: [
       {
-        id: "converter-video",
-        label: "hero.converter.videoAdd",
-        icon: <Plus className="w-4 h-4 mr-1" />,
-      },
-      {
-        id: "converter-audio",
-        label: "hero.converter.audioAdd",
-        icon: <Plus className="w-4 h-4 mr-1" />,
-      },
-      {
-        id: "converter-image",
-        label: "hero.converter.imageAdd",
+        id: "converter",
+        label: "hero.converter.action",
         icon: <Plus className="w-4 h-4 mr-1" />,
       },
     ],
@@ -75,17 +65,7 @@ const heroCards: HeroCardItem[] = [
     description: "hero.compressor.desc",
     actions: [
       {
-        id: "compressor-video-add",
-        label: "hero.compressor.videoAdd",
-        icon: <Plus className="w-4 h-4 mr-1" />,
-      },
-      {
-        id: "compressor-audio-add",
-        label: "hero.compressor.audioAdd",
-        icon: <Plus className="w-4 h-4 mr-1" />,
-      },
-      {
-        id: "compressor-image-add",
+        id: "compressor-add",
         label: "hero.compressor.imageAdd",
         icon: <Plus className="w-4 h-4 mr-1" />,
       },
@@ -148,76 +128,29 @@ export function HeroCard() {
   const handleAction = async (actionId: string) => {
     track("click_hero_card_action", { actionId });
 
-    if (actionId === "converter-video") {
+    if (actionId === "converter") {
       const paths = await bridge.addFilesOrFolders({
-        name: "Video",
+        name: "Converter",
         multiple: true,
-        extensions: VIDEO_SUPPORT_FORMATS,
+        extensions: SUPPORT_FORMATS,
 
       })
       if (paths && paths.length > 0) {
-        const { useConverterStore } = await import("@/pages/converter/videos/store")
+        const { useConverterStore } = await import("@/pages/converter/store")
         useConverterStore.getState().addTasksByPaths(paths)
-        navigate(MenuItems.converterVideos);
+        navigate(MenuItems.converter);
       }
-    } else if (actionId === "converter-audio") {
-      const paths = await bridge.addFilesOrFolders({
-        name: "Audio",
-        multiple: true,
-        extensions: AUDIO_SUPPORT_FORMATS,
-      })
-      if (paths && paths.length > 0) {
-        const { useConverterStore } = await import("@/pages/converter/audios/store")
-        useConverterStore.getState().addTasksByPaths(paths)
-        navigate(MenuItems.converterAudios);
-      }
-    } else if (actionId === "converter-image") {
-      const paths = await bridge.addFilesOrFolders({
-        name: "Image",
-        multiple: true,
-        extensions: IMAGE_SUPPORT_FORMATS,
-
-      });
-      if (paths && paths.length > 0) {
-        const { useConverterStore } = await import("@/pages/converter/images/store")
-        useConverterStore.getState().addTasksByPaths(paths)
-        navigate(MenuItems.converterImages);
-      }
-    } else if (actionId === "compressor-video-add") {
+    } else if (actionId === "compressor-add") {
       const paths = await bridge.addFilesOrFolders({
         name: "Compressor",
         multiple: true,
-        extensions: VIDEO_SUPPORT_FORMATS,
+        extensions: SUPPORT_FORMATS,
 
       });
       if (paths && paths.length > 0) {
-        const { useCompressorStore } = await import("@/pages/compressor/videos/store")
+        const { useCompressorStore } = await import("@/pages/compressor/store")
         useCompressorStore.getState().addTasksByPaths(paths)
-        navigate(MenuItems.compressorVideos);
-      }
-    } else if (actionId === "compressor-audio-add") {
-      const paths = await bridge.addFilesOrFolders({
-        name: "Compressor",
-        multiple: true,
-        extensions: AUDIO_SUPPORT_FORMATS,
-
-      });
-      if (paths && paths.length > 0) {
-        const { useCompressorStore } = await import("@/pages/compressor/audios/store")
-        useCompressorStore.getState().addTasksByPaths(paths)
-        navigate(MenuItems.compressorAudios);
-      }
-    } else if (actionId === "compressor-image-add") {
-      const paths = await bridge.addFilesOrFolders({
-        name: "Compressor",
-        multiple: true,
-        extensions: IMAGE_SUPPORT_FORMATS,
-
-      });
-      if (paths && paths.length > 0) {
-        const { useCompressorStore } = await import("@/pages/compressor/images/store")
-        useCompressorStore.getState().addTasksByPaths(paths)
-        navigate(MenuItems.compressorImages);
+        navigate(MenuItems.compressor);
       }
     } else if (actionId === "watermark-add") {
       const videoAndImageFormats = [...VIDEO_SUPPORT_FORMATS, ...IMAGE_SUPPORT_FORMATS];

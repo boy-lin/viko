@@ -19,6 +19,7 @@ import {
 
 type TaskPriority = "high" | "normal" | "low";
 type TaskStoreRoute =
+  | "converter"
   | "converter-videos"
   | "converter-images"
   | "converter-audios"
@@ -71,7 +72,9 @@ const normalizeTaskRequests = (tasks: TaskRequest[]): unknown[] =>
       task.type === MediaTaskType.Watermark
     ) {
       args.frame_rate =
-        normalizedFrameRate === undefined ? undefined : String(normalizedFrameRate);
+        normalizedFrameRate === undefined
+          ? undefined
+          : String(normalizedFrameRate);
     }
 
     return {
@@ -235,6 +238,43 @@ class MediaTaskQueue {
       console.log("Task event: " + event_type, payload);
     }
 
+    if (
+      route === "converter" &&
+      [
+        MediaTaskType.ConvertToVideo,
+        MediaTaskType.ConvertToAudio,
+        MediaTaskType.ConvertToImage,
+        MediaTaskType.ConvertToAnimatedImage,
+      ].includes(task_type)
+    ) {
+      const { useConverterStore } = await import("@/pages/converter/store");
+      const store = useConverterStore.getState();
+      const taskExists = store.taskIndexById[task_id] !== undefined;
+      if (!taskExists && event_type !== "complete") return;
+
+      if (event_type === "progress") {
+        store.updateTaskById(task_id, {
+          status: "processing",
+          progress: normalizedProgress,
+        });
+      } else if (event_type === "complete") {
+        store.updateTaskById(task_id, {
+          status: "finished",
+          progress: 100,
+        });
+        const { useAppStore } = await import("@/stores/app");
+        useAppStore.getState().incrementUnreadFinishedCount();
+      } else if (event_type === "error") {
+        store.updateTaskById(task_id, {
+          status: error_message === "Task cancelled" ? "idle" : "error",
+          progress: error_message === "Task cancelled" ? 0 : normalizedProgress,
+          errorMessage:
+            error_message === "Task cancelled" ? undefined : error_message,
+        });
+      }
+      return;
+    }
+
     if (task_type === MediaTaskType.ConvertDenoise) {
       const { useDenoiseStore } = await import("@/pages/denoise/store");
       const store = useDenoiseStore.getState();
@@ -266,16 +306,14 @@ class MediaTaskQueue {
 
     if (
       [
-        MediaTaskType.ConvertToVideo,
-        MediaTaskType.ConvertToAudio,
-        MediaTaskType.ConvertToImage,
-        MediaTaskType.ConvertToAnimatedImage,
+        MediaTaskType.CompressVideo,
+        MediaTaskType.CompressImage,
+        MediaTaskType.CompressAudio,
       ].includes(task_type)
     ) {
       if (file_type === FileType.Video) {
-        const { useConverterStore } =
-          await import("@/pages/converter/videos/store");
-        const store = useConverterStore.getState();
+        const { useCompressorStore } = await import("@/pages/compressor/store");
+        const store = useCompressorStore.getState();
         const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
 
@@ -301,95 +339,8 @@ class MediaTaskQueue {
           });
         }
         return;
-      } else if (file_type === FileType.Image || file_type === FileType.Gif) {
-        const { useConverterStore } =
-          await import("@/pages/converter/images/store");
-        const store = useConverterStore.getState();
-        const taskExists = store.taskIndexById[task_id] !== undefined;
-        if (!taskExists && event_type !== "complete") return;
-
-        if (event_type === "progress") {
-          store.updateTaskById(task_id, {
-            status: "processing",
-            progress: normalizedProgress,
-          });
-        } else if (event_type === "complete") {
-          store.removeTask(task_id);
-          const { useAppStore } = await import("@/stores/app");
-          useAppStore.getState().incrementUnreadFinishedCount();
-        } else if (event_type === "error") {
-          store.updateTaskById(task_id, {
-            status: error_message === "Task cancelled" ? "idle" : "error",
-            progress:
-              error_message === "Task cancelled" ? 0 : normalizedProgress,
-            errorMessage:
-              error_message === "Task cancelled" ? undefined : error_message,
-          });
-        }
-        return;
-      } else if (file_type === FileType.Audio) {
-        const { useConverterStore } =
-          await import("@/pages/converter/audios/store");
-        const store = useConverterStore.getState();
-        const taskExists = store.taskIndexById[task_id] !== undefined;
-        if (!taskExists && event_type !== "complete") return;
-
-        if (event_type === "progress") {
-          store.updateTaskById(task_id, {
-            status: "processing",
-            progress: normalizedProgress,
-          });
-        } else if (event_type === "complete") {
-          store.removeTask(task_id);
-          const { useAppStore } = await import("@/stores/app");
-          useAppStore.getState().incrementUnreadFinishedCount();
-        } else if (event_type === "error") {
-          store.updateTaskById(task_id, {
-            status: error_message === "Task cancelled" ? "idle" : "error",
-            progress:
-              error_message === "Task cancelled" ? 0 : normalizedProgress,
-            errorMessage:
-              error_message === "Task cancelled" ? undefined : error_message,
-          });
-        }
-        return;
-      }
-    } else if (
-      [
-        MediaTaskType.CompressVideo,
-        MediaTaskType.CompressImage,
-        MediaTaskType.CompressAudio,
-      ].includes(task_type)
-    ) {
-      if (file_type === FileType.Video) {
-        const { useCompressorStore } =
-          await import("@/pages/compressor/videos/store");
-        const store = useCompressorStore.getState();
-        const taskExists = store.taskIndexById[task_id] !== undefined;
-        if (!taskExists && event_type !== "complete") return;
-
-        if (event_type === "progress") {
-          store.updateTaskById(task_id, {
-            status: "processing",
-            progress: normalizedProgress,
-          });
-        } else if (event_type === "complete") {
-          store.removeTask(task_id);
-          const { useAppStore } = await import("@/stores/app");
-          useAppStore.getState().incrementUnreadFinishedCount();
-        } else if (event_type === "error") {
-          store.updateTaskById(task_id, {
-            status: error_message === "Task cancelled" ? "idle" : "error",
-            progress:
-              error_message === "Task cancelled" ? 0 : normalizedProgress,
-            errorMessage:
-              error_message === "Task cancelled" ? undefined : error_message,
-          });
-        }
-        return;
       } else if (file_type === FileType.Image) {
-        const { useCompressorStore } =
-          await import("@/pages/compressor/images/store");
+        const { useCompressorStore } = await import("@/pages/compressor/store");
         const store = useCompressorStore.getState();
         const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
@@ -400,7 +351,10 @@ class MediaTaskQueue {
             progress: normalizedProgress,
           });
         } else if (event_type === "complete") {
-          store.removeTask(task_id);
+          store.updateTaskById(task_id, {
+            status: "finished",
+            progress: 100,
+          });
           const { useAppStore } = await import("@/stores/app");
           useAppStore.getState().incrementUnreadFinishedCount();
         } else if (event_type === "error") {
@@ -414,8 +368,7 @@ class MediaTaskQueue {
         }
         return;
       } else if (file_type === FileType.Audio) {
-        const { useCompressorStore } =
-          await import("@/pages/compressor/audios/store");
+        const { useCompressorStore } = await import("@/pages/compressor/store");
         const store = useCompressorStore.getState();
         const taskExists = store.taskIndexById[task_id] !== undefined;
         if (!taskExists && event_type !== "complete") return;
@@ -426,7 +379,10 @@ class MediaTaskQueue {
             progress: normalizedProgress,
           });
         } else if (event_type === "complete") {
-          store.removeTask(task_id);
+          store.updateTaskById(task_id, {
+            status: "finished",
+            progress: 100,
+          });
           const { useAppStore } = await import("@/stores/app");
           useAppStore.getState().incrementUnreadFinishedCount();
         } else if (event_type === "error") {

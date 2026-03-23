@@ -19,7 +19,7 @@ export default function MediaOriginalInfoGrid({
   const audioStream = mediaDetails?.streams.find((s) => s.codec_type === "audio");
 
   let parts: Array<string | undefined> = [];
-  if (isVideoFormat(extension as any)) {
+  if (isVideoFormat(extension)) {
     parts = [
       mediaDetails?.extension?.toUpperCase?.(),
       videoStream?.codec_name?.toUpperCase?.(),
@@ -28,14 +28,14 @@ export default function MediaOriginalInfoGrid({
         : undefined,
       videoStream?.bit_rate ? String(videoStream.bit_rate / 1000) : undefined,
     ];
-  } else if (isAudioFormat(extension as any)) {
+  } else if (isAudioFormat(extension)) {
     parts = [
       mediaDetails?.extension?.toUpperCase?.(),
       audioStream?.codec_name?.toUpperCase?.(),
       audioStream?.bit_rate ? String(audioStream.bit_rate) : undefined,
       audioStream?.sample_rate ? `${audioStream.sample_rate}` : undefined,
     ];
-  } else if (isImageFormat(extension as any)) {
+  } else if (isImageFormat(extension)) {
     parts = [
       mediaDetails?.extension?.toUpperCase?.(),
       mediaDetails?.format_names,

@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@font-face {
+  font-family: "Watermark Noto Sans SC";
+  src: url("/fonts/NotoSansSC-Regular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -122,7 +130,6 @@
   body {
     @apply bg-background text-foreground;
     overscroll-behavior: none;
-    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -147,6 +154,14 @@
 .fx-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+
+}
+
+.fx-scrollbar-y {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .fx-scrollbar::-webkit-scrollbar {

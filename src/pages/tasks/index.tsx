@@ -20,8 +20,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { revealItemInDir } from "@/lib/revealItemInDir";
 import { useAppStore } from "@/stores/app";
 import { toast } from "sonner";
-import { extractFilenameFromPath, getExtension } from "@/lib/utils";
+import { cn, extractFilenameFromPath, getExtension } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+
 
 const STATUS_CLASSNAME: Record<string, string> = {
   finished: "text-green-600",
@@ -277,14 +278,20 @@ export default function TaskHistoryPage() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="relative flex-1 min-h-0 overflow-auto">
-
-        <Table>
+      <CardContent className="relative flex-1 min-h-0 flex flex-col">
+        <Table className="flex-1 min-h-0">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead
+                    key={header.id}
+                    className={
+                      header.column.id === "actions"
+                        ? "sticky right-0 z-20 bg-background shadow-[-8px_0_8px_-8px_hsl(var(--border))]"
+                        : undefined
+                    }
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -293,24 +300,31 @@ export default function TaskHistoryPage() {
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody className={loading || isPending ? "opacity-80 transition-opacity" : "transition-opacity"}>
+          <TableBody className={cn("fx-scrollbar fx-scrollbar-y", loading || isPending ? "opacity-80 transition-opacity" : "transition-opacity")}>
             {table.getRowModel().rows.map((row) => (
               <TableRow key={row.id}>
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                  <TableCell
+                    key={cell.id}
+                    className={
+                      cell.column.id === "actions"
+                        ? "sticky right-0 z-10 bg-background shadow-[-8px_0_8px_-8px_hsl(var(--border))]"
+                        : undefined
+                    }
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
               </TableRow>
             ))}
             {loading && table.getRowModel().rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="py-8">
-                    <div className="flex items-center justify-center w-full">
-                      <div className="loader"></div>
-                    </div>
-                  </TableCell>
-                </TableRow>
+              <TableRow>
+                <TableCell colSpan={8} className="py-8">
+                  <div className="flex items-center justify-center w-full">
+                    <div className="loader"></div>
+                  </div>
+                </TableCell>
+              </TableRow>
             )}
             {(loading || isPending) && table.getRowModel().rows.length > 0 && (
               <TableRow>

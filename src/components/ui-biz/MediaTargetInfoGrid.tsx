@@ -37,7 +37,10 @@ export default function MediaTargetInfoGrid({
       firstAudioTrack?.sample_rate ? `${firstAudioTrack.sample_rate}` : undefined,
     ];
   } else if (format === FormatEnum.GIF || format === FormatEnum.APNG) {
+
     const imageArgs = args as ConvertImageTaskArgs;
+    console.log('imageArgs', imageArgs);
+
     parts = [
       format?.toUpperCase?.(),
       imageArgs.image_encoder?.toUpperCase?.(),

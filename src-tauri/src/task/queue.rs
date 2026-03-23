@@ -8,8 +8,9 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
 use crate::commands::{
-    AudioCompressionArgs, AudioConversionArgs, DenoiseMediaArgs, GifConversionArgs, ImageCompressionArgs,
-    MediaTaskSubmitResult, TaskSubmitClientContext, VideoCompressionArgs, VideoConversionArgs,
+    AudioCompressionArgs, AudioConversionArgs, DenoiseMediaArgs, GifConversionArgs,
+    ImageCompressionArgs, MediaTaskSubmitResult, TaskSubmitClientContext, VideoCompressionArgs,
+    VideoConversionArgs,
 };
 use crate::events;
 use crate::events::TaskEmitter;
@@ -147,11 +148,8 @@ fn visible_media_kind(task: &MediaTaskRequest) -> Option<&'static str> {
                 .extension()
                 .and_then(|ext| ext.to_str());
             let format_ext = args.format.as_deref();
-            let media_type = resolve_denoise_media_type(
-                args.input_file_type.as_deref(),
-                input_ext,
-                format_ext,
-            );
+            let media_type =
+                resolve_denoise_media_type(args.input_file_type.as_deref(), input_ext, format_ext);
             if media_type.as_deref() == Some("audio") {
                 None
             } else {
@@ -167,54 +165,72 @@ fn default_watermark_icon_path(app: &AppHandle) -> Option<String> {
     if let Ok(resource_dir) = app.path().resource_dir() {
         candidates.push(resource_dir.join("icons").join("128x128.png"));
         candidates.push(resource_dir.join("icons").join("icon.png"));
-        candidates.push(resource_dir.join("resources").join("icons").join("128x128.png"));
+        candidates.push(
+            resource_dir
+                .join("resources")
+                .join("icons")
+                .join("128x128.png"),
+        );
     }
-    candidates.push(PathBuf::from("src-tauri").join("icons").join("128x128.png"));
+    candidates.push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("icons")
+            .join("128x128.png"),
+    );
+    candidates.push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("icons")
+            .join("icon.png"),
+    );
 
-    candidates
+    let candidate_strings = candidates
+        .iter()
+        .map(|path| path.to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+    log::info!(
+        "default_watermark_icon_path candidates: {:?}",
+        candidate_strings
+    );
+
+    let selected = candidates
         .into_iter()
         .find(|path| path.exists())
-        .map(|path| path.to_string_lossy().to_string())
+        .map(|path| path.to_string_lossy().to_string());
+
+    log::info!("default_watermark_icon_path selected: {:?}", selected);
+    selected
 }
 
-fn build_default_forced_watermark(app: &AppHandle) -> crate::services::media_tools::watermark::WatermarkConfig {
-    let image = default_watermark_icon_path(app).map(|path| crate::services::media_tools::watermark::ImageWatermark {
-        path,
-        scale: 1.0,
-        opacity: 0.16,
-        x: "0".to_string(),
-        y: "0".to_string(),
-        anchor: Some("br".to_string()),
-        offset_x: Some(4.0),
-        offset_y: Some(4.0),
-        offset_unit: Some("percent".to_string()),
-        size_mode: Some("video_width_ratio".to_string()),
-        size_value: Some(0.08),
-    });
-
-    crate::services::media_tools::watermark::WatermarkConfig {
-        image,
-        text: Some(crate::services::media_tools::watermark::TextWatermark {
-            content: "Exported by viko Free".to_string(),
-            font_path: crate::services::media_tools::watermark::preferred_system_font_path(),
-            font_size: 24.0,
-            color: "#FFFFFF".to_string(),
-            opacity: 0.55,
+fn build_default_forced_watermark(
+    app: &AppHandle,
+) -> crate::services::media_tools::watermark::WatermarkConfig {
+    let image = default_watermark_icon_path(app).map(|path| {
+        crate::services::media_tools::watermark::ImageWatermark {
+            path,
+            rotation: Some(0.0),
+            scale: 1.0,
+            opacity: 0.8,
             x: "0".to_string(),
             y: "0".to_string(),
-            anchor: Some("br".to_string()),
-            offset_x: Some(4.0),
-            offset_y: Some(14.0),
-            offset_unit: Some("percent".to_string()),
-        }),
-    }
+            anchor: Some("c".to_string()),
+            offset_x: Some(0.0),
+            offset_y: Some(0.0),
+            offset_unit: Some("px".to_string()),
+            size_mode: Some("video_width_ratio".to_string()),
+            size_value: Some(0.06),
+        }
+    });
+
+    crate::services::media_tools::watermark::WatermarkConfig { image, text: None }
 }
 
-fn apply_forced_watermark(
-    app: &AppHandle,
-    task: &mut MediaTaskRequest,
-) -> bool {
+fn apply_forced_watermark(app: &AppHandle, task: &mut MediaTaskRequest) -> bool {
     let forced = build_default_forced_watermark(app);
+    log::info!(
+        "apply_forced_watermark default config: image={:?} text={:?}",
+        forced.image,
+        forced.text
+    );
     match task {
         MediaTaskRequest::ConvertToVideo(args) | MediaTaskRequest::Watermark(args) => {
             args.forced_watermark = Some(forced);
@@ -265,7 +281,8 @@ pub async fn submit_tasks(
             .await
             .map_err(|e| e.to_string())?;
 
-            if current_count >= FREE_VISIBLE_MEDIA_LIMIT && apply_forced_watermark(&app, &mut task) {
+            if current_count >= FREE_VISIBLE_MEDIA_LIMIT && apply_forced_watermark(&app, &mut task)
+            {
                 forced_watermark_count += 1;
             }
 
@@ -379,7 +396,10 @@ fn start_worker(app: AppHandle) {
     }
 
     let max_parallel = worker_parallelism();
-    log::info!("media queue worker started with parallelism={}", max_parallel);
+    log::info!(
+        "media queue worker started with parallelism={}",
+        max_parallel
+    );
 
     tauri::async_runtime::spawn(async move {
         loop {
@@ -655,7 +675,10 @@ fn resolve_denoise_media_type(
 
 fn generate_denoise_output_path(input_path: &str, format: &str) -> String {
     let path = Path::new(input_path);
-    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("output");
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
     let candidate = parent.join(format!("{}_denoise.{}", stem, format));
     crate::media_common::ensure_unique_output_path(&candidate.to_string_lossy())
@@ -669,8 +692,14 @@ fn run_watermark_task(app: &AppHandle, args: VideoConversionArgs) -> Result<(), 
     let format_ext = args.format.as_ref().map(|s| s.to_lowercase());
     let declared_image = args.input_file_type.as_deref() == Some("image");
     let should_run_image = declared_image
-        || format_ext.as_deref().map(is_image_extension).unwrap_or(false)
-        || input_ext.as_deref().map(is_image_extension).unwrap_or(false);
+        || format_ext
+            .as_deref()
+            .map(is_image_extension)
+            .unwrap_or(false)
+        || input_ext
+            .as_deref()
+            .map(is_image_extension)
+            .unwrap_or(false);
 
     if should_run_image {
         let resolved_format = format_ext
@@ -723,15 +752,13 @@ fn run_convert_denoise(app: &AppHandle, args: DenoiseMediaArgs) -> Result<(), St
         format_ext.as_deref(),
     )
     .ok_or_else(|| "仅支持音频/视频文件降噪".to_string())?;
-    let resolved_format = format_ext
-        .or_else(|| input_ext.clone())
-        .unwrap_or_else(|| {
-            if media_type == "video" {
-                "mp4".to_string()
-            } else {
-                "mp3".to_string()
-            }
-        });
+    let resolved_format = format_ext.or_else(|| input_ext.clone()).unwrap_or_else(|| {
+        if media_type == "video" {
+            "mp4".to_string()
+        } else {
+            "mp3".to_string()
+        }
+    });
     let output_path = args
         .output_path
         .as_ref()
@@ -808,7 +835,12 @@ fn run_convert_denoise(app: &AppHandle, args: DenoiseMediaArgs) -> Result<(), St
             ),
             Err(e) => {
                 emitter.emit("error", None, None, Some(e.clone()));
-                (Some(e), output_path.clone(), serde_json::to_value(&args).ok(), None)
+                (
+                    Some(e),
+                    output_path.clone(),
+                    serde_json::to_value(&args).ok(),
+                    None,
+                )
             }
         }
     } else {
@@ -852,7 +884,12 @@ fn run_convert_denoise(app: &AppHandle, args: DenoiseMediaArgs) -> Result<(), St
             ),
             Err(e) => {
                 emitter.emit("error", None, None, Some(e.clone()));
-                (Some(e), output_path.clone(), serde_json::to_value(&args).ok(), None)
+                (
+                    Some(e),
+                    output_path.clone(),
+                    serde_json::to_value(&args).ok(),
+                    None,
+                )
             }
         }
     };
@@ -1009,10 +1046,20 @@ fn run_convert_animated_image(app: &AppHandle, mut args: GifConversionArgs) -> R
         .cloned()
         .unwrap_or_else(|| {
             let path = Path::new(&args.input_path);
-            let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
+            let stem = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("output");
             let parent = path.parent().unwrap_or_else(|| Path::new("."));
-            let ext = if normalized_format == "apng" { "png" } else { "gif" };
-            parent.join(format!("{stem}.{ext}")).to_string_lossy().to_string()
+            let ext = if normalized_format == "apng" {
+                "png"
+            } else {
+                "gif"
+            };
+            parent
+                .join(format!("{stem}.{ext}"))
+                .to_string_lossy()
+                .to_string()
         });
     args.output_path = Some(output_path.clone());
 
@@ -1048,12 +1095,7 @@ fn run_convert_animated_image(app: &AppHandle, mut args: GifConversionArgs) -> R
         ),
         Err(e) => {
             emitter.emit("error", None, None, Some(e.clone()));
-            (
-                Some(e),
-                output_path,
-                serde_json::to_value(&args).ok(),
-                None,
-            )
+            (Some(e), output_path, serde_json::to_value(&args).ok(), None)
         }
     };
 
@@ -1122,12 +1164,12 @@ fn run_convert_image_with_task_type(
         .unwrap_or_else(|| "image".to_string());
     let emitter = events::window_emitter(app, task_id.clone(), task_type.into(), file_type)?;
 
-    let result = if image::is_animated_image_target(&args.format, &args.output_path, &args.input_path)
-    {
-        gif::convert_animated_image(app, task_id.clone(), task_type, args.clone())
-    } else {
-        tauri::async_runtime::block_on(image::convert_image_file_with_report(args.clone()))
-    };
+    let result =
+        if image::is_animated_image_target(&args.format, &args.output_path, &args.input_path) {
+            gif::convert_animated_image(app, task_id.clone(), task_type, args.clone())
+        } else {
+            tauri::async_runtime::block_on(image::convert_image_file_with_report(args.clone()))
+        };
 
     let (error, final_output_path, effective_params, output_size_hint) = match result {
         Ok(report) => {

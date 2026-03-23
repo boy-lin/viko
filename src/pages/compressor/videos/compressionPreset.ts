@@ -8,6 +8,13 @@ import {
   AudioEncoderEnum,
   FormatEnum,
 } from "@/types/options";
+import {
+  FileType,
+  MediaDetailsWithResolve,
+  MediaTaskType,
+} from "@/types/tasks";
+import { CompressorTask } from "../store";
+import { extractFilenameFromPath } from "@/lib/utils";
 
 export type VideoCompressionTier =
   | "extreme_compression"
@@ -71,8 +78,11 @@ const pickVideoEncoderBySourceAndFormat = (
   format: FormatEnum,
   sourceCodec?: string,
 ) => {
-  const allowed = VIDEO_CONTAINER_DEFINITIONS[format]?.video?.allowedEncoders || [];
-  const normalizedSourceCodec = String(sourceCodec ?? "").toLowerCase() as VideoEncoderEnum;
+  const allowed =
+    VIDEO_CONTAINER_DEFINITIONS[format]?.video?.allowedEncoders || [];
+  const normalizedSourceCodec = String(
+    sourceCodec ?? "",
+  ).toLowerCase() as VideoEncoderEnum;
   if (normalizedSourceCodec && allowed.includes(normalizedSourceCodec)) {
     return normalizedSourceCodec;
   }
@@ -238,7 +248,10 @@ export const getVideoCompressionPresetByRatio = (
   const baselineBitrateKbps = normalizeSourceBitrate(source?.videoBitrateKbps);
   const codec = pickVideoEncoderBySourceAndFormat(format, source?.sourceCodec);
   const encoderDefinition = VIDEO_ENCODER_DEFINITIONS[codec];
-  const videoMinBitrate = Math.max(100, encoderDefinition?.video?.minBitrate ?? 100);
+  const videoMinBitrate = Math.max(
+    100,
+    encoderDefinition?.video?.minBitrate ?? 100,
+  );
   const videoMaxBitrate = Math.max(
     videoMinBitrate,
     encoderDefinition?.video?.maxBitrate ?? 50000,
@@ -250,15 +263,32 @@ export const getVideoCompressionPresetByRatio = (
   const audioBitrateFactor = 0.35 + normalizedRatio * 0.0065;
 
   const fallbackBitrateByTier =
-    normalizedRatio < 20 ? 600 : normalizedRatio <= 40 ? 1400 : normalizedRatio <= 70 ? 2400 : 3800;
+    normalizedRatio < 20
+      ? 600
+      : normalizedRatio <= 40
+        ? 1400
+        : normalizedRatio <= 70
+          ? 2400
+          : 3800;
   const fallbackFrameRateByTier =
-    normalizedRatio < 20 ? 15 : normalizedRatio <= 40 ? 20 : normalizedRatio <= 70 ? 24 : 30;
-  const sourceBasedFrameRate = Math.max(12, Math.round(baselineFrameRate * frameRateFactor));
-  const sourceBasedKeyframe = Math.max(1, Math.round(baselineKeyframeInterval * keyframeFactor));
-  const baseBitrateForCodec =
-    baselineBitrateKbps
-      ? Math.max(videoMinBitrate, Math.round(baselineBitrateKbps * bitrateFactor))
-      : fallbackBitrateByTier;
+    normalizedRatio < 20
+      ? 15
+      : normalizedRatio <= 40
+        ? 20
+        : normalizedRatio <= 70
+          ? 24
+          : 30;
+  const sourceBasedFrameRate = Math.max(
+    12,
+    Math.round(baselineFrameRate * frameRateFactor),
+  );
+  const sourceBasedKeyframe = Math.max(
+    1,
+    Math.round(baselineKeyframeInterval * keyframeFactor),
+  );
+  const baseBitrateForCodec = baselineBitrateKbps
+    ? Math.max(videoMinBitrate, Math.round(baselineBitrateKbps * bitrateFactor))
+    : fallbackBitrateByTier;
   const sourceBasedBitrate = resolveVideoBitrate(
     codec,
     sourceBasedFrameRate,
@@ -273,7 +303,9 @@ export const getVideoCompressionPresetByRatio = (
     encoderDefinition?.video?.gopOptions,
     sourceBasedKeyframe,
   );
-  const bitrate = clampByRange(sourceBasedBitrate, videoMinBitrate, videoMaxBitrate) ?? fallbackBitrateByTier;
+  const bitrate =
+    clampByRange(sourceBasedBitrate, videoMinBitrate, videoMaxBitrate) ??
+    fallbackBitrateByTier;
   const audioTracks = baseTracks.map((track) =>
     scaleTrackBitrate(track, 64, audioBitrateFactor),
   );
@@ -337,5 +369,321 @@ export const getVideoCompressionPresetByRatio = (
       bitrate,
       audio_tracks: audioTracks,
     },
+  };
+};
+
+interface TaskItemProps {
+  task: CompressorTask;
+  metaStatus?: "idle" | "loading" | "error";
+  metaError?: string;
+  onRetryMeta?: () => void;
+}
+
+interface CompressibilityAssessment {
+  score: number;
+  text: string;
+  colorClass: string;
+  recommendedFormat: FormatEnum;
+}
+
+const HIGH_EFFICIENCY_CODECS = new Set(["hevc", "h265", "av1", "vp9"]);
+const INEFFICIENT_CODECS = new Set([
+  "mpeg2video",
+  "mpeg4",
+  "h263",
+  "h261",
+  "wmv1",
+  "wmv2",
+  "wmv3",
+]);
+const INTRA_OR_LOSSLESS_CODECS = new Set([
+  "prores",
+  "prores_ks",
+  "mjpeg",
+  "ffv1",
+  "huffyuv",
+  "utvideo",
+  "rawvideo",
+  "dnxhd",
+  "dnxhr",
+]);
+
+const toNumber = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+};
+
+const SOURCE_CODEC_TO_ENCODER: Partial<Record<string, VideoEncoderEnum>> = {
+  h264: VideoEncoderEnum.H264,
+  avc: VideoEncoderEnum.H264,
+  hevc: VideoEncoderEnum.H265,
+  h265: VideoEncoderEnum.H265,
+  vp9: VideoEncoderEnum.VP9,
+  av1: VideoEncoderEnum.AV1,
+  mpeg4: VideoEncoderEnum.MPEG4,
+  mpeg2video: VideoEncoderEnum.MPEG2VIDEO,
+  mjpeg: VideoEncoderEnum.MJPEG,
+  prores: VideoEncoderEnum.PRORES,
+  prores_ks: VideoEncoderEnum.PRORES,
+  libxvid: VideoEncoderEnum.XVID,
+  xvid: VideoEncoderEnum.XVID,
+};
+
+const clampScore = (score: number) =>
+  Math.max(0, Math.min(100, Math.round(score)));
+
+const parseFrameRateValue = (value: unknown): number => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return 0;
+  const input = value.trim();
+  if (!input) return 0;
+  if (input.includes("/")) {
+    const [num, den] = input.split("/");
+    const n = Number.parseFloat(num);
+    const d = Number.parseFloat(den);
+    if (Number.isFinite(n) && Number.isFinite(d) && d > 0) {
+      return n / d;
+    }
+  }
+  const parsed = Number.parseFloat(input);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const pickBestCompressionFormat = (
+  score: number,
+  originalExtension?: string,
+): FormatEnum => {
+  const original = (originalExtension ?? "").toLowerCase();
+  if (score >= 80) return FormatEnum.WEBM;
+  if (score >= 60) return FormatEnum.MP4;
+  if (
+    [FormatEnum.MP4, FormatEnum.MKV, FormatEnum.MOV, FormatEnum.WEBM].includes(
+      original as FormatEnum,
+    )
+  ) {
+    return original as FormatEnum;
+  }
+  return FormatEnum.MP4;
+};
+
+const assessCompressibility = (details: any): CompressibilityAssessment => {
+  const stream = details?.streams?.find((s: any) => s.codec_type === "video");
+  const codecName = String(stream?.codec_name ?? "").toLowerCase();
+  const bitrateBps =
+    toNumber(stream?.bit_rate) ?? toNumber(details?.bit_rate) ?? 0;
+  const bitrateKbps = bitrateBps > 0 ? bitrateBps / 1000 : 0;
+  const width = toNumber(stream?.width) ?? 0;
+  const height = toNumber(stream?.height) ?? 0;
+  const frameRate = parseFrameRateValue(stream?.frame_rate);
+
+  let score = 18;
+
+  if (INTRA_OR_LOSSLESS_CODECS.has(codecName)) score += 30;
+  else if (INEFFICIENT_CODECS.has(codecName)) score += 18;
+  else if (HIGH_EFFICIENCY_CODECS.has(codecName)) score -= 8;
+
+  if (bitrateKbps >= 20000) score += 28;
+  else if (bitrateKbps >= 12000) score += 22;
+  else if (bitrateKbps >= 8000) score += 16;
+  else if (bitrateKbps >= 5000) score += 10;
+  else if (bitrateKbps > 0) score += 4;
+
+  const pixels = width * height;
+  if (pixels >= 3840 * 2160) score += 10;
+  else if (pixels >= 2560 * 1440) score += 8;
+  else if (pixels >= 1920 * 1080) score += 6;
+  else if (pixels > 0) score += 3;
+
+  if (frameRate >= 60) score += 8;
+  else if (frameRate >= 30) score += 5;
+  else if (frameRate > 0) score += 2;
+
+  if (
+    HIGH_EFFICIENCY_CODECS.has(codecName) &&
+    bitrateKbps > 0 &&
+    bitrateKbps <= 3500
+  ) {
+    score -= 14;
+  } else if (
+    HIGH_EFFICIENCY_CODECS.has(codecName) &&
+    bitrateKbps > 0 &&
+    bitrateKbps <= 5500
+  ) {
+    score -= 8;
+  }
+
+  const normalizedScore = clampScore(score);
+  const recommendedFormat = pickBestCompressionFormat(
+    normalizedScore,
+    details?.extension,
+  );
+
+  if (normalizedScore >= 80) {
+    return {
+      score: normalizedScore,
+      text: "压缩潜力极高",
+      colorClass: "text-emerald-600",
+      recommendedFormat,
+    };
+  }
+  if (normalizedScore >= 60) {
+    return {
+      score: normalizedScore,
+      text: "压缩潜力高",
+      colorClass: "text-sky-600",
+      recommendedFormat,
+    };
+  }
+  if (normalizedScore >= 40) {
+    return {
+      score: normalizedScore,
+      text: "可适度压缩",
+      colorClass: "text-amber-600",
+      recommendedFormat,
+    };
+  }
+  return {
+    score: normalizedScore,
+    text: "压缩空间有限",
+    colorClass: "text-rose-600",
+    recommendedFormat,
+  };
+};
+
+export const buildDefaultTaskDetailsUpdates = (
+  task: CompressorTask,
+  details: MediaDetailsWithResolve,
+): Partial<CompressorTask> => {
+  const title = details.title || extractFilenameFromPath(details.path);
+  const taskId = task.id;
+  const path = task.args.input_path;
+  const assessment = assessCompressibility(details);
+  const ratio = typeof task.args.ratio === "number" ? task.args.ratio : 20;
+  const currentArgs = task.args as CompressVideoTaskArgs;
+  const sourceFormat =
+    (details.format as FormatEnum) || (details.extension as FormatEnum);
+  const sourceFormatSupported = Boolean(
+    sourceFormat && VIDEO_CONTAINER_DEFINITIONS[sourceFormat],
+  );
+  const currentFormat = sourceFormatSupported
+    ? sourceFormat
+    : currentArgs.format || assessment.recommendedFormat;
+  const firstVideoStream = details?.streams?.find(
+    (s: any) => s.codec_type === "video",
+  );
+  const sourceCodecName = String(
+    firstVideoStream?.codec_name ?? "",
+  ).toLowerCase();
+  const sourceCodec =
+    SOURCE_CODEC_TO_ENCODER[sourceCodecName] ??
+    (sourceCodecName as VideoEncoderEnum);
+  const sourceVideoBitrate = toNumber(firstVideoStream?.bit_rate);
+  const sourceVideoBitrateKbps =
+    typeof sourceVideoBitrate === "number" && sourceVideoBitrate > 0
+      ? Math.max(1, Math.round(sourceVideoBitrate / 1000))
+      : undefined;
+  const sourceFrameRateRaw = parseFrameRateValue(firstVideoStream?.frame_rate);
+  const sourceFrameRate =
+    sourceFrameRateRaw > 0 && Number.isFinite(sourceFrameRateRaw)
+      ? sourceFrameRateRaw
+      : undefined;
+  const sourceKeyframeInterval =
+    typeof sourceFrameRate === "number"
+      ? Math.max(1, Math.round(sourceFrameRate * 2))
+      : undefined;
+  const initialAudioTracks =
+    details?.streams
+      ?.filter((stream: any) => stream.codec_type === "audio")
+      .map((stream: any) => ({
+        source_stream_index: stream.index,
+        bitrate:
+          typeof stream.bit_rate === "number" && stream.bit_rate > 0
+            ? Math.max(1, Math.round(stream.bit_rate / 1000))
+            : 128,
+        sample_rate:
+          typeof stream.sample_rate === "number" && stream.sample_rate > 0
+            ? stream.sample_rate
+            : 32000,
+        channels: stream.channels,
+        bit_depth: stream.bit_depth,
+      })) || [];
+
+  const ratioPreset = getVideoCompressionPresetByRatio(
+    ratio,
+    currentFormat,
+    initialAudioTracks,
+    {
+      sourceCodec,
+      videoBitrateKbps: sourceVideoBitrateKbps,
+      frameRate: sourceFrameRate,
+      keyframeInterval: sourceKeyframeInterval,
+    },
+  );
+  const ratioPatch = { ...ratioPreset.patch };
+  delete ratioPatch.codec;
+  const outputArgs: CompressVideoTaskArgs = {
+    ...currentArgs,
+    ...ratioPatch,
+    task_id: taskId,
+    format: currentFormat,
+    input_path: path,
+    ratio,
+    resolution:
+      firstVideoStream?.width && firstVideoStream?.height
+        ? `${firstVideoStream.width}x${firstVideoStream.height}`
+        : undefined,
+    frame_rate: sourceFrameRate?.toString(),
+    source_video_bitrate: sourceVideoBitrateKbps,
+    source_frame_rate: sourceFrameRate,
+    source_keyframe_interval: sourceKeyframeInterval,
+    source_audio_tracks: initialAudioTracks,
+  };
+  const containerDefinition =
+    VIDEO_CONTAINER_DEFINITIONS[outputArgs.format as FormatEnum];
+  const resolvedSourceCodec =
+    containerDefinition?.video?.allowedEncoders?.includes(
+      sourceCodec as VideoEncoderEnum,
+    )
+      ? (sourceCodec as VideoEncoderEnum)
+      : undefined;
+  const resolvedPresetCodec =
+    containerDefinition?.video?.allowedEncoders?.includes(
+      ratioPreset.patch.codec as VideoEncoderEnum,
+    )
+      ? (ratioPreset.patch.codec as VideoEncoderEnum)
+      : undefined;
+  outputArgs.codec =
+    resolvedSourceCodec ||
+    resolvedPresetCodec ||
+    containerDefinition?.video?.allowedEncoders?.[0] ||
+    currentArgs.codec;
+  outputArgs.audio_tracks =
+    details?.streams
+      ?.filter((stream: any) => stream.codec_type === "audio")
+      .map((stream: any) => ({
+        source_stream_index: stream.index,
+        codec: containerDefinition?.audio?.allowedEncoders[0],
+        bitrate:
+          typeof stream.bit_rate === "number" && stream.bit_rate > 0
+            ? Math.max(1, Math.round(stream.bit_rate / 1000))
+            : 128,
+        sample_rate:
+          typeof stream.sample_rate === "number" && stream.sample_rate > 0
+            ? stream.sample_rate
+            : 32000,
+        channels: stream.channels,
+        bit_depth: stream.bit_depth,
+      })) || [];
+
+  return {
+    mediaDetails: details,
+    args: outputArgs,
+    fileType: FileType.Video,
+    taskType: MediaTaskType.CompressVideo,
+    outputTitle: title,
   };
 };

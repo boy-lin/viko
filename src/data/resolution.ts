@@ -1,3 +1,5 @@
+export const DEFAULT_RESOLUTION = { width: 1920, height: 1080 };
+
 export const RESOLUTION_GROUPS_DEVICES = [
   {
     id: "iphone",
@@ -25,47 +27,35 @@ export const RESOLUTION_GROUPS_DEVICES = [
   {
     id: "oppo",
     label: "OPPO",
-    resolutions: [
-      { value: "2556x1179", label: "Find X7, Find X7 Pro" },
-    ],
+    resolutions: [{ value: "2556x1179", label: "Find X7, Find X7 Pro" }],
   },
   {
     id: "vivo",
     label: "VIVO",
-    resolutions: [
-      { value: "2556x1179", label: "VIVO X100, VIVO X100 Pro" },
-    ],
+    resolutions: [{ value: "2556x1179", label: "VIVO X100, VIVO X100 Pro" }],
   },
   {
     id: "huawei",
     label: "Huawei",
-    resolutions: [
-      { value: "2556x1179", label: "Mate 60 Pro, P60 Pro" },
-    ],
-  }
-]
+    resolutions: [{ value: "2556x1179", label: "Mate 60 Pro, P60 Pro" }],
+  },
+];
 
 export const RESOLUTION_GROUPS_PLATFORMS = [
   {
     id: "youtube",
     label: "YouTube",
-    resolutions: [
-      { value: "1920x1080", label: "1080p" },
-    ],
+    resolutions: [{ value: "1920x1080", label: "1080p" }],
   },
   {
     id: "facebook",
     label: "Facebook",
-    resolutions: [
-      { value: "1920x1080", label: "1080p" },
-    ],
+    resolutions: [{ value: "1920x1080", label: "1080p" }],
   },
   {
     id: "instagram",
     label: "Instagram",
-    resolutions: [
-      { value: "1920x1080", label: "1080p" },
-    ],
+    resolutions: [{ value: "1920x1080", label: "1080p" }],
   },
   {
     id: "douyin",
@@ -94,9 +84,7 @@ export const RESOLUTION_GROUPS_PLATFORMS = [
   {
     id: "bilibili",
     label: "Bilibili",
-    resolutions: [
-      { value: "1146x717", label: "默认尺寸" },
-    ],
+    resolutions: [{ value: "1146x717", label: "默认尺寸" }],
   },
   {
     id: "weixin",
@@ -106,7 +94,7 @@ export const RESOLUTION_GROUPS_PLATFORMS = [
       { value: "1080×1260", label: "竖版" },
     ],
   },
-]
+];
 
 export interface ResolutionOption {
   label: string;
@@ -122,16 +110,16 @@ export const RESOLUTION_OPTIONS = [
   {
     label: "",
     options: [
-      { value: "auto", label: "Auto" },
+      // { value: "auto", label: "Auto" },
       { value: "custom", label: "Custom" },
-    ]
+    ],
   },
   {
     label: "8K / 4K / UHD",
     options: [
       { value: "7680x4320", label: "8K UHD (16:9)" },
       { value: "3840x2160", label: "4K UHD (16:9)" },
-    ]
+    ],
   },
   {
     label: "2K / QHD",
@@ -139,7 +127,7 @@ export const RESOLUTION_OPTIONS = [
       { value: "2560x1440", label: "QHD (16:9)" },
       { value: "2796x1290", label: "2796x1290" },
       { value: "2556x1179", label: "2556x1179" },
-    ]
+    ],
   },
   {
     label: "FHD / 1080P",
@@ -150,7 +138,7 @@ export const RESOLUTION_OPTIONS = [
       { value: "1080x1080", label: "1080x1080 (1:1)" },
       { value: "1080x1260", label: "1080x1260" },
       { value: "1242x1660", label: "1242x1660" },
-    ]
+    ],
   },
   {
     label: "HD / 720P",
@@ -158,7 +146,7 @@ export const RESOLUTION_OPTIONS = [
       { value: "1280x720", label: "HD (16:9)" },
       { value: "1080x608", label: "1080x608 (16:9)" },
       { value: "1146x717", label: "1146x717" },
-    ]
+    ],
   },
   {
     label: "SD / Others",
@@ -166,6 +154,6 @@ export const RESOLUTION_OPTIONS = [
       { value: "720x576", label: "576P (4:3)" },
       { value: "480x360", label: "360P (4:3)" },
       { value: "320x240", label: "240P (4:3)" },
-    ]
-  }
+    ],
+  },
 ];

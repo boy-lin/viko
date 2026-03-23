@@ -1,6 +1,7 @@
 import { type PointerEvent as ReactPointerEvent, useMemo, useRef } from "react";
 import { ThumbnailImage } from "@/components/image/ThumbnailImage";
 import { WatermarkEditorConfig } from "./types";
+import { DEFAULT_WATERMARK_FONT_CSS_FAMILY } from "./font";
 
 type PreviewPanelProps = {
   config: WatermarkEditorConfig;
@@ -144,10 +145,10 @@ export function PreviewPanel({ config, frame, loading = false, onOffsetChange }:
   };
 
   return (
-    <div className="flex items-center justify-center relative overflow-hidden w-[388px] h-[412px]">
+    <div className="flex items-center justify-center relative overflow-hidden h-full m-auto">
       <div
         ref={containerRef}
-        className="relative bg-black/20 rounded-md overflow-hidden"
+        className="relative bg-black/20 rounded-md overflow-hidden select-none"
         style={{
           width: renderedSize.width,
           height: renderedSize.height,
@@ -178,6 +179,7 @@ export function PreviewPanel({ config, frame, loading = false, onOffsetChange }:
             transform: `rotate(${config.rotation}deg)`,
             opacity: config.opacity / 100,
             fontSize: config.type === "text" ? `${previewFontSize}px` : undefined,
+            fontFamily: config.type === "text" ? (config.fontFamily || DEFAULT_WATERMARK_FONT_CSS_FAMILY) : undefined,
             width: config.type === "image" ? `${previewImageWidth}px` : undefined,
             height: config.type === "image" ? `${previewImageHeight}px` : undefined,
             color: "rgba(255,255,255,1)",

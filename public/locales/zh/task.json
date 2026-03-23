@@ -25,7 +25,7 @@
     "folder_no_supported": "所选文件夹中未找到支持的文件"
   },
   "footer": {
-    "target_format": "目标格式",
+    "target_format": "批量输出配置",
     "quality": "压缩质量",
     "save_to": "保存到",
     "convert_all": "转换全部",
@@ -101,7 +101,6 @@
       "applyAll": "应用到全部"
     },
     "fields": {
-      "ratioSummary": "压缩系数 {{ratio}}%（越高通常质量更好，体积更大）",
       "colorMode": "颜色模式",
       "dpi": "DPI",
       "stripMetadata": "移除元数据",

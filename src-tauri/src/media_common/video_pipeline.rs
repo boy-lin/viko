@@ -451,6 +451,14 @@ pub fn create_black_video_encoder(
 
     ost.set_parameters(&encoder);
     crate::media_common::video_transcode::force_hevc_hvc1_tag(&mut ost, codec_id, params.format.as_str());
+    let encoder_time_base = if encoder.time_base().numerator() > 0 {
+        let tb = encoder.time_base();
+        ost.set_time_base(tb);
+        tb
+    } else {
+        ost.set_time_base(encoder_time_base);
+        encoder_time_base
+    };
 
     Ok(BlackVideoEncoderBundle {
         encoder,

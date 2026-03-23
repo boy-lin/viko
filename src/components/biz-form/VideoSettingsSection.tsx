@@ -1,20 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { ConvertVideoTaskArgs } from "@/lib/mediaTaskEvent";
 import { useTranslation } from "react-i18next";
-import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
-import { VideoQualitySelect } from "@/components/biz-form/VideoQualitySelect";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { VideoResolutionGroup } from "@/components/biz-form/VideoResolutionGroup";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { BadgeQuestionMark } from "lucide-react";
 import { VideoEncoderSelect } from "./VideoEncoderSelect";
 import { VIDEO_CONTAINER_DEFINITIONS, VIDEO_ENCODER_DEFINITIONS } from "@/data/capabilities";
 import { FormatEnum, VideoEncoderEnum } from "@/types/options";
 import { VideoFrameRateSelectGroup } from "./VideoFrameRateSelectGroup";
 import { ColorSpaceSelect } from "./ColorSpaceSelect";
 import { ColorRangeSelect } from "./ColorRangeSelect";
+import VideoBitrateModeGroup from "./VideoBitrateModeGroup";
 
 export default function VideoSettingsSection({
   format,
@@ -45,21 +40,6 @@ export default function VideoSettingsSection({
 }) {
   const { t } = useTranslation("task");
 
-  const currentMode = useMemo(() => {
-    const normalized = rc_mode?.toLowerCase();
-    if (normalized === "cbr" || normalized === "vbr" || normalized === "crf") {
-      return normalized;
-    }
-    if (typeof crf === "number") return "crf";
-    return "vbr";
-  }, [crf, rc_mode]);
-
-  const effectiveBitrate = useMemo(
-    () => video_bitrate ?? max_bitrate ?? min_bitrate,
-    [max_bitrate, min_bitrate, video_bitrate],
-  );
-
-
   const formatDefinition = useMemo(() => {
     if (!format) return undefined;
     return VIDEO_CONTAINER_DEFINITIONS[format as FormatEnum];
@@ -85,110 +65,21 @@ export default function VideoSettingsSection({
 
   return <ScrollArea className="flex-1 min-h-0 overflow-hidden">
     <div className="grid grid-cols-2 gap-4 space-y-4 p-2">
-      <div className="col-span-2 space-y-2">
-        <div className="flex items-center gap-1">
-          <Label>{t("videoSimpleSettings.clarity")}</Label>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <BadgeQuestionMark className="h-4 w-4 text-muted-foreground cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent className="max-w-64 whitespace-normal break-words">
-              {t("videoCompressor.fields.clarityHelp")}
-            </TooltipContent>
-          </Tooltip>
-        </div>
-        <div className="space-y-2">
-          <RadioGroup
-            className="flex items-center gap-4"
-            value={currentMode}
-            onValueChange={(nextMode) => {
-              if (nextMode === "cbr") {
-                onChange({
-                  rc_mode: "cbr",
-                  crf: undefined,
-                  min_bitrate: effectiveBitrate,
-                  max_bitrate: effectiveBitrate,
-                });
-                return;
-              }
-
-              if (nextMode === "vbr") {
-                onChange({
-                  rc_mode: "vbr",
-                  crf: undefined,
-                  min_bitrate: undefined,
-                  max_bitrate: undefined,
-                });
-                return;
-              }
-
-              onChange({
-                rc_mode: "crf",
-                video_bitrate: undefined,
-                min_bitrate: undefined,
-                max_bitrate: undefined,
-              });
-            }}
-          >
-            {[
-              { value: "cbr", labelKey: "videoSimpleSettings.mode.cbr" },
-              { value: "vbr", labelKey: "videoSimpleSettings.mode.vbr" },
-              { value: "crf", labelKey: "videoSimpleSettings.mode.crf" },
-            ].map((opt) => (
-              <Label
-                key={opt.value}
-                className="flex items-center gap-2 cursor-pointer"
-                htmlFor={`clarity-mode-${opt.value}`}
-              >
-                <RadioGroupItem
-                  className="cursor-pointer"
-                  value={opt.value}
-                  id={`clarity-mode-${opt.value}`}
-                />
-                <span className="whitespace-nowrap">{t(opt.labelKey)}</span>
-              </Label>
-            ))}
-          </RadioGroup>
-
-          {currentMode === "crf" ? (
-            <VideoQualitySelect
-              value={crf}
-              onValueChange={(val) => {
-                onChange({
-                  crf: val,
-                  video_bitrate: undefined,
-                  min_bitrate: undefined,
-                  max_bitrate: undefined,
-                  rc_mode: val !== undefined ? "crf" : undefined,
-                });
-              }}
-            />
-          ) : (
-            <VideoBitrateSelect
-              hideLabel
-              className="inline-block"
-              value={effectiveBitrate ? effectiveBitrate.toString() : "auto"}
-              onValueChange={(val) => {
-                const nextBitrate = val === "auto" ? undefined : parseInt(val);
-                onChange({
-                  video_bitrate: nextBitrate,
-                  crf: undefined,
-                  rc_mode: currentMode,
-                  min_bitrate: currentMode === "cbr" ? nextBitrate : undefined,
-                  max_bitrate: currentMode === "cbr" ? nextBitrate : undefined,
-                });
-              }}
-            />
-          )}
-        </div>
-      </div>
+      <VideoBitrateModeGroup
+        rc_mode={rc_mode}
+        crf={crf}
+        video_bitrate={video_bitrate}
+        min_bitrate={min_bitrate}
+        max_bitrate={max_bitrate}
+        onChange={onChange}
+      />
       <VideoResolutionGroup
         className="col-span-2"
         label={t("settings.video.fields.resolution")}
         helpText={t("settings.video.fields.resolutionHelp")}
         resolution={resolution}
         onChange={(value) => onChange({ resolution: value })}
-        showMoreBtns={true} 
+        showMoreBtns={true}
       />
       <div className="col-span-2 space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
         <div className="text-sm font-medium text-foreground">

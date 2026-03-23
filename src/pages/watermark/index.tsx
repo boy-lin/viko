@@ -6,9 +6,9 @@ import { IMAGE_SUPPORT_FORMATS, VIDEO_SUPPORT_FORMATS } from "@/data/formats";
 import { toast } from "sonner";
 import { useWatermarkStore } from "./store";
 import { BottomToolbar } from "./BottomToolbar";
+import { DEFAULT_WATERMARK_FONT_CSS_FAMILY, resolveDefaultWatermarkFontPath } from "./font";
 import { PreviewPanel } from "./PreviewPanel";
-import { SettingsPanel } from "./SettingsPanel";
-import { defaultWatermarkConfig, positionMap } from "./types";
+import { positionMap } from "./types";
 import { UploadPanel } from "./UploadPanel";
 import { bridge } from "@/lib/bridge";
 import { useTranslation } from "react-i18next";
@@ -19,18 +19,18 @@ import { extractFilenameFromPath, getExtension } from "@/lib/utils";
 export default function WatermarkPage() {
     const { t } = useTranslation("watermark");
 
-    const [config, setConfig] = useState(defaultWatermarkConfig);
     const [isCancelling, setIsCancelling] = useState(false);
-    const [previewFrame, setPreviewFrame] = useState<{
-        dataUrl: string;
-        width: number;
-        height: number;
-    } | null>(null);
-    const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
+    const config = useWatermarkStore((state) => state.config);
+    const previewFrame = useWatermarkStore((state) => state.previewFrame);
+    const isPreviewLoading = useWatermarkStore((state) => state.isPreviewLoading);
     const queueTasks = useWatermarkStore((state) => state.queueTasks);
     const clearTasks = useWatermarkStore((state) => state.clearTasks);
     const updateTaskById = useWatermarkStore((state) => state.updateTaskById);
+    const updateConfig = useWatermarkStore((state) => state.updateConfig);
+    const resetConfig = useWatermarkStore((state) => state.resetConfig);
+    const setPreviewFrame = useWatermarkStore((state) => state.setPreviewFrame);
+    const setPreviewLoading = useWatermarkStore((state) => state.setPreviewLoading);
     const runningTasks = useMemo(
         () => queueTasks.filter((task) => task.status === "processing"),
         [queueTasks]
@@ -56,18 +56,36 @@ export default function WatermarkPage() {
 
     useEffect(() => {
         let active = true;
+        void (async () => {
+            if (config.fontPath) return;
+            const fontPath = await resolveDefaultWatermarkFontPath();
+            console.log("resolveDefaultWatermarkFontPath", fontPath);
+            if (!active) return;
+            updateConfig({
+                fontFamily: DEFAULT_WATERMARK_FONT_CSS_FAMILY,
+                fontPath: fontPath ?? "",
+            });
+        })();
+
+        return () => {
+            active = false;
+        };
+    }, [config.fontPath, updateConfig]);
+
+    useEffect(() => {
+        let active = true;
         const controller = new AbortController();
         const loadPreviewFrame = async () => {
             if (!firstVideoPath) {
                 if (active) {
                     setPreviewFrame(null);
-                    setIsPreviewLoading(false);
+                    setPreviewLoading(false);
                 }
                 return;
             }
             try {
                 if (active) {
-                    setIsPreviewLoading(true);
+                    setPreviewLoading(true);
                 }
                 const result = await bridge.generateMediaThumbnail(
                     firstVideoPath,
@@ -96,12 +114,12 @@ export default function WatermarkPage() {
                     } else {
                         setPreviewFrame(null);
                     }
-                    setIsPreviewLoading(false);
+                    setPreviewLoading(false);
                 }
             } catch (error) {
                 if (active) {
                     setPreviewFrame(null);
-                    setIsPreviewLoading(false);
+                    setPreviewLoading(false);
                 }
                 console.error("Failed to load watermark preview frame:", error);
             }
@@ -112,7 +130,7 @@ export default function WatermarkPage() {
             active = false;
             controller.abort();
         };
-    }, [firstVideoPath]);
+    }, [firstVideoPath, setPreviewFrame, setPreviewLoading]);
 
     const handleStartWork = async () => {
         if (isRunning) {
@@ -137,6 +155,8 @@ export default function WatermarkPage() {
             }
             watermarkConfig.text = {
                 content: config.text,
+                font_path: config.fontPath || undefined,
+                rotation: config.rotation,
                 font_size: config.size,
                 color: "#FFFFFF",
                 opacity: config.opacity / 100,
@@ -154,7 +174,8 @@ export default function WatermarkPage() {
             }
             watermarkConfig.image = {
                 path: config.imagePath,
-                scale: config.size / 100, // Reuse size slider as scale (e.g. 50 -> 0.5)
+                rotation: config.rotation,
+                scale: config.size / 100,
                 opacity: config.opacity / 100,
                 x,
                 y,
@@ -170,7 +191,7 @@ export default function WatermarkPage() {
         const tasks = queueTasks.map((task) => {
             const outputDir = useSettingsStore.getState().getOutputDir(task.args.input_path);
             const title = extractFilenameFromPath(task.args.input_path);
-            const format = getExtension(task.args.input_path);
+            const format = getExtension(task.args.input_path) || "mp4";
             const outputPath = `${outputDir}/${title}_watermarked.${format}`;
             return {
                 ...task,
@@ -180,7 +201,7 @@ export default function WatermarkPage() {
                     format,
                     output_path: outputPath,
                     watermark: watermarkConfig,
-                }
+                } as typeof task.args
             }
         });
 
@@ -245,34 +266,36 @@ export default function WatermarkPage() {
     }
 
     return (
-        <div className="flex h-[calc(100vh-4rem)] bg-background">
+        <div className="h-full flex flex-col bg-background">
             {/* Main Preview Area */}
-            <div className="flex-1 flex flex-col min-w-0">
-                <div className="flex-1 p-4 flex flex-col gap-4 overflow-hidden relative">
-                    <PreviewPanel
-                        config={config}
-                        frame={previewFrame}
-                        loading={isPreviewLoading}
-                        onOffsetChange={(offsetX, offsetY) =>
-                            setConfig((prev) => ({ ...prev, offsetX, offsetY }))
-                        }
-                    />
-                </div>
-                <BottomToolbar
-                    selectedCount={queueTasks.length}
-                    processingCount={runningTasks.length}
-                    finishedCount={finishedTasks.length}
-                    onClear={clearTasks}
-                    onExport={handleStartWork}
-                    onCancel={handleCancelWork}
-                    isRunning={isRunning}
-                    isCancelling={isCancelling}
-                    progress={progress}
+            <div className="flex-1 flex min-w-0">
+                <PreviewPanel
+                    config={config}
+                    frame={previewFrame}
+                    loading={isPreviewLoading}
+                    onOffsetChange={(offsetX, offsetY) =>
+                        updateConfig({ offsetX, offsetY })
+                    }
                 />
             </div>
-            <SettingsPanel
+
+            <BottomToolbar
+                selectedCount={queueTasks.length}
+                processingCount={runningTasks.length}
+                finishedCount={finishedTasks.length}
+                onClear={() => {
+                    clearTasks();
+                    resetConfig();
+                    setPreviewFrame(null);
+                    setPreviewLoading(false);
+                }}
+                onExport={handleStartWork}
+                onCancel={handleCancelWork}
+                isRunning={isRunning}
+                isCancelling={isCancelling}
+                progress={progress}
                 config={config}
-                onChange={(patch) => setConfig((prev) => ({ ...prev, ...patch }))}
+                onConfigChange={updateConfig}
             />
         </div>
     );

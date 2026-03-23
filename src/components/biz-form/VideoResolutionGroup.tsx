@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BadgeQuestionMark } from "lucide-react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
@@ -34,7 +33,6 @@ export function VideoResolutionGroup({
   showMoreBtns = false,
 }: VideoResolutionGroupProps) {
   const { t } = useTranslation("task");
-  const [resolutionMode, setResolutionMode] = useState("preset");
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [platformDialogOpen, setPlatformDialogOpen] = useState(false);
   const [activeDeviceGroup, setActiveDeviceGroup] = useState(

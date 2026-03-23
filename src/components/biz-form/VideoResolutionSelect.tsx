@@ -11,10 +11,9 @@ import {
   SelectLabel,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { RESOLUTION_OPTIONS } from "@/data/resolution";
+import { DEFAULT_RESOLUTION, RESOLUTION_OPTIONS } from "@/data/resolution";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_RESOLUTION = { width: 1920, height: 1080 };
 interface VideoResolutionSelectProps {
   value?: string;
   onValueChange: (value: string) => void;

@@ -7,22 +7,39 @@ import {
 import { WatermarkTaskArgs } from "@/lib/mediaTaskEvent";
 import { getExtension } from "@/lib/utils";
 import { isImageFormat } from "@/data/formats";
+import { defaultWatermarkConfig, WatermarkEditorConfig } from "./types";
 
 export interface WatermarkTask extends FFmpegTask {
   args: WatermarkTaskArgs;
 }
 
+export interface WatermarkPreviewFrame {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
 interface TaskState {
   queueTasks: WatermarkTask[];
+  config: WatermarkEditorConfig;
+  previewFrame: WatermarkPreviewFrame | null;
+  isPreviewLoading: boolean;
   addTasksByPaths: (paths: string[]) => Promise<void>;
   updateTaskById: (id: string, updates: Partial<WatermarkTask>) => void;
   removeTaskByPath: (path: string) => void;
   clearTasks: () => void;
+  updateConfig: (patch: Partial<WatermarkEditorConfig>) => void;
+  resetConfig: () => void;
+  setPreviewFrame: (frame: WatermarkPreviewFrame | null) => void;
+  setPreviewLoading: (loading: boolean) => void;
 }
 
 export const useWatermarkStore = create<TaskState>(
   (set) => ({
     queueTasks: [],
+    config: defaultWatermarkConfig,
+    previewFrame: null,
+    isPreviewLoading: false,
     addTasksByPaths: async (paths) => {
       const newTasks: WatermarkTask[] = [];
       for (const path of paths) {
@@ -74,5 +91,16 @@ export const useWatermarkStore = create<TaskState>(
       }));
     },
     clearTasks: () => set({ queueTasks: [] }),
+    updateConfig: (patch) => {
+      set((state) => ({
+        config: {
+          ...state.config,
+          ...patch,
+        },
+      }));
+    },
+    resetConfig: () => set({ config: defaultWatermarkConfig }),
+    setPreviewFrame: (frame) => set({ previewFrame: frame }),
+    setPreviewLoading: (loading) => set({ isPreviewLoading: loading }),
   })
 )

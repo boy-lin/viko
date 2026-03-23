@@ -30,15 +30,10 @@
   },
   "quick": {
     "converter": "转换器",
-    "converter_videos": "视频转换器",
-    "converter_audios": "音频转换器",
-    "converter_images": "图片转换器",
     "denoise": "音视频降噪",
     "watermark": "水印生成器",
     "metadata": "元数据编辑器",
-    "compressor_videos": "视频压缩器",
-    "compressor_audios": "音频压缩器",
-    "compressor_images": "图片压缩器"
+    "compressor": "压缩器"
   },
   "common": {
     "loading": "加载中...",

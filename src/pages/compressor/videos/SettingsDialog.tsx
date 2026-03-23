@@ -15,7 +15,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { VideoBitrateSelect } from "@/components/biz-form/VideoBitrateSelect";
 import { VideoColorDepthSelect } from "@/components/biz-form/VideoColorDepthSelect";
 import { VideoEncoderSelect } from "@/components/biz-form/VideoEncoderSelect";
 import { VideoFrameRateSelectGroup } from "@/components/biz-form/VideoFrameRateSelectGroup";
@@ -30,9 +29,13 @@ import { VIDEO_CONTAINER_DEFINITIONS, VIDEO_ENCODER_DEFINITIONS } from "@/data/c
 import { parseOptionalInt } from "@/lib/utils";
 import { FormatEnum, VideoEncoderEnum } from "@/types/options";
 import { useTranslation } from "react-i18next";
+import VideoBitrateModeGroup from "@/components/biz-form/VideoBitrateModeGroup";
+import { MediaDetailsWithResolve } from "@/types/tasks";
+import { getVideoEstimatedOutputSizeLabel } from "../estimateOutputSize";
 
 interface CompressionSettingsFormProps {
   config: CompressVideoTaskArgs;
+  mediaDetails?: MediaDetailsWithResolve;
   onConfigChange: (config: Partial<CompressVideoTaskArgs>) => void;
 }
 
@@ -72,6 +75,7 @@ const buildRatioAdjustedPatch = (
 
 const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   config,
+  mediaDetails,
   onConfigChange,
 }) => {
   const { t } = useTranslation("task");
@@ -84,6 +88,10 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
     const def = VIDEO_ENCODER_DEFINITIONS[config.codec as VideoEncoderEnum];
     return def;
   }, [config.codec]);
+  const estimatedSizeLabel = useMemo(
+    () => getVideoEstimatedOutputSizeLabel(config, mediaDetails),
+    [config, mediaDetails],
+  );
 
   return (
     <div className="grid grid-cols-2 gap-4 px-4 max-h-[62vh]">
@@ -98,21 +106,22 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           step={5}
           className="w-full cursor-pointer"
         />
+        {estimatedSizeLabel ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            预估输出大小 {estimatedSizeLabel}
+          </p>
+        ) : null}
       </div>
 
-      <VideoBitrateSelect
+      <VideoBitrateModeGroup
         className="space-y-2 w-full"
-        label={t("video_advance.bitrate", "Bitrate")}
-        helpText={t("videoCompressor.fields.bitrateHelp")}
-        minBitrate={encoderDef?.video?.minBitrate}
-        maxBitrate={encoderDef?.video?.maxBitrate}
+        rc_mode={config.rc_mode}
+        crf={config.crf}
+        video_bitrate={config.bitrate}
+        min_bitrate={encoderDef?.video?.minBitrate}
+        max_bitrate={encoderDef?.video?.maxBitrate}
         placeholder={`${t("common.auto")} (${encoderDef?.video?.minBitrate ?? 100}-${encoderDef?.video?.maxBitrate ?? 50000})`}
-        value={config.bitrate === undefined ? "auto" : String(config.bitrate)}
-        onValueChange={(val) =>
-          onConfigChange({
-            bitrate: val === "auto" ? undefined : parseOptionalInt(val),
-          })
-        }
+        onChange={onConfigChange}
       />
       <VideoFrameRateSelectGroup
         className="space-y-2 w-full"
@@ -229,7 +238,11 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   );
 };
 
-export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ config, onConfigChange }) => {
+export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
+  config,
+  mediaDetails,
+  onConfigChange,
+}) => {
   const { t } = useTranslation("task");
   const [open, setOpen] = useState(false);
 
@@ -252,6 +265,7 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
             <ScrollArea className="flex-1">
               <CompressionSettingsForm
                 config={config}
+                mediaDetails={mediaDetails}
                 onConfigChange={onConfigChange}
               />
             </ScrollArea>
@@ -271,7 +285,11 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({ 
   );
 };
 
-export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({ config, onConfigChange }) => {
+export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
+  config,
+  mediaDetails,
+  onConfigChange,
+}) => {
   const { t } = useTranslation("task");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   return (
@@ -302,6 +320,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
             <ScrollArea className="flex-1 overflow-hidden min-h-0 px-4">
               <CompressionSettingsForm
                 config={config}
+                mediaDetails={mediaDetails}
                 onConfigChange={onConfigChange}
               />
             </ScrollArea>

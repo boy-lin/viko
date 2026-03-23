@@ -1,6 +1,8 @@
 export type WatermarkEditorConfig = {
   type: "text" | "image";
   text: string;
+  fontFamily: string;
+  fontPath: string;
   opacity: number;
   size: number;
   rotation: number;
@@ -14,6 +16,8 @@ export type WatermarkEditorConfig = {
 export const defaultWatermarkConfig: WatermarkEditorConfig = {
   type: "text",
   text: "Watermark",
+  fontFamily: "Watermark Noto Sans SC",
+  fontPath: "",
   opacity: 50,
   size: 24,
   rotation: 0,

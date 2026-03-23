@@ -30,6 +30,7 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
   const addToRecents = useFormatSelectorStore((state) => state.addToRecents);
 
   const selectedFormat = useMemo(() => {
+    if (!config.args.format) return null;
     let label;
     if (config.activeCategory === FileType.Video) {
       const args = config.args as ConvertVideoTaskArgs;

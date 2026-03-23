@@ -37,7 +37,7 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
   onValueChange,
   maxFrameRate,
   minFrameRate = 1,
-  step = 0.001,
+  step = 1,
   className,
   placeholder,
   autoLabel,
@@ -49,7 +49,6 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
   const resolvedAutoLabel = autoLabel ?? t("common.auto");
 
   const numericValue = useMemo(() => {
-    console.log("value", value);
     if (!value || value === "auto") return undefined;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
@@ -95,7 +94,7 @@ export const VideoFrameRateSelectGroup: React.FC<VideoFrameRateSelectGroupProps>
       maxFrameRate ?? Number.MAX_SAFE_INTEGER,
       Math.max(minFrameRate, numericValue),
     );
-  
+
   const selectValue = optionItems.some((item) => item.value === value)
     ? String(value)
     : "auto";

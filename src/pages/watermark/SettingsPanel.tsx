@@ -6,14 +6,16 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Type, Image as ImageIcon, Upload, Settings2, LayoutTemplate } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 import { positionOptions, type WatermarkEditorConfig } from "./types";
 
 type SettingsPanelProps = {
   config: WatermarkEditorConfig;
   onChange: (patch: Partial<WatermarkEditorConfig>) => void;
+  className?: string;
 };
 
-export function SettingsPanel({ config, onChange }: SettingsPanelProps) {
+export function SettingsPanel({ config, onChange, className }: SettingsPanelProps) {
   const { t } = useTranslation("watermark");
   const getDefaultOffsets = (anchor: string) => {
     const isCenterX = !anchor.includes("l") && !anchor.includes("r");
@@ -40,7 +42,7 @@ export function SettingsPanel({ config, onChange }: SettingsPanelProps) {
   };
 
   return (
-    <div className="w-80 border-r bg-card p-6 overflow-y-auto hidden md:block">
+    <div className={cn("w-full overflow-y-auto bg-card p-6", className)}>
       <div className="flex items-center gap-2 mb-6">
         <Settings2 className="w-5 h-5" />
         <h2 className="font-semibold text-lg">{t("settings.title")}</h2>
@@ -110,11 +112,11 @@ export function SettingsPanel({ config, onChange }: SettingsPanelProps) {
           <Slider value={[config.opacity]} max={100} step={1} onValueChange={(v) => onChange({ opacity: v[0] })} />
         </div>
 
-        <div className="space-y-4 opacity-50 cursor-not-allowed" title={t("settings.common.notSupported")}>
+        <div className="space-y-4" title={t("settings.common.notSupported")}>
           <div className="flex justify-between">
             <Label>{t("settings.common.rotation", { value: config.rotation })}</Label>
           </div>
-          <Slider disabled value={[config.rotation]} min={-180} max={180} step={5} onValueChange={(v) => onChange({ rotation: v[0] })} />
+          <Slider value={[config.rotation]} min={-180} max={180} step={5} onValueChange={(v) => onChange({ rotation: v[0] })} />
         </div>
 
         <div className="space-y-2">

@@ -50,6 +50,7 @@ export interface MediaDetailsWithResolve extends MediaDetails {
 export interface TextWatermark {
   content: string;
   font_path: string;
+  rotation?: number;
   font_size: number;
   color: string;
   opacity: number;
@@ -59,6 +60,7 @@ export interface TextWatermark {
 
 export interface ImageWatermark {
   path: string;
+  rotation?: number;
   scale: number;
   opacity: number;
   x: string;

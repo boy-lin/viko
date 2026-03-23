@@ -17,48 +17,29 @@ export type QuickAccessItem = {
 };
 
 export enum MenuItems {
-  home = '/',
-  aiTools = '',
-  myFiles = '/my/files',
+  home = "/",
+  aiTools = "",
+  myFiles = "/my/files",
 
-  converterVideos = '/converter/videos',
-  converterAudios = '/converter/audios',
-  converterImages = '/converter/images',
-  denoise = '/denoise',
-  compressorVideos = '/compressor/videos',
-  compressorAudios = '/compressor/audios',
-  compressorImages = '/compressor/images',
+  converter = "/converter",
+  denoise = "/denoise",
+  compressor = "/compressor",
 
-  metadata = '/metadata',
-  watermark = '/watermark',
+  metadata = "/metadata",
+  watermark = "/watermark",
 
-  tasks = '/tasks',
+  tasks = "/tasks",
 
-  batch = '/batch',
+  batch = "/batch",
 }
-
 
 export const QUICK_ACCESS_CONFIG: QuickAccessItem[] = [
   {
-    label: "quick.converter_videos",
+    label: "quick.converter",
     icon: ConversionVideoLinear,
     color: "bg-indigo-50 text-indigo-600",
     activeGradient: "from-[#8B5CF6] to-[#6366F1]",
-    href: MenuItems.converterVideos,
-  },
-  {
-    label: "quick.converter_audios",
-    icon: ConversionAudioLinear,
-    color: "bg-indigo-50 text-indigo-600",
-    activeGradient: "from-[#8B5CF6] to-[#6366F1]",
-    href: MenuItems.converterAudios,
-  },
-  {
-    label: "quick.converter_images",
-    icon: ConversionImageLinear,
-    color: "bg-indigo-50 text-indigo-600",
-    activeGradient: "from-[#8B5CF6] to-[#6366F1]",
-    href: MenuItems.converterImages,
+    href: MenuItems.converter,
   },
   {
     label: "quick.denoise",
@@ -75,25 +56,11 @@ export const QUICK_ACCESS_CONFIG: QuickAccessItem[] = [
     href: MenuItems.metadata,
   },
   {
-    label: "quick.compressor_videos",
-    icon: CompressionVideoLinear,
-    color: "bg-rose-50 text-rose-600",
-    activeGradient: "from-[#F43F5E] to-[#F97316]",
-    href: MenuItems.compressorVideos,
-  },
-  {
-    label: "quick.compressor_audios",
-    icon: CompressionAudioLinear,
-    color: "bg-rose-50 text-rose-600",
-    activeGradient: "from-[#F43F5E] to-[#F97316]",
-    href: MenuItems.compressorAudios,
-  },
-  {
-    label: "quick.compressor_images",
+    label: "quick.compressor",
     icon: CompressionImageLinear,
     color: "bg-rose-50 text-rose-600",
     activeGradient: "from-[#F43F5E] to-[#F97316]",
-    href: MenuItems.compressorImages,
+    href: MenuItems.compressor,
   },
   {
     label: "quick.watermark",
@@ -101,5 +68,5 @@ export const QUICK_ACCESS_CONFIG: QuickAccessItem[] = [
     color: "bg-rose-50 text-rose-600",
     activeGradient: "from-[#F43F5E] to-[#F97316]",
     href: MenuItems.watermark,
-  }
+  },
 ];

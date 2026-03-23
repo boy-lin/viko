@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -24,10 +23,16 @@ import { getImageCompressionPresetByRatio } from "./compressionPreset";
 import { FormatEnum } from "@/types/options";
 import { DpiSelectGroup } from "@/components/biz-form/DpiSelectGroup";
 import { ColorModeSelect } from "@/components/biz-form/ColorModeSelect";
+import { GifColorsGroup } from "@/components/biz-form/GifColorsGroup";
+import { GifQualityGroup } from "@/components/biz-form/GifQualityGroup";
+import { VideoFrameRateSelectGroup } from "@/components/biz-form/VideoFrameRateSelectGroup";
 import { useTranslation } from "react-i18next";
+import { MediaDetailsWithResolve } from "@/types/tasks";
+import { getImageEstimatedOutputSizeLabel } from "../estimateOutputSize";
 
 interface CompressionSettingsFormProps {
   config: CompressImageTaskArgs;
+  mediaDetails?: MediaDetailsWithResolve;
   onConfigChange: (config: Partial<CompressImageTaskArgs>) => void;
 }
 
@@ -38,10 +43,13 @@ interface CompressionSettingsProps extends CompressionSettingsFormProps {
 
 const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
   config,
+  mediaDetails,
   onConfigChange,
 }) => {
   const { t } = useTranslation("task");
   const currentRatio = config.ratio ?? config.quality ?? 50;
+  const estimatedSizeLabel = getImageEstimatedOutputSizeLabel(config, mediaDetails);
+  const isGif = config.format?.toLowerCase() === FormatEnum.GIF;
   return (
     <div className="grid grid-cols-2 gap-4 px-4">
       <div className="col-span-2 py-2">
@@ -59,9 +67,11 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
           step={5}
           className="w-full"
         />
-        <p className="mt-1 text-xs text-muted-foreground">
-          {t("imageCompressor.fields.ratioSummary", { ratio: currentRatio })}
-        </p>
+        {estimatedSizeLabel ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            预估输出大小 {estimatedSizeLabel}
+          </p>
+        ) : null}
       </div>
 
       <div className="space-y-2">
@@ -72,30 +82,37 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         />
       </div>
 
-      {config.format?.toLowerCase() === FormatEnum.GIF && (
-        <div className="space-y-2">
-          <Label>GIF Colors</Label>
-          <Input
-            type="number"
-            min={2}
-            max={256}
-            value={config.colors ?? ""}
-            onChange={(e) => {
-              const next = e.target.value ? Number(e.target.value) : undefined;
-              onConfigChange({
-                colors:
-                  next === undefined || Number.isNaN(next)
-                    ? undefined
-                    : Math.min(256, Math.max(2, next)),
-              });
-            }}
-            placeholder="2-256"
-          />
-        </div>
-      )}
+      {isGif ? (
+        <GifQualityGroup
+          value={config.quality}
+          onValueChange={(nextQuality) => onConfigChange({ quality: nextQuality })}
+        />
+      ) : null}
+
+      {isGif ? (
+        <VideoFrameRateSelectGroup
+          className="space-y-2"
+          hideLabel={false}
+          label={t("settings.gif.fields.frameRate")}
+          helpText={t("settings.gif.fields.frameRateHelp")}
+          value={config.frame_rate === undefined ? undefined : String(config.frame_rate)}
+          onValueChange={(nextFrameRate) =>
+            onConfigChange({
+              frame_rate: nextFrameRate === undefined ? undefined : nextFrameRate,
+            })
+          }
+          placeholder={t("settings.gif.placeholders.frameRate")}
+        />
+      ) : null}
+
+      {isGif ? (
+        <GifColorsGroup
+          value={config.colors}
+          onValueChange={(nextColors) => onConfigChange({ colors: nextColors })}
+        />
+      ) : null}
 
       <div className="space-y-2">
-        <Label>{t("imageCompressor.fields.dpi")}</Label>
         <DpiSelectGroup
           value={config.dpi}
           onValueChange={(dpi) => onConfigChange({ dpi })}
@@ -137,6 +154,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
 
 export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
   config,
+  mediaDetails,
   onConfigChange,
   onSave: _onSave,
 }) => {
@@ -165,7 +183,11 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
 
           <div className="flex flex-col overflow-hidden">
             <ScrollArea className="flex-1">
-              <CompressionSettingsForm config={config} onConfigChange={onConfigChange} />
+              <CompressionSettingsForm
+                config={config}
+                mediaDetails={mediaDetails}
+                onConfigChange={onConfigChange}
+              />
             </ScrollArea>
           </div>
 
@@ -191,6 +213,7 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
 export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
   trigger,
   config,
+  mediaDetails,
   onConfigChange,
   onSave,
 }) => {
@@ -224,7 +247,11 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
             </div>
 
             <ScrollArea className="min-h-0 flex-1 overflow-hidden px-4">
-              <CompressionSettingsForm config={config} onConfigChange={onConfigChange} />
+              <CompressionSettingsForm
+                config={config}
+                mediaDetails={mediaDetails}
+                onConfigChange={onConfigChange}
+              />
             </ScrollArea>
 
             <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-popover/95 p-4 backdrop-blur">

@@ -8,7 +8,7 @@ const Layout: React.FC = () => {
   const [, setChecksPassed] = useState(false);
 
   useEffect(() => {
-    if (!bridge.isTauriEvn()) {
+    if (!bridge.isTauri()) {
       setChecksPassed(true);
       return;
     }
@@ -36,13 +36,7 @@ const Layout: React.FC = () => {
       <Sidebar />
       <main className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <div
-          className="flex-1 overflow-y-auto py-2"
-          style={{
-            WebkitOverflowScrolling: "touch",
-            overscrollBehaviorY: "auto",
-          }}
-        >
+        <div className="flex-1 py-2 min-h-0">
           <Outlet />
         </div>
       </main>

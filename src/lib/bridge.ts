@@ -1,6 +1,11 @@
 import { emit, listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
+import {
+  Channel,
+  convertFileSrc,
+  invoke,
+  isTauri as isTauriCore,
+} from "@tauri-apps/api/core";
 import { FileType, MediaDetails, MediaDetailsWithResolve } from "@/types/tasks";
 import { extractFilenameFromPath } from "./utils";
 import { MediaTaskType } from "@/types/tasks";
@@ -208,7 +213,7 @@ class Bridge {
   private static instance: Bridge | null = null;
   private disposers: UnlistenFn[] = [];
   private fallbackTarget = new EventTarget();
-  private tauriReady = true;
+  private tauriReady = isTauriCore();
   private readonly maxMediaDetailsConcurrency = 3;
   private mediaDetailsActive = 0;
   private mediaDetailsWaiters: Array<() => void> = [];
@@ -238,11 +243,7 @@ class Bridge {
   }
 
   isTauri() {
-    return this.tauriReady;
-  }
-
-  isTauriEvn() {
-    return typeof window !== "undefined" && "__TAURI__" in window;
+    return isTauriCore();
   }
 
   async on<K extends string>(
@@ -371,9 +372,7 @@ class Bridge {
           }, timeoutMs);
           if (options?.signal) {
             if (options.signal.aborted) {
-              finalize(
-                createEventWaitError("aborted", options.signal.reason),
-              );
+              finalize(createEventWaitError("aborted", options.signal.reason));
               return;
             }
             options.signal.addEventListener("abort", onAbort, { once: true });
@@ -976,11 +975,13 @@ class Bridge {
     }
     if (payload.error) {
       throw new Error(
-        `generateMediaThumbnail backend error: ${payload.error} | detail=${JSON.stringify({
-          requestId,
-          path,
-          options,
-        })}`,
+        `generateMediaThumbnail backend error: ${payload.error} | detail=${JSON.stringify(
+          {
+            requestId,
+            path,
+            options,
+          },
+        )}`,
       );
     }
     return payload.result ?? null;

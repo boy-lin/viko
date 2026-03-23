@@ -7,7 +7,7 @@ import {
   AudioSettingsSection,
 } from "@/components/biz-form/AudioSettingsSection";
 import VideoSettingsSection from "@/components/biz-form/VideoSettingsSection";
-import { ActiveCategoryEnum } from "@/pages/converter/videos/store";
+import { ActiveCategoryEnum } from "@/types/tasks";
 import { FileType, MediaTaskType } from "@/types/tasks";
 import { ImageSettingsSection } from "@/components/biz-form/ImageSettingsSection";
 import { GifSettingsSection } from "@/components/biz-form/GifSettingsSection";
@@ -39,6 +39,8 @@ export default function FormatSelectorContent({
     }
     return FORMAT_CATEGORIES.find((item) => item.id === category);
   }, [config.activeCategory, formatRecents]);
+
+  console.log('activeCategory', activeCategory, config);
 
   const formatGroups = React.useMemo(() => {
     if (config.activeCategory === ActiveCategoryEnum.Recents) {
@@ -140,10 +142,9 @@ export default function FormatSelectorContent({
     if (!formatOpt.id) return;
     const targetAnimatedImage = formatOpt.id === FormatEnum.GIF;
 
-    const updates = {
-      ...config,
+    const updates: any = {
+      activeCategory: formatOpt.category,
       args: {
-        ...config.args,
         format: formatOpt.id,
       },
     };
@@ -163,7 +164,7 @@ export default function FormatSelectorContent({
         updates.args = buildImageArgs(formatOpt.id);
       }
     }
-
+    console.log('updates', JSON.stringify(updates, null, 2));
     onValueChange(updates);
   };
 
@@ -260,124 +261,104 @@ export default function FormatSelectorContent({
   const { t } = useTranslation("common");
 
   return (
-    <div className="flex bg-popover h-[400px] overflow-hidden rounded-md border text-popover-foreground">
-      <div className="w-[140px] border-r bg-muted/20 flex flex-col">
-        {/* <div className="p-2 border-b">
-          <div className="flex items-center px-2 py-2 text-sm font-medium text-muted-foreground">
-            <Search className="w-4 h-4 mr-2" />
-            <input
-              className="bg-transparent outline-none w-full placeholder:text-muted-foreground/70"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div> */}
-
-        <div className="flex-1 space-y-1 pt-13">
+    <div className="flex flex-col bg-popover h-[400px] overflow-hidden rounded-lg border text-popover-foreground">
+      <div className="bg-muted/20 flex justify-start rounded-lg">
+        <CategoryItem
+          className=""
+          label={t("common.recents")}
+          icon={Clock}
+          active={
+            config.activeCategory === ActiveCategoryEnum.Recents &&
+            !searchQuery
+          }
+          onClick={() => {
+            onValueChange({
+              activeCategory: ActiveCategoryEnum.Recents,
+            });
+            setSearchQuery("");
+          }}
+        />
+        {FORMAT_CATEGORIES.map((cat) => (
           <CategoryItem
-            className=""
-            label={t("common.recents")}
-            icon={Clock}
-            active={
-              config.activeCategory === ActiveCategoryEnum.Recents &&
-              !searchQuery
-            }
+            key={cat.id}
+            label={cat.label}
+            icon={cat.icon}
+            active={config.activeCategory === cat.id && !searchQuery}
             onClick={() => {
-              onValueChange({
-                activeCategory: ActiveCategoryEnum.Recents,
-              });
+              const nextCategory = cat.id as any;
+              onValueChange({ activeCategory: nextCategory });
               setSearchQuery("");
             }}
           />
-          {FORMAT_CATEGORIES.map((cat) => (
-            <CategoryItem
-              key={cat.id}
-              label={cat.label}
-              icon={cat.icon}
-              active={config.activeCategory === cat.id && !searchQuery}
-              onClick={() => {
-                const nextCategory = cat.id as any;
-                onValueChange({ activeCategory: nextCategory });
-                setSearchQuery("");
-              }}
-            />
-          ))}
-        </div>
+        ))}
       </div>
 
-      <div className="flex-1 flex flex-col">
-        <div className="px-2 py-1 border-b">
-          <div className="py-1.5">
-            {activeCategory?.label}-{activeGroup?.label}
-          </div>
+      <div className="flex-1 flex min-h-0">
+        {/* format groups */}
+        <div className="w-[120px] flex-shrink-0 border-r bg-muted/10 relative">
+          <ScrollHint>
+            {({ ref, showHint }) => (
+              <>
+                <div
+                  ref={ref}
+                  className="overflow-y-auto hide-scrollbar h-full"
+                >
+                  {formatGroups.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                      <p className="text-xs">No groups</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {formatGroups.map((group) => (
+                        <button
+                          key={group.id}
+                          onClick={() => {
+                            handleGroupSelect(group);
+                          }}
+                          className={cn(
+                            "cursor-pointer w-full flex items-center justify-between p-2 text-left transition-colors",
+                            activeGroup?.id === group.id
+                              ? "bg-accent text-accent-foreground"
+                              : "hover:bg-accent/50"
+                          )}
+                        >
+                          <span className="text-sm font-medium">{group.label}</span>
+                          {activeGroup?.id === group.id && (
+                            <Check className="w-4 h-4 text-primary" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {showHint && <ScrollHintIndicator />}
+              </>
+            )}
+          </ScrollHint>
         </div>
-        <div className="flex-1 flex min-h-0">
-          {/* format groups */}
-          <div className="w-[120px] border-r bg-muted/10 relative">
-            <ScrollHint>
-              {({ ref, showHint }) => (
-                <>
-                  <div
-                    ref={ref}
-                    className="overflow-y-auto hide-scrollbar h-full"
-                  >
-                    {formatGroups.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                        <p className="text-xs">No groups</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-1 p-2">
-                        {formatGroups.map((group) => (
-                          <button
-                            key={group.id}
-                            onClick={() => {
-                              handleGroupSelect(group);
-                            }}
-                            className={cn(
-                              "cursor-pointer w-full flex items-center justify-between p-2 rounded-md text-left transition-colors",
-                              activeGroup?.id === group.id
-                                ? "bg-accent text-accent-foreground"
-                                : "hover:bg-accent/50"
-                            )}
-                          >
-                            <span className="text-sm font-medium">{group.label}</span>
-                            {activeGroup?.id === group.id && (
-                              <Check className="w-4 h-4 text-primary" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {showHint && <ScrollHintIndicator />}
-                </>
-              )}
-            </ScrollHint>
-          </div>
-          {/* format options */}
-          <div className="flex-1 flex flex-col">
-            {renderCustomSettings()}
-            <div className="p-2 flex gap-2">
-              <Button
-                className="cursor-pointer"
-                onClick={() => {
-                  applyConfigToAllTasks(config);
-                  onClose();
-                }}
-              >
-                {t(btnLabelKey || "common.confirm")}
-              </Button>
-              <Button
-                variant="outline"
-                className="cursor-pointer"
-                onClick={() => {
-                  onClose();
-                }}
-              >
-                {t("common.cancel")}
-              </Button>
-            </div>
+        {/* format options */}
+        <div className="flex flex-col min-h-0">
+          {renderCustomSettings()}
+          <div className="p-2 flex gap-2">
+            <Button
+              className="cursor-pointer"
+              onClick={() => {
+                console.log('config', JSON.stringify(config, null, 2));
+                applyConfigToAllTasks(config);
+                onClose();
+              }}
+            >
+              {t(btnLabelKey || "common.confirm")}
+            </Button>
+            <Button
+              variant="outline"
+              className="cursor-pointer"
+              onClick={() => {
+                onClose();
+              }}
+            >
+              {t("common.cancel")}
+            </Button>
           </div>
         </div>
       </div>

@@ -1,10 +1,12 @@
 import React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VideoResolutionGroup } from "@/components/biz-form/VideoResolutionGroup";
 import { DpiSelectGroup } from "@/components/biz-form/DpiSelectGroup";
+import { GifColorsGroup } from "@/components/biz-form/GifColorsGroup";
+import { GifLoopCountGroup } from "@/components/biz-form/GifLoopCountGroup";
+import { GifQualityGroup } from "@/components/biz-form/GifQualityGroup";
 import { ColorModeSelect } from "@/components/biz-form/ColorModeSelect";
 import { VideoFrameRateSelectGroup } from "@/components/biz-form/VideoFrameRateSelectGroup";
 import { ConvertImageTaskArgs } from "@/lib/mediaTaskEvent";
@@ -12,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { BadgeQuestionMark } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { DEFAULT_RESOLUTION } from "@/data/resolution";
 
 interface GifSettingsSectionProps extends Partial<ConvertImageTaskArgs> {
   onChange: (config: Partial<ConvertImageTaskArgs>) => void;
@@ -50,7 +53,7 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
   className,
 }) => {
   const { t } = useTranslation("task");
-  const resolution = width && height ? `${width}x${height}` : "auto";
+  const resolution = width && height ? `${width}x${height}` : `${DEFAULT_RESOLUTION.width}x${DEFAULT_RESOLUTION.height}`;
 
   return (
     <ScrollArea className={cn("flex-1 overflow-hidden p-2 space-y-4", className)}>
@@ -70,20 +73,10 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
           }}
         />
 
-        <div className="space-y-2">
-          <FieldLabelWithHelp
-            label={t("settings.image.fields.quality")}
-            helpText={t("settings.gif.fields.qualityHelp")}
-          />
-          <Input
-            type="number"
-            min={1}
-            max={100}
-            value={quality ?? ""}
-            onChange={(e) => onChange({ quality: parseNumberOrUndefined(e.target.value) })}
-            placeholder={t("settings.gif.placeholders.quality")}
-          />
-        </div>
+        <GifQualityGroup
+          value={quality}
+          onValueChange={(nextQuality) => onChange({ quality: nextQuality })}
+        />
 
         <div className="space-y-2">
           <VideoFrameRateSelectGroup
@@ -91,26 +84,20 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
             label={t("settings.gif.fields.frameRate")}
             helpText={t("settings.gif.fields.frameRateHelp")}
             value={frame_rate === undefined ? undefined : String(frame_rate)}
-            onValueChange={(nextFrameRate) => onChange({
-              frame_rate: nextFrameRate === undefined ? undefined : nextFrameRate,
-            })}
+            onValueChange={(nextFrameRate) => {
+              console.log('nextFrameRate', nextFrameRate);
+              onChange({
+                frame_rate: nextFrameRate === undefined ? undefined : nextFrameRate,
+              });
+            }}
             placeholder={t("settings.gif.placeholders.frameRate")}
           />
         </div>
 
-        <div className="space-y-2">
-          <FieldLabelWithHelp
-            label={t("settings.gif.fields.loopCount")}
-            helpText={t("settings.gif.fields.loopCountHelp")}
-          />
-          <Input
-            type="number"
-            min={0}
-            value={loop_count ?? ""}
-            onChange={(e) => onChange({ loop_count: parseNumberOrUndefined(e.target.value) })}
-            placeholder={t("settings.gif.placeholders.loopCount")}
-          />
-        </div>
+        <GifLoopCountGroup
+          value={loop_count}
+          onValueChange={(nextLoopCount) => onChange({ loop_count: nextLoopCount })}
+        />
 
         {/* <div className="space-y-2">
           <Label className="text-muted-foreground">Frame Delay (ms)</Label>
@@ -123,26 +110,12 @@ export const GifSettingsSection: React.FC<GifSettingsSectionProps> = ({
           />
         </div> */}
 
-        <div className="space-y-2">
-          <FieldLabelWithHelp
-            label={t("settings.gif.fields.colors")}
-            helpText={t("settings.gif.fields.colorsHelp")}
-          />
-          <Input
-            type="number"
-            min={2}
-            max={256}
-            value={colors ?? ""}
-            onChange={(e) => onChange({ colors: parseNumberOrUndefined(e.target.value) })}
-            placeholder={t("settings.gif.placeholders.colors")}
-          />
-        </div>
+        <GifColorsGroup
+          value={colors}
+          onValueChange={(nextColors) => onChange({ colors: nextColors })}
+        />
 
         <div className="space-y-2">
-          <FieldLabelWithHelp
-            label={t("settings.gif.fields.dpi")}
-            helpText={t("settings.gif.fields.dpiHelp")}
-          />
           <DpiSelectGroup
             value={dpi}
             onValueChange={(nextDpi) => onChange({ dpi: nextDpi })}

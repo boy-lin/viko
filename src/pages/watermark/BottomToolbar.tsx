@@ -1,5 +1,9 @@
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Settings2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { SettingsPanel } from "./SettingsPanel";
+import { WatermarkEditorConfig } from "./types";
 
 type BottomToolbarProps = {
   selectedCount: number;
@@ -11,6 +15,8 @@ type BottomToolbarProps = {
   isRunning: boolean;
   isCancelling?: boolean;
   progress: number;
+  config: WatermarkEditorConfig;
+  onConfigChange: (patch: Partial<WatermarkEditorConfig>) => void;
 };
 
 export function BottomToolbar({
@@ -23,11 +29,13 @@ export function BottomToolbar({
   isRunning,
   isCancelling = false,
   progress,
+  config,
+  onConfigChange,
 }: BottomToolbarProps) {
   const { t } = useTranslation("watermark");
   const disabled = selectedCount === 0 || isRunning;
   return (
-    <div className="h-16 border-t bg-card px-8 flex items-center justify-between">
+    <div className="py-4 border-t px-8 flex items-center justify-between">
       {/* selected count */}
       <div className="text-sm text-muted-foreground min-w-[160px]">
         {isRunning ? (
@@ -47,7 +55,28 @@ export function BottomToolbar({
             </div>
           </div>
         ) : (
-          <div>{t("toolbar.selectedCount", { count: selectedCount })}</div>
+          <div className="flex items-center gap-2">
+            <div>{t("toolbar.selectedCount", { count: selectedCount })}</div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 cursor-pointer"
+                  disabled={disabled}
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="end" sideOffset={12} className="w-[24rem] p-0">
+                <SettingsPanel
+                  config={config}
+                  onChange={onConfigChange}
+                  className="max-h-[70vh] rounded-md border-0 bg-transparent p-4"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         )}
       </div>
       {/* buttons */}

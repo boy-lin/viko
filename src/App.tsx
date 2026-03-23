@@ -7,15 +7,10 @@ import ErrorPage from '@/components/error/ErrorPage';
 
 const HomePage = lazy(() => import("./pages/home"));
 const TaskHistoryPage = lazy(() => import("./pages/tasks"));
-const CompressorVideoPage = lazy(() => import("./pages/compressor/videos"));
-const CompressorAudioPage = lazy(() => import("./pages/compressor/audios"));
-const CompressorImagePage = lazy(() => import("./pages/compressor/images"));
+const CompressorPage = lazy(() => import("./pages/compressor/CompressorPage"));
 
-const ConverterVideoPage = lazy(() => import("./pages/converter/videos"));
-const ConverterAudioPage = lazy(() => import("./pages/converter/audios"));
-const ConverterImagePage = lazy(() => import("./pages/converter/images"));
 const DenoisePage = lazy(() => import("./pages/denoise"));
-
+const ConverterPage = lazy(() => import("./pages/converter/ConverterPage"));
 const MyFilesPage = lazy(() => import("./pages/myfiles"));
 const MetadataEditorPage = lazy(() => import("./pages/metadata"));
 const WatermarkPage = lazy(() => import("./pages/watermark"));
@@ -54,22 +49,14 @@ const router = createHashRouter([
             loader: preloadI18nNamespaces(["home"])
           },
           {
-            path: "compressor", element: <Outlet />,
+            path: "compressor",
             loader: preloadI18nNamespaces(["task"]),
-            children: [
-              { path: "videos", element: withSuspense(<CompressorVideoPage />) },
-              { path: "audios", element: withSuspense(<CompressorAudioPage />) },
-              { path: "images", element: withSuspense(<CompressorImagePage />) },
-            ]
+            element: withSuspense(<CompressorPage />),
           },
           {
-            path: "converter", element: <Outlet />,
+            path: "converter",
             loader: preloadI18nNamespaces(["task"]),
-            children: [
-              { path: "videos", element: withSuspense(<ConverterVideoPage />) },
-              { path: "audios", element: withSuspense(<ConverterAudioPage />) },
-              { path: "images", element: withSuspense(<ConverterImagePage />) },
-            ]
+            element: withSuspense(<ConverterPage />)
           },
           {
             path: "denoise",

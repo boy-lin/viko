@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import CorrectNumberInput from "@/components/ui-lab/correct-number-input";
 import { InputGroup } from "@/components/ui/input-group";
+import { DEFAULT_RESOLUTION } from "@/data/resolution";
 
 interface VideoSizeInputGroupProps {
   resolution?: string;
@@ -12,13 +13,13 @@ interface VideoSizeInputGroupProps {
 }
 
 const parseResolution = (value: string | undefined): { width: number; height: number } => {
-  if (!value) return { width: 1920, height: 1080 };
+  if (!value) return DEFAULT_RESOLUTION;
   const normalized = value.replace("×", "x");
   const [w, h] = normalized.split("x");
   const width = Number.parseInt(w || "", 10);
   const height = Number.parseInt(h || "", 10);
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    return { width: 1920, height: 1080 };
+    return DEFAULT_RESOLUTION;
   }
   return { width, height };
 };
