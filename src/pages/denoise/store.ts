@@ -32,7 +32,6 @@ export const defaultDenoiseConfig: GlobalDenoiseConfig = {
 type DenoiseStore = CreateTaskStoreState<
   DenoiseTask,
   GlobalDenoiseConfig,
-  GlobalDenoiseConfig,
   "tasks",
   "globalConfig",
   "clearTasks"
@@ -51,7 +50,6 @@ const fallbackFormatByType = (fileType: FileType): string =>
 export const useDenoiseStore = create<DenoiseStore>(
   createTaskStore<
     DenoiseTask,
-    GlobalDenoiseConfig,
     GlobalDenoiseConfig,
     "tasks",
     "globalConfig",
@@ -79,36 +77,6 @@ export const useDenoiseStore = create<DenoiseStore>(
         args: outputArgs,
         fileType,
       };
-    },
-    mergeConfig: (current, patch) => {
-      const currentArgs = current.args || {};
-      const patchArgs = patch.args || {};
-      return {
-        ...current,
-        ...patch,
-        args: {
-          ...currentArgs,
-          ...patchArgs,
-          filter: {
-            ...(currentArgs.filter || {}),
-            ...(patchArgs.filter || {}),
-          },
-        },
-      };
-    },
-    applyToTaskArgs: (task, config) => {
-      const clonedTask = task
-      const clonedArgs = config.args
-      clonedTask.taskType = MediaTaskType.ConvertDenoise;
-      clonedTask.args = {
-        ...clonedTask.args,
-        ...clonedArgs,
-        filter: {
-          ...(clonedTask.args.filter || {}),
-          ...(clonedArgs.filter || {}),
-        },
-      };
-      return clonedTask;
     },
     queueAdapter: async (tasks) => {
       const settings = useSettingsStore.getState();

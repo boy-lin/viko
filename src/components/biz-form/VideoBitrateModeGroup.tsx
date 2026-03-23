@@ -43,6 +43,8 @@ export default function VideoBitrateModeGroup({
     return "vbr";
   }, [crf, rc_mode]);
 
+  console.log('currentMode', currentMode, rc_mode, crf, video_bitrate, min_bitrate, max_bitrate);
+
   const effectiveBitrate = useMemo(
     () => video_bitrate ?? max_bitrate ?? min_bitrate,
     [max_bitrate, min_bitrate, video_bitrate],

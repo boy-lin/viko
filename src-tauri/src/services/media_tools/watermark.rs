@@ -43,8 +43,7 @@ impl WatermarkConfig {
             *stage += 1;
 
             // 1. Load image as overlay source
-            // escape path for ffmpeg: \ -> \\, : -> \:
-            let safe_path = img.path.replace("\\", "/").replace(":", "\\:");
+            let safe_path = escape_ffmpeg_movie_path(&img.path);
 
             // Prepare overlay input
             // movie=filename [logo]; [logo] scale=... [logo_scaled]
@@ -52,7 +51,7 @@ impl WatermarkConfig {
             let overlay_id = format!("wm_overlay_{}", *stage);
             let overlay_scaled_id = format!("wm_overlay_scaled_{}", *stage);
 
-            let mut overlay_pipeline = format!("movie={}[{}];", safe_path, overlay_id);
+            let mut overlay_pipeline = format!("movie=filename='{}'[{}];", safe_path, overlay_id);
 
             // Scale and Opacity for overlay
             let mut overlay_filters = Vec::new();
@@ -136,9 +135,8 @@ impl WatermarkConfig {
             let safe_font = txt
                 .font_path
                 .as_deref()
-                .unwrap_or("")
-                .replace("\\", "/")
-                .replace(":", "\\:");
+                .map(escape_ffmpeg_drawtext_value)
+                .unwrap_or_default();
 
             let font_arg = if safe_font.is_empty() {
                 String::new()
@@ -158,9 +156,10 @@ impl WatermarkConfig {
             } else {
                 (txt.x.clone(), txt.y.clone())
             };
+            let color = normalize_ffmpeg_drawtext_color(&txt.color, txt.opacity);
             let drawtext_cmd = format!(
-                "drawtext={}text='{}':fontsize={}:fontcolor={}:alpha={}:x={}:y={}",
-                font_arg, safe_text, txt.font_size, txt.color, txt.opacity, text_x, text_y
+                "drawtext={}text='{}':fontsize={}:fontcolor={}:x={}:y={}",
+                font_arg, safe_text, txt.font_size, color, text_x, text_y
             );
 
             write!(
@@ -328,6 +327,35 @@ pub fn apply_all_watermarks(
         watermark.apply_watermark(image)?;
     }
     Ok(())
+}
+
+fn escape_ffmpeg_movie_path(path: &str) -> String {
+    let normalized = path.replace('\\', "/");
+    if cfg!(target_os = "windows") {
+        normalized.replace(':', "\\:").replace('\'', "\\'")
+    } else {
+        normalized.replace('\'', "\\'")
+    }
+}
+
+fn escape_ffmpeg_drawtext_value(path: &str) -> String {
+    let normalized = path.replace('\\', "/");
+    if cfg!(target_os = "windows") {
+        normalized.replace(':', "\\:").replace('\'', "\\'")
+    } else {
+        normalized.replace('\'', "\\'")
+    }
+}
+
+fn normalize_ffmpeg_drawtext_color(color: &str, opacity: f32) -> String {
+    let normalized_opacity = opacity.clamp(0.0, 1.0);
+    let base = if color.starts_with('#') && color.len() == 7 {
+        format!("0x{}", &color[1..])
+    } else {
+        color.trim().to_string()
+    };
+
+    format!("{base}@{normalized_opacity}")
 }
 
 fn load_font_bytes_with_fallback(user_font_path: Option<&str>) -> Result<Vec<u8>, String> {

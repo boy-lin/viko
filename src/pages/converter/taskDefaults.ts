@@ -29,15 +29,39 @@ const buildAudioTracksFromStreams = (
   currentTracks: AudioTrackConfig[] | undefined,
   codec: AudioEncoderEnum | string | undefined,
 ) => {
+  const audioStreams = details.streams.filter(
+    (stream) => stream.codec_type === "audio",
+  );
+  const firstAudioStreamIndex = audioStreams[0]?.index;
+  const audioStreamIndices = new Set(audioStreams.map((stream) => stream.index));
+
   if (currentTracks && currentTracks.length > 0) {
-    return currentTracks.map((track) => ({
-      ...track,
-      codec: codec ?? track.codec,
-    }));
+    const nextTracks = currentTracks
+      .map((track) => {
+        const nextSourceStreamIndex =
+          typeof track.source_stream_index === "number" &&
+          audioStreamIndices.has(track.source_stream_index)
+          ? track.source_stream_index
+          : firstAudioStreamIndex;
+
+        if (typeof nextSourceStreamIndex !== "number") {
+          return null;
+        }
+
+        return {
+          ...track,
+          source_stream_index: nextSourceStreamIndex,
+          codec: codec ?? track.codec,
+        };
+      })
+      .filter((track) => track !== null);
+
+    if (nextTracks.length > 0) {
+      return nextTracks;
+    }
   }
 
-  const nextTracks = details.streams
-    .filter((stream) => stream.codec_type === "audio")
+  const nextTracks = audioStreams
     .map((stream) => ({
       source_stream_index: stream.index,
       codec,
@@ -126,7 +150,6 @@ export const buildTaskDefaultsFromDetails = (
     const width = currentArgs.width ?? primaryVisualStream?.width;
     const height = currentArgs.height ?? primaryVisualStream?.height;
 
-    console.log("primaryVisualStream", currentArgs, primaryVisualStream);
     return {
       mediaDetails: details,
       outputTitle,

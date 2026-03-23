@@ -9,7 +9,7 @@ import { CompressorLayer } from "@/components/icons/CompressorLayer";
 import { useAnalytics } from "@/lib/analytics";
 import { MenuItems } from "@/layout/sidebar/menu";
 import { useTranslation } from "react-i18next";
-import { AUDIO_SUPPORT_FORMATS, VIDEO_SUPPORT_FORMATS, IMAGE_SUPPORT_FORMATS, SUPPORT_FORMATS } from "@/data/formats";
+import { VIDEO_SUPPORT_FORMATS, IMAGE_SUPPORT_FORMATS, SUPPORT_FORMATS } from "@/data/formats";
 import { bridge } from "@/lib/bridge";
 
 type HeroCardAction = {

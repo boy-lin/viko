@@ -91,7 +91,7 @@ export function isVideoFormat(extension: any): boolean {
   return VIDEO_SUPPORT_FORMATS.includes(extension);
 }
 
-export function isImageFormat(extension: any): boolean {
+export function isImageFormat(extension: string): boolean {
   if (!extension) return false;
   return IMAGE_FORMAT_OPTIONS.some((option) => option.id === extension);
 }

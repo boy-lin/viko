@@ -372,13 +372,6 @@ export const getVideoCompressionPresetByRatio = (
   };
 };
 
-interface TaskItemProps {
-  task: CompressorTask;
-  metaStatus?: "idle" | "loading" | "error";
-  metaError?: string;
-  onRetryMeta?: () => void;
-}
-
 interface CompressibilityAssessment {
   score: number;
   text: string;

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VIDEO_ENCODERS } from "@/data/encoders";
-import { EncoderEnum, VideoEncoderEnum } from "@/types/options";
+import { VideoEncoderEnum } from "@/types/options";
 import { cn } from "@/lib/utils";
 
 interface VideoEncoderSelectProps {

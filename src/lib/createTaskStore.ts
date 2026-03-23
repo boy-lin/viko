@@ -115,10 +115,16 @@ const mergeAudioTracks = (
 const mergeTaskUpdate = (current: any, config: any) => {
   const currentArgs = current?.args || {};
   const updatesArgs = config?.args || {};
-  const mergedAudioTracks = mergeAudioTracks(
-    currentArgs.audio_tracks ?? [],
-    updatesArgs.audio_tracks ?? [],
+  const hasAudioTrackPatch = Object.prototype.hasOwnProperty.call(
+    updatesArgs,
+    "audio_tracks",
   );
+  const mergedAudioTracks = hasAudioTrackPatch
+    ? (updatesArgs.audio_tracks ?? [])
+    : mergeAudioTracks(
+        currentArgs.audio_tracks ?? [],
+        updatesArgs.audio_tracks ?? [],
+      );
 
   return {
     ...current,
@@ -156,9 +162,7 @@ export function createTaskStore<
     clearActionKey,
     defaultConfig,
     createTaskByPath,
-    queueAdapter,
-    shouldRemoveTask = (task) =>
-      ["finished", "cancelled"].includes(task.status),
+    queueAdapter
   } = options;
 
   return (set, get) =>

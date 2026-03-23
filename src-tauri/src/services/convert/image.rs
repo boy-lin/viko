@@ -1,10 +1,13 @@
 use image::ImageFormat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::Path;
 use tauri::command;
 
 use crate::media_common;
+use crate::media_common::MediaFileType;
 use crate::services::ffmpeg::media_info::{MediaDetails, StreamDetails};
+use crate::services::media_tools::thumbnail::{self, ThumbnailOptions};
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 
@@ -148,6 +151,13 @@ fn convert_image_file_impl(args: ImageConversionParams) -> Result<ImageConversio
         return Err("Task cancelled".to_string());
     }
 
+    if matches!(
+        media_common::detect_media_file_type(Path::new(&args.input_path)),
+        MediaFileType::Video | MediaFileType::Audio
+    ) {
+        return convert_media_frame_to_image(args);
+    }
+
     let mut dynamic =
         image::open(&args.input_path).map_err(|e| format!("无法打开图片文件: {}", e))?;
 
@@ -248,6 +258,25 @@ fn convert_image_file_impl(args: ImageConversionParams) -> Result<ImageConversio
     };
 
     Ok(ImageConversionReport { output_media })
+}
+
+fn convert_media_frame_to_image(
+    args: ImageConversionParams,
+) -> Result<ImageConversionReport, String> {
+    let thumb = thumbnail::generate_thumbnail(
+        &args.input_path,
+        Some(ThumbnailOptions {
+            width: args.width,
+            height: args.height,
+            fit_mode: Some("contain".to_string()),
+        }),
+    )?
+    .ok_or_else(|| "无法从媒体文件提取封面帧".to_string())?;
+
+    let mut forwarded_args = args;
+    forwarded_args.input_path = thumb.thumbnail_path;
+    forwarded_args.input_file_type = Some("image".to_string());
+    convert_image_file_impl(forwarded_args)
 }
 
 pub fn is_animated_image_target(format: &str, output_path: &str, input_path: &str) -> bool {

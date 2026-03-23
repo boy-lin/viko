@@ -228,20 +228,6 @@ const assessVideoCompressibility = (
   return toAssessment(clampScore(score));
 };
 
-const formatDpiFromTags = (tags?: Record<string, string>) => {
-  if (!tags) return "-";
-  const dpiX = Number.parseFloat(tags.dpi_x ?? "");
-  const dpiY = Number.parseFloat(tags.dpi_y ?? "");
-  if (!Number.isFinite(dpiX) && !Number.isFinite(dpiY)) return "-";
-
-  const unit = (tags.dpi_unit || "inch").toLowerCase();
-  const unitLabel = unit === "cm" ? "dpcm" : "dpi";
-  const x = Number.isFinite(dpiX) ? Math.round(dpiX) : undefined;
-  const y = Number.isFinite(dpiY) ? Math.round(dpiY) : undefined;
-  if (x && y && x !== y) return `${x}x${y} ${unitLabel}`;
-  return `${x ?? y} ${unitLabel}`;
-};
-
 const getOriginalInfoParts = (task: CompressorTask) => {
   if (task.fileType === FileType.Audio) {
     const firstAudioStream = task.mediaDetails?.streams?.find((s) => s.codec_type === "audio");

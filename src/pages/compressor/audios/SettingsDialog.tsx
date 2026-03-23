@@ -5,7 +5,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -260,15 +259,15 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
               />
             </ScrollArea>
           </div>
-          <DialogFooter className="flex flex-row items-center justify-between space-y-0 pt-8 pb-2 px-4 border-b">
-            {/* <Button variant="outline" onClick={() => setOpen(false)}>
+          {/* <DialogFooter className="flex flex-row items-center justify-between space-y-0 pt-8 pb-2 px-4 border-b">
+            <Button variant="outline" onClick={() => setOpen(false)}>
               {t("audioCompressor.actions.close")}
-            </Button> */}
-            {/* <Button onClick={() => {
+            </Button>
+            <Button onClick={() => {
               onSave(config)
               setOpen(false)
-            }}>保存</Button> */}
-          </DialogFooter>
+            }}>保存</Button>
+          </DialogFooter> */}
         </DialogContent>
       </Dialog>
     </>
@@ -279,7 +278,6 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
   config,
   mediaDetails,
   onConfigChange,
-  onSave,
 }) => {
   const { t } = useTranslation("task");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -319,7 +317,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
                 onConfigChange={onConfigChange}
               />
             </ScrollArea>
-            <div
+            {/* <div
               className={` p-4 flex justify-end gap-2 border-t sticky bottom-0 bg-popover/95 backdrop-blur`}
             >
               <Button className="cursor-pointer" variant="outline" onClick={() => setIsSettingsOpen(false)}>
@@ -329,7 +327,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
                 onSave && onSave(config);
                 setIsSettingsOpen(false);
               }}>{t("common.apply_all")}</Button>
-            </div>
+            </div> */}
           </div>
 
         </PopoverContent>

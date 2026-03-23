@@ -3,7 +3,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -191,19 +190,19 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
             </ScrollArea>
           </div>
 
-          <DialogFooter className="flex flex-row items-center justify-between space-y-0 border-b px-4 pb-2 pt-8">
+          {/* <DialogFooter className="flex flex-row items-center justify-between space-y-0 border-b px-4 pb-2 pt-8">
             <Button variant="outline" onClick={() => setOpen(false)}>
               {t("imageCompressor.actions.close")}
             </Button>
-            {/* <Button
+            <Button
               onClick={() => {
                 onSave(config);
                 setOpen(false);
               }}
             >
               保存
-            </Button> */}
-          </DialogFooter>
+            </Button>
+          </DialogFooter> */}
         </DialogContent>
       </Dialog>
     </>
@@ -215,7 +214,6 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
   config,
   mediaDetails,
   onConfigChange,
-  onSave,
 }) => {
   const { t } = useTranslation("task");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -254,7 +252,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
               />
             </ScrollArea>
 
-            <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-popover/95 p-4 backdrop-blur">
+            {/* <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-popover/95 p-4 backdrop-blur">
               <Button
                 className="cursor-pointer"
                 variant="outline"
@@ -271,7 +269,7 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
               >
                 {t("imageCompressor.actions.applyAll")}
               </Button>
-            </div>
+            </div> */}
           </div>
         </PopoverContent>
       </Popover>

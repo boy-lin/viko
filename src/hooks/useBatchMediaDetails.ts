@@ -66,7 +66,6 @@ export function useBatchMediaDetails<TTask extends TaskLike>({
       .then((cards) => {
         if (unmountedRef.current) return;
         const byPath = new Map(cards.map((card) => [card.details.path, card]));
-        console.log("cards", JSON.stringify(cards, null, 2));
         pending.forEach((task) => {
           const card = byPath.get(task.args!.input_path!);
           if (!card) return;

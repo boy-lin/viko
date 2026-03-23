@@ -1,77 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { MenuItems } from "@/layout/sidebar/menu";
+import { HOME_COMMON_FEATURES, type HomeCommonFeature } from "@/config/navigation";
 import { useAppStore } from "@/stores/app";
 import { useTranslation } from "react-i18next";
-import {
-  FileVideo,
-  FileAudio,
-  ImageIcon,
-  Gauge,
-  FileText,
-  FolderOpen,
-  Volume2,
-} from "lucide-react";
 import { Link } from "react-router-dom";
-
-type FeatureItem = {
-  id: string;
-  path: string;
-  titleKey: string;
-  descKey: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
-
-const FEATURE_MAP: FeatureItem[] = [
-  {
-    id: "converter",
-    path: MenuItems.converterVideos,
-    titleKey: "common.converter.title",
-    descKey: "common.converter.desc",
-    icon: FileVideo,
-  },
-  {
-    id: "audio",
-    titleKey: "common.audio.title",
-    descKey: "common.audio.desc",
-    icon: FileAudio,
-    path: MenuItems.converterAudios,
-  },
-  {
-    id: "image",
-    titleKey: "common.image.title",
-    descKey: "common.image.desc",
-    icon: ImageIcon,
-    path: MenuItems.converterImages,
-  },
-  {
-    id: "compressor",
-    titleKey: "common.compressor.title",
-    descKey: "common.compressor.desc",
-    icon: Gauge,
-    path: MenuItems.compressorVideos,
-  },
-  {
-    id: "denoise",
-    titleKey: "common.denoise.title",
-    descKey: "common.denoise.desc",
-    icon: Volume2,
-    path: MenuItems.denoise,
-  },
-  {
-    id: "metadata",
-    titleKey: "common.metadata.title",
-    descKey: "common.metadata.desc",
-    icon: FileText,
-    path: MenuItems.metadata,
-  },
-  {
-    id: "myfiles",
-    titleKey: "common.myfiles.title",
-    descKey: "common.myfiles.desc",
-    icon: FolderOpen,
-    path: MenuItems.myFiles,
-  },
-];
 
 export const CommonFeatures = () => {
   const { t } = useTranslation("home");
@@ -80,10 +11,10 @@ export const CommonFeatures = () => {
   const orderedByUsage = Object.entries(usageCounts || {})
     .map(([path, count]) => ({ path, count }))
     .sort((a, b) => b.count - a.count)
-    .map((u) => FEATURE_MAP.find((f) => f.path === u.path))
-    .filter(Boolean) as FeatureItem[];
+    .map((u) => HOME_COMMON_FEATURES.find((f) => f.path === u.path))
+    .filter(Boolean) as HomeCommonFeature[];
 
-  const remaining = FEATURE_MAP.filter(
+  const remaining = HOME_COMMON_FEATURES.filter(
     (f) => !orderedByUsage.some((u) => u.id === f.id)
   );
 

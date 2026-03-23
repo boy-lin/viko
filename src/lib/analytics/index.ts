@@ -57,6 +57,8 @@ const createFallbackDeviceId = () => {
 
 class AnalyticsService {
   private providers: AnalyticsProvider[] = [];
+  private initialized = false;
+  private appOpenTracked = false;
   private context: AnalyticsContext = {
     device_id: createFallbackDeviceId(),
     app_version: pkg.version,
@@ -67,6 +69,11 @@ class AnalyticsService {
   };
 
   init() {
+    if (this.initialized) {
+      return;
+    }
+    this.initialized = true;
+
     this.providers = [
       new PostHogAnalyticsProvider(),
       new GoogleAnalyticsProvider(),
@@ -100,7 +107,22 @@ class AnalyticsService {
       })
       .catch(() => {
         // keep fallback ID
+      })
+      .finally(() => {
+        this.trackAppOpenOnce();
       });
+  }
+
+  private trackAppOpenOnce() {
+    if (this.appOpenTracked) {
+      return;
+    }
+    this.appOpenTracked = true;
+
+    this.track("desktop_app_open", {
+      opened_at: Date.now(),
+      entry: "main",
+    });
   }
 
   private withContext(

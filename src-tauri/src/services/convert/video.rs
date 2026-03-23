@@ -878,10 +878,6 @@ fn build_video_filter_graph(
     graph
         .add(&filter::find("buffersink").unwrap(), "out", "")
         .map_err(|e| format!("创建视频 filter sink 失败: {}", e))?;
-    {
-        let mut out = graph.get("out").ok_or("无法获取视频 filter sink")?;
-        out.set_pixel_format(pix_fmt);
-    }
     graph
         .output("in", 0)
         .and_then(|p| p.input("out", 0))

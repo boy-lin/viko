@@ -1,6 +1,7 @@
 ﻿import React, { Suspense, lazy } from "react";
 import { createHashRouter, Outlet, RouterProvider } from "react-router-dom";
 import i18n from "@/lib/i18n";
+import { APP_PATHS } from "@/config/navigation";
 import RootLayout from "./layout/RootPage";
 import AuthLayout from "./layout/AuthLayout";
 import ErrorPage from '@/components/error/ErrorPage';
@@ -33,13 +34,13 @@ const withSuspense = (element: React.ReactNode) => (
 );
 const router = createHashRouter([
   {
-    path: "/",
+    path: APP_PATHS.home,
     element: <AuthLayout />,
     errorElement: <ErrorPage />,
     hydrateFallbackElement,
     children: [
       {
-        path: "/",
+        path: APP_PATHS.home,
         element: <RootLayout />,
 
         children: [
@@ -49,17 +50,17 @@ const router = createHashRouter([
             loader: preloadI18nNamespaces(["home"])
           },
           {
-            path: "compressor",
+            path: APP_PATHS.compressor.slice(1),
             loader: preloadI18nNamespaces(["task"]),
             element: withSuspense(<CompressorPage />),
           },
           {
-            path: "converter",
+            path: APP_PATHS.converter.slice(1),
             loader: preloadI18nNamespaces(["task"]),
             element: withSuspense(<ConverterPage />)
           },
           {
-            path: "denoise",
+            path: APP_PATHS.denoise.slice(1),
             element: withSuspense(<DenoisePage />),
             loader: preloadI18nNamespaces(["task"]),
           },
@@ -75,14 +76,14 @@ const router = createHashRouter([
               { index: true, element: withSuspense(<TaskHistoryPage />) },
             ],
           },
-          { path: "metadata", element: withSuspense(<MetadataEditorPage />), loader: preloadI18nNamespaces(["metadata"]) },
-          { path: "watermark", element: withSuspense(<WatermarkPage />), loader: preloadI18nNamespaces(["watermark"]) },
+          { path: APP_PATHS.metadata.slice(1), element: withSuspense(<MetadataEditorPage />), loader: preloadI18nNamespaces(["metadata"]) },
+          { path: APP_PATHS.watermark.slice(1), element: withSuspense(<WatermarkPage />), loader: preloadI18nNamespaces(["watermark"]) },
         ],
       },
     ],
   },
   {
-    path: "/force-update",
+    path: APP_PATHS.forceUpdate,
     element: withSuspense(<ForceUpdatePage />),
     errorElement: <ErrorPage />,
     hydrateFallbackElement,

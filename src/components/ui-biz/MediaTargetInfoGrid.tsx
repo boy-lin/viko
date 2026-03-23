@@ -47,7 +47,7 @@ export default function MediaTargetInfoGrid({
       `${imageArgs.width}x${imageArgs.height}`,
       imageArgs.frame_rate ? `${imageArgs.frame_rate}` : undefined,
     ];
-  } else if (isImageFormat(format as any)) {
+  } else if (isImageFormat(format)) {
     const imageArgs = args as ConvertImageTaskArgs;
     parts = [
       format?.toUpperCase?.(),

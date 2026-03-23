@@ -2,11 +2,6 @@ import { EncoderOption, EncoderEnum } from "@/types/options";
 
 export const AUDIO_ENCODERS: EncoderOption[] = [
   {
-    value: EncoderEnum.AUTO,
-    label: "Auto",
-    description: "Automatically select best encoder",
-  },
-  {
     value: EncoderEnum.AAC,
     label: "AAC",
     description: "Advanced Audio Coding",
@@ -137,12 +132,6 @@ export const AUDIO_ENCODERS: EncoderOption[] = [
 ];
 
 export const VIDEO_ENCODERS: EncoderOption[] = [
-  {
-    value: EncoderEnum.AUTO,
-    label: "Auto",
-    description: "Automatically select best encoder",
-  },
-  { value: EncoderEnum.COPY, label: "Copy", description: "Direct stream copy" },
   {
     value: EncoderEnum.H264,
     label: "H.264 / AVC",

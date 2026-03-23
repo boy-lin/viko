@@ -198,6 +198,7 @@ class MediaTaskQueue {
     if (!this.pendingTaskIds.has(payload.task_id)) return;
 
     this.listeners.forEach((listener) => listener(payload));
+    this.trackTaskResult(payload);
 
     this.dispatchStoreUpdates(payload);
 
@@ -439,6 +440,37 @@ class MediaTaskQueue {
           has_watermark: Boolean(args.watermark),
         };
       }),
+    });
+
+    tasks.forEach((task) => {
+      const args = (task.args || {}) as Record<string, unknown>;
+      analytics.track("task_feature_submit", {
+        task_id: typeof args.task_id === "string" ? args.task_id : undefined,
+        task_type: task.type,
+        format: typeof args.format === "string" ? args.format : undefined,
+        input_file_type:
+          typeof args.input_file_type === "string"
+            ? args.input_file_type
+            : undefined,
+        has_watermark: Boolean(args.watermark || args.forced_watermark),
+      });
+    });
+  }
+
+  private trackTaskResult(payload: MediaTaskEvent): void {
+    if (payload.event_type !== "complete" && payload.event_type !== "error") {
+      return;
+    }
+
+    analytics.track("task_feature_result", {
+      task_id: payload.task_id,
+      task_type: payload.task_type,
+      file_type: payload.file_type,
+      event_type: payload.event_type,
+      success: payload.event_type === "complete",
+      output_size: payload.output_size,
+      error_message:
+        payload.event_type === "error" ? payload.error_message : undefined,
     });
   }
 }

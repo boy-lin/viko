@@ -47,6 +47,7 @@ pub fn is_hardware_video_encoder(codec_name: &str) -> bool {
         || codec_name.contains("_qsv")
         || codec_name.contains("_vaapi")
         || codec_name.contains("_amf")
+        || codec_name.contains("_mf")
 }
 
 pub fn calc_video_bitrate_from_kbps(

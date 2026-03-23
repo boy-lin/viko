@@ -4,20 +4,19 @@ import { motion } from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
-  ListOrdered,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { MenuItems } from "./menu";
-import HomeLinear from "@/components/icons/HomeLinear";
-import FolderLinear from "@/components/icons/FolderLinear";
-import AILinear from "@/components/icons/AILinear";
 import PinLinear from "@/components/icons/PinLinear";
 import PinCancelLinear from "@/components/icons/PinCancelLinear";
 import { useAppStore } from "@/stores/app";
 import ScrollHint, { ScrollHintIndicator } from "@/components/ui-lab/scroll-hint";
-import { QuickAccessItem, QUICK_ACCESS_CONFIG } from "./menu";
+import {
+  QUICK_ACCESS_CONFIG,
+  SIDEBAR_NAV_CONFIG,
+  type QuickAccessItem,
+} from "@/config/navigation";
 
 type NavItem = {
   label: string;
@@ -278,8 +277,8 @@ const SidebarQuickAccessItem = ({
           isActive ? " text-accent-foreground" : "text-foreground group-hover:text-accent-foreground"
         )}
       >
-        <p className="text-sm truncate" title={t(item.label)}>
-          {t(item.label)}
+        <p className="text-sm truncate" title={t(item.labelKey)}>
+          {t(item.labelKey)}
         </p>
       </SidebarLabel>
       {item.href && (
@@ -404,12 +403,13 @@ const SidebarNav = () => {
     recordRecentQuickAccess(matched);
   }, [location.pathname, isQuickAccessNav, recordRecentQuickAccess]);
 
-  const sidebarNavItems: NavItem[] = [
-    { label: t("nav.home"), icon: HomeLinear, href: MenuItems.home },
-    { label: t("nav.tasks"), icon: ListOrdered, href: MenuItems.tasks, badgeCount: unreadFinishedCount },
-    { label: t("nav.my_files"), icon: FolderLinear, href: MenuItems.myFiles },
-    { label: t("nav.ai_tools"), icon: AILinear, disabled: true },
-  ];
+  const sidebarNavItems: NavItem[] = SIDEBAR_NAV_CONFIG.map((item) => ({
+    label: t(item.labelKey),
+    icon: item.icon,
+    href: item.href,
+    disabled: item.disabled,
+    badgeCount: item.id === "tasks" ? unreadFinishedCount : undefined,
+  }));
 
   const fixedQuickAccessItems = pinnedPaths
     .map((path) => quickAccessConfigMap.get(path))

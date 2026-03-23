@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { FORMAT_CATEGORIES, FORMAT_OPTIONS } from "@/data/formats";
 import {
   AudioSettingsSection,
@@ -26,8 +25,6 @@ export default function FormatSelectorContent({
   addToRecents,
   onValueChange,
   onClose,
-  applyConfigToAllTasks,
-  btnLabelKey
 }: FormatSelectorContentProps) {
   const [activeGroup, setActiveGroup] = useState<FormatGroup | undefined>();
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,8 +36,6 @@ export default function FormatSelectorContent({
     }
     return FORMAT_CATEGORIES.find((item) => item.id === category);
   }, [config.activeCategory, formatRecents]);
-
-  console.log('activeCategory', activeCategory, config);
 
   const formatGroups = React.useMemo(() => {
     if (config.activeCategory === ActiveCategoryEnum.Recents) {
@@ -143,7 +138,7 @@ export default function FormatSelectorContent({
     const targetAnimatedImage = formatOpt.id === FormatEnum.GIF;
 
     const updates: any = {
-      activeCategory: formatOpt.category,
+      // activeCategory: formatOpt.category,
       args: {
         format: formatOpt.id,
       },
@@ -164,7 +159,6 @@ export default function FormatSelectorContent({
         updates.args = buildImageArgs(formatOpt.id);
       }
     }
-    console.log('updates', JSON.stringify(updates, null, 2));
     onValueChange(updates);
   };
 
@@ -210,6 +204,7 @@ export default function FormatSelectorContent({
           color_space={videoArgs.color_space}
           color_range={videoArgs.color_range}
           onChange={(args) => {
+            console.log('args', args);
             onValueChange({ args });
           }}
         />
@@ -339,7 +334,7 @@ export default function FormatSelectorContent({
         {/* format options */}
         <div className="flex flex-col min-h-0">
           {renderCustomSettings()}
-          <div className="p-2 flex gap-2">
+          {/* <div className="p-2 flex gap-2">
             <Button
               className="cursor-pointer"
               onClick={() => {
@@ -359,7 +354,7 @@ export default function FormatSelectorContent({
             >
               {t("common.cancel")}
             </Button>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

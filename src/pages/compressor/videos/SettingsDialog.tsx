@@ -4,7 +4,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -270,15 +269,15 @@ export const CompressionSettingsDialog: React.FC<CompressionSettingsProps> = ({
               />
             </ScrollArea>
           </div>
-          <DialogFooter className="flex flex-row items-center justify-between space-y-0 pt-2 pb-2 px-4 border-b">
+          {/* <DialogFooter className="flex flex-row items-center justify-between space-y-0 pt-2 pb-2 px-4 border-b">
             <Button variant="outline" onClick={() => setOpen(false)}>
               {t("videoCompressor.actions.close")}
             </Button>
-            {/* <Button onClick={() => {
+            <Button onClick={() => {
               onSave(config)
               setOpen(false)
-            }}>保存</Button> */}
-          </DialogFooter>
+            }}>保存</Button>
+          </DialogFooter> */}
         </DialogContent>
       </Dialog>
     </>
@@ -324,17 +323,17 @@ export const CompressionSettingsPopover: React.FC<CompressionSettingsProps> = ({
                 onConfigChange={onConfigChange}
               />
             </ScrollArea>
-            <div
+            {/* <div
               className={` px-4 py-2 flex justify-end gap-2 sticky bottom-0 bg-popover/95 backdrop-blur`}
             >
               <Button className="cursor-pointer" variant="outline" onClick={() => setIsSettingsOpen(false)}>
                 {t("videoCompressor.actions.close")}
               </Button>
-              {/* <Button className="cursor-pointer" onClick={() => {
+              <Button className="cursor-pointer" onClick={() => {
                 onSave && onSave(config);
                 setIsSettingsOpen(false);
-              }}>应用到全部</Button> */}
-            </div>
+              }}>应用到全部</Button>
+            </div> */}
           </div>
 
         </PopoverContent>

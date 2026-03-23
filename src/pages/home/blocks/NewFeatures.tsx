@@ -1,80 +1,12 @@
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { MenuItems } from "@/layout/sidebar/menu"
+import { HOME_NEW_FEATURES } from "@/config/navigation"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-
-const tools = [
-  {
-    id: 2,
-    title: "newFeatures.videoMeta.title",
-    description: "newFeatures.videoMeta.desc",
-    image: "/cover/2.jpg",
-    badge: "",
-    icon: "Metadata",
-    ai: false,
-    href: MenuItems.metadata,
-  },
-  {
-    id: 3,
-    title: "newFeatures.audioMeta.title",
-    description: "newFeatures.audioMeta.desc",
-    image: "/cover/3.jpg",
-    //badge: "Hot",
-    icon: "Metadata",
-    ai: false,
-    href: MenuItems.metadata,
-  },
-  {
-    id: 4,
-    title: "newFeatures.imageMeta.title",
-    description: "newFeatures.imageMeta.desc",
-    image: "/cover/1.jpg",
-    icon: "Metadata",
-    ai: false,
-    disabled: true,
-  },
-  {
-    id: 5,
-    title: "newFeatures.merge.title",
-    description: "newFeatures.merge.desc",
-    image: "/cover/4.jpg",
-    icon: "Merger",
-    disabled: true,
-    future: true,
-  },
-  {
-    id: 6,
-    title: "newFeatures.split.title",
-    description: "newFeatures.split.desc",
-    image: "/cover/5.jpg",
-    icon: "Splitter",
-    disabled: true,
-    future: true,
-  },
-  {
-    id: 7,
-    title: "newFeatures.crop.title",
-    description: "newFeatures.crop.desc",
-    image: "/cover/6.jpg",
-    icon: "Cropper",
-    disabled: true,
-    future: true,
-  },
-  {
-    id: 8,
-    title: "newFeatures.rotate.title",
-    description: "newFeatures.rotate.desc",
-    image: "/cover/7.jpg",
-    icon: "Rotator",
-    disabled: true,
-    future: true,
-  },
-]
 export const NewFeatures = () => {
   const { t } = useTranslation("home")
   return <div className="grid grid-cols-3 gap-4 lg:grid-cols-4">
-    {tools.map((tool) => {
+    {HOME_NEW_FEATURES.map((tool) => {
       const content = (
         <Card
           key={tool.id}

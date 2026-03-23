@@ -16,6 +16,7 @@ import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 
 import { ConverterTask, ConverterTaskArgs, useConverterStore } from "./store";
+import { buildTaskDefaultsFromDetails } from "./taskDefaults";
 
 interface ConverterTaskItemProps {
   task: ConverterTask;
@@ -117,17 +118,22 @@ export default function ConverterTaskItem({
             }}
             recentKey="converter-task-item"
             onValueChange={(config) => {
+              let args = {}
+              if (task.activeCategory !== config.activeCategory) {
+                if (task.mediaDetails) {
+                  args = buildTaskDefaultsFromDetails({
+                    ...task,
+                    activeCategory: config.activeCategory,
+                  }, task.mediaDetails).args || {}
+                }
+              }
               updateTaskById(task.id, {
                 activeCategory: config.activeCategory || task.activeCategory,
                 taskType: config.taskType || task.taskType,
-                args: config.args,
-              });
-            }}
-            applyConfigToAllTasks={(config) => {
-              updateTaskById(task.id, {
-                activeCategory: config.activeCategory || task.activeCategory,
-                taskType: config.taskType || task.taskType,
-                args: config.args,
+                args: {
+                  ...args,
+                  ...config.args
+                },
               });
             }}
           />
