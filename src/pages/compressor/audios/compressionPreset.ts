@@ -68,11 +68,10 @@ const pickCodecBySourceAndFormat = (
   return AudioEncoderEnum.AAC;
 };
 const resolveChannels = (
-  allowedChannels: string[] | undefined,
+  allowedChannels: number[] | undefined,
   targetChannels: number,
 ) => {
   const parsed = (allowedChannels ?? [])
-    .map((value) => Number.parseInt(value, 10))
     .filter((value) => Number.isFinite(value) && value > 0)
     .sort((left, right) => left - right);
 

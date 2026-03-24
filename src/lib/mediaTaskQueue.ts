@@ -42,47 +42,6 @@ type TaskRequest = {
     | WatermarkTaskArgs;
 };
 
-const normalizeFrameRateValue = (value: unknown): number | undefined => {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? Number(value.toFixed(3)) : undefined;
-  }
-  if (typeof value === "string") {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? Number(parsed.toFixed(3)) : undefined;
-  }
-  return undefined;
-};
-
-const normalizeTaskRequests = (tasks: TaskRequest[]): unknown[] =>
-  tasks.map((task) => {
-    const args = { ...task.args } as Record<string, unknown>;
-    if (!("frame_rate" in args)) {
-      return { ...task, args };
-    }
-
-    const normalizedFrameRate = normalizeFrameRateValue(args.frame_rate);
-    if (
-      task.type === MediaTaskType.ConvertToImage ||
-      task.type === MediaTaskType.ConvertToAnimatedImage ||
-      task.type === MediaTaskType.CompressVideo
-    ) {
-      args.frame_rate = normalizedFrameRate;
-    } else if (
-      task.type === MediaTaskType.ConvertToVideo ||
-      task.type === MediaTaskType.Watermark
-    ) {
-      args.frame_rate =
-        normalizedFrameRate === undefined
-          ? undefined
-          : String(normalizedFrameRate);
-    }
-
-    return {
-      ...task,
-      args,
-    };
-  });
-
 class MediaTaskQueue {
   private static instance: MediaTaskQueue | null = null;
 
@@ -123,25 +82,25 @@ class MediaTaskQueue {
       if (route) {
         this.taskStoreRoutes.set(task.args.task_id, route);
       }
-      console.log("Adding task args", JSON.stringify(task));
+      console.log("Adding task args", task);
     });
 
     this.ensureEventListener();
     this.trackTaskSubmit("tasks_submit", tasks);
     try {
       const clientContext = await resolveMediaTaskClientContext();
-      const normalizedTasks = normalizeTaskRequests(tasks);
       const result = await bridge.submitMediaTasks(
-        normalizedTasks,
+        tasks,
         priority,
         clientContext,
       );
       if (result.forced_watermark_count > 0) {
         toast.warning(
-          `未登录用户每日前 3 次可免平台水印，本次有 ${result.forced_watermark_count} 个任务已追加默认水印`,
+          `未登录用户每日前 10 次可免平台水印，本次有 ${result.forced_watermark_count} 个任务已追加默认水印`,
         );
       }
     } catch (error) {
+      toast.error(getBridgeErrorMessage(error, "任务提交失败"));
       throw new Error(getBridgeErrorMessage(error, "任务提交失败"));
     }
   }

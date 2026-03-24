@@ -1,8 +1,12 @@
 import {
   AUDIO_CONTAINER_DEFINITIONS,
+  AUDIO_ENCODER_DEFINITIONS,
   IMAGE_CONTAINER_DEFINITIONS,
   IMAGE_ENCODER_DEFINITIONS,
+  ImageEncoderDefinition,
   VIDEO_CONTAINER_DEFINITIONS,
+  VIDEO_ENCODER_DEFINITIONS,
+  VideoEncoderDefinition,
 } from "@/data/capabilities";
 import {
   AUDIO_SUPPORT_FORMATS,
@@ -21,14 +25,16 @@ import {
   MediaDetailsWithResolve,
   MediaTaskType,
 } from "@/types/tasks";
+import { StreamDetails } from "@/types/tasks";
 
 import { ConverterTask } from "./store";
 
 const buildAudioTracksFromStreams = (
   details: MediaDetailsWithResolve,
-  currentTracks: AudioTrackConfig[] | undefined,
-  codec: AudioEncoderEnum | string | undefined,
+  codec: AudioEncoderEnum,
+  currentTracks?: AudioTrackConfig[],
 ) => {
+  const encoderDefinition = AUDIO_ENCODER_DEFINITIONS[codec];
   const audioStreams = details.streams.filter(
     (stream) => stream.codec_type === "audio",
   );
@@ -37,7 +43,6 @@ const buildAudioTracksFromStreams = (
     audioStreams.map((stream) => stream.index),
   );
 
-  console.log("nextTracks", currentTracks, audioStreams);
   if (currentTracks && currentTracks.length > 0) {
     const nextTracks = currentTracks
       .map((track) => {
@@ -47,31 +52,25 @@ const buildAudioTracksFromStreams = (
             ? track.source_stream_index
             : firstAudioStreamIndex;
 
-        if (typeof nextSourceStreamIndex !== "number") {
-          return null;
-        }
-
         return {
           ...track,
           source_stream_index: nextSourceStreamIndex,
-          codec: codec ?? track.codec,
+          codec: codec,
         };
       })
-      .filter((track) => track !== null);
 
-    if (nextTracks.length > 0) {
-      return nextTracks;
-    }
+    return nextTracks
   }
 
   const nextTracks = audioStreams.map((stream) => ({
     source_stream_index: stream.index,
     codec,
+    sample_rate: encoderDefinition?.defaultSampleRate,
+    channels: encoderDefinition?.defaultChannel,
+    bitrate: encoderDefinition?.defaultBitrate,
   }));
-  console.log("nextTracks", nextTracks);
-  return nextTracks.length > 0
-    ? nextTracks
-    : [{ source_stream_index: 0, codec }];
+
+  return nextTracks.length > 0 ? nextTracks : [];
 };
 
 export const resolveTargetCategory = (task: ConverterTask): FileType => {
@@ -95,22 +94,39 @@ export const resolveTargetCategory = (task: ConverterTask): FileType => {
   return FileType.Video;
 };
 
+
+const normalizeTargetFormat = (category: FileType, format?: string) => {
+  if (category === FileType.Audio) {
+    return AUDIO_SUPPORT_FORMATS.includes(format as FormatEnum)
+      ? (format as FormatEnum)
+      : FormatEnum.AAC;
+  }
+  if (category === FileType.Image) {
+    return IMAGE_SUPPORT_FORMATS.includes(format as FormatEnum)
+      ? (format as FormatEnum)
+      : FormatEnum.PNG;
+  }
+
+  return VIDEO_SUPPORT_FORMATS.includes(format as FormatEnum)
+    ? (format as FormatEnum)
+    : FormatEnum.MP4;
+};
+
 export const buildTaskDefaultsFromDetails = (
   task: ConverterTask,
   details: MediaDetailsWithResolve,
 ): Partial<ConverterTask> => {
   const targetCategory = resolveTargetCategory(task);
   const outputTitle = task.outputTitle ?? details.title;
-  if (targetCategory === FileType.Audio) {
-    console.log("buildTaskDefaultsFromDetails", targetCategory);
+  const format = normalizeTargetFormat(targetCategory, task.args.format);
 
+  if (targetCategory === FileType.Audio) {
     const currentArgs = task.args as Partial<ConvertAudioTaskArgs>;
-    let format = currentArgs.format;
-    if (!AUDIO_SUPPORT_FORMATS.includes(format as FormatEnum)) {
-      format =
-        details.extension === FormatEnum.MP3 ? FormatEnum.WAV : FormatEnum.MP3;
+    const definition = AUDIO_CONTAINER_DEFINITIONS[format];
+
+    if (!definition) {
+      throw new Error(`Unsupported format: ${format}`);
     }
-    const definition = AUDIO_CONTAINER_DEFINITIONS[format as FormatEnum];
 
     return {
       mediaDetails: details,
@@ -118,14 +134,13 @@ export const buildTaskDefaultsFromDetails = (
       activeCategory: FileType.Audio,
       taskType: MediaTaskType.ConvertToAudio,
       args: {
-        ...currentArgs,
         task_id: task.id,
         input_path: details.path,
-        format,
+        ...currentArgs,
         audio_tracks: buildAudioTracksFromStreams(
           details,
+          definition.allowedEncoders[0],
           currentArgs.audio_tracks,
-          definition?.allowedEncoders[0],
         ),
       } as ConvertAudioTaskArgs,
     };
@@ -133,25 +148,17 @@ export const buildTaskDefaultsFromDetails = (
 
   if (targetCategory === FileType.Image) {
     const currentArgs = task.args as Partial<ConvertImageTaskArgs>;
-    const format = IMAGE_SUPPORT_FORMATS.includes(
-      currentArgs.format as FormatEnum,
-    )
-      ? currentArgs.format
-      : (details.extension?.toLowerCase() as FormatEnum) || FormatEnum.PNG;
-    const definition = IMAGE_CONTAINER_DEFINITIONS[format as FormatEnum];
-    const imageEncoder =
-      currentArgs.image_encoder ?? definition?.allowedEncoders[0];
-    const encoderDefinition =
-      imageEncoder && imageEncoder in IMAGE_ENCODER_DEFINITIONS
-        ? IMAGE_ENCODER_DEFINITIONS[
-            imageEncoder as keyof typeof IMAGE_ENCODER_DEFINITIONS
-          ]
-        : undefined;
-    const primaryVisualStream =
-      details.streams.find((stream) => stream.codec_type === "video") ??
-      details.streams[0];
-    const width = currentArgs.width ?? primaryVisualStream?.width;
-    const height = currentArgs.height ?? primaryVisualStream?.height;
+    const definition = IMAGE_CONTAINER_DEFINITIONS[format];
+    if (!definition) {
+      throw new Error(`Unsupported format: ${format}`);
+    }
+    const imageEncoder = currentArgs.image_encoder ?? definition.allowedEncoders[0]
+    const encoderDefinition = IMAGE_ENCODER_DEFINITIONS[imageEncoder]
+    if (!encoderDefinition) {
+      throw new Error(`Unsupported image encoder: ${imageEncoder}`);
+    }
+
+    const computedVideoArgs = computeImageArgsByStreams(details.streams, encoderDefinition);
 
     return {
       mediaDetails: details,
@@ -162,34 +169,36 @@ export const buildTaskDefaultsFromDetails = (
           ? MediaTaskType.ConvertToAnimatedImage
           : MediaTaskType.ConvertToImage,
       args: {
-        ...currentArgs,
         task_id: task.id,
         input_path: details.path,
-        format,
-        image_encoder: imageEncoder,
-        width:
-          typeof width === "number" && encoderDefinition?.maxWidth
-            ? Math.min(width, encoderDefinition.maxWidth)
-            : width,
-        height:
-          typeof height === "number" && encoderDefinition?.maxHeight
-            ? Math.min(height, encoderDefinition.maxHeight)
-            : height,
-        frame_rate: currentArgs.frame_rate ?? primaryVisualStream?.frame_rate,
+        ...computedVideoArgs,
+        ...currentArgs,
+        image_encoder: imageEncoder
       } as ConvertImageTaskArgs,
     };
   }
 
   const currentArgs = task.args as Partial<ConvertVideoTaskArgs>;
-  const format = VIDEO_SUPPORT_FORMATS.includes(
-    currentArgs.format as FormatEnum,
-  )
-    ? currentArgs.format
-    : (details.extension?.toLowerCase() as FormatEnum) || FormatEnum.MP4;
   const definition = VIDEO_CONTAINER_DEFINITIONS[format as FormatEnum];
-  const primaryVideoStream = details.streams.find(
-    (stream) => stream.codec_type === "video",
-  );
+  if (!definition) {
+    throw new Error(`Unsupported format: ${format}`);
+  }
+  const audioEncoder = definition.audio?.allowedEncoders[0]
+  if (!audioEncoder) {
+    throw new Error(`Unsupported audio encoder: ${audioEncoder}`);
+  }
+  const videoEncoder = definition.video?.allowedEncoders[0]
+  if (!videoEncoder) {
+    throw new Error(`Unsupported video encoder: ${videoEncoder}`);
+  }
+
+  const encoderDefinition = VIDEO_ENCODER_DEFINITIONS[videoEncoder]
+  if (!encoderDefinition) {
+    throw new Error(`Unsupported video encoder: ${videoEncoder}`);
+  }
+
+  const computedVideoArgs = computeVideoArgsByStreams(details.streams, encoderDefinition);
+  
   return {
     mediaDetails: details,
     outputTitle,
@@ -198,22 +207,60 @@ export const buildTaskDefaultsFromDetails = (
     args: {
       task_id: task.id,
       input_path: details.path,
-      format,
-      video_encoder: definition?.video?.allowedEncoders[0],
-      resolution:
-        primaryVideoStream?.width && primaryVideoStream?.height
-          ? `${primaryVideoStream.width}x${primaryVideoStream.height}`
-          : undefined,
-      frame_rate: primaryVideoStream?.frame_rate,
-      video_bitrate: primaryVideoStream?.bit_rate
-        ? primaryVideoStream?.bit_rate / 1000
-        : undefined,
+      ...computedVideoArgs,
       ...currentArgs,
+      video_encoder: videoEncoder,
       audio_tracks: buildAudioTracksFromStreams(
         details,
+        audioEncoder,
         currentArgs.audio_tracks,
-        definition?.audio?.allowedEncoders[0],
       ),
     } as ConvertVideoTaskArgs,
   };
 };
+
+
+function computeVideoArgsByStreams(streams: StreamDetails[], encoderDefinition: VideoEncoderDefinition) {
+  const primaryVideoStream = streams.find(
+    (stream) => stream.codec_type === "video",
+  );
+  // width:
+  // typeof width === "number" && encoderDefinition.maxWidth
+  //   ? Math.min(width, encoderDefinition.maxWidth)
+  //   : width,
+  //   height:
+  // typeof height === "number" && encoderDefinition?.maxHeight
+  //   ? Math.min(height, encoderDefinition.maxHeight)
+  //   : height,
+
+  const resolution = primaryVideoStream?.width && primaryVideoStream?.height
+    ? `${primaryVideoStream.width}x${primaryVideoStream.height}`
+    : encoderDefinition.defaultResolution?.join("x");
+  const frameRate = primaryVideoStream?.frame_rate ?? encoderDefinition.defaultFrameRate;
+  const videoBitrate = primaryVideoStream?.bit_rate 
+    ? Math.max(1, Math.round(primaryVideoStream?.bit_rate / 1000)) 
+    : encoderDefinition.defaultBitrate;
+
+  return {
+    resolution,
+    frame_rate: frameRate,
+    video_bitrate: videoBitrate,
+  };
+}
+
+
+function computeImageArgsByStreams(streams: StreamDetails[], encoderDefinition: ImageEncoderDefinition) {
+  const primaryVideoStream = streams.find(
+    (stream) => stream.codec_type === "video",
+  );
+
+  const width = primaryVideoStream?.width ? Math.min(primaryVideoStream?.width, encoderDefinition.maxWidth) : encoderDefinition.defaultWidth;
+  const height = primaryVideoStream?.height ? Math.min(primaryVideoStream?.height, encoderDefinition.maxHeight) : encoderDefinition.defaultHeight;
+  const frameRate = primaryVideoStream?.frame_rate 
+
+  return {
+    width,
+    height,
+    frame_rate: frameRate,
+  };
+}

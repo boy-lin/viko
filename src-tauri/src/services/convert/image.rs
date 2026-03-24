@@ -25,7 +25,7 @@ pub struct ImageConversionParams {
     #[serde(default)]
     pub image_encoder: Option<String>,
     #[serde(default)]
-    pub frame_rate: Option<f32>,
+    pub frame_rate: Option<String>,
     #[serde(default)]
     pub quality: Option<u32>,
     #[serde(default)]

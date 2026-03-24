@@ -558,7 +558,7 @@ pub(crate) fn build_thumbnail_result(
 
 fn thumbnail_cache_dir() -> PathBuf {
     let base = dirs::cache_dir().unwrap_or_else(std::env::temp_dir);
-    base.join("figurex").join("thumbnails")
+    base.join("viko").join("thumbnails")
 }
 
 fn cache_file_path_for_key(cache_key: &str) -> PathBuf {

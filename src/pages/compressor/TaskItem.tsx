@@ -471,7 +471,7 @@ export default function CompressorTaskItem({
             className="text-base font-semibold text-foreground/80"
           />
         </div>
-        <div className="mt-2 grid grid-cols-2 text-sm text-muted-foreground/80">
+        <div className="grid grid-cols-2 gap-x-2 gap-y-0 text-sm text-muted-foreground/80">
           {originalInfoParts.map((part, index) => (
             <span key={index}>{part || "-"}</span>
           ))}
@@ -482,11 +482,11 @@ export default function CompressorTaskItem({
         <ArrowBigRight className="h-4 w-4" />
       </div>
 
-      <div className="relative min-w-[300px] flex-1 rounded-lg bg-card p-2 shadow-sm">
+      <div className="relative min-w-[300px] basis-1/5 flex-1 rounded-lg bg-card p-2 shadow-sm">
         <div className="text-base font-semibold text-foreground/80">
           <OutputTitleEditor value={outputTitleValue} onChange={handleOutputTitleChange} />
         </div>
-        <div className="mt-1 grid grid-cols-2 text-sm text-muted-foreground/80">
+        <div className="grid grid-cols-2 gap-x-2 gap-y-0 text-sm text-muted-foreground/80">
           {targetInfoParts.map((part, index) => (
             <span key={index}>{part || "auto"}</span>
           ))}

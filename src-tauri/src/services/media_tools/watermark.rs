@@ -4,7 +4,9 @@ use imageproc::drawing::draw_text_mut;
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+use std::fs;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WatermarkConfig {
@@ -43,15 +45,15 @@ impl WatermarkConfig {
             *stage += 1;
 
             // 1. Load image as overlay source
-            let safe_path = escape_ffmpeg_movie_path(&img.path);
-
             // Prepare overlay input
             // movie=filename [logo]; [logo] scale=... [logo_scaled]
             // We append this to the start of the filter string
             let overlay_id = format!("wm_overlay_{}", *stage);
             let overlay_scaled_id = format!("wm_overlay_scaled_{}", *stage);
 
-            let mut overlay_pipeline = format!("movie=filename='{}'[{}];", safe_path, overlay_id);
+            let movie_path = prepare_movie_source_path(&img.path)?;
+            let movie_source = build_movie_source_filter(&movie_path);
+            let mut overlay_pipeline = format!("{}[{}];", movie_source, overlay_id);
 
             // Scale and Opacity for overlay
             let mut overlay_filters = Vec::new();
@@ -338,6 +340,43 @@ fn escape_ffmpeg_movie_path(path: &str) -> String {
     }
 }
 
+fn build_movie_source_filter(path: &str) -> String {
+    let safe_path = escape_ffmpeg_movie_path(path);
+    format!("movie=filename='{}'", safe_path)
+}
+
+fn prepare_movie_source_path(path: &str) -> Result<String, String> {
+    let is_png = Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("png"))
+        .unwrap_or(false);
+    if !(cfg!(target_os = "windows") && is_png) {
+        return Ok(path.to_string());
+    }
+
+    let source = image::open(path)
+        .map_err(|e| format!("无法读取 PNG 水印用于 Windows 兼容转换: {}", e))?;
+    let rgb = source.to_rgb8();
+
+    let cache_dir = std::env::temp_dir().join("viko_watermark_movie_cache");
+    fs::create_dir_all(&cache_dir)
+        .map_err(|e| format!("无法创建水印缓存目录 {}: {}", cache_dir.display(), e))?;
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let fallback_path = cache_dir.join(format!("wm_fallback_{}.bmp", stamp));
+    rgb.save_with_format(&fallback_path, image::ImageFormat::Bmp)
+        .map_err(|e| format!("无法将 PNG 水印转换为 BMP: {}", e))?;
+    log::warn!(
+        "watermark movie fallback active on Windows: png={} -> bmp={}",
+        path,
+        fallback_path.display()
+    );
+    Ok(fallback_path.to_string_lossy().to_string())
+}
+
 fn escape_ffmpeg_drawtext_value(path: &str) -> String {
     let normalized = path.replace('\\', "/");
     if cfg!(target_os = "windows") {
@@ -579,17 +618,6 @@ fn parse_position(pos_str: &str, container_dim: u32, object_dim: u32) -> i32 {
     }
     // Naive expression parser for "W-w-10" (ffmpeg style)
     // Replace W with container, w with object
-    let expr = pos_str.replace("W", &container_dim.to_string())
-                      .replace("w", &object_dim.to_string())
-                      .replace("main_w", &container_dim.to_string())
-                      .replace("overlay_w", &object_dim.to_string())
-                      .replace("text_w", &object_dim.to_string()) // for text
-                      .replace("h", &container_dim.to_string()) // Warning: h usually height
-                      // This is ambiguous for x/y if we don't know which dim.
-                      // But usually x uses W/w, y uses H/h.
-                      // Simplification: We assume user provides computed value or simple int mostly.
-                      ;
-
     // Evaluate is hard without crate.
     // Fallback: 0
     0

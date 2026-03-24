@@ -10,16 +10,14 @@ import {
   resolveOutputTitle,
 } from "@/lib/createTaskStore";
 import {
-  AudioTrackConfig,
   ConvertAudioTaskArgs,
   ConvertImageTaskArgs,
   ConvertVideoTaskArgs,
 } from "@/lib/mediaTaskEvent";
 import { getMediaTaskQueue } from "@/lib/mediaTaskQueue";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { AudioEncoderEnum, FormatEnum } from "@/types/options";
+import { FormatEnum } from "@/types/options";
 import {
-  ActiveCategoryEnum,
   ConversionConfig,
   FFmpegTask,
   FileType,
@@ -42,9 +40,7 @@ export interface GlobalConverterConfig extends Pick<
 
 export const defaultConverterConfig: GlobalConverterConfig = {
   taskType: MediaTaskType.ConvertToVideo,
-  args: {
-    format: "",
-  },
+  args: { },
 };
 
 type ConverterStore = CreateTaskStoreState<
@@ -79,44 +75,10 @@ const normalizeTargetCategory = (format?: string): FileType => {
   if (format && IMAGE_SUPPORT_FORMATS.includes(format)) {
     return FileType.Image;
   }
-
-  return FileType.Video;
-};
-
-const normalizeTargetFormat = (category: FileType, format?: string) => {
-  if (category === FileType.Audio) {
-    return AUDIO_SUPPORT_FORMATS.includes(format as FormatEnum)
-      ? (format as FormatEnum)
-      : FormatEnum.MP3;
+  if (format && VIDEO_SUPPORT_FORMATS.includes(format)) {
+    return FileType.Video;
   }
-  if (category === FileType.Image) {
-    return IMAGE_SUPPORT_FORMATS.includes(format as FormatEnum)
-      ? (format as FormatEnum)
-      : FormatEnum.PNG;
-  }
-
-  return VIDEO_SUPPORT_FORMATS.includes(format as FormatEnum)
-    ? (format as FormatEnum)
-    : FormatEnum.MP4;
-};
-
-const buildInitialAudioTracks = (
-  currentTracks: AudioTrackConfig[] | undefined,
-  codec: AudioEncoderEnum | undefined,
-) => {
-  if (currentTracks && currentTracks.length > 0) {
-    return currentTracks.map((track) => ({
-      ...track,
-      codec: codec ?? track.codec,
-    }));
-  }
-
-  return [
-    {
-      source_stream_index: 0,
-      codec,
-    },
-  ];
+  throw new Error(`Unsupported format: ${format}`);
 };
 
 const createInitialArgs = (
@@ -125,17 +87,11 @@ const createInitialArgs = (
   config: GlobalConverterConfig,
 ): ConverterTaskArgs => {
   const category = normalizeTargetCategory(config.args.format);
-  const format = normalizeTargetFormat(category, config.args.format);
 
   if (category === FileType.Audio) {
     return {
       task_id: taskId,
       input_path: inputPath,
-      format,
-      audio_tracks: buildInitialAudioTracks(
-        (config.args as Partial<ConvertAudioTaskArgs>).audio_tracks,
-        AudioEncoderEnum.MP3,
-      ),
       ...config.args,
     } as ConvertAudioTaskArgs;
   }
@@ -144,7 +100,6 @@ const createInitialArgs = (
     return {
       task_id: taskId,
       input_path: inputPath,
-      format,
       ...config.args,
     } as ConvertImageTaskArgs;
   }
@@ -152,11 +107,6 @@ const createInitialArgs = (
   return {
     task_id: taskId,
     input_path: inputPath,
-    format,
-    audio_tracks: buildInitialAudioTracks(
-      (config.args as Partial<ConvertVideoTaskArgs>).audio_tracks,
-      undefined,
-    ),
     ...config.args,
   } as ConvertVideoTaskArgs;
 };

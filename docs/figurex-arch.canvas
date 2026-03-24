@@ -1,6 +1,6 @@
 {
 	"nodes":[
-		{"id":"root","type":"text","text":"figurex 仓库\\n(React + Vite + Tauri)","x":0,"y":0,"width":280,"height":120},
+		{"id":"root","type":"text","text":"viko 仓库\\n(React + Vite + Tauri)","x":0,"y":0,"width":280,"height":120},
 		{"id":"frontend","type":"text","text":"前端: src/","x":-360,"y":180,"width":220,"height":80},
 		{"id":"frontend-lib","type":"text","text":"lib/ & data/ & types/\\n- lib/: bridge.ts, i18n.ts, ffmpeg.ts...\\n- data/: formats.ts, encoders.ts, capabilities.ts...\\n- types/: converter.ts, options.ts, media.ts, user.ts\\n- constants/: ffmpeg.ts, video.ts","x":-60,"y":580,"width":300,"height":220},
 		{"id":"desktop","type":"text","text":"桌面端: src-tauri/","x":360,"y":180,"width":220,"height":80},

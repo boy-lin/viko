@@ -51,7 +51,7 @@ static WORKER_RUNNING: AtomicBool = AtomicBool::new(false);
 static ACTIVE_TASKS: LazyLock<Mutex<HashMap<String, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 static ACTIVE_COUNT: AtomicUsize = AtomicUsize::new(0);
-const FREE_VISIBLE_MEDIA_LIMIT: u64 = 3;
+const FREE_VISIBLE_MEDIA_LIMIT: u64 = 10;
 const FREE_VISIBLE_MEDIA_FEATURE: &str = "free_visible_media_submit";
 
 fn worker_parallelism() -> usize {
@@ -1226,7 +1226,7 @@ fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(),
             },
             aspect_ratio: args.aspect_ratio,
             scaling_mode: None,
-            frame_rate: args.frame_rate.map(|value| value.to_string()),
+            frame_rate: args.frame_rate.clone(),
             gop_size: args.keyframe_interval,
             preset: args.preset,
             profile: None,
@@ -1268,7 +1268,7 @@ fn run_compress_video(app: &AppHandle, args: VideoCompressionArgs) -> Result<(),
         width: args.width,
         height: args.height,
         bitrate: args.bitrate,
-        frame_rate: args.frame_rate,
+        frame_rate: args.frame_rate.clone(),
         codec: args.codec.clone(),
         keyframe_interval: args.keyframe_interval,
         color_depth: args.color_depth,

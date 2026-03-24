@@ -150,11 +150,19 @@ fn delay_ms_from_frame(frame: &Frame) -> u32 {
     duration.as_millis().clamp(1, u128::from(u32::MAX)) as u32
 }
 
-fn frame_delay_from_args(frame_rate: Option<f32>, frame_delay: Option<u32>) -> u32 {
+fn parse_frame_rate_value(frame_rate: Option<&str>) -> Option<f32> {
+    frame_rate
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .and_then(|value| value.parse::<f32>().ok())
+        .filter(|value| value.is_finite() && *value > 0.0)
+}
+
+fn frame_delay_from_args(frame_rate: Option<&str>, frame_delay: Option<u32>) -> u32 {
     if let Some(delay) = frame_delay {
         return delay.max(1);
     }
-    if let Some(fps) = frame_rate {
+    if let Some(fps) = parse_frame_rate_value(frame_rate) {
         return ((1000.0 / fps.max(1.0)) as u32).max(1);
     }
     100
@@ -398,8 +406,9 @@ fn collect_video_frames<E: TaskEmitter>(
     )
     .map_err(|error| format!("创建缩放器失败: {}", error))?;
 
-    let min_frame_interval = f64::from(frame_delay_from_args(args.frame_rate, args.frame_delay)) / 1000.0;
-    let delay_ms = frame_delay_from_args(args.frame_rate, args.frame_delay);
+    let min_frame_interval =
+        f64::from(frame_delay_from_args(args.frame_rate.as_deref(), args.frame_delay)) / 1000.0;
+    let delay_ms = frame_delay_from_args(args.frame_rate.as_deref(), args.frame_delay);
     let options = FrameTransformOptions {
         width: args.width,
         height: args.height,
@@ -474,7 +483,10 @@ fn collect_image_conversion_frames<E: TaskEmitter>(
     emitter: &E,
     args: &ImageConversionParams,
 ) -> Result<Vec<AnimatedFrameData>, String> {
-    let frames = load_frames_from_image_path(&args.input_path, frame_delay_from_args(args.frame_rate, args.frame_delay))?;
+    let frames = load_frames_from_image_path(
+        &args.input_path,
+        frame_delay_from_args(args.frame_rate.as_deref(), args.frame_delay),
+    )?;
     let total = frames.len().max(1);
     let options = FrameTransformOptions {
         width: args.width,
@@ -547,7 +559,7 @@ fn encode_gif_frames_with_gifski(
     loop_count: Option<i32>,
 ) -> Result<(), String> {
     let settings = build_gifski_settings(width, height, quality, loop_count);
-    let (mut collector, writer) =
+    let (collector, writer) =
         gifski::new(settings).map_err(|error| format!("初始化 gifski 失败: {}", error))?;
     let output_file =
         File::create(output_path).map_err(|error| format!("创建 GIF 输出文件失败: {}", error))?;
@@ -627,7 +639,7 @@ fn resolve_ffmpeg_executable(app: &AppHandle) -> String {
 
 fn temp_frames_dir(prefix: &str) -> PathBuf {
     std::env::temp_dir().join(format!(
-        "figurex_{}_{}_{}",
+        "viko_{}_{}_{}",
         prefix,
         std::process::id(),
         crate::shared::get_millis()

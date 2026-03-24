@@ -85,8 +85,8 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
             className="space-y-2"
             label={t("settings.audio.fields.channel")}
             helpText={t("settings.audio.fields.channelHelp")}
-            value={String(track.channels || "auto")}
-            onValueChange={(v) => updateTrack(0, "channels", parseInt(v))}
+            value={track.channels}
+            onValueChange={(v) => updateTrack(0, "channels", v)}
             allowedChannels={encoderDefinition?.allowedChannels}
             placeholder={t("settings.audio.fields.channelPlaceholder")}
           />
@@ -156,8 +156,8 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
               className="space-y-2"
               label={t("settings.audio.fields.channel")}
               helpText={t("settings.audio.fields.channelHelp")}
-              value={String(track.channels)}
-              onValueChange={(v) => updateTrack(index, "channels", parseInt(v))}
+              value={track.channels}
+              onValueChange={(v) => updateTrack(index, "channels", v)}
               allowedChannels={encoderDefinition?.allowedChannels}
               placeholder={t("settings.audio.fields.channelPlaceholder")}
             />

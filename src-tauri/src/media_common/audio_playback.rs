@@ -97,9 +97,8 @@ fn maybe_reset_buffer(
     if !reset_buffer_flag.swap(false, Ordering::Relaxed) {
         return 0;
     }
-    let mut drained = 0usize;
     while consumer.pop().is_some() {}
-    drained = queued_samples.swap(0, Ordering::Relaxed);
+    let drained = queued_samples.swap(0, Ordering::Relaxed);
     queued_samples.store(0, Ordering::Relaxed);
     log::info!(
         "[audio][playback] reset_buffer_flag consumed: drained_samples={}",

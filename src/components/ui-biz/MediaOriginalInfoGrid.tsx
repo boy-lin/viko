@@ -12,7 +12,7 @@ function normalizeExt(extension?: string) {
 
 export default function MediaOriginalInfoGrid({
   mediaDetails,
-  className = "grid grid-cols-2 mt-2 text-sm text-muted-foreground/80",
+  className = "grid grid-cols-2 gap-x-2 gap-y-0 text-sm text-muted-foreground/80",
 }: MediaOriginalInfoGridProps) {
   const extension = normalizeExt(mediaDetails?.extension);
   const videoStream = mediaDetails?.streams.find((s) => s.codec_type === "video");
@@ -26,14 +26,14 @@ export default function MediaOriginalInfoGrid({
       videoStream?.width && videoStream?.height
         ? `${videoStream.width}x${videoStream.height}`
         : undefined,
-      videoStream?.bit_rate ? String(videoStream.bit_rate / 1000) : undefined,
+      videoStream?.bit_rate ? `${videoStream.bit_rate / 1000} kbps` : undefined,
     ];
   } else if (isAudioFormat(extension)) {
     parts = [
       mediaDetails?.extension?.toUpperCase?.(),
       audioStream?.codec_name?.toUpperCase?.(),
-      audioStream?.bit_rate ? String(audioStream.bit_rate) : undefined,
-      audioStream?.sample_rate ? `${audioStream.sample_rate}` : undefined,
+      audioStream?.bit_rate ? `${audioStream.bit_rate / 1000} kbps` : undefined,
+      audioStream?.sample_rate ? `${audioStream.sample_rate} Hz` : undefined,
     ];
   } else if (isImageFormat(extension)) {
     parts = [

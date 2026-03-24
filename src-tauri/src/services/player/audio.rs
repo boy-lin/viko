@@ -1623,10 +1623,6 @@ impl<E: EventEmitter> AudioPlayer<E> {
         pos.min(duration).max(0.0)
     }
 
-    fn buffered_samples(state: &SharedState) -> usize {
-        state.queued_samples.load(Ordering::Relaxed) / state.output_channels
-    }
-
     fn maybe_emit_state_update(
         emit_state_events: bool,
         last_state_emit: &mut Instant,

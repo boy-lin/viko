@@ -1,9 +1,4 @@
-﻿// Tauri 后端命令定义 - 使用 ffmpeg-next
-// 注意：ffmpeg-next 需要在编译时链接 FFmpeg 库
-// 如果需要在运行时使用动态加载的 FFmpeg，需要：
-// 1. 设置环境变量指向 FFmpeg 库路径
-// 2. 或者使用系统安装的 FFmpeg
-use serde::{Deserialize, Serialize};
+﻿use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -206,9 +201,9 @@ pub async fn media_task_submit(
     app: AppHandle,
     tasks: Vec<MediaTaskRequest>,
     _priority: Option<String>,
-    clientContext: Option<TaskSubmitClientContext>,
+    client_context: Option<TaskSubmitClientContext>,
 ) -> Result<MediaTaskSubmitResult, String> {
-    queue::submit_tasks(app, tasks, clientContext)
+    queue::submit_tasks(app, tasks, client_context)
         .await
         .map_err(|e| format!("[TASK_SUBMIT] {}", e))
 }
@@ -244,10 +239,10 @@ pub async fn media_task_clear_by_type(task_type: Option<String>) -> Result<usize
 
 #[command]
 pub async fn media_task_clear_by_type_with_stop(
-    taskType: Option<String>,
-    stopRunning: Option<bool>,
+    task_type: Option<String>,
+    stop_running: Option<bool>,
 ) -> Result<usize, String> {
-    queue::clear_pending_with_cancel(taskType, stopRunning.unwrap_or(false))
+    queue::clear_pending_with_cancel(task_type, stop_running.unwrap_or(false))
         .await
         .map_err(|e| format!("[TASK_CLEAR] {}", e))
 }
@@ -738,121 +733,6 @@ pub async fn get_media_info(path: String) -> Result<FileInfo, String> {
     .await
 }
 
-// 从输出文件路径推断格式
-fn detect_format_from_path(path: &str) -> Option<String> {
-    Path::new(path)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .map(|ext| ext.to_lowercase())
-}
-
-// 根据格式获取推荐的视频编码器
-fn get_video_codec_for_format(format: &str, user_codec: Option<&str>) -> String {
-    // 如果用户指定了编码器，优先使用
-    if let Some(codec) = user_codec {
-        return codec.to_string();
-    }
-
-    // 根据格式推荐编码器
-    match format.to_lowercase().as_str() {
-        "mp4" | "m4v" => "libx264".to_string(),
-        "webm" => "libvpx-vp9".to_string(),
-        "avi" => "libx264".to_string(),
-        "mov" => "libx264".to_string(),
-        "mkv" => "libx264".to_string(),
-        "flv" => "libx264".to_string(),
-        "ts" | "mts" => "libx264".to_string(),
-        _ => "libx264".to_string(), // 默认使用 H.264
-    }
-}
-
-// 根据格式获取推荐的音频编码器
-fn get_audio_codec_for_format(format: &str) -> String {
-    match format.to_lowercase().as_str() {
-        "mp4" | "m4v" | "mov" => "aac".to_string(),
-        "webm" => "libopus".to_string(),
-        "avi" => "aac".to_string(),
-        "mkv" => "aac".to_string(),
-        "flv" => "aac".to_string(),
-        "ts" | "mts" => "aac".to_string(),
-        _ => "aac".to_string(), // 默认使用 AAC
-    }
-}
-
-// 解析 FFmpeg 参数数组
-fn parse_ffmpeg_args(
-    args: &[String],
-) -> Result<
-    (
-        String,
-        String,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>, // 添加格式参数
-    ),
-    String,
-> {
-    let mut input_path = None;
-    let mut output_path = None;
-    let mut resolution = None;
-    let mut bitrate = None;
-    let mut codec = None;
-
-    let mut i = 0;
-    while i < args.len() {
-        match args[i].as_str() {
-            "-i" => {
-                if i + 1 < args.len() {
-                    input_path = Some(args[i + 1].clone());
-                    i += 2;
-                } else {
-                    return Err("缺少输入文件路径".to_string());
-                }
-            }
-            "-s" => {
-                if i + 1 < args.len() {
-                    resolution = Some(args[i + 1].clone());
-                    i += 2;
-                } else {
-                    return Err("缺少分辨率参数".to_string());
-                }
-            }
-            "-b:v" => {
-                if i + 1 < args.len() {
-                    bitrate = Some(args[i + 1].clone());
-                    i += 2;
-                } else {
-                    return Err("缺少码率参数".to_string());
-                }
-            }
-            "-c:v" => {
-                if i + 1 < args.len() {
-                    codec = Some(args[i + 1].clone());
-                    i += 2;
-                } else {
-                    return Err("缺少编码器参数".to_string());
-                }
-            }
-            _ => {
-                // 可能是输出文件路径（最后一个参数）
-                if i == args.len() - 1 && output_path.is_none() {
-                    output_path = Some(args[i].clone());
-                }
-                i += 1;
-            }
-        }
-    }
-
-    let input = input_path.ok_or("未找到输入文件路径".to_string())?;
-    let output = output_path.ok_or("未找到输出文件路径".to_string())?;
-
-    // 从输出路径推断格式
-    let format = detect_format_from_path(&output);
-
-    Ok((input, output, resolution, bitrate, codec, format))
-}
-
 // 全局播放器实例（使用 Mutex 保护）
 pub type PlayerState = Mutex<Option<VideoPlayer<WindowEmitter>>>;
 pub type AudioPlayerState = Mutex<Option<AudioPlayer<WindowEmitter>>>;
@@ -997,7 +877,7 @@ fn build_web_cache_output_path(input_path: &str) -> Result<PathBuf, String> {
         .map(sanitize_stem)
         .unwrap_or_else(|| "video".to_string());
 
-    let cache_dir = std::env::temp_dir().join("figurex-web-playback-cache");
+    let cache_dir = std::env::temp_dir().join("viko-web-playback-cache");
     fs::create_dir_all(&cache_dir)
         .map_err(|e| format!("[PLAYER_PREPARE] create cache dir failed: {}", e))?;
 
@@ -1746,7 +1626,7 @@ pub struct GifConversionArgs {
     #[serde(default)]
     pub height: Option<u32>,
     #[serde(default)]
-    pub frame_rate: Option<f32>,
+    pub frame_rate: Option<String>,
     #[serde(default)]
     pub quality: Option<u32>,
     #[serde(default)]
@@ -1836,7 +1716,7 @@ pub struct VideoCompressionArgs {
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub bitrate: Option<u32>,                    // 视频码率 kbps
-    pub frame_rate: Option<f32>,                 // 目标帧率
+    pub frame_rate: Option<String>,              // 目标帧率
     pub codec: Option<String>,                   // h264/h265/vp9/av1
     pub keyframe_interval: Option<u32>,          // GOP 间隔
     pub color_depth: Option<u32>,                // 8/10/12 bit

@@ -87,7 +87,7 @@ export const getVideoEstimatedOutputSizeLabel = (
   const videoBitrate = toKbps(config.bitrate);
   const audioBitrate = config.remove_audio
     ? 0
-    : sumTrackBitrates(config.audio_tracks) || sumTrackBitrates(config.source_audio_tracks);
+    : sumTrackBitrates(config.audio_tracks);
   const totalBitrate = videoBitrate + audioBitrate;
 
   const hasPredictableAudio = config.remove_audio || audioBitrate > 0;

@@ -129,14 +129,10 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
               label={t("settings.audio.fields.channel")}
               helpText={t("audioCompressor.fields.channelHelp")}
               
-              value={config.channels === undefined ? undefined : String(config.channels)}
+              value={config.channels === undefined ? undefined : config.channels}
               allowedChannels={encoderDefinition?.allowedChannels}
               onValueChange={(val) => {
-                if (val === "auto") {
-                  onConfigChange({ channels: undefined });
-                  return;
-                }
-                onConfigChange({ channels: parseOptionalInt(val) });
+                onConfigChange({ channels: val });
               }}
             />
             <AudioBitDepthSelect

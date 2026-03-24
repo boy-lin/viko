@@ -14,9 +14,9 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
 interface AudioChannelSelectProps {
-  value?: string;
-  onValueChange: (value: string) => void;
-  allowedChannels?: string[];
+  value?: number;
+  onValueChange: (value: number) => void;
+  allowedChannels?: number[];
   placeholder?: string;
   label?: string;
   helpText?: string;
@@ -37,15 +37,19 @@ export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
   const { t } = useTranslation("task");
   const channelOptions = useMemo(() => {
     if (!allowedChannels || !allowedChannels.length) return AUDIO_CHANNELS;
-    return AUDIO_CHANNELS.filter(opt => allowedChannels.includes(opt.value));
+    return AUDIO_CHANNELS.filter((opt) => {
+      if (opt.value === "auto") return true;
+      return allowedChannels.includes(Number.parseInt(opt.value, 10));
+    });
   }, [allowedChannels]);
 
   useEffect(() => {
     if (!channelOptions || !channelOptions.length) return;
-    if (!channelOptions.some(opt => opt.value === value)) {
+    const normalizedValue = value ?? "auto";
+    if (!channelOptions.some((opt) => opt.value === normalizedValue)) {
       onValueChange(channelOptions[0].value);
     }
-  }, [channelOptions, value]);
+  }, [channelOptions, onValueChange, value]);
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -62,13 +66,16 @@ export const AudioChannelSelect: React.FC<AudioChannelSelectProps> = ({
           </Tooltip>
         </div>
       )}
-      <Select value={value ?? "auto"} onValueChange={onValueChange}>
+      <Select
+        value={value ? value.toString() : "auto"}
+        onValueChange={(value) => onValueChange(parseInt(value, 10))}
+      >
         <SelectTrigger className="cursor-pointer w-full">
           <SelectValue placeholder={placeholder ?? t("settings.audio.fields.channelPlaceholder")} />
         </SelectTrigger>
         <SelectContent>
           {channelOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
+            <SelectItem key={option.value} value={option.value.toString()}>
               {option.label}
             </SelectItem>
           ))}

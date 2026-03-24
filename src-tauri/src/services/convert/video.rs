@@ -851,6 +851,17 @@ fn build_video_filter_graph(
     frame_rate: Rational,
     filter_spec: &str,
 ) -> Result<filter::Graph, String> {
+    log::warn!(
+        "build_video_filter_graph filter_spec={} width={} height={} pix_fmt={:?} time_base={}/{} frame_rate={}/{}",
+        filter_spec,
+        width,
+        height,
+        pix_fmt,
+        time_base.numerator(),
+        time_base.denominator(),
+        frame_rate.numerator(),
+        frame_rate.denominator()
+    );
     let pix_fmt_name = pix_fmt
         .descriptor()
         .map(|desc| desc.name())

@@ -30,15 +30,14 @@ export const AUDIO_SAMPLE_RATES: SelectOption[] = [
 ];
 
 export const AUDIO_CHANNELS: SelectOption[] = [
-  { value: "auto", label: "Auto" },
-  { value: "1", label: "Mono（1）" },
-  { value: "2", label: "Stereo（2）" },
-  { value: "3", label: "3.0（3）" },
-  { value: "4", label: "4.0（4）" },
-  { value: "5", label: "5.0（5）" },
-  { value: "6", label: "6.0（6）" },
-  { value: "7", label: "7.0（7）" },
-  { value: "8", label: "8.0（8）" },
-  { value: "9", label: "9.0（9）" },
-  { value: "10", label: "10.0（10）" },
+  { value: 1, label: "Mono（1）" },
+  { value: 2, label: "Stereo（2）" },
+  { value: 3, label: "3.0（3）" },
+  { value: 4, label: "4.0（4）" },
+  { value: 5, label: "5.0（5）" },
+  { value: 6, label: "6.0（6）" },
+  { value: 7, label: "7.0（7）" },
+  { value: 8, label: "8.0（8）" },
+  { value: 9, label: "9.0（9）" },
+  { value: 10, label: "10.0（10）" },
 ];

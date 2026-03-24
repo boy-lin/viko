@@ -53,22 +53,15 @@ const buildRatioAdjustedPatch = (
   const nextPreset = getVideoCompressionPresetByRatio(
     nextRatio,
     format,
-    config.source_audio_tracks ?? config.audio_tracks,
+    undefined,
     {
-      sourceCodec: config.codec,
-      videoBitrateKbps: config.source_video_bitrate,
-      frameRate: config.source_frame_rate,
-      keyframeInterval: config.source_keyframe_interval,
+      sourceCodec: config.codec
     }
   ).patch;
-  const presetPatch = { ...nextPreset };
-  delete presetPatch.codec;
-  const fallbackAudioTracks = config.source_audio_tracks ?? config.audio_tracks;
 
   return {
-    ...presetPatch,
-    ratio: nextRatio,
-    audio_tracks: presetPatch.audio_tracks ?? fallbackAudioTracks,
+    ...nextPreset,
+    ratio: nextRatio
   } satisfies Partial<CompressVideoTaskArgs>;
 };
 
@@ -83,9 +76,8 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
     return VIDEO_CONTAINER_DEFINITIONS[config.format as FormatEnum];
   }, [config.format]);
 
-  const encoderDef = useMemo(() => {
-    const def = VIDEO_ENCODER_DEFINITIONS[config.codec as VideoEncoderEnum];
-    return def;
+  const videoEncoderDef = useMemo(() => {
+    return VIDEO_ENCODER_DEFINITIONS[config.codec as VideoEncoderEnum];
   }, [config.codec]);
   const estimatedSizeLabel = useMemo(
     () => getVideoEstimatedOutputSizeLabel(config, mediaDetails),
@@ -117,16 +109,16 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         rc_mode={config.rc_mode}
         crf={config.crf}
         video_bitrate={config.bitrate}
-        min_bitrate={encoderDef?.video?.minBitrate}
-        max_bitrate={encoderDef?.video?.maxBitrate}
-        placeholder={`${t("common.auto")} (${encoderDef?.video?.minBitrate ?? 100}-${encoderDef?.video?.maxBitrate ?? 50000})`}
+        min_bitrate={videoEncoderDef?.minBitrate}
+        max_bitrate={videoEncoderDef?.maxBitrate}
+        placeholder={`${t("common.auto")} (${videoEncoderDef?.minBitrate ?? 100}-${videoEncoderDef?.maxBitrate ?? 50000})`}
         onChange={onConfigChange}
       />
       <VideoFrameRateSelectGroup
         className="space-y-2 w-full"
         label={t("video_advance.frame_rate", "Frame Rate")}
         helpText={t("settings.video.fields.frameRateHelp")}
-        maxFrameRate={encoderDef?.video?.maxFrameRate}
+        maxFrameRate={videoEncoderDef?.maxFrameRate}
         value={config.frame_rate === undefined ? "auto" : String(config.frame_rate)}
         onValueChange={(val) =>
           onConfigChange({
@@ -138,7 +130,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         className="space-y-2 w-full"
         label={t("bizForm.videoGop.label")}
         hideLabel={false}
-        gopOptions={encoderDef?.video?.gopOptions}
+        gopOptions={videoEncoderDef?.gopOptions}
         value={config.keyframe_interval === undefined ? "auto" : String(config.keyframe_interval)}
         onValueChange={(val) =>
           onConfigChange({
@@ -150,7 +142,7 @@ const CompressionSettingsForm: React.FC<CompressionSettingsFormProps> = ({
         className="space-y-2 w-full"
         label={t("bizForm.videoColorDepth.label")}
         hideLabel={false}
-        allowedColorDepths={encoderDef?.video?.allowedColorDepths}
+        allowedColorDepths={videoEncoderDef?.allowedColorDepths}
         value={config.color_depth === undefined ? "auto" : String(config.color_depth)}
         onValueChange={(val) =>
           onConfigChange({

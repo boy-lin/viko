@@ -85,7 +85,7 @@ export default function ConverterTaskItem({
         />
       </div>
 
-      <div className="min-w-0 flex-1 p-2">
+      <div className="flex-1">
         <div className="flex items-center gap-3">
           <EllipsisName
             name={task.mediaDetails?.title}
@@ -95,11 +95,11 @@ export default function ConverterTaskItem({
         <MediaOriginalInfoGrid mediaDetails={task.mediaDetails} />
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center">
         <ArrowBigRight className="h-4 w-4" />
       </div>
 
-      <div className="relative min-w-[300px] flex-1 rounded-lg bg-card p-2 shadow-sm">
+      <div className="relative min-w-[300px] basis-1/5 flex-1 rounded-lg bg-card p-2 shadow-sm">
         <OutputTitleEditor
           value={outputTitleValue}
           onChange={(nextTitle) => {
@@ -109,7 +109,7 @@ export default function ConverterTaskItem({
           }}
         />
         <MediaTargetInfoGrid args={task.args as ConverterTaskArgs} />
-        <div className="absolute right-1 top-1 flex flex-col items-center gap-2">
+        <div className="absolute right-1 top-1 flex flex-col items-center gap-1">
           <FormatSelectorDialog
             config={{
               args: task.args,

@@ -6,9 +6,9 @@ use tauri::{AppHandle, Manager};
 #[derive(Serialize, Clone)]
 pub struct MediaTaskEvent {
     pub task_id: String,
-    pub task_type: String,  // MediaTaskType string, e.g. "convert-to-video"
-    pub file_type: String, // "image" | "video" | "audio" | "gif"
-    pub event_type: String, // "progress" | "complete" | "error"
+    pub task_type: String,
+    pub file_type: String,
+    pub event_type: String,
     pub progress: Option<f64>,
     pub output_path: Option<String>,
     pub output_size: Option<u64>,

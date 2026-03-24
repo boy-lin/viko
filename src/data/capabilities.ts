@@ -26,14 +26,11 @@ export interface VideoEncoderOptions {
 
 // ================= DATA: ENCODERS =================
 export interface VideoEncoderDefinition {
-  audio?: {
-    sampleRates?: string[];
-    channels?: string[];
-    bitrates?: string[];
-  };
-  video?: {
+    defaultResolution?: [number, number];
     maxResolution?: [number, number];
+    defaultFrameRate?: number;
     maxFrameRate?: number;
+    defaultBitrate?: number;
     minBitrate?: number;
     maxBitrate?: number;
     pixelFormats?: string[];
@@ -41,7 +38,6 @@ export interface VideoEncoderDefinition {
     allowedColorRanges?: string[];
     gopOptions?: string[];
     allowedColorDepths?: number[];
-  };
 }
 
 const SDR_COLOR_SPACE_VALUES = ["auto", "rec709"];
@@ -65,9 +61,7 @@ const INTRA_ONLY_GOP_VALUES = ["1"];
 export const VIDEO_ENCODER_DEFINITIONS: Partial<
   Record<VideoEncoderEnum, VideoEncoderDefinition>
 > = {
-  // --- Video Encoders ---
   [VideoEncoderEnum.H264]: {
-    video: {
       maxResolution: [4096, 2304],
       maxFrameRate: 60,
       minBitrate: 256,
@@ -76,10 +70,11 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<
       allowedColorRanges: FULL_COLOR_RANGE_VALUES,
       gopOptions: COMMON_GOP_VALUES,
       allowedColorDepths: [8, 10],
-    },
+      defaultResolution: [1920, 1080],
+      defaultFrameRate: 30,
+      defaultBitrate: 1000,
   },
   [VideoEncoderEnum.H265]: {
-    video: {
       maxResolution: [8192, 4320],
       maxFrameRate: 60,
       minBitrate: 256,
@@ -88,10 +83,11 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<
       allowedColorRanges: FULL_COLOR_RANGE_VALUES,
       gopOptions: COMMON_GOP_VALUES,
       allowedColorDepths: [8, 10, 12],
-    },
+      defaultResolution: [1920, 1080],
+      defaultFrameRate: 30,
+      defaultBitrate: 1000,
   },
   [VideoEncoderEnum.VP9]: {
-    video: {
       maxResolution: [7680, 4320],
       maxFrameRate: 60,
       minBitrate: 256,
@@ -100,10 +96,11 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<
       allowedColorRanges: FULL_COLOR_RANGE_VALUES,
       gopOptions: COMMON_GOP_VALUES,
       allowedColorDepths: [8, 10, 12],
-    },
+      defaultResolution: [1920, 1080],
+      defaultFrameRate: 30,
+      defaultBitrate: 1000,
   },
   [VideoEncoderEnum.AV1]: {
-    video: {
       maxResolution: [7680, 4320],
       maxFrameRate: 60,
       minBitrate: 256,
@@ -112,10 +109,11 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<
       allowedColorRanges: FULL_COLOR_RANGE_VALUES,
       gopOptions: COMMON_GOP_VALUES,
       allowedColorDepths: [8, 10, 12],
-    },
+      defaultResolution: [1920, 1080],
+      defaultFrameRate: 30,
+      defaultBitrate: 1000,
   },
   [VideoEncoderEnum.MPEG4]: {
-    video: {
       maxResolution: [1920, 1080],
       maxFrameRate: 60,
       minBitrate: 128,
@@ -124,10 +122,11 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<
       allowedColorRanges: LIMITED_COLOR_RANGE_VALUES,
       gopOptions: COMMON_GOP_VALUES,
       allowedColorDepths: [8],
-    },
+      defaultResolution: [1920, 1080],
+      defaultFrameRate: 30,
+      defaultBitrate: 1000,
   },
   [VideoEncoderEnum.MPEG2VIDEO]: {
-    video: {
       maxResolution: [1920, 1080],
       maxFrameRate: 60,
       minBitrate: 128,
@@ -137,10 +136,11 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<
       allowedColorRanges: LIMITED_COLOR_RANGE_VALUES,
       gopOptions: COMMON_GOP_VALUES,
       allowedColorDepths: [8],
-    },
+      defaultResolution: [1920, 1080],
+      defaultFrameRate: 30,
+      defaultBitrate: 1000,
   },
   [VideoEncoderEnum.PRORES]: {
-    video: {
       maxResolution: [8192, 4320],
       maxFrameRate: 60,
       minBitrate: 1000,
@@ -149,10 +149,11 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<
       allowedColorRanges: FULL_COLOR_RANGE_VALUES,
       gopOptions: INTRA_ONLY_GOP_VALUES,
       allowedColorDepths: [10, 12],
-    },
+      defaultResolution: [1920, 1080],
+      defaultFrameRate: 30,
+      defaultBitrate: 1000,
   },
   [VideoEncoderEnum.MJPEG]: {
-    video: {
       maxResolution: [1920, 1080],
       maxFrameRate: 60,
       minBitrate: 500,
@@ -161,7 +162,9 @@ export const VIDEO_ENCODER_DEFINITIONS: Partial<
       allowedColorRanges: FULL_COLOR_RANGE_VALUES,
       gopOptions: LOW_LATENCY_GOP_VALUES,
       allowedColorDepths: [8],
-    },
+      defaultResolution: [1920, 1080],
+      defaultFrameRate: 30,
+      defaultBitrate: 1000,
   },
 };
 
@@ -170,8 +173,11 @@ export interface AudioEncoderDefinition {
   minSampleRate?: number;
   maxBitrate?: number;
   minBitrate?: number;
-  allowedChannels?: string[];
+  allowedChannels?: number[];
   allowedBitDepths?: number[];
+  defaultSampleRate?: number;
+  defaultChannel?: number;
+  defaultBitrate?: number;
 }
 
 export const AUDIO_ENCODER_DEFINITIONS: Partial<
@@ -182,88 +188,242 @@ export const AUDIO_ENCODER_DEFINITIONS: Partial<
     minSampleRate: 8000,
     maxBitrate: 320,
     minBitrate: 32,
-    allowedChannels: ["1", "2", "3", "4", "5", "6"],
+    allowedChannels: [1, 2, 3, 4, 5, 6],
     allowedBitDepths: [16],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
   },
   [AudioEncoderEnum.MP3]: {
     maxSampleRate: 48000,
     minSampleRate: 8000,
     maxBitrate: 320,
     minBitrate: 32,
-    allowedChannels: ["1", "2"],
+    allowedChannels: [1, 2],
     allowedBitDepths: [16],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
   },
   [AudioEncoderEnum.OPUS]: {
     maxSampleRate: 48000,
     minSampleRate: 8000,
     maxBitrate: 320,
     minBitrate: 32,
-    allowedChannels: ["1", "2"],
+    allowedChannels: [1, 2],
     allowedBitDepths: [16],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
   },
   [AudioEncoderEnum.VORBIS]: {
     maxSampleRate: 48000,
     minSampleRate: 8000,
     maxBitrate: 320,
     minBitrate: 32,
-    allowedChannels: ["1", "2"],
+    allowedChannels: [1, 2],
     allowedBitDepths: [16],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
   },
   [AudioEncoderEnum.AC3]: {
     maxSampleRate: 48000,
     minSampleRate: 8000,
     maxBitrate: 320,
     minBitrate: 32,
-    allowedChannels: ["1", "2", "6"],
+    allowedChannels: [1, 2, 6],
     allowedBitDepths: [16],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
   },
   [AudioEncoderEnum.FLAC]: {
     maxSampleRate: 48000,
     minSampleRate: 8000,
     maxBitrate: 320,
     minBitrate: 32,
-    allowedChannels: ["1", "2", "3", "4", "5", "6", "7", "8"],
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
     allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
+  },
+  [AudioEncoderEnum.ALAC]: {
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
+    allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
+  },
+  [AudioEncoderEnum.PCM_S16LE]: {
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
+    allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
+  },
+  [AudioEncoderEnum.PCM_S24LE]: {
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
+    allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
+  },
+  [AudioEncoderEnum.PCM_S32LE]: { 
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
+    allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
+  },
+  [AudioEncoderEnum.PCM_U8]: {
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
+    allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
+  },
+  [AudioEncoderEnum.PCM_S8]: {
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
+    allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
+  },
+  [AudioEncoderEnum.PCM_S16BE]: {
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
+    allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
+  },
+  [AudioEncoderEnum.PCM_S24BE]: {
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
+    allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
+  },
+  [AudioEncoderEnum.PCM_S32BE]: {
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
+    allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
+  },
+  [AudioEncoderEnum.PCM_F32LE]: {
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
+    allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
+  },
+  [AudioEncoderEnum.PCM_F64LE]: {
+    maxSampleRate: 48000,
+    minSampleRate: 8000,
+    maxBitrate: 320,
+    minBitrate: 32,
+    allowedChannels: [1, 2, 3, 4, 5, 6, 7, 8],
+    allowedBitDepths: [16, 24],
+    defaultSampleRate: 44100,
+    defaultChannel: 2,
+    defaultBitrate: 128,
   },
 };
+  
 export interface ImageEncoderDefinition {
-  maxWidth?: number;
-  maxHeight?: number;
+  maxWidth: number;
+  maxHeight: number;
+  defaultWidth: number;
+  defaultHeight: number;
 }
 export const IMAGE_ENCODER_DEFINITIONS: Partial<
   Record<ImageEncoderEnum, ImageEncoderDefinition>
 > = {
-  [ImageEncoderEnum.JPEG]: { maxWidth: 4096, maxHeight: 4096 },
-  [ImageEncoderEnum.PNG]: { maxWidth: 4096, maxHeight: 4096 },
-  [ImageEncoderEnum.WEBP]: { maxWidth: 4096, maxHeight: 4096 },
-  [ImageEncoderEnum.AVIF]: { maxWidth: 4096, maxHeight: 4096 },
-  [ImageEncoderEnum.GIF]: { maxWidth: 4096, maxHeight: 4096 },
-  [ImageEncoderEnum.HEIC]: { maxWidth: 4096, maxHeight: 4096 },
-  [ImageEncoderEnum.TIFF]: { maxWidth: 4096, maxHeight: 4096 },
-  [ImageEncoderEnum.BMP]: { maxWidth: 4096, maxHeight: 4096 },
+  [ImageEncoderEnum.JPEG]: { maxWidth: 4096, maxHeight: 4096, defaultWidth: 1920, defaultHeight: 1080 },
+  [ImageEncoderEnum.PNG]: { maxWidth: 4096, maxHeight: 4096, defaultWidth: 1920, defaultHeight: 1080   },
+  [ImageEncoderEnum.WEBP]: { maxWidth: 4096, maxHeight: 4096, defaultWidth: 1920, defaultHeight: 1080 },
+  [ImageEncoderEnum.AVIF]: { maxWidth: 4096, maxHeight: 4096, defaultWidth: 1920, defaultHeight: 1080 },
+  [ImageEncoderEnum.GIF]: { maxWidth: 4096, maxHeight: 4096, defaultWidth: 1920, defaultHeight: 1080 },
+  [ImageEncoderEnum.HEIC]: { maxWidth: 4096, maxHeight: 4096, defaultWidth: 1920, defaultHeight: 1080 },
+  [ImageEncoderEnum.TIFF]: { maxWidth: 4096, maxHeight: 4096, defaultWidth: 1920, defaultHeight: 1080 },
+  [ImageEncoderEnum.BMP]: { maxWidth: 4096, maxHeight: 4096, defaultWidth: 1920, defaultHeight: 1080 },
   [ImageEncoderEnum.ICO]: {
     maxWidth: 256,
     maxHeight: 256,
+    defaultWidth: 256,
+    defaultHeight: 256,
   },
   [ImageEncoderEnum.PCX]: {
     maxWidth: 640,
     maxHeight: 480,
+    defaultWidth: 640,
+    defaultHeight: 480,
   },
   [ImageEncoderEnum.SGI]: {
     maxWidth: 640,
     maxHeight: 480,
+    defaultWidth: 640,
+    defaultHeight: 480,
   },
   [ImageEncoderEnum.SUNRAST]: {
     maxWidth: 640,
     maxHeight: 480,
+    defaultWidth: 640,
+    defaultHeight: 480,
   },
   [ImageEncoderEnum.XBM]: {
     maxWidth: 32,
     maxHeight: 32,
+    defaultWidth: 32,
+    defaultHeight: 32,
   },
   [ImageEncoderEnum.XWD]: {
     maxWidth: 32,
     maxHeight: 32,
+    defaultWidth: 32,
+    defaultHeight: 32,
   },
 };
 
@@ -674,9 +834,8 @@ export function getVideoOptionsByEncoder(
   };
 
   if (!encoderId) return defaults;
-  const def = VIDEO_ENCODER_DEFINITIONS[encoderId as VideoEncoderEnum];
-  if (!def) return defaults;
-  const videoConstraints = def.video;
+  const videoConstraints = VIDEO_ENCODER_DEFINITIONS[encoderId as VideoEncoderEnum];
+  if (!videoConstraints) return defaults;
 
   const allowedColorSpaces = videoConstraints?.colorSpaces;
   const colorSpaces =

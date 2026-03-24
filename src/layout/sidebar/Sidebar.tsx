@@ -224,7 +224,7 @@ const SidebarNavItem = ({
         {item.label}
       </SidebarLabel>
       {typeof item.badgeCount === "number" && item.badgeCount > 0 && (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-semibold px-1 h-4 min-w-4">
+        <span className="absolute right-0 ml-auto inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-semibold px-1 h-4 min-w-4 pointer-events-none">
           {item.badgeCount > 99 ? "99+" : item.badgeCount}
         </span>
       )}

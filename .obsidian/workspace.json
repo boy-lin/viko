@@ -97,7 +97,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "docs/figurex-arch.canvas",
+                "file": "docs/viko-arch.canvas",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -107,7 +107,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "figurex-arch 的反向链接列表"
+              "title": "viko-arch 的反向链接列表"
             }
           },
           {
@@ -116,12 +116,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "docs/figurex-arch.canvas",
+                "file": "docs/viko-arch.canvas",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "figurex-arch 的出链列表"
+              "title": "viko-arch 的出链列表"
             }
           },
           {
@@ -159,13 +159,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "docs/figurex-arch.canvas",
+                "file": "docs/viko-arch.canvas",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "figurex-arch 的大纲"
+              "title": "viko-arch 的大纲"
             }
           }
         ]
@@ -202,7 +202,7 @@
     "dist/assets/av-downloader-DliIKWD6.jpg",
     "dist/assets/av-converter-8Fa43erK.jpg",
     "dist/assets/av-compressor-BeZbAomD.jpg",
-    "docs/figurex-rust-ffmpeg-queue-arch.canvas",
+    "docs/viko-rust-ffmpeg-queue-arch.canvas",
     "docs/video-handleConvertAll-flow.canvas",
     "docs/help.md",
     "docs/intro.md",
@@ -210,7 +210,7 @@
     "public/images/img_404.jpg",
     "docs/audio-compress-convert-flow.canvas",
     "docs/video-convert-compress-flow.md",
-    "docs/figurex-arch.canvas",
+    "docs/viko-arch.canvas",
     "dist/logo.png",
     "dist/ios/AppIcon.appiconset/icon-83.5@2x.png",
     "dist/ios/AppIcon.appiconset/icon-76@2x.png",

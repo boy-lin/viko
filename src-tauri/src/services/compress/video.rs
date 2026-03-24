@@ -25,7 +25,7 @@ pub struct VideoCompressionParams {
     pub width: Option<u32>,                      // 目标宽度
     pub height: Option<u32>,                     // 目标高度
     pub bitrate: Option<u32>,                    // 视频码率 kbps
-    pub frame_rate: Option<f32>,                 // 目标帧率
+    pub frame_rate: Option<String>,              // 目标帧率
     pub codec: Option<String>,                   // h264/h265/vp9/av1
     pub keyframe_interval: Option<u32>,          // GOP 间隔
     pub color_depth: Option<u32>,                // 8/10/12 bit
@@ -41,6 +41,14 @@ pub struct VideoCompressionParams {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VideoCompressionReport {
     pub output_media: MediaDetails,
+}
+
+fn parse_frame_rate_value(value: Option<&str>) -> Option<f32> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .and_then(|value| value.parse::<f32>().ok())
+        .filter(|value| value.is_finite() && *value > 0.0)
 }
 
 struct VideoProcessor<E: TaskEmitter> {
@@ -140,8 +148,7 @@ impl<E: TaskEmitter> VideoProcessor<E> {
         encoder.set_aspect_ratio(aspect_ratio);
         encoder.set_format(target_pixel_format);
 
-        let target_frame_rate = params
-            .frame_rate
+        let target_frame_rate = parse_frame_rate_value(params.frame_rate.as_deref())
             .map(|f| Rational(f.round().max(1.0) as i32, 1))
             .or_else(|| decoder.frame_rate());
         let fallback_fps = video_stream.avg_frame_rate();

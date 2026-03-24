@@ -103,7 +103,7 @@ export default function VideoSettingsSection({
             hideLabel={false}
             value={frame_rate}
             onValueChange={(v) => onChange?.({ frame_rate: v })}
-            maxFrameRate={encoderDef.video?.maxFrameRate}
+            maxFrameRate={encoderDef?.maxFrameRate}
           />
           <ColorSpaceSelect
             className="space-y-2"
@@ -112,7 +112,7 @@ export default function VideoSettingsSection({
             hideLabel={false}
             value={color_space}
             onValueChange={(v) => onChange?.({ color_space: v })}
-            allowedColorSpaces={encoderDef.video?.colorSpaces}
+            allowedColorSpaces={encoderDef?.colorSpaces}
           />
           <ColorRangeSelect
             className="space-y-2"
@@ -121,7 +121,7 @@ export default function VideoSettingsSection({
             hideLabel={false}
             value={color_range}
             onValueChange={(v) => onChange?.({ color_range: v })}
-            allowedColorRanges={encoderDef.video?.allowedColorRanges}
+            allowedColorRanges={encoderDef?.allowedColorRanges}
             placeholder={t("video_advance.color_range", "Color Range")}
           />
         </div>

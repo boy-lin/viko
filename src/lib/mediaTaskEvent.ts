@@ -1,6 +1,7 @@
 import {
   AudioEncoderEnum,
   FormatEnum,
+  ImageEncoderEnum,
   VideoEncoderEnum,
 } from "@/types/options";
 import { FileType, MediaTaskType } from "@/types/tasks";
@@ -28,7 +29,7 @@ export interface AudioEncodingParams {
 
 /** 与 Rust AudioTrackConfig 对应 */
 export interface AudioTrackConfig {
-  source_stream_index?: number;
+  source_stream_index: number;
   /** flatten: 与 AudioEncodingParams 字段一致 */
   codec?: AudioEncoderEnum;
   bitrate?: number;
@@ -152,7 +153,7 @@ export interface ConvertImageTaskArgs {
   /** Optional target height (keep aspect ratio with width if only one side is provided). */
   height?: number;
   /** Optional image encoder/codec name. Falls back to format if omitted. */
-  image_encoder?: string;
+  image_encoder?: ImageEncoderEnum;
   /** Optional output file path. Backend auto-generates one if omitted. */
   output_path?: string;
   /** Optional animation frame rate for GIF/APNG outputs. */
@@ -222,14 +223,6 @@ export interface CompressVideoTaskArgs {
   format: FormatEnum;
   /** only display: 0-100，表示压缩到原文件的百分比 */
   ratio: number;
-  /** frontend-only: 源视频码率（kbps），用于 ratio 重算 */
-  source_video_bitrate?: number;
-  /** frontend-only: 源视频帧率 */
-  source_frame_rate?: number;
-  /** frontend-only: 源视频关键帧间隔（帧） */
-  source_keyframe_interval?: number;
-  /** frontend-only: 源音轨参数，用于 ratio 重算 */
-  source_audio_tracks?: AudioTrackConfig[];
   forced_watermark?: WatermarkConfig;
   /** need to be synced to rust */
   rc_mode?: string;

@@ -169,10 +169,10 @@ const resolveVideoBitrate = (
   baseBitrate: number,
 ) => {
   const encoderDefinition = VIDEO_ENCODER_DEFINITIONS[codec];
-  const minBitrate = Math.max(100, encoderDefinition?.video?.minBitrate ?? 100);
+  const minBitrate = Math.max(100, encoderDefinition?.minBitrate ?? 100);
   const maxBitrate = Math.max(
     minBitrate,
-    encoderDefinition?.video?.maxBitrate ?? 20000,
+    encoderDefinition?.maxBitrate ?? 20000,
   );
   const normalizedFrameRate = Math.max(1, frameRate);
   const frameRateFactor = normalizedFrameRate / 30;
@@ -250,11 +250,11 @@ export const getVideoCompressionPresetByRatio = (
   const encoderDefinition = VIDEO_ENCODER_DEFINITIONS[codec];
   const videoMinBitrate = Math.max(
     100,
-    encoderDefinition?.video?.minBitrate ?? 100,
+    encoderDefinition?.minBitrate ?? 100,
   );
   const videoMaxBitrate = Math.max(
     videoMinBitrate,
-    encoderDefinition?.video?.maxBitrate ?? 50000,
+    encoderDefinition?.maxBitrate ?? 50000,
   );
 
   const bitrateFactor = 0.15 + normalizedRatio * 0.0085;
@@ -296,11 +296,11 @@ export const getVideoCompressionPresetByRatio = (
   );
 
   const frame_rate = resolveFrameRate(
-    encoderDefinition?.video?.maxFrameRate,
+    encoderDefinition?.maxFrameRate,
     sourceBasedFrameRate || fallbackFrameRateByTier,
   ).toString();
   const keyframe_interval = resolveKeyframeInterval(
-    encoderDefinition?.video?.gopOptions,
+    encoderDefinition?.gopOptions,
     sourceBasedKeyframe,
   );
   const bitrate =
@@ -629,11 +629,7 @@ export const buildDefaultTaskDetailsUpdates = (
       firstVideoStream?.width && firstVideoStream?.height
         ? `${firstVideoStream.width}x${firstVideoStream.height}`
         : undefined,
-    frame_rate: sourceFrameRate?.toString(),
-    source_video_bitrate: sourceVideoBitrateKbps,
-    source_frame_rate: sourceFrameRate,
-    source_keyframe_interval: sourceKeyframeInterval,
-    source_audio_tracks: initialAudioTracks,
+    frame_rate: sourceFrameRate?.toString()
   };
   const containerDefinition =
     VIDEO_CONTAINER_DEFINITIONS[outputArgs.format as FormatEnum];
