@@ -33,16 +33,17 @@ export type ConverterTaskArgs =
 
 export interface ConverterTask extends FFmpegTask<ConverterTaskArgs> {}
 
-export interface GlobalConverterConfig
-  extends Pick<ConverterTask, "taskType" | "activeCategory"> {
+export interface GlobalConverterConfig extends Pick<
+  ConverterTask,
+  "taskType" | "activeCategory"
+> {
   args: Partial<ConversionConfig>;
 }
 
 export const defaultConverterConfig: GlobalConverterConfig = {
   taskType: MediaTaskType.ConvertToVideo,
-  activeCategory: FileType.Video,
   args: {
-    format: FormatEnum.MP4,
+    format: "",
   },
 };
 
@@ -57,9 +58,7 @@ type ConverterStore = CreateTaskStoreState<
 const normalizeExtension = (path: string) =>
   path.split(".").pop()?.toLowerCase() ?? "";
 
-export const inferFileTypeFromPath = (path: string): FileType | null => {
-  const extension = normalizeExtension(path);
-
+export const inferFileTypeFromPath = (extension: string): FileType | null => {
   if (VIDEO_SUPPORT_FORMATS.includes(extension as FormatEnum)) {
     return FileType.Video;
   }
@@ -73,36 +72,11 @@ export const inferFileTypeFromPath = (path: string): FileType | null => {
   return null;
 };
 
-const normalizeTargetCategory = (
-  activeCategory?: FileType | ActiveCategoryEnum,
-  taskType?: MediaTaskType,
-  format?: string,
-): FileType => {
-  if (
-    activeCategory === FileType.Video ||
-    activeCategory === FileType.Audio ||
-    activeCategory === FileType.Image
-  ) {
-    return activeCategory;
-  }
-
-  if (taskType === MediaTaskType.ConvertToAudio) {
+const normalizeTargetCategory = (format?: string): FileType => {
+  if (format && AUDIO_SUPPORT_FORMATS.includes(format)) {
     return FileType.Audio;
   }
-  if (
-    taskType === MediaTaskType.ConvertToImage ||
-    taskType === MediaTaskType.ConvertToAnimatedImage
-  ) {
-    return FileType.Image;
-  }
-  if (taskType === MediaTaskType.ConvertToVideo) {
-    return FileType.Video;
-  }
-
-  if (format && AUDIO_SUPPORT_FORMATS.includes(format as FormatEnum)) {
-    return FileType.Audio;
-  }
-  if (format && IMAGE_SUPPORT_FORMATS.includes(format as FormatEnum)) {
+  if (format && IMAGE_SUPPORT_FORMATS.includes(format)) {
     return FileType.Image;
   }
 
@@ -150,11 +124,7 @@ const createInitialArgs = (
   inputPath: string,
   config: GlobalConverterConfig,
 ): ConverterTaskArgs => {
-  const category = normalizeTargetCategory(
-    config.activeCategory,
-    config.taskType,
-    config.args.format,
-  );
+  const category = normalizeTargetCategory(config.args.format);
   const format = normalizeTargetFormat(category, config.args.format);
 
   if (category === FileType.Audio) {
@@ -219,17 +189,13 @@ export const useConverterStore = create<ConverterStore>(
     clearActionKey: "clearTasks",
     defaultConfig: defaultConverterConfig,
     createTaskByPath: (path, config) => {
-      const fileType = inferFileTypeFromPath(path);
+      const extension = normalizeExtension(path);
+      const fileType = inferFileTypeFromPath(extension);
       if (!fileType) return null;
-
+      config.args.format = extension;
       const taskId = crypto.randomUUID();
       const args = createInitialArgs(taskId, path, config);
-      const activeCategory = normalizeTargetCategory(
-        config.activeCategory,
-        config.taskType,
-        args.format,
-      );
-
+      const activeCategory = normalizeTargetCategory(args.format);
       return {
         id: taskId,
         status: "idle",

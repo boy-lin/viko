@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 import { VideoBitrateSelect } from "./VideoBitrateSelect";
 import { VideoQualitySelect } from "./VideoQualitySelect";
+import { VIDEO_QUALITIES } from "@/data/video_options";
 import { cn } from "@/lib/utils";
 
 interface VideoBitrateModeGroupProps {
@@ -42,8 +43,6 @@ export default function VideoBitrateModeGroup({
     if (typeof crf === "number") return "crf";
     return "vbr";
   }, [crf, rc_mode]);
-
-  console.log('currentMode', currentMode, rc_mode, crf, video_bitrate, min_bitrate, max_bitrate);
 
   const effectiveBitrate = useMemo(
     () => video_bitrate ?? max_bitrate ?? min_bitrate,
@@ -90,9 +89,9 @@ export default function VideoBitrateModeGroup({
 
             onChange({
               rc_mode: "crf",
-              video_bitrate: undefined,
               min_bitrate: undefined,
               max_bitrate: undefined,
+              crf: VIDEO_QUALITIES[0].value
             });
           }}
         >
@@ -121,7 +120,6 @@ export default function VideoBitrateModeGroup({
             onValueChange={(val) => {
               onChange({
                 crf: val,
-                video_bitrate: undefined,
                 min_bitrate: undefined,
                 max_bitrate: undefined,
                 rc_mode: val !== undefined ? "crf" : undefined,

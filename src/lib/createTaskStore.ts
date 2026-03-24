@@ -162,7 +162,7 @@ export function createTaskStore<
     clearActionKey,
     defaultConfig,
     createTaskByPath,
-    queueAdapter
+    queueAdapter,
   } = options;
 
   return (set, get) =>
@@ -257,7 +257,7 @@ export function createTaskStore<
           const tasks = state[tasksKey] as TTask[];
           const current = tasks[idx];
           if (!current) return {};
-
+          console.log("updates", updates);
           const updatedTask = mergeTaskUpdate(current, updates);
           const nextTasks = tasks.slice();
           nextTasks[idx] = updatedTask;

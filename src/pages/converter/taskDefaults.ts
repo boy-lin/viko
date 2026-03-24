@@ -33,16 +33,19 @@ const buildAudioTracksFromStreams = (
     (stream) => stream.codec_type === "audio",
   );
   const firstAudioStreamIndex = audioStreams[0]?.index;
-  const audioStreamIndices = new Set(audioStreams.map((stream) => stream.index));
+  const audioStreamIndices = new Set(
+    audioStreams.map((stream) => stream.index),
+  );
 
+  console.log("nextTracks", currentTracks, audioStreams);
   if (currentTracks && currentTracks.length > 0) {
     const nextTracks = currentTracks
       .map((track) => {
         const nextSourceStreamIndex =
           typeof track.source_stream_index === "number" &&
           audioStreamIndices.has(track.source_stream_index)
-          ? track.source_stream_index
-          : firstAudioStreamIndex;
+            ? track.source_stream_index
+            : firstAudioStreamIndex;
 
         if (typeof nextSourceStreamIndex !== "number") {
           return null;
@@ -61,12 +64,11 @@ const buildAudioTracksFromStreams = (
     }
   }
 
-  const nextTracks = audioStreams
-    .map((stream) => ({
-      source_stream_index: stream.index,
-      codec,
-    }));
-
+  const nextTracks = audioStreams.map((stream) => ({
+    source_stream_index: stream.index,
+    codec,
+  }));
+  console.log("nextTracks", nextTracks);
   return nextTracks.length > 0
     ? nextTracks
     : [{ source_stream_index: 0, codec }];
@@ -99,8 +101,9 @@ export const buildTaskDefaultsFromDetails = (
 ): Partial<ConverterTask> => {
   const targetCategory = resolveTargetCategory(task);
   const outputTitle = task.outputTitle ?? details.title;
-
   if (targetCategory === FileType.Audio) {
+    console.log("buildTaskDefaultsFromDetails", targetCategory);
+
     const currentArgs = task.args as Partial<ConvertAudioTaskArgs>;
     let format = currentArgs.format;
     if (!AUDIO_SUPPORT_FORMATS.includes(format as FormatEnum)) {
@@ -187,25 +190,25 @@ export const buildTaskDefaultsFromDetails = (
   const primaryVideoStream = details.streams.find(
     (stream) => stream.codec_type === "video",
   );
-
   return {
     mediaDetails: details,
     outputTitle,
     activeCategory: FileType.Video,
     taskType: MediaTaskType.ConvertToVideo,
     args: {
-      ...currentArgs,
       task_id: task.id,
       input_path: details.path,
       format,
-      video_encoder:
-        currentArgs.video_encoder ?? definition?.video?.allowedEncoders[0],
+      video_encoder: definition?.video?.allowedEncoders[0],
       resolution:
-        currentArgs.resolution ??
-        (primaryVideoStream?.width && primaryVideoStream?.height
+        primaryVideoStream?.width && primaryVideoStream?.height
           ? `${primaryVideoStream.width}x${primaryVideoStream.height}`
-          : undefined),
-      frame_rate: currentArgs.frame_rate ?? primaryVideoStream?.frame_rate,
+          : undefined,
+      frame_rate: primaryVideoStream?.frame_rate,
+      video_bitrate: primaryVideoStream?.bit_rate
+        ? primaryVideoStream?.bit_rate / 1000
+        : undefined,
+      ...currentArgs,
       audio_tracks: buildAudioTracksFromStreams(
         details,
         currentArgs.audio_tracks,

@@ -1,4 +1,8 @@
-import { ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVideoTaskArgs, } from "@/lib/mediaTaskEvent";
+import {
+  ConvertAudioTaskArgs,
+  ConvertImageTaskArgs,
+  ConvertVideoTaskArgs,
+} from "@/lib/mediaTaskEvent";
 
 export enum MediaTaskType {
   ConvertToVideo = "convert-to-video",
@@ -42,10 +46,9 @@ export interface MediaDetails {
 }
 
 export interface MediaDetailsWithResolve extends MediaDetails {
-  format: string
-  resolution: string
+  format: string;
+  resolution: string;
 }
-
 
 export interface TextWatermark {
   content: string;
@@ -68,8 +71,10 @@ export interface ImageWatermark {
 }
 
 // 联合类型
-export type ConversionConfig = ConvertVideoTaskArgs | ConvertAudioTaskArgs | ConvertImageTaskArgs;
-
+export type ConversionConfig =
+  | ConvertVideoTaskArgs
+  | ConvertAudioTaskArgs
+  | ConvertImageTaskArgs;
 
 export enum FileType {
   Video = "video",

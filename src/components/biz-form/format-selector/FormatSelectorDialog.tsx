@@ -27,7 +27,7 @@ export default function FormatSelectorDialog(props: FormatSelectorProps) {
     (state) => state.recentsByKey[recentKey] ?? EMPTY_RECENTS
   );
   const addToRecents = useFormatSelectorStore((state) => state.addToRecents);
-
+  console.log('config', config)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>

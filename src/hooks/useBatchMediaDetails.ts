@@ -19,7 +19,10 @@ type TaskLike = {
 interface UseBatchMediaDetailsParams<TTask extends TaskLike> {
   tasks: TTask[];
   updateTaskById: (taskId: string, patch: any) => void;
-  buildUpdate: (task: TTask, details: MediaDetailsWithResolve) => Partial<TTask>;
+  buildUpdate: (
+    task: TTask,
+    details: MediaDetailsWithResolve,
+  ) => Partial<TTask>;
   errorMessage?: string;
 }
 
@@ -51,6 +54,7 @@ export function useBatchMediaDetails<TTask extends TaskLike>({
     setMetaStateById((prev) => {
       const next = { ...prev };
       pending.forEach((task) => {
+        console.log("task", task);
         next[task.id] = { status: "loading" };
       });
       return next;

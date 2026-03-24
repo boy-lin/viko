@@ -44,10 +44,9 @@ export const VIDEO_BITRATES: SelectOption[] = [
 ];
 
 export const VIDEO_QUALITIES: SelectOption[] = [
-  { value: "auto", label: "自动" },
-  { value: "18", label: "超清 (CRF 18)" },
-  { value: "23", label: "高清 (CRF 23)" },
   { value: "28", label: "标清 (CRF 28)" },
+  { value: "23", label: "高清 (CRF 23)" },
+  { value: "18", label: "超清 (CRF 18)" },
 ];
 
 export const GOP_OPTIONS: SelectOption[] = [
