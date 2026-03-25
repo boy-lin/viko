@@ -1,4 +1,4 @@
-import { AnalyticsProvider } from "./types";
+﻿import { AnalyticsProvider } from "./types";
 import { PostHogAnalyticsProvider } from "./posthog";
 import { GoogleAnalyticsProvider } from "./google-analytics";
 import { bridge } from "@/lib/bridge";
@@ -95,6 +95,7 @@ class AnalyticsService {
         );
       }
     }
+    this.syncProviderContext();
 
     void bridge
       .getDeviceId()
@@ -104,6 +105,7 @@ class AnalyticsService {
         if (typeof window !== "undefined") {
           window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, deviceId);
         }
+        this.syncProviderContext();
       })
       .catch(() => {
         // keep fallback ID
@@ -134,6 +136,11 @@ class AnalyticsService {
     };
   }
 
+  private syncProviderContext() {
+    const payload = this.withContext();
+    this.providers.forEach((provider) => provider.setContext?.(payload));
+  }
+
   track(eventName: string, properties?: Record<string, unknown>) {
     const payload = this.withContext(properties);
     this.providers.forEach((provider) => provider.track(eventName, payload));
@@ -142,6 +149,7 @@ class AnalyticsService {
   identify(userId: string, properties?: Record<string, unknown>) {
     this.context.user_id = userId;
     const payload = this.withContext(properties);
+    this.syncProviderContext();
     this.providers.forEach((provider) => provider.identify(userId, payload));
   }
 
