@@ -400,20 +400,6 @@ class MediaTaskQueue {
         };
       }),
     });
-
-    tasks.forEach((task) => {
-      const args = (task.args || {}) as Record<string, unknown>;
-      analytics.track("task_feature_submit", {
-        task_id: typeof args.task_id === "string" ? args.task_id : undefined,
-        task_type: task.type,
-        format: typeof args.format === "string" ? args.format : undefined,
-        input_file_type:
-          typeof args.input_file_type === "string"
-            ? args.input_file_type
-            : undefined,
-        has_watermark: Boolean(args.watermark || args.forced_watermark),
-      });
-    });
   }
 
   private trackTaskResult(payload: MediaTaskEvent): void {

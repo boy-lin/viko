@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
+import { useAnalytics } from "@/lib/analytics/use-analytics";
 import { bridge } from "@/lib/bridge";
 import Sidebar from "./sidebar/Sidebar";
 import Header from "./Header";
 
 const Layout: React.FC = () => {
   const [, setChecksPassed] = useState(false);
+  const { track } = useAnalytics();
 
   useEffect(() => {
     if (!bridge.isTauri()) {
@@ -23,6 +25,7 @@ const Layout: React.FC = () => {
       }
     };
     check();
+    track("page_view", { page: "home" });
   }, []);
 
   return (

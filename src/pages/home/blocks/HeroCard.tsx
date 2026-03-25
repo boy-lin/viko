@@ -122,11 +122,9 @@ const HeroCardItemView = ({
 export function HeroCard() {
   const navigate = useNavigate();
 
-  const { track } = useAnalytics();
   const { t } = useTranslation("home");
 
   const handleAction = async (actionId: string) => {
-    track("click_hero_card_action", { actionId });
 
     if (actionId === "converter") {
       const paths = await bridge.addFilesOrFolders({
