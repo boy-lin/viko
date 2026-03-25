@@ -183,8 +183,8 @@ jobs:
               ;;
             x86_64-pc-windows-msvc)
               PLATFORM="windows-x86_64"
-              UPDATER_PATTERN="*.msi.zip"
-              INSTALLER_PATTERN="*.msi"
+              UPDATER_PATTERN="*.nsis.zip"
+              INSTALLER_PATTERN="*.exe"
               ;;
             *)
               echo "Unsupported target for updater upload: $TARGET"

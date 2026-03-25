@@ -47,7 +47,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "targets": ["app", "dmg", "msi"],
+    "targets": ["app", "dmg", "nsis"],
     "resources": {
       "resources/ffmpeg": "resources/ffmpeg",
       "../public/fonts/NotoSansSC-Regular.otf": "resources/fonts/NotoSansSC-Regular.otf"
