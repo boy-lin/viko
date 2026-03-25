@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 import { ConverterLayer } from "@/components/icons/ConverterLayer";
 import { DownloaderLayer } from "@/components/icons/DownloaderLayer";
 import { CompressorLayer } from "@/components/icons/CompressorLayer";
-import { useAnalytics } from "@/lib/analytics";
 import { MenuItems } from "@/layout/sidebar/menu";
 import { useTranslation } from "react-i18next";
 import { VIDEO_SUPPORT_FORMATS, IMAGE_SUPPORT_FORMATS, SUPPORT_FORMATS } from "@/data/formats";

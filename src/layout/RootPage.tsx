@@ -25,7 +25,6 @@ const Layout: React.FC = () => {
       }
     };
     check();
-    track("page_view", { page: "home" });
   }, []);
 
   return (
