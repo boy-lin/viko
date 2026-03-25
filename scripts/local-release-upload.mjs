@@ -21,7 +21,7 @@ const TARGET_META = {
   },
   "x86_64-pc-windows-msvc": {
     platform: "windows-x86_64",
-    updaterPattern: ".nsis.zip",
+    updaterPattern: ".exe",
     installerPattern: ".exe",
   },
 };
@@ -317,7 +317,7 @@ async function resolveArtifacts(target, meta) {
     throw new Error(`Updater artifact not found in ${bundleDir} (${meta.updaterPattern})`);
   }
 
-  const installerPath = firstMatch(files, meta.installerPattern, [".nsis.zip"]);
+  const installerPath = firstMatch(files, meta.installerPattern);
   if (!installerPath) {
     throw new Error(`Installer artifact not found in ${bundleDir} (${meta.installerPattern})`);
   }
