@@ -47,14 +47,14 @@ export function useBatchMediaDetails<TTask extends TaskLike>({
   useEffect(() => {
     const pending = tasks.filter((task) => {
       if (task.mediaDetails || !task.args?.input_path) return false;
-      return metaStateById[task.id]?.status !== "loading";
+      const status = metaStateById[task.id]?.status;
+      return status === undefined || status === "idle";
     });
     if (pending.length === 0) return;
 
     setMetaStateById((prev) => {
       const next = { ...prev };
       pending.forEach((task) => {
-        console.log("task", task);
         next[task.id] = { status: "loading" };
       });
       return next;

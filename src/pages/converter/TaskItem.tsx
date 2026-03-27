@@ -40,6 +40,14 @@ export default function ConverterTaskItem({
     (!task.mediaDetails && currentMetaStatus !== "error");
   const isQueuedOrProcessing =
     task.status === "queued" || task.status === "processing";
+  const isUnsupported = task.status === "unsupported";
+  const unsupportedText =
+    task.activeCategory === "audio"
+      ? t(
+          "converter.unsupportedAudioTargetNoStream",
+          "不可转为音频，源文件没有音频流",
+        )
+      : t("status.unsupported", "不可转换");
   const outputTitleValue = useMemo(
     () => task.outputTitle ?? task.mediaDetails?.title ?? "",
     [task.outputTitle, task.mediaDetails?.title],
@@ -108,7 +116,11 @@ export default function ConverterTaskItem({
             });
           }}
         />
-        <MediaTargetInfoGrid args={task.args as ConverterTaskArgs} />
+        <MediaTargetInfoGrid
+          args={task.args as ConverterTaskArgs}
+          unsupported={isUnsupported}
+          unsupportedText={unsupportedText}
+        />
         <div className="absolute right-1 top-1 flex flex-col items-center gap-1">
           <FormatSelectorDialog
             config={{
@@ -121,10 +133,15 @@ export default function ConverterTaskItem({
               let args = {}
               if (task.activeCategory !== config.activeCategory) {
                 if (task.mediaDetails) {
-                  args = buildTaskDefaultsFromDetails({
+                  const nextTaskDefaults = buildTaskDefaultsFromDetails({
                     ...task,
                     activeCategory: config.activeCategory,
-                  }, task.mediaDetails).args || {}
+                  }, task.mediaDetails);
+                  args = nextTaskDefaults.args || {}
+                  updateTaskById(task.id, {
+                    status: nextTaskDefaults.status || "idle",
+                    errorMessage: nextTaskDefaults.errorMessage,
+                  });
                 }
               }
               updateTaskById(task.id, {
@@ -163,7 +180,7 @@ export default function ConverterTaskItem({
         <Button
           variant="outline"
           className="cursor-pointer px-4"
-          disabled={loading || isQueuedOrProcessing}
+          disabled={loading || isQueuedOrProcessing || isUnsupported}
           onClick={() => {
             void useConverterStore.getState().pushTasksToQueue([task]);
           }}

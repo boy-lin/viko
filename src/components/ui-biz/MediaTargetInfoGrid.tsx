@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 interface MediaTargetInfoGridProps {
   args: any;
   className?: string;
+  unsupported?: boolean;
+  unsupportedText?: string;
 }
 
 function normalizeExt(extension?: string) {
@@ -20,7 +22,17 @@ function audioTrackInfoLabel(track?: AudioTrackConfig) {
 export default function MediaTargetInfoGrid({
   args,
   className,
+  unsupported,
+  unsupportedText,
 }: MediaTargetInfoGridProps) {
+  if (unsupported) {
+    return (
+      <div className={cn(className, "text-sm font-medium text-destructive")}>
+        {unsupportedText ?? "Unavailable"}
+      </div>
+    );
+  }
+
   const format = normalizeExt(args.format);
 
   let parts: Array<string | undefined> = [];

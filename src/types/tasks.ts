@@ -89,7 +89,14 @@ export enum ActiveCategoryEnum {
 
 export interface FFmpegTask<TArgs = any> {
   id: string;
-  status: "idle" | "queued" | "processing" | "finished" | "error" | "cancelled";
+  status:
+    | "idle"
+    | "queued"
+    | "processing"
+    | "finished"
+    | "error"
+    | "cancelled"
+    | "unsupported";
   progress: number;
   errorMessage?: string;
   outputTitle?: string;

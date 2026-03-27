@@ -49,6 +49,11 @@ export default function VideoBitrateModeGroup({
     [max_bitrate, min_bitrate, video_bitrate],
   );
 
+  const currentModeHelpText = useMemo(
+    () => t(`videoSimpleSettings.modeHelp.${currentMode}`),
+    [currentMode, t],
+  );
+
   return (
     <div className={cn("col-span-2 space-y-2", className)}>
       <div className="flex items-center gap-1">
@@ -114,6 +119,9 @@ export default function VideoBitrateModeGroup({
             </Label>
           ))}
         </RadioGroup>
+        <p className="text-xs leading-5 text-muted-foreground">
+          {currentModeHelpText}
+        </p>
         {currentMode === "crf" ? (
           <VideoQualitySelect
             value={crf}

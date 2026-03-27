@@ -42,16 +42,18 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
   const onReset = () => {
     onAudioTracksChange([]);
   }
+
+  const deencoderDef = React.useMemo(() => {
+    if (!format) return undefined;
+    return AUDIO_CONTAINER_DEFINITIONS[format as FormatEnum]
+  }, [format]);
+
+
   if (audio_tracks.length === 0) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 p-2">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-lg">{t("settings.audio.title")}</h3>
-          {onReset && (
-            <Button variant="ghost" size="icon" onClick={onReset}>
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          )}
         </div>
         <p className="text-muted-foreground">
           {t('settings.audio.noAudioTrackAvailable')}
@@ -59,11 +61,6 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
       </div>
     );
   }
-
-  const deencoderDef = React.useMemo(() => {
-    if (!format) return undefined;
-    return AUDIO_CONTAINER_DEFINITIONS[format as FormatEnum]
-  }, [format]);
 
   // 单轨道模式（audio 类型）
   if (!multiTrack && audio_tracks.length > 0) {
@@ -112,6 +109,7 @@ export const AudioSettingsSection: React.FC<AudioSettingsSectionProps> = ({
       </div>
     );
   }
+
 
   // 多轨道模式（video 类型）
   return (

@@ -234,6 +234,11 @@
       "cbr": "Constant Bitrate",
       "vbr": "Variable Bitrate",
       "crf": "Constant Rate Factor"
+    },
+    "modeHelp": {
+      "cbr": "Keeps bitrate stable and is useful for streaming, bandwidth-limited delivery, or predictable file sizes.",
+      "vbr": "Adjusts bitrate based on scene complexity for a more natural balance between quality and file size.",
+      "crf": "Prioritizes target quality and adjusts bitrate automatically, which is usually best for general transcoding."
     }
   },
   "bizForm": {

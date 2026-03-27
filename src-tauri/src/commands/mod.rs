@@ -957,6 +957,25 @@ pub async fn prepare_video_for_web_playback(path: String) -> Result<WebPlaybackP
                 forced_watermark: None,
             };
 
+            log::info!(
+                "[PLAYER_PREPARE] web playback transcode params: input_path={} output_path={} format={:?} video_encoder={:?} video_bitrate={:?} rc_mode={:?} resolution={:?} frame_rate={:?} gop_size={:?} preset={:?} bit_depth={:?} audio_encoder={:?} hw_accel={} ultra_fast={} reason={}",
+                params.input_path,
+                params.output_path,
+                params.format,
+                params.video_encoder,
+                params.video_bitrate,
+                params.rc_mode,
+                params.resolution,
+                params.frame_rate,
+                params.gop_size,
+                params.preset,
+                params.bit_depth,
+                params.audio_encoder,
+                params.use_hardware_acceleration,
+                params.use_ultra_fast_speed,
+                probe_reason,
+            );
+
             let emitter = MockEmitter::new();
             convert_video_service::convert_video(emitter, params)
                 .map_err(|e| format!("[PLAYER_PREPARE] transcode to web mp4 failed: {}", e))?;
@@ -1036,6 +1055,13 @@ pub async fn video_mse_stream_open(
             "mp4".to_string(),
             "-".to_string(),
         ]);
+
+        log::info!(
+            "[MSE_STREAM] live transcode params: input_path={} seek_seconds={:.3} ffmpeg_args={:?}",
+            path,
+            seek_seconds,
+            ffmpeg_args,
+        );
 
         let mut child = match Command::new(&ffmpeg_path)
             .args(&ffmpeg_args)

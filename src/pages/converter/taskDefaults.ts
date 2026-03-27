@@ -119,6 +119,9 @@ export const buildTaskDefaultsFromDetails = (
   const targetCategory = resolveTargetCategory(task);
   const outputTitle = task.outputTitle ?? details.title;
   const format = normalizeTargetFormat(targetCategory, task.args.format);
+  const hasAudioStream = details.streams.some(
+    (stream) => stream.codec_type === "audio",
+  );
 
   if (targetCategory === FileType.Audio) {
     const currentArgs = task.args as Partial<ConvertAudioTaskArgs>;
@@ -131,6 +134,10 @@ export const buildTaskDefaultsFromDetails = (
     return {
       mediaDetails: details,
       outputTitle,
+      status: hasAudioStream ? "idle" : "unsupported",
+      errorMessage: hasAudioStream
+        ? undefined
+        : "No audio stream found in source media.",
       activeCategory: FileType.Audio,
       taskType: MediaTaskType.ConvertToAudio,
       args: {

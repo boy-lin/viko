@@ -275,7 +275,7 @@ export const ShakaPlayer: React.FC<ShakaPlayerProps> = ({
         requestResume(video, shouldResume);
       }
     },
-    [autoPlay, cleanupMse, requestResume],
+    [autoPlay, cleanupMse, filePath, requestResume],
   );
 
   useEffect(() => {
