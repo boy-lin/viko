@@ -76,13 +76,12 @@ Try it: [https://avi.2342342.xyz](https://avi.2342342.xyz)
 
 ### Option 1: Download (recommended)
 
-Get the latest build for your platform from **[Releases](../releases)**.
+Get the latest build for your platform from **[Releases](https://avi.2342342.xyz)**.
 
 | Platform    | Notes                                      |
 | ----------- | ------------------------------------------ |
 | **macOS**   | Apple Silicon & Intel (see Release assets) |
 | **Windows** | NSIS installer                             |
-| **Linux**   | See Release assets                         |
 
 > Defaults work out of the box; tune bitrate, resolution, and codecs when you need more control.
 
