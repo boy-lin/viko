@@ -24,7 +24,7 @@ A locally running desktop media app focused on **audio, video, and image** conve
 
 > ✅ Local processing · ✅ Batch task queue · ✅ Sensible defaults · ✅ Pro-grade controls · ✅ Open source
 
-Try it: [http://avi.2342342.xyz/](http://avi.2342342.xyz/)
+Try it: [https://avi.2342342.xyz](https://avi.2342342.xyz)
 
 ---
 

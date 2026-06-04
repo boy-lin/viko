@@ -24,7 +24,7 @@ _Viko · AudioVideoKits · 基于 FFmpeg 的桌面媒体工具箱_
 
 > ✅ 本地处理 · ✅ 批量任务队列 · ✅ 默认参数开箱即用 · ✅ 专业参数可精调 · ✅ 开源可二次开发
 
-官网体验：[http://avi.2342342.xyz/](http://avi.2342342.xyz/)
+官网体验：[https://avi.2342342.xyz](https://avi.2342342.xyz)
 
 ---
 
