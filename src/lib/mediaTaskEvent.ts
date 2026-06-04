@@ -125,7 +125,8 @@ export interface ConvertVideoTaskArgs {
   use_hardware_acceleration?: boolean;
   use_ultra_fast_speed?: boolean;
   watermark?: WatermarkConfig;
-  forced_watermark?: WatermarkConfig;
+  // DISABLED: forced_watermark detection
+  // forced_watermark?: WatermarkConfig;
 }
 
 export interface ConvertAudioTaskArgs {
@@ -180,7 +181,8 @@ export interface ConvertImageTaskArgs {
   denoise?: boolean;
   /** Optional watermark (text/image). */
   watermark?: WatermarkConfig;
-  forced_watermark?: WatermarkConfig;
+  // DISABLED: forced_watermark detection
+  // forced_watermark?: WatermarkConfig;
 }
 
 export interface WatermarkTaskArgs extends ConvertVideoTaskArgs {
@@ -198,7 +200,8 @@ export interface DenoiseTaskArgs {
   filter?: DenoiseFilterConfig;
   use_hardware_acceleration?: boolean;
   use_ultra_fast_speed?: boolean;
-  forced_watermark?: WatermarkConfig;
+  // DISABLED: forced_watermark detection
+  // forced_watermark?: WatermarkConfig;
 }
 
 export interface CompressVideoTaskArgs {
@@ -223,7 +226,8 @@ export interface CompressVideoTaskArgs {
   format: FormatEnum;
   /** only display: 0-100，表示压缩到原文件的百分比 */
   ratio: number;
-  forced_watermark?: WatermarkConfig;
+  // DISABLED: forced_watermark detection
+  // forced_watermark?: WatermarkConfig;
   /** need to be synced to rust */
   rc_mode?: string;
   crf?: number;
@@ -267,5 +271,6 @@ export interface CompressImageTaskArgs {
   keep_transparency?: boolean;
   dpi?: number;
   crop_whitespace?: boolean;
-  forced_watermark?: WatermarkConfig;
+  // DISABLED: forced_watermark detection
+  // forced_watermark?: WatermarkConfig;
 }

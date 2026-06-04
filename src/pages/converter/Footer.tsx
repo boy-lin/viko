@@ -27,6 +27,7 @@ export default function ConverterFooter() {
             recentKey="converter-footer"
             onValueChange={updateGlobalConfig}
             applyConfigToAllTasks={applyConfigToAllTasks}
+            btnLabel={t("footer.apply_all")}
           />
         </div>
 

@@ -96,13 +96,60 @@ resolve_ffmpeg_bin() {
 FFMPEG_MAJOR=""
 
 check_pkg_config() {
-  if command -v pkg-config >/dev/null 2>&1; then
-    log_ok "pkg-config 已安装: $(pkg-config --version)"
+  local pkg_config_bin=""
+
+  if [ -n "${PKG_CONFIG:-}" ] && [ -x "${PKG_CONFIG}" ]; then
+    pkg_config_bin="${PKG_CONFIG}"
+  elif command -v pkg-config >/dev/null 2>&1; then
+    pkg_config_bin=$(command -v pkg-config)
+  elif command -v pkgconf >/dev/null 2>&1; then
+    pkg_config_bin=$(command -v pkgconf)
+  fi
+
+  if [ -n "$pkg_config_bin" ]; then
+    export PKG_CONFIG="$pkg_config_bin"
+    log_ok "pkg-config 已安装: $("$pkg_config_bin" --version)"
     return 0
   fi
 
   log_warn "pkg-config 未安装"
   return 1
+}
+
+ensure_pkg_config_for_brew() {
+  if [ ${#BREW_CMD[@]} -eq 0 ]; then
+    return 1
+  fi
+
+  local brew_prefix=""
+  local pkgconf_prefix=""
+  local pkg_config_opt=""
+  brew_prefix=$(brew_run --prefix 2>/dev/null || true)
+  pkgconf_prefix=$(brew_run --prefix pkgconf 2>/dev/null || true)
+  if [ -z "$pkgconf_prefix" ] || [ ! -x "${pkgconf_prefix}/bin/pkg-config" ]; then
+    return 1
+  fi
+
+  pkg_config_opt="${brew_prefix}/opt/pkg-config"
+  if [ -n "$brew_prefix" ] && [ ! -e "$pkg_config_opt" ]; then
+    if ln -sfn "$pkgconf_prefix" "$pkg_config_opt" 2>/dev/null; then
+      log_info "已创建 Homebrew pkg-config 兼容链接: ${pkg_config_opt} -> ${pkgconf_prefix}"
+    else
+      log_warn "未能创建 ${pkg_config_opt}，Homebrew 的 pkg-config shim 可能仍会失败"
+    fi
+  fi
+
+  case ":${PATH}:" in
+    *":${pkgconf_prefix}/bin:"*) ;;
+    *)
+      export PATH="${pkgconf_prefix}/bin:${PATH}"
+      log_info "已加入 PATH: ${pkgconf_prefix}/bin"
+      ;;
+  esac
+
+  export PKG_CONFIG="${pkgconf_prefix}/bin/pkg-config"
+  log_info "已设置 PKG_CONFIG=${PKG_CONFIG}"
+  return 0
 }
 
 check_ffmpeg_libs() {
@@ -216,6 +263,27 @@ install_macos() {
   if ! check_pkg_config; then
     log_info "安装 pkg-config..."
     brew_run install pkg-config
+    ensure_pkg_config_for_brew || true
+    check_pkg_config || log_warn "安装后仍未找到 pkg-config，将继续尝试使用 Homebrew 路径"
+  else
+    ensure_pkg_config_for_brew || true
+  fi
+
+  log_info "安装 FFmpeg configure 前置依赖（libvmaf/aom）..."
+  brew_run install libvmaf || log_warn "安装 libvmaf 失败，aom 的 pkg-config 依赖可能不完整"
+  brew_run install aom || log_warn "安装 aom 失败，ffmpeg configure 可能仍会报 aom 缺失"
+  add_pkg_config_path "$(brew_run --prefix libvmaf 2>/dev/null)/lib/pkgconfig"
+  add_pkg_config_path "$(brew_run --prefix aom 2>/dev/null)/lib/pkgconfig"
+  add_pkg_config_path "$(brew_run --prefix)/lib/pkgconfig"
+  if [ -n "${PKG_CONFIG:-}" ] && "${PKG_CONFIG}" --exists libvmaf 2>/dev/null; then
+    log_ok "libvmaf 已可被 pkg-config 检测: $("${PKG_CONFIG}" --modversion libvmaf)"
+  else
+    log_warn "pkg-config 当前仍未检测到 libvmaf，aom 的依赖链可能不完整"
+  fi
+  if [ -n "${PKG_CONFIG:-}" ] && "${PKG_CONFIG}" --exists aom 2>/dev/null; then
+    log_ok "aom 已可被 pkg-config 检测: $("${PKG_CONFIG}" --modversion aom)"
+  else
+    log_warn "pkg-config 当前仍未检测到 aom，ffmpeg 安装可能失败"
   fi
 
   log_info "安装 drawtext 相关依赖（freetype/fontconfig/fribidi）..."
@@ -248,6 +316,8 @@ install_macos() {
   fi
 
   add_pkg_config_path "$(brew_run --prefix)/opt/ffmpeg/lib/pkgconfig"
+  add_pkg_config_path "$(brew_run --prefix libvmaf 2>/dev/null)/lib/pkgconfig"
+  add_pkg_config_path "$(brew_run --prefix aom 2>/dev/null)/lib/pkgconfig"
   add_pkg_config_path "$(brew_run --prefix)/lib/pkgconfig"
   if [ -n "${PKG_CONFIG_PATH-}" ]; then
     log_info "已为脚本会话设置 PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"

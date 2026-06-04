@@ -221,7 +221,9 @@ pub struct TaskSubmitClientContext {
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct MediaTaskSubmitResult {
     pub pending_count: usize,
+    /// DISABLED: forced_watermark detection 已关闭，该字段恒为 0
     pub forced_watermark_count: usize,
+    /// DISABLED: forced_watermark detection 相关，仍返回计数供后续恢复
     pub remaining_free_count: Option<usize>,
 }
 

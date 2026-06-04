@@ -146,8 +146,9 @@ export interface MediaTaskClientContext {
 
 export interface MediaTaskSubmitResult {
   pending_count: number;
-  forced_watermark_count: number;
-  remaining_free_count?: number | null;
+  // DISABLED: forced_watermark detection — 后端恒为 0
+  // forced_watermark_count: number;
+  // remaining_free_count?: number | null;
 }
 
 export interface UpdaterGuardStatus {

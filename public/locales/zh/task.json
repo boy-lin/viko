@@ -25,6 +25,7 @@
     "folder_no_supported": "所选文件夹中未找到支持的文件"
   },
   "footer": {
+    "apply_all": "应用到全部",
     "target_format": "批量输出配置",
     "quality": "压缩质量",
     "save_to": "保存到",

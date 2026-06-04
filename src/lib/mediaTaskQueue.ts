@@ -89,16 +89,13 @@ class MediaTaskQueue {
     this.trackTaskSubmit("tasks_submit", tasks);
     try {
       const clientContext = await resolveMediaTaskClientContext();
-      const result = await bridge.submitMediaTasks(
-        tasks,
-        priority,
-        clientContext,
-      );
-      if (result.forced_watermark_count > 0) {
-        toast.warning(
-          `未登录用户每日前 10 次可免平台水印，本次有 ${result.forced_watermark_count} 个任务已追加默认水印`,
-        );
-      }
+      await bridge.submitMediaTasks(tasks, priority, clientContext);
+      // DISABLED: forced_watermark detection 提示
+      // if (result.forced_watermark_count > 0) {
+      //   toast.warning(
+      //     `未登录用户每日前 10 次可免平台水印，本次有 ${result.forced_watermark_count} 个任务已追加默认水印`,
+      //   );
+      // }
     } catch (error) {
       toast.error(getBridgeErrorMessage(error, "任务提交失败"));
       throw new Error(getBridgeErrorMessage(error, "任务提交失败"));

@@ -48,6 +48,26 @@ fn main() {
         // macOS/Linux 平台：查找 Homebrew 或其他包管理器安装的 FFmpeg
         let mut pkg_config_paths = Vec::new();
 
+        if std::env::var("PKG_CONFIG").is_err() {
+            let pkg_config_candidates = [
+                "/opt/homebrew/opt/pkgconf/bin/pkg-config",
+                "/usr/local/opt/pkgconf/bin/pkg-config",
+                "/opt/homebrew/bin/pkg-config",
+                "/usr/local/bin/pkg-config",
+            ];
+
+            for candidate in pkg_config_candidates {
+                if std::path::Path::new(candidate).exists() {
+                    unsafe {
+                        std::env::set_var("PKG_CONFIG", candidate);
+                    }
+                    println!("cargo:rerun-if-env-changed=PKG_CONFIG");
+                    println!("cargo:warning=PKG_CONFIG set to: {}", candidate);
+                    break;
+                }
+            }
+        }
+
         // 1. 检查 HOMEBREW_PREFIX 环境变量
         if let Ok(brew_prefix) = std::env::var("HOMEBREW_PREFIX") {
             let path = format!("{}/lib/pkgconfig", brew_prefix);
@@ -78,10 +98,7 @@ fn main() {
         }
 
         // 3. 查找 FFmpeg Cellar 路径（版本化安装）
-        let cellar_paths = vec![
-            "/opt/homebrew/Cellar/ffmpeg",
-            "/usr/local/Cellar/ffmpeg",
-        ];
+        let cellar_paths = vec!["/opt/homebrew/Cellar/ffmpeg", "/usr/local/Cellar/ffmpeg"];
 
         for cellar_base in cellar_paths {
             if let Ok(entries) = std::fs::read_dir(cellar_base) {
@@ -104,10 +121,16 @@ fn main() {
 
             // 获取现有的 PKG_CONFIG_PATH（如果有）
             let existing = std::env::var("PKG_CONFIG_PATH").unwrap_or_default();
-            let combined_path = if existing.is_empty() {
+            let sanitized_existing = existing
+                .split(':')
+                .filter(|part| !part.trim().is_empty())
+                .filter(|part| !part.contains("/ffmpeg@7/"))
+                .collect::<Vec<_>>()
+                .join(":");
+            let combined_path = if sanitized_existing.is_empty() {
                 final_path.clone()
             } else {
-                format!("{}:{}", final_path, existing)
+                format!("{}:{}", final_path, sanitized_existing)
             };
 
             // 设置环境变量（对当前进程和子进程都有效）
@@ -178,7 +201,7 @@ fn find_vcpkg_root() -> Option<String> {
 fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(|e| e.to_string())?;
     let target = std::env::var("TARGET").unwrap_or_default();
-    
+
     // Ensure the resources/ffmpeg directory exists to satisfy Tauri bundler
     let base_dest_dir = std::path::Path::new(&manifest_dir).join("resources/ffmpeg");
     std::fs::create_dir_all(&base_dest_dir).map_err(|e| e.to_string())?;
@@ -242,7 +265,7 @@ fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
     };
 
     let mut copied_any = false;
-    
+
     if target.contains("windows") {
         // On Windows, vcpkg appends version numbers to dlls (e.g., avformat-61.dll).
         // To ensure the DLLs are placed exactly next to `viko.exe` where the Windows loader
@@ -250,7 +273,13 @@ fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
         let out_dir_env = std::env::var("OUT_DIR").expect("OUT_DIR must be set");
         let out_dir = std::path::PathBuf::from(out_dir_env);
         // OUT_DIR is typically: target/x86_64-pc-windows-msvc/release/build/viko-xxxx/out
-        let exe_dir = out_dir.parent().unwrap().parent().unwrap().parent().unwrap();
+        let exe_dir = out_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
 
         if let Ok(entries) = std::fs::read_dir(&src_dir) {
             for entry in entries.flatten() {

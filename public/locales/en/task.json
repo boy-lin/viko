@@ -25,6 +25,7 @@
     "folder_no_supported": "No supported files found in selected folder"
   },
   "footer": {
+    "apply_all": "Apply to all",
     "target_format": "Batch Output Config",
     "quality": "Compression Quality",
     "save_to": "Save to",

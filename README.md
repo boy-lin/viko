@@ -1,6 +1,6 @@
-# AudioVideo kit - 视频转码工具
+# AudioVideo kit
 
-基于 Tauri + React + TypeScript 构建的跨平台视频转码应用。
+基于 Tauri + React + TypeScript 构建的音视频工具，功能包含转码、压缩、打水印。
 
 ## 环境要求
 
@@ -44,6 +44,7 @@ pnpm --version  # 应该显示 10.11.1
 我们提供了自动检测和安装脚本：
 
 **macOS / Linux:**
+
 ```bash
 pnpm check:deps
 # 或直接运行
@@ -51,6 +52,7 @@ pnpm check:deps
 ```
 
 **Windows:**
+
 ```powershell
 pnpm check:deps:win
 # 或直接运行
@@ -58,6 +60,7 @@ powershell -ExecutionPolicy Bypass -File scripts/check-ffmpeg-deps.ps1
 ```
 
 脚本会自动检测并安装以下依赖：
+
 - `pkg-config`: 用于查找和配置库的工具
 - FFmpeg 开发库: libavutil, libavcodec, libavformat, libavfilter, libswscale
 
@@ -127,7 +130,3 @@ pnpm build:mac      # macOS (Apple Silicon)
 pnpm build:win      # Windows
 pnpm build:linux    # Linux
 ```
-
-## 推荐 IDE 设置
-
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)

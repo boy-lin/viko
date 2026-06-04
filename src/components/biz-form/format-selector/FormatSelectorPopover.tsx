@@ -21,7 +21,7 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
     onValueChange = () => { },
     className,
     applyConfigToAllTasks,
-    btnLabelKey = 'common.apply_all'
+    btnLabel
   } = props;
   const [open, setOpen] = useState(false);
   const formatRecents = useFormatSelectorStore(
@@ -76,7 +76,7 @@ export default function FormatSelectorPopover(props: FormatSelectorProps) {
           onValueChange={onValueChange}
           applyConfigToAllTasks={applyConfigToAllTasks ?? (() => { })}
           onClose={() => setOpen(false)}
-          btnLabelKey={btnLabelKey}
+          btnLabel={btnLabel}
         />
       </PopoverContent>
     </Popover>

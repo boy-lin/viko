@@ -21,7 +21,7 @@ export interface FormatSelectorProps {
   applyConfigToAllTasks?: (config: any) => void;
   className?: string;
   recentKey: string;
-  btnLabelKey?: string;
+  btnLabel?: string;
 }
 
 export interface FormatSelectorContentProps {
@@ -31,5 +31,5 @@ export interface FormatSelectorContentProps {
   onValueChange: (config: any) => void;
   applyConfigToAllTasks: (config: any) => void;
   onClose: () => void;
-  btnLabelKey?: string;
+  btnLabel?: string;
 }

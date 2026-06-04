@@ -95,7 +95,8 @@ function run(cmd, args, env = process.env) {
     });
     child.on("exit", (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`Command failed (${code}): ${cmd} ${args.join(" ")}`));
+      else
+        reject(new Error(`Command failed (${code}): ${cmd} ${args.join(" ")}`));
     });
     child.on("error", reject);
   });
@@ -119,7 +120,12 @@ function runCapture(cmd, args, env = process.env) {
     });
     child.on("exit", (code) => {
       if (code === 0) resolve({ out, err });
-      else reject(new Error(`Command failed (${code}): ${cmd} ${args.join(" ")}\n${out}\n${err}`));
+      else
+        reject(
+          new Error(
+            `Command failed (${code}): ${cmd} ${args.join(" ")}\n${out}\n${err}`,
+          ),
+        );
     });
     child.on("error", reject);
   });
@@ -181,7 +187,9 @@ async function cleanupBusyDmgMounts() {
     const { out } = await runCapture("hdiutil", ["info"]);
     info = out;
   } catch (err) {
-    console.warn(`[local-release] skip dmg cleanup: cannot run hdiutil info (${String(err)})`);
+    console.warn(
+      `[local-release] skip dmg cleanup: cannot run hdiutil info (${String(err)})`,
+    );
     return;
   }
 
@@ -224,7 +232,9 @@ async function runTauriBuildWithRetry(target) {
     if (!isDmgBusyBuildError(msg)) {
       throw err;
     }
-    console.warn("[local-release] mac dmg unmount busy detected, cleanup and retry once...");
+    console.warn(
+      "[local-release] mac dmg unmount busy detected, cleanup and retry once...",
+    );
     await cleanupBusyDmgMounts();
     await new Promise((resolve) => setTimeout(resolve, 1200));
     await run("pnpm", args);
@@ -246,7 +256,11 @@ async function walkFiles(dir) {
 }
 
 function firstMatch(files, suffix, excludes = []) {
-  return files.find((f) => f.endsWith(suffix) && !excludes.some((x) => f.endsWith(x))) ?? "";
+  return (
+    files.find(
+      (f) => f.endsWith(suffix) && !excludes.some((x) => f.endsWith(x)),
+    ) ?? ""
+  );
 }
 
 function platformKey(platform) {
@@ -269,7 +283,9 @@ function parseSignatureFromOutput(raw) {
 
 async function resolveVersion(versionArg) {
   if (versionArg) return versionArg;
-  const pkg = JSON.parse(await fs.readFile(path.join(ROOT, "package.json"), "utf8"));
+  const pkg = JSON.parse(
+    await fs.readFile(path.join(ROOT, "package.json"), "utf8"),
+  );
   return pkg.version;
 }
 
@@ -309,17 +325,28 @@ async function loadEnvFile(filePath) {
 }
 
 async function resolveArtifacts(target, meta) {
-  const bundleDir = path.join(ROOT, "src-tauri", "target", target, "release", "bundle");
+  const bundleDir = path.join(
+    ROOT,
+    "src-tauri",
+    "target",
+    target,
+    "release",
+    "bundle",
+  );
   const files = await walkFiles(bundleDir);
 
   const updaterPath = firstMatch(files, meta.updaterPattern);
   if (!updaterPath) {
-    throw new Error(`Updater artifact not found in ${bundleDir} (${meta.updaterPattern})`);
+    throw new Error(
+      `Updater artifact not found in ${bundleDir} (${meta.updaterPattern})`,
+    );
   }
 
   const installerPath = firstMatch(files, meta.installerPattern);
   if (!installerPath) {
-    throw new Error(`Installer artifact not found in ${bundleDir} (${meta.installerPattern})`);
+    throw new Error(
+      `Installer artifact not found in ${bundleDir} (${meta.installerPattern})`,
+    );
   }
 
   return { bundleDir, updaterPath, installerPath };
@@ -336,27 +363,32 @@ async function resolveSignature(updaterPath) {
   }
 
   const key = process.env.TAURI_SIGNING_PRIVATE_KEY;
-  if (!key) {
+  const password = process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? "";
+  if (!key || !password) {
     throw new Error(
-      `Missing ${sigPath} and TAURI_SIGNING_PRIVATE_KEY is empty. Cannot produce updater signature.`
+      `Missing ${sigPath} and TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PASSWORD is empty. Cannot produce updater signature.`,
     );
   }
 
-  const { out, err } = await runCapture("pnpm", ["tauri", "signer", "sign", updaterPath], {
-    ...process.env,
-    TAURI_PRIVATE_KEY: process.env.TAURI_SIGNING_PRIVATE_KEY,
-    TAURI_PRIVATE_KEY_PASSWORD: process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? "",
-  });
+  const { out, err } = await runCapture(
+    "pnpm",
+    ["tauri", "signer", "sign", updaterPath],
+    {
+      TAURI_SIGNING_PRIVATE_KEY: key,
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: password,
+    },
+  );
   const sig = parseSignatureFromOutput(`${out}\n${err}`);
   if (!sig || /\s/.test(sig)) {
-    throw new Error(`Failed to parse signature from tauri signer output.\n${out}\n${err}`);
+    throw new Error(
+      `Failed to parse signature from tauri signer output.\n${out}\n${err}`,
+    );
   }
   return sig;
 }
 
 async function main() {
-  await loadEnvFile(path.join(ROOT, ".env.production.local"));
-  await loadEnvFile(path.join(ROOT, ".env.local"));
+  await loadEnvFile(path.join(ROOT, ".env.production"));
 
   const opts = parseArgs(process.argv.slice(2));
   const meta = TARGET_META[opts.target];
@@ -371,7 +403,7 @@ async function main() {
     : "";
 
   console.log(
-    `[local-release] target=${opts.target} platform=${meta.platform} version=${version} upload=${opts.upload}`
+    `[local-release] target=${opts.target} platform=${meta.platform} version=${version} upload=${opts.upload}`,
   );
 
   if (!opts.skipBuild) {
@@ -380,7 +412,10 @@ async function main() {
     await runTauriBuildWithRetry(opts.target);
   }
 
-  const { updaterPath, installerPath } = await resolveArtifacts(opts.target, meta);
+  const { updaterPath, installerPath } = await resolveArtifacts(
+    opts.target,
+    meta,
+  );
 
   console.log(`[local-release] updater=${updaterPath}`);
   console.log(`[local-release] installer=${installerPath}`);

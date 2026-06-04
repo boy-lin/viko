@@ -3,7 +3,6 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
@@ -249,7 +248,6 @@ export default function TaskHistoryPage() {
     onSortingChange: setSorting,
     manualSorting: true,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
   });
 
   return (

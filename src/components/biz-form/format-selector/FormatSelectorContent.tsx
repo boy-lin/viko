@@ -18,6 +18,7 @@ import { AudioTrackConfig, ConvertAudioTaskArgs, ConvertImageTaskArgs, ConvertVi
 
 import CategoryItem from "./CategoryItem";
 import { FormatSelectorContentProps } from "./types";
+import { Button } from "@/components/ui/button";
 
 export default function FormatSelectorContent({
   config,
@@ -25,6 +26,8 @@ export default function FormatSelectorContent({
   addToRecents,
   onValueChange,
   onClose,
+  applyConfigToAllTasks,
+  btnLabel
 }: FormatSelectorContentProps) {
   const [activeGroup, setActiveGroup] = useState<FormatGroup | undefined>();
   const [searchQuery, setSearchQuery] = useState("");
@@ -334,7 +337,7 @@ export default function FormatSelectorContent({
         {/* format options */}
         <div className="flex flex-col min-h-0">
           {renderCustomSettings()}
-          {/* <div className="p-2 flex gap-2">
+          <div className="p-2 flex gap-2">
             <Button
               className="cursor-pointer"
               onClick={() => {
@@ -343,7 +346,7 @@ export default function FormatSelectorContent({
                 onClose();
               }}
             >
-              {t(btnLabelKey || "common.confirm")}
+              {btnLabel || t("common.confirm")}
             </Button>
             <Button
               variant="outline"
@@ -354,7 +357,7 @@ export default function FormatSelectorContent({
             >
               {t("common.cancel")}
             </Button>
-          </div> */}
+          </div>
         </div>
       </div>
     </div>

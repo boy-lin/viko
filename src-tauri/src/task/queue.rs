@@ -201,6 +201,7 @@ fn default_watermark_icon_path(app: &AppHandle) -> Option<String> {
     selected
 }
 
+#[allow(dead_code)] // DISABLED: forced_watermark detection
 fn build_default_forced_watermark(
     app: &AppHandle,
 ) -> crate::services::media_tools::watermark::WatermarkConfig {
@@ -224,6 +225,7 @@ fn build_default_forced_watermark(
     crate::services::media_tools::watermark::WatermarkConfig { image, text: None }
 }
 
+#[allow(dead_code)] // DISABLED: forced_watermark detection
 fn apply_forced_watermark(app: &AppHandle, task: &mut MediaTaskRequest) -> bool {
     let forced = build_default_forced_watermark(app);
     log::info!(
@@ -267,24 +269,24 @@ pub async fn submit_tasks(
 ) -> Result<MediaTaskSubmitResult, String> {
     let identity = resolve_client_identity(client_context.as_ref());
     let day_key = crate::storage::usage_gate::current_day_key();
-    let mut forced_watermark_count = 0usize;
+    let forced_watermark_count = 0usize; // DISABLED: forced_watermark detection
 
-    for mut task in tasks {
+    for task in tasks {
         if let (Some((identity_scope, identity_key)), Some(media_kind)) =
             (identity.as_ref(), visible_media_kind(&task))
         {
-            let current_count = crate::storage::usage_gate::count_today(
-                identity_key,
-                FREE_VISIBLE_MEDIA_FEATURE,
-                &day_key,
-            )
-            .await
-            .map_err(|e| e.to_string())?;
-
-            if current_count >= FREE_VISIBLE_MEDIA_LIMIT && apply_forced_watermark(&app, &mut task)
-            {
-                forced_watermark_count += 1;
-            }
+            // DISABLED: forced_watermark detection — 暂不根据免费额度自动追加平台水印
+            // let current_count = crate::storage::usage_gate::count_today(
+            //     identity_key,
+            //     FREE_VISIBLE_MEDIA_FEATURE,
+            //     &day_key,
+            // )
+            // .await
+            // .map_err(|e| e.to_string())?;
+            // if current_count >= FREE_VISIBLE_MEDIA_LIMIT && apply_forced_watermark(&app, &mut task)
+            // {
+            //     forced_watermark_count += 1;
+            // }
 
             if let Some(task_id) = task_id(&task) {
                 crate::storage::usage_gate::record_submit(
