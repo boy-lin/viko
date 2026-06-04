@@ -55,7 +55,7 @@ const FREE_VISIBLE_MEDIA_LIMIT: u64 = 10;
 const FREE_VISIBLE_MEDIA_FEATURE: &str = "free_visible_media_submit";
 
 fn worker_parallelism() -> usize {
-    let env_limit = std::env::var("FIGUREX_TASK_PARALLELISM")
+    let env_limit = std::env::var("viko_TASK_PARALLELISM")
         .ok()
         .and_then(|v| v.parse::<usize>().ok())
         .unwrap_or(0);
