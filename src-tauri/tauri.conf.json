@@ -7,7 +7,6 @@
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "",
-    "beforeBundleCommand": "bash scripts/fix-mac-dylibs.sh",
     "frontendDist": "../dist"
   },
   "app": {
@@ -49,7 +48,6 @@
     "createUpdaterArtifacts": true,
     "targets": ["app", "dmg", "nsis"],
     "resources": {
-      "resources/ffmpeg": "resources/ffmpeg",
       "../public/fonts/NotoSansSC-Regular.otf": "resources/fonts/NotoSansSC-Regular.otf"
     },
     "icon": [

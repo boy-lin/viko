@@ -4,7 +4,13 @@
   },
   "bundle": {
     "resources": {
-      "resources/ffmpeg/windows/": ""
+      "resources/ffmpeg/windows/": "",
+      "../public/fonts/NotoSansSC-Regular.otf": "resources/fonts/NotoSansSC-Regular.otf"
+    },
+    "windows": {
+      "nsis": {
+        "installerHooks": "../scripts/windows-installer-hooks.nsh"
+      }
     }
   }
 }

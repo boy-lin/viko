@@ -1,0 +1,11 @@
+{
+  "build": {
+    "beforeBundleCommand": "bash scripts/fix-mac-dylibs.sh"
+  },
+  "bundle": {
+    "resources": {
+      "resources/ffmpeg": "resources/ffmpeg",
+      "../public/fonts/NotoSansSC-Regular.otf": "resources/fonts/NotoSansSC-Regular.otf"
+    }
+  }
+}
