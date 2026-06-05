@@ -24,7 +24,6 @@ dist-ssr
 *.sw?
 
 /src-tauri/resources/ffmpeg/*
-/src-tauri/vendor/*
 
 .vercel
 .env*.local
