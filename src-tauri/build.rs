@@ -267,9 +267,10 @@ fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
     let mut copied_any = false;
 
     if target.contains("windows") {
-        // On Windows, vcpkg appends version numbers to dlls (e.g., avformat-61.dll).
-        // To ensure the DLLs are placed exactly next to `viko.exe` where the Windows loader
-        // and Tauri's NSIS bundler expect them natively, copy them into the cargo output directory.
+        // On Windows, vcpkg appends version numbers to dlls (e.g., avformat-62.dll).
+        // NSIS does not bundle every DLL in target/release, so `scripts/fix-win-dlls.ps1`
+        // copies them into resources/ffmpeg/windows and maps that folder to $INSTDIR.
+        // Also copy here for local runs from target/*/release/viko.exe.
         let out_dir_env = std::env::var("OUT_DIR").expect("OUT_DIR must be set");
         let out_dir = std::path::PathBuf::from(out_dir_env);
         // OUT_DIR is typically: target/x86_64-pc-windows-msvc/release/build/viko-xxxx/out
@@ -286,10 +287,13 @@ fn copy_bundled_ffmpeg_libs() -> Result<(), String> {
                 let path = entry.path();
                 if path.extension().and_then(|s| s.to_str()) == Some("dll") {
                     if let Some(file_name) = path.file_name() {
-                        let dest = exe_dir.join(file_name);
-                        if std::fs::copy(&path, &dest).is_ok() {
+                        let resource_dest = dest_dir.join(file_name);
+                        if std::fs::copy(&path, &resource_dest).is_ok() {
                             copied_any = true;
                         }
+
+                        let exe_dest = exe_dir.join(file_name);
+                        let _ = std::fs::copy(&path, &exe_dest);
                     }
                 }
             }

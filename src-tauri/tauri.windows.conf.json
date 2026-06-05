@@ -1,5 +1,10 @@
 {
   "build": {
-    "beforeBundleCommand": null
+    "beforeBundleCommand": "powershell -ExecutionPolicy Bypass -File scripts/fix-win-dlls.ps1"
+  },
+  "bundle": {
+    "resources": {
+      "resources/ffmpeg/windows/": ""
+    }
   }
 }
