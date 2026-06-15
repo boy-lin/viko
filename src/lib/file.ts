@@ -18,7 +18,7 @@ export function formatFileSize(size?: number, fixedNumber: number = 2): string {
  */
 export function getFormatByPath(path: string): string {
   const ext = path.split(".").pop();
-  return ext || "";
+  return ext?.toLowerCase() ?? "";
 }
 
 

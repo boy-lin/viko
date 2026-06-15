@@ -324,7 +324,7 @@ export default function MetadataEditorPage() {
         }
     };
     return (
-        <div className="container mx-auto p-6 max-w-5xl">
+        <div className="container mx-auto p-6 max-w-5xl  fx-scrollbar fx-scrollbar-y h-full">
             {!fileInfo ? (
                 <>
                     <div className="mb-8">
@@ -336,20 +336,13 @@ export default function MetadataEditorPage() {
                             {t("subtitle")}
                         </p>
                     </div>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>{t("fileSource")}</CardTitle>
-                            <CardDescription />
-                        </CardHeader>
-                        <CardContent>
-                            <UploadDrag
-                                className="py-8"
-                                supportedExtensions={supportedExtensions}
-                                onUploadComplete={handleUploadComplete}
-                            />
-                            <p className="text-sm text-muted-foreground text-center mt-3">{t("noFile")}</p>
-                        </CardContent>
-                    </Card>
+                    <div>
+                        <UploadDrag
+                            className="py-8"
+                            supportedExtensions={supportedExtensions}
+                            onUploadComplete={handleUploadComplete}
+                        />
+                    </div>
                 </>
             ) : (
                 <div className="space-y-6">

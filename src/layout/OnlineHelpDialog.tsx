@@ -72,8 +72,15 @@ export default function OnlineHelpDialog() {
                   xiaoyaosha@gmail.com
                 </a>
               </div>
-              <div>Telegram: @HollyWWH</div>
-              <div>小红书账号/昵称: 5729257995/赛亚人86</div>
+              <div>WeChat: helloboyling</div>
+              <div className="pt-1">
+                <p className="mb-2 text-foreground">微信群</p>
+                <img
+                  src="/images/wx_group_qrcode.png"
+                  alt="微信群二维码"
+                  className="mx-auto w-48 rounded-md"
+                />
+              </div>
             </div>
 
             <Button
