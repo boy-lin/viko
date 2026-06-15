@@ -24,7 +24,7 @@ A locally running desktop media app focused on **audio, video, and image** conve
 
 > ✅ Local processing · ✅ Batch task queue · ✅ Sensible defaults · ✅ Pro-grade controls · ✅ Open source
 
-Try it: [https://avi.2342342.xyz](https://avi.2342342.xyz)
+Try it: [https://www.audiovideo.site](https://www.audiovideo.site)
 
 ---
 
@@ -76,7 +76,7 @@ Try it: [https://avi.2342342.xyz](https://avi.2342342.xyz)
 
 ### Option 1: Download (recommended)
 
-Get the latest build for your platform from **[Releases](https://avi.2342342.xyz)**.
+Get the latest build for your platform from **[Releases](https://www.audiovideo.site)**.
 
 | Platform    | Notes                                      |
 | ----------- | ------------------------------------------ |

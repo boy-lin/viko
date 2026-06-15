@@ -4,7 +4,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { bridge, type UpdaterGuardStatus } from "@/lib/bridge";
 import { toast } from "sonner";
 
-const UPDATER_META_URL = "https://avi.2342342.xyz/api/app/latest";
+const UPDATER_META_URL = "https://www.audiovideo.site/api/app/latest";
 
 type UpdaterMeta = {
   mandatory?: boolean;
@@ -51,7 +51,9 @@ async function updaterGuardReportSuccess(): Promise<UpdaterGuardStatus | null> {
   }
 }
 
-async function updaterGuardReportFailure(reason?: string): Promise<UpdaterGuardStatus | null> {
+async function updaterGuardReportFailure(
+  reason?: string,
+): Promise<UpdaterGuardStatus | null> {
   if (!isTauri()) return null;
   try {
     return await bridge.updaterGuardReportFailure(reason);

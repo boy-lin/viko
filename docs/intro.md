@@ -39,7 +39,7 @@
 
 本项目完全开源，提供各平台安装包下载。
 
-- **下载安装**：https://avi.2342342.xyz
+- **下载安装**：https://www.audiovideo.site
 - **GitHub 开源地址**：https://github.com/boy-lin/viko
 
 安装后打开即可使用，首次处理可直接采用默认参数；有进阶需求时再逐步调整即可。

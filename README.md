@@ -24,7 +24,7 @@ _Viko · AudioVideoKits · 基于 FFmpeg 的桌面媒体工具箱_
 
 > ✅ 本地处理 · ✅ 批量任务队列 · ✅ 默认参数开箱即用 · ✅ 专业参数可精调 · ✅ 开源可二次开发
 
-下载安装：[https://avi.2342342.xyz](https://avi.2342342.xyz)
+下载安装：[https://www.audiovideo.site](https://www.audiovideo.site)
 
 ---
 
@@ -76,7 +76,7 @@ _Viko · AudioVideoKits · 基于 FFmpeg 的桌面媒体工具箱_
 
 ### 方式一：下载安装包（推荐普通用户）
 
-前往 **[Releases](https://avi.2342342.xyz)** 下载对应平台的最新版安装包，安装后打开即可使用。
+前往 **[官网](https://www.audiovideo.site)** 下载对应平台的最新版安装包，安装后打开即可使用。
 
 | 平台        | 说明                                              |
 | ----------- | ------------------------------------------------- |
@@ -123,7 +123,6 @@ pnpm tauri:build
 pnpm build:mac:arm      # macOS Apple Silicon
 pnpm build:mac:intel    # macOS Intel
 pnpm build:win          # Windows
-pnpm build:linux        # Linux
 ```
 
 > 若启用应用内更新签名，打包前需配置 `TAURI_SIGNING_PRIVATE_KEY` 环境变量（CI 已配置，本地 Release 可参考 `.env.example`）。
@@ -173,7 +172,7 @@ Viko/
 **为什么压缩后体积变化不明显？**  
 体积受源素材复杂度、码率、分辨率、编码策略共同影响；可进一步降低码率或调整分辨率。更多概念见 [docs/help.md](docs/help.md)。
 
-**和在线工具比有什么优势？**  
+**和商用工具比有什么优势？**  
 本地处理，文件更可控；批量任务与参数调节更灵活，无需反复上传下载。
 
 ---
