@@ -127,14 +127,6 @@ export interface ClientLogInput {
   timestamp?: number;
 }
 
-export interface AuthExchangeCodeInput {
-  tokenEndpoint: string;
-  clientId: string;
-  code: string;
-  codeVerifier: string;
-  redirectUri: string;
-}
-
 export interface MediaTaskClientContext {
   is_logged_in: boolean;
   user_id?: string;
@@ -704,16 +696,6 @@ class Bridge {
 
   async exportLogsArchive(): Promise<string> {
     return this.invoke<string>("export_logs_archive");
-  }
-
-  async authExchangeCode(input: AuthExchangeCodeInput): Promise<{
-    access_token: string;
-    refresh_token?: string | null;
-    expires_in?: number | null;
-    token_type?: string | null;
-    id_token?: string | null;
-  }> {
-    return this.invoke("auth_exchange_code", { input });
   }
 
   async updaterGuardGetStatus(): Promise<UpdaterGuardStatus> {

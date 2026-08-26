@@ -210,7 +210,6 @@ pub fn run() {
             crate::commands::compress_image_file,
             crate::commands::write_media_metadata,
             crate::commands::get_device_id,
-            crate::commands::auth_exchange_code,
             crate::commands::updater_guard_report_success,
             crate::commands::updater_guard_report_failure,
             crate::commands::updater_guard_get_status,

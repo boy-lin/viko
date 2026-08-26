@@ -8,7 +8,6 @@ import {
 } from "@tanstack/react-table";
 import { ArrowUpDown, FolderOpen, RefreshCw, Search } from "lucide-react";
 import { bridge, type TaskHistoryItem } from "@/lib/bridge";
-import { useSession } from "@/lib/auth-client";
 import { formatDuration, getDurationSecondsFromTimestamps, formatDateTime } from "@/lib/time";
 import { EllipsisName } from "@/components/ui-lab/ellipsis-name";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,6 @@ const PAGE_SIZE = 10;
 
 export default function TaskHistoryPage() {
   const { t } = useTranslation("tasks");
-  const { data: session } = useSession();
   const [globalFilter, setGlobalFilter] = useState("");
   const [tasks, setTasks] = useState<TaskHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -79,7 +77,7 @@ export default function TaskHistoryPage() {
 
   useEffect(() => {
     fetchData(page);
-  }, [page, session?.user?.id, sorting]);
+  }, [page, sorting]);
 
   useEffect(() => {
     useAppStore.getState().resetUnreadFinishedCount();

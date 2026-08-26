@@ -1,7 +1,6 @@
 import { Theme } from "@/components/ui/theme";
 import { HighSpeedConversionBadge } from "@/layout/HighSpeedConversionBadge";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { UserMenu } from "@/components/auth/UserMenu";
 import OnlineHelpDialog from "./OnlineHelpDialog";
 
 export default function Header() {
@@ -17,18 +16,7 @@ export default function Header() {
       />
       <LanguageSwitcher />
 
-      {/* <Button variant="secondary" size="icon" className="shadow-none">
-        <Gift className="w-5 h-5 text-pink-500" />
-      </Button> */}
-      {/* <Badge
-        variant="outline"
-        className="bg-purple-50 text-purple-700 border-purple-200 py-2 rounded-lg"
-      >
-        🎁 First Login Credit Bonus
-      </Badge> */}
-
       <OnlineHelpDialog />
-      <UserMenu />
     </header>
   );
 }
