@@ -17,6 +17,7 @@ impl Audio {
 
 impl Audio {
     pub fn rates(&self) -> Option<RateIter> {
+        #[cfg(not(feature = "ffmpeg_7_1"))]
         unsafe {
             if (*self.as_ptr()).supported_samplerates.is_null() {
                 None
@@ -24,9 +25,13 @@ impl Audio {
                 Some(RateIter::new((*self.codec.as_ptr()).supported_samplerates))
             }
         }
+
+        #[cfg(feature = "ffmpeg_7_1")]
+        None
     }
 
     pub fn formats(&self) -> Option<FormatIter> {
+        #[cfg(not(feature = "ffmpeg_7_1"))]
         unsafe {
             if (*self.codec.as_ptr()).sample_fmts.is_null() {
                 None
@@ -34,9 +39,18 @@ impl Audio {
                 Some(FormatIter::new((*self.codec.as_ptr()).sample_fmts))
             }
         }
+
+        #[cfg(feature = "ffmpeg_7_1")]
+        None
     }
 
     pub fn channel_layouts(&self) -> Option<ChannelLayoutIter> {
+        #[cfg(feature = "ffmpeg_7_1")]
+        {
+            return None;
+        }
+
+        #[cfg(not(feature = "ffmpeg_7_1"))]
         unsafe {
             #[cfg(not(feature = "ffmpeg_7_0"))]
             let ptr = (*self.codec.as_ptr()).channel_layouts;

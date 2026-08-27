@@ -169,6 +169,7 @@ pub enum Id {
     BMV_VIDEO,
     VBLE,
     DXTORY,
+    #[cfg(not(feature = "ffmpeg_7_1"))]
     V410,
     XWD,
     CDXL,
@@ -214,7 +215,9 @@ pub enum Id {
     #[cfg(not(feature = "ffmpeg_7_0"))]
     AYUV,
     TARGA_Y216,
+    #[cfg(not(feature = "ffmpeg_7_1"))]
     V308,
+    #[cfg(not(feature = "ffmpeg_7_1"))]
     V408,
     YUV4,
     AVRN,
@@ -869,6 +872,7 @@ impl From<AVCodecID> for Id {
             AV_CODEC_ID_BMV_VIDEO => Id::BMV_VIDEO,
             AV_CODEC_ID_VBLE => Id::VBLE,
             AV_CODEC_ID_DXTORY => Id::DXTORY,
+            #[cfg(not(feature = "ffmpeg_7_1"))]
             AV_CODEC_ID_V410 => Id::V410,
             AV_CODEC_ID_XWD => Id::XWD,
             AV_CODEC_ID_CDXL => Id::CDXL,
@@ -913,7 +917,9 @@ impl From<AVCodecID> for Id {
             #[cfg(not(feature = "ffmpeg_7_0"))]
             AV_CODEC_ID_AYUV => Id::AYUV,
             AV_CODEC_ID_TARGA_Y216 => Id::TARGA_Y216,
+            #[cfg(not(feature = "ffmpeg_7_1"))]
             AV_CODEC_ID_V308 => Id::V308,
+            #[cfg(not(feature = "ffmpeg_7_1"))]
             AV_CODEC_ID_V408 => Id::V408,
             AV_CODEC_ID_YUV4 => Id::YUV4,
             AV_CODEC_ID_AVRN => Id::AVRN,
@@ -1558,6 +1564,7 @@ impl From<Id> for AVCodecID {
             Id::BMV_VIDEO => AV_CODEC_ID_BMV_VIDEO,
             Id::VBLE => AV_CODEC_ID_VBLE,
             Id::DXTORY => AV_CODEC_ID_DXTORY,
+            #[cfg(not(feature = "ffmpeg_7_1"))]
             Id::V410 => AV_CODEC_ID_V410,
             Id::XWD => AV_CODEC_ID_XWD,
             Id::CDXL => AV_CODEC_ID_CDXL,
@@ -1603,7 +1610,9 @@ impl From<Id> for AVCodecID {
             #[cfg(not(feature = "ffmpeg_7_0"))]
             Id::AYUV => AV_CODEC_ID_AYUV,
             Id::TARGA_Y216 => AV_CODEC_ID_TARGA_Y216,
+            #[cfg(not(feature = "ffmpeg_7_1"))]
             Id::V308 => AV_CODEC_ID_V308,
+            #[cfg(not(feature = "ffmpeg_7_1"))]
             Id::V408 => AV_CODEC_ID_V408,
             Id::YUV4 => AV_CODEC_ID_YUV4,
             Id::AVRN => AV_CODEC_ID_AVRN,
