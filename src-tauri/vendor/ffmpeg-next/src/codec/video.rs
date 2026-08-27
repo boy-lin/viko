@@ -17,6 +17,7 @@ impl Video {
 
 impl Video {
     pub fn rates(&self) -> Option<RateIter> {
+        #[cfg(not(feature = "ffmpeg_7_1"))]
         unsafe {
             if (*self.codec.as_ptr()).supported_framerates.is_null() {
                 None
@@ -24,9 +25,13 @@ impl Video {
                 Some(RateIter::new((*self.codec.as_ptr()).supported_framerates))
             }
         }
+
+        #[cfg(feature = "ffmpeg_7_1")]
+        None
     }
 
     pub fn formats(&self) -> Option<FormatIter> {
+        #[cfg(not(feature = "ffmpeg_7_1"))]
         unsafe {
             if (*self.codec.as_ptr()).pix_fmts.is_null() {
                 None
@@ -34,6 +39,9 @@ impl Video {
                 Some(FormatIter::new((*self.codec.as_ptr()).pix_fmts))
             }
         }
+
+        #[cfg(feature = "ffmpeg_7_1")]
+        None
     }
 }
 
