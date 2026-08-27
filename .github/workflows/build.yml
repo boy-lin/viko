@@ -172,6 +172,16 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag_name=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            echo "release_name=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=v${VERSION}-ci.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "release_name=CI Build v${VERSION} #${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Extract target from args
         id: extract_target
         shell: bash
@@ -182,15 +192,15 @@ jobs:
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}-ci.{1}', steps.updater_meta.outputs.version, github.run_number) }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('CI Build v{0} #{1}', steps.updater_meta.outputs.version, github.run_number) }}
+          tag_name: ${{ steps.updater_meta.outputs.tag_name }}
+          name: ${{ steps.updater_meta.outputs.release_name }}
           files: |
             src-tauri/target/${{ steps.extract_target.outputs.target }}/release/bundle/**/*.dmg
             src-tauri/target/${{ steps.extract_target.outputs.target }}/release/bundle/**/*.exe
             src-tauri/target/${{ steps.extract_target.outputs.target }}/release/bundle/**/*.msi
             src-tauri/target/${{ steps.extract_target.outputs.target }}/release/bundle/**/*.app.tar.gz
           generate_release_notes: true
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          prerelease: ${{ steps.updater_meta.outputs.prerelease }}
           draft: false
 
       - name: Upload artifacts
