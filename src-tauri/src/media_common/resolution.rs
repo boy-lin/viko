@@ -83,6 +83,7 @@ pub fn pick_pixel_format(bit_depth: Option<u32>, use_hw: bool) -> format::Pixel 
 }
 
 fn codec_supported_pixel_formats(codec: Codec) -> Vec<format::Pixel> {
+    #[cfg(not(feature = "ffmpeg-next/ffmpeg_7_1"))]
     unsafe {
         let mut formats = Vec::new();
         let codec_ptr = codec.as_ptr();
@@ -103,6 +104,12 @@ fn codec_supported_pixel_formats(codec: Codec) -> Vec<format::Pixel> {
             idx += 1;
         }
         formats
+    }
+
+    #[cfg(feature = "ffmpeg-next/ffmpeg_7_1")]
+    {
+        let _ = codec;
+        Vec::new()
     }
 }
 
