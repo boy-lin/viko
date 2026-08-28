@@ -5,6 +5,16 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      platform:
+        description: "Select platform(s) to build"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "macos-arm64"
+          - "windows-x64"
 
 jobs:
   build:
@@ -22,12 +32,20 @@ jobs:
         include:
           - platform: "macos-latest" # ARM64 (M1/M2)
             args: "--target aarch64-apple-darwin"
+            name: "macos-arm64"
           # - platform: "macos-12"     # Intel (x86_64) - Reverted to macos-12 as macos-13 is unsupported; expect wait times
           #   args: "--target x86_64-apple-darwin"
+          #   name: "macos-x64"
           - platform: "windows-latest"
             args: "--target x86_64-pc-windows-msvc"
+            name: "windows-x64"
           # - platform: "ubuntu-latest"
           #   args: "--target x86_64-unknown-linux-gnu"
+          #   name: "linux-x64"
+    if: |
+      (github.event_name == 'push') ||
+      (inputs.platform == 'all') ||
+      (inputs.platform == matrix.name)
 
     runs-on: ${{ matrix.platform }}
     steps:
