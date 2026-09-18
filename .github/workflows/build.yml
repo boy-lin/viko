@@ -17,7 +17,34 @@ on:
           - "windows-x64"
 
 jobs:
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        shell: bash
+        run: |
+          node -e '
+            const selected = process.env.SELECTED;
+            const allTargets = [
+              { platform: "macos-latest", args: "--target aarch64-apple-darwin", name: "macos-arm64" },
+              { platform: "windows-latest", args: "--target x86_64-pc-windows-msvc", name: "windows-x64" }
+            ];
+            const filtered = (selected === "all" || !selected || process.env.EVENT_NAME === "push")
+              ? allTargets
+              : allTargets.filter(t => t.name === selected);
+
+            const matrixJson = JSON.stringify({ include: filtered });
+            console.log("Generated matrix:", matrixJson);
+            require("fs").appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${matrixJson}\n`);
+          '
+        env:
+          SELECTED: ${{ inputs.platform }}
+          EVENT_NAME: ${{ github.event_name }}
+
   build:
+    needs: prepare-matrix
     permissions:
       contents: write
     environment: production
@@ -28,24 +55,7 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - platform: "macos-latest" # ARM64 (M1/M2)
-            args: "--target aarch64-apple-darwin"
-            name: "macos-arm64"
-          # - platform: "macos-12"     # Intel (x86_64) - Reverted to macos-12 as macos-13 is unsupported; expect wait times
-          #   args: "--target x86_64-apple-darwin"
-          #   name: "macos-x64"
-          - platform: "windows-latest"
-            args: "--target x86_64-pc-windows-msvc"
-            name: "windows-x64"
-          # - platform: "ubuntu-latest"
-          #   args: "--target x86_64-unknown-linux-gnu"
-          #   name: "linux-x64"
-    if: |
-      (github.event_name == 'push') ||
-      (inputs.platform == 'all') ||
-      (inputs.platform == matrix.name)
+      matrix: ${{ fromJson(needs.prepare-matrix.outputs.matrix) }}
 
     runs-on: ${{ matrix.platform }}
     steps:
