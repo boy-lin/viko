@@ -83,34 +83,12 @@ pub fn pick_pixel_format(bit_depth: Option<u32>, use_hw: bool) -> format::Pixel 
 }
 
 fn codec_supported_pixel_formats(codec: Codec) -> Vec<format::Pixel> {
-    #[cfg(not(feature = "ffmpeg-next/ffmpeg_7_1"))]
-    unsafe {
-        let mut formats = Vec::new();
-        let codec_ptr = codec.as_ptr();
-        if codec_ptr.is_null() {
-            return formats;
-        }
-        let pix_fmts = (*codec_ptr).pix_fmts;
-        if pix_fmts.is_null() {
-            return formats;
-        }
-        let mut idx = 0usize;
-        loop {
-            let pix = *pix_fmts.add(idx);
-            if pix == ffmpeg::ffi::AVPixelFormat::AV_PIX_FMT_NONE {
-                break;
-            }
-            formats.push(format::Pixel::from(pix));
-            idx += 1;
-        }
-        formats
-    }
-
-    #[cfg(feature = "ffmpeg-next/ffmpeg_7_1")]
-    {
-        let _ = codec;
-        Vec::new()
-    }
+    codec
+        .video()
+        .ok()
+        .and_then(|v| v.formats())
+        .map(|iter| iter.collect())
+        .unwrap_or_default()
 }
 
 /// Choose a pixel format based on bit depth/hw, but fall back to codec-supported formats.
